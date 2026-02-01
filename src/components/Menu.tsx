@@ -140,7 +140,7 @@ export default function Menu({
           <input
             type="range"
             min={1}
-            max={8}
+            max={10}
             step={1}
             value={settings.lineWidth}
             onChange={(e) =>
@@ -160,7 +160,7 @@ export default function Menu({
           <input
             type="range"
             min={1}
-            max={8}
+            max={10}
             step={1}
             value={settings.dashGap}
             onChange={(e) =>
@@ -194,9 +194,9 @@ export default function Menu({
           <button
             onClick={() =>
               updateSettings({
-                lineWidth: 4,
+                lineWidth: 5,
                 lineColor: defaultLineColor,
-                dashGap: 4,
+                dashGap: 5,
               })
             }
             className={`mt-3 w-full py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
