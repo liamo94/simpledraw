@@ -17,7 +17,7 @@ const defaults: Settings = {
   lineColor: "#ffffff",
   dashGap: 5,
   showZoomControls: false,
-  showDotGrid: false,
+  showDotGrid: true,
   theme: "system",
   confirmClear: true,
 };
