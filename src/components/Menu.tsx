@@ -5,10 +5,12 @@ type Props = {
   settings: Settings;
   updateSettings: (partial: Partial<Settings>) => void;
   onExport: () => void;
+  onExportTransparent: () => void;
   onClear: () => void;
   zoom: number;
   onResetView: () => void;
   resolvedTheme: "dark" | "light";
+  hasTouch: boolean;
 };
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -19,10 +21,12 @@ export default function Menu({
   settings,
   updateSettings,
   onExport,
+  onExportTransparent,
   onClear,
   zoom,
   onResetView,
   resolvedTheme,
+  hasTouch,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -70,12 +74,15 @@ export default function Menu({
   const palette = [
     isDark ? "#ffffff" : "#000000",
     "#ef4444",
+    "#ec4899",
     "#22c55e",
     "#3b82f6",
     "#eab308",
     "#f97316",
     "#8b5cf6",
     "#06b6d4",
+    "#92400e",
+    "#4b5563",
   ];
 
   return (
@@ -192,16 +199,10 @@ export default function Menu({
           </div>
 
           <button
-            onClick={() =>
-              updateSettings({
-                lineWidth: 5,
-                lineColor: defaultLineColor,
-                dashGap: 5,
-              })
-            }
-            className={`mt-3 w-full py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+            onClick={onClear}
+            className={`mt-3 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
           >
-            Reset defaults
+            Clear screen
           </button>
 
           <button
@@ -212,15 +213,10 @@ export default function Menu({
           </button>
 
           <button
-            onClick={onClear}
-            className={`mt-1.5 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+            onClick={onExportTransparent}
+            className={`mt-1.5 w-full py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
           >
-            Clear screen
-            <kbd
-              className={`text-[10px] ${isDark ? "text-white/40" : "text-black/40"}`}
-            >
-              {mod}+K
-            </kbd>
+            Export transparent PNG
           </button>
 
           <div className="mt-3 flex items-center justify-between text-sm">
@@ -300,126 +296,161 @@ export default function Menu({
           </div>
 
           <button
-            onClick={() => setShowInfo((v) => !v)}
-            className={`mt-3 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
+            onClick={() =>
+              updateSettings({
+                lineWidth: 5,
+                lineColor: defaultLineColor,
+                dashGap: 5,
+              })
+            }
+            className={`mt-3 w-full py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-            >
-              <circle cx="8" cy="8" r="6.5" />
-              <path d="M8 7v4" strokeLinecap="round" />
-              <circle cx="8" cy="5" r="0.5" fill="currentColor" stroke="none" />
-            </svg>
-            Info
+            Reset defaults
           </button>
 
-          {showInfo && (
+          {!hasTouch && (
             <>
-              <div
-                className={`mt-2 pt-2 border-t ${isDark ? "border-white/10" : "border-black/10"}`}
+              <button
+                onClick={() => setShowInfo((v) => !v)}
+                className={`mt-3 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
               >
-                <div
-                  className={`text-xs font-medium uppercase tracking-wider mb-1.5 ${isDark ? "text-white/50" : "text-black/50"}`}
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className={`transition-transform ${showInfo ? "rotate-90" : ""}`}
                 >
-                  Shortcuts
-                </div>
-                <div
-                  className={`text-xs space-y-1 ${isDark ? "text-white/60" : "text-black/60"}`}
-                >
-                  <div className="flex justify-between gap-4">
-                    <span>Draw</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {mod} + move
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Draw dashed</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      Shift + move
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Straight line</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {mod} + Shift + move
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Erase</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {alt} + move
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Undo</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {mod} + Z
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Redo</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {mod} + Shift + Z
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Thicker</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      Ctrl + +
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Thinner</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      Ctrl + -
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Clear</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {mod} + K
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Reset zoom</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {mod} + 0
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Fit to content</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      {mod} + 1
-                    </kbd>
-                  </div>
-                  <div className="flex justify-between gap-4">
-                    <span>Menu</span>
-                    <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                      Ctrl + O
-                    </kbd>
-                  </div>
-                </div>
-              </div>
+                  <path d="M3.5 1.5L7 5L3.5 8.5" />
+                </svg>
+                Shortcuts
+              </button>
 
-              <div
-                className={`mt-2 pt-2 border-t text-center ${isDark ? "border-white/10" : "border-black/10"}`}
-              >
-                <a
-                  href="https://liamo.co"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={`text-xs transition-colors ${isDark ? "text-white/40 hover:text-white/70" : "text-black/40 hover:text-black/70"}`}
+              {showInfo && (
+                <div
+                  className={`mt-2 pt-2 border-t ${isDark ? "border-white/10" : "border-black/10"}`}
                 >
-                  liamo.co
-                </a>
-              </div>
+                  <div
+                    className={`text-xs space-y-1 ${isDark ? "text-white/60" : "text-black/60"}`}
+                  >
+                    <div className="flex justify-between gap-4">
+                      <span>Draw</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {mod} + move
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Draw dashed</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        Shift + move
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Straight line</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {mod} + Shift + move
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Erase</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {alt} + move
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Undo</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {mod} + Z
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Redo</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {mod} + Shift + Z
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Thicker</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        Ctrl + +
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Thinner</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        Ctrl + -
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Clear</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {mod} + K
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Reset zoom</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {mod} + 0
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Fit to content</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {mod} + 1
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Menu</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        Ctrl + O
+                      </kbd>
+                    </div>
+                  </div>
+                </div>
+              )}
             </>
           )}
+
+          <div
+            className={`mt-2 pt-2 border-t text-center ${isDark ? "border-white/10" : "border-black/10"}`}
+          >
+            <a
+              href="https://liamo.co"
+              target="_blank"
+              rel="noopener noreferrer"
+              className={`text-xs transition-colors ${isDark ? "text-white/40 hover:text-white/70" : "text-black/40 hover:text-black/70"}`}
+            >
+              liamo.co
+            </a>
+          </div>
         </div>
       )}
     </div>

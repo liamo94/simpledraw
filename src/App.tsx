@@ -53,7 +53,7 @@ export default function App() {
       document.body.style.background = "#0a0a1a";
       document.body.style.color = "rgba(255,255,255,0.8)";
     } else {
-      document.body.style.background = "#ffffff";
+      document.body.style.background = "#f5f5f0";
       document.body.style.color = "rgba(0,0,0,0.8)";
     }
   }, [resolvedTheme]);
@@ -155,9 +155,9 @@ export default function App() {
     });
   }, []);
 
-  // const exportTransparent = useCallback(() => {
-  //   window.dispatchEvent(new Event("blackboard:export-transparent"));
-  // }, []);
+  const exportTransparent = useCallback(() => {
+    window.dispatchEvent(new Event("blackboard:export-transparent"));
+  }, []);
 
   const zoomIn = useCallback(() => {
     window.dispatchEvent(
@@ -245,11 +245,12 @@ export default function App() {
         settings={settings}
         updateSettings={updateSettings}
         onExport={exportPng}
-        // onExportTransparent={exportTransparent}
+        onExportTransparent={exportTransparent}
         onClear={requestClear}
         zoom={zoom}
         onResetView={resetView}
         resolvedTheme={resolvedTheme}
+        hasTouch={hasTouch}
       />
       <Canvas
         lineWidth={settings.lineWidth}

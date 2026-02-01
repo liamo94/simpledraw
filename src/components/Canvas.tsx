@@ -160,7 +160,7 @@ export default function Canvas({
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = isDark ? "#0a0a1a" : "#ffffff";
+    ctx.fillStyle = isDark ? "#0a0a1a" : "#f5f5f0";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(scale, 0, 0, scale, x, y);
 
@@ -177,8 +177,8 @@ export default function Canvas({
       const startY = Math.floor(topLeft.y / spacing) * spacing;
 
       ctx.fillStyle = isDark
-        ? "rgba(255, 255, 255, 0.15)"
-        : "rgba(0, 0, 0, 0.2)";
+        ? "rgba(255, 255, 255, 0.25)"
+        : "rgba(0, 0, 0, 0.3)";
       ctx.beginPath();
       for (let wx = startX; wx <= bottomRight.x; wx += spacing) {
         for (let wy = startY; wy <= bottomRight.y; wy += spacing) {
@@ -756,7 +756,8 @@ export default function Canvas({
 
   const encodedColor = encodeURIComponent(lineColor);
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`;
-  const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 21h10'/%3E%3Crect x='3' y='5' width='18' height='12' rx='1' transform='rotate(-15 12 11)'/%3E%3Cpath d='m3.5 13.5 5 5'/%3E%3C/svg%3E") 12 12, crosshair`;
+  const eraserStroke = resolvedTheme === "dark" ? "white" : "black";
+  const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='${eraserStroke}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 21h10'/%3E%3Crect x='3' y='5' width='18' height='12' rx='1' transform='rotate(-15 12 11)'/%3E%3Cpath d='m3.5 13.5 5 5'/%3E%3C/svg%3E") 12 12, crosshair`;
 
   return (
     <canvas
