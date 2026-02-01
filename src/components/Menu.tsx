@@ -121,7 +121,7 @@ export default function Menu({
 
       {open && (
         <div
-          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-[180px] overflow-y-auto max-h-[calc(100vh-5rem)] ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
+          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-45 overflow-y-auto max-h-[calc(100vh-5rem)] ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
         >
           <div
             className={`text-lg mb-3 text-center ${isDark ? "text-white/90" : "text-black/90"}`}
