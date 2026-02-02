@@ -40,8 +40,8 @@ export default function Menu({
         if (o) setShowInfo(false);
         return !o;
       });
-    window.addEventListener("blackboard:toggle-menu", onToggle);
-    return () => window.removeEventListener("blackboard:toggle-menu", onToggle);
+    window.addEventListener("simpledraw:toggle-menu", onToggle);
+    return () => window.removeEventListener("simpledraw:toggle-menu", onToggle);
   }, []);
 
   useEffect(() => {

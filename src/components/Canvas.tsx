@@ -14,7 +14,7 @@ type UndoAction =
 
 export type TouchTool = "draw" | "dashed" | "line" | "erase" | "hand";
 
-const STROKES_KEY = "blackboard-strokes";
+const STROKES_KEY = "simpledraw-strokes";
 
 function loadStrokes(): Stroke[] {
   try {
@@ -247,7 +247,7 @@ export default function Canvas({
 
   const broadcastZoom = useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent("blackboard:zoom", { detail: viewRef.current.scale }),
+      new CustomEvent("simpledraw:zoom", { detail: viewRef.current.scale }),
     );
   }, []);
 
@@ -363,23 +363,23 @@ export default function Canvas({
       (e as CustomEvent).detail.count = strokesRef.current.length;
     };
     const onExportTransparent = () => exportTransparent();
-    window.addEventListener("blackboard:clear", onClear);
-    window.addEventListener("blackboard:reset-view", onResetView);
-    window.addEventListener("blackboard:center-view", onCenterView);
-    window.addEventListener("blackboard:zoom-step", onZoomStep);
-    window.addEventListener("blackboard:query-stroke-count", onQueryCount);
+    window.addEventListener("simpledraw:clear", onClear);
+    window.addEventListener("simpledraw:reset-view", onResetView);
+    window.addEventListener("simpledraw:center-view", onCenterView);
+    window.addEventListener("simpledraw:zoom-step", onZoomStep);
+    window.addEventListener("simpledraw:query-stroke-count", onQueryCount);
     window.addEventListener(
-      "blackboard:export-transparent",
+      "simpledraw:export-transparent",
       onExportTransparent,
     );
     return () => {
-      window.removeEventListener("blackboard:clear", onClear);
-      window.removeEventListener("blackboard:reset-view", onResetView);
-      window.removeEventListener("blackboard:center-view", onCenterView);
-      window.removeEventListener("blackboard:zoom-step", onZoomStep);
-      window.removeEventListener("blackboard:query-stroke-count", onQueryCount);
+      window.removeEventListener("simpledraw:clear", onClear);
+      window.removeEventListener("simpledraw:reset-view", onResetView);
+      window.removeEventListener("simpledraw:center-view", onCenterView);
+      window.removeEventListener("simpledraw:zoom-step", onZoomStep);
+      window.removeEventListener("simpledraw:query-stroke-count", onQueryCount);
       window.removeEventListener(
-        "blackboard:export-transparent",
+        "simpledraw:export-transparent",
         onExportTransparent,
       );
     };
@@ -390,7 +390,7 @@ export default function Canvas({
     const onKeyDown = (e: KeyboardEvent) => {
       if (cmdKey(e) && e.key === "k") {
         e.preventDefault();
-        window.dispatchEvent(new Event("blackboard:request-clear"));
+        window.dispatchEvent(new Event("simpledraw:request-clear"));
       }
       if (cmdKey(e) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -431,7 +431,7 @@ export default function Canvas({
       ) {
         e.preventDefault();
         window.dispatchEvent(
-          new CustomEvent("blackboard:thickness", { detail: 1 }),
+          new CustomEvent("simpledraw:thickness", { detail: 1 }),
         );
       }
       if (
@@ -441,20 +441,20 @@ export default function Canvas({
       ) {
         e.preventDefault();
         window.dispatchEvent(
-          new CustomEvent("blackboard:thickness", { detail: -1 }),
+          new CustomEvent("simpledraw:thickness", { detail: -1 }),
         );
       }
       if (e.ctrlKey && !e.metaKey && e.key === "o") {
         e.preventDefault();
-        window.dispatchEvent(new Event("blackboard:toggle-menu"));
+        window.dispatchEvent(new Event("simpledraw:toggle-menu"));
       }
       if (cmdKey(e) && e.key === "0") {
         e.preventDefault();
-        window.dispatchEvent(new Event("blackboard:reset-view"));
+        window.dispatchEvent(new Event("simpledraw:reset-view"));
       }
       if (cmdKey(e) && e.key === "1") {
         e.preventDefault();
-        window.dispatchEvent(new Event("blackboard:center-view"));
+        window.dispatchEvent(new Event("simpledraw:center-view"));
       }
       if (e.key === "Alt") setErasing(true);
       if (

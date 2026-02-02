@@ -21,6 +21,9 @@ export default function App() {
   );
   const [touchTool, setTouchTool] = useState<TouchTool>("draw");
   const [hasTouch, setHasTouch] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(
+    () => !localStorage.getItem("simpledraw-onboarded"),
+  );
 
   const resolvedTheme =
     settings.theme === "system" ? systemTheme : settings.theme;
@@ -80,14 +83,14 @@ export default function App() {
 
   const doClear = useCallback(() => {
     setConfirmingClear(false);
-    window.dispatchEvent(new Event("blackboard:clear"));
+    window.dispatchEvent(new Event("simpledraw:clear"));
   }, []);
 
   const requestClear = useCallback(() => {
     if (settingsRef.current.confirmClear) {
       const detail = { count: 0 };
       window.dispatchEvent(
-        new CustomEvent("blackboard:query-stroke-count", { detail }),
+        new CustomEvent("simpledraw:query-stroke-count", { detail }),
       );
       if (detail.count > 16) {
         setConfirmingClear(true);
@@ -105,13 +108,13 @@ export default function App() {
       updateSettings({ lineWidth: Math.min(8, Math.max(1, cur + delta)) });
     };
     const onRequestClear = () => requestClear();
-    window.addEventListener("blackboard:zoom", onZoom);
-    window.addEventListener("blackboard:thickness", onThickness);
-    window.addEventListener("blackboard:request-clear", onRequestClear);
+    window.addEventListener("simpledraw:zoom", onZoom);
+    window.addEventListener("simpledraw:thickness", onThickness);
+    window.addEventListener("simpledraw:request-clear", onRequestClear);
     return () => {
-      window.removeEventListener("blackboard:zoom", onZoom);
-      window.removeEventListener("blackboard:thickness", onThickness);
-      window.removeEventListener("blackboard:request-clear", onRequestClear);
+      window.removeEventListener("simpledraw:zoom", onZoom);
+      window.removeEventListener("simpledraw:thickness", onThickness);
+      window.removeEventListener("simpledraw:request-clear", onRequestClear);
     };
   }, [updateSettings, requestClear]);
 
@@ -133,12 +136,12 @@ export default function App() {
   }, [confirmingClear, doClear]);
 
   const resetView = useCallback(() => {
-    window.dispatchEvent(new Event("blackboard:reset-view"));
+    window.dispatchEvent(new Event("simpledraw:reset-view"));
     setZoom(1);
   }, []);
 
   const centerView = useCallback(() => {
-    window.dispatchEvent(new Event("blackboard:center-view"));
+    window.dispatchEvent(new Event("simpledraw:center-view"));
   }, []);
 
   const exportPng = useCallback(() => {
@@ -156,22 +159,40 @@ export default function App() {
   }, []);
 
   const exportTransparent = useCallback(() => {
-    window.dispatchEvent(new Event("blackboard:export-transparent"));
+    window.dispatchEvent(new Event("simpledraw:export-transparent"));
   }, []);
 
   const zoomIn = useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent("blackboard:zoom-step", { detail: 1.25 }),
+      new CustomEvent("simpledraw:zoom-step", { detail: 1.25 }),
     );
   }, []);
 
   const zoomOut = useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent("blackboard:zoom-step", { detail: 0.8 }),
+      new CustomEvent("simpledraw:zoom-step", { detail: 0.8 }),
     );
   }, []);
 
+  const dismissOnboarding = useCallback(() => {
+    setShowOnboarding(false);
+    localStorage.setItem("simpledraw-onboarded", "1");
+  }, []);
+
+  useEffect(() => {
+    if (!showOnboarding) return;
+    const dismiss = () => dismissOnboarding();
+    window.addEventListener("keydown", dismiss, { once: true });
+    window.addEventListener("pointerdown", dismiss, { once: true });
+    return () => {
+      window.removeEventListener("keydown", dismiss);
+      window.removeEventListener("pointerdown", dismiss);
+    };
+  }, [showOnboarding, dismissOnboarding]);
+
   const isDark = resolvedTheme === "dark";
+  const mod = isMac ? "\u2318" : "Ctrl";
+  const alt = isMac ? "\u2325" : "Alt";
 
   const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] = [
     {
@@ -379,6 +400,52 @@ export default function App() {
               >
                 Clear ({isMac ? "\u2318" : "Ctrl"}+K)
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showOnboarding && !hasTouch && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+          <div
+            className={`px-8 py-6 rounded-lg border text-center max-w-xs ${isDark ? "bg-[#0a0a1a] border-white/15" : "bg-[#f5f5f0] border-black/15"}`}
+          >
+            <div
+              className={`text-sm font-medium mb-4 ${isDark ? "text-white/90" : "text-black/90"}`}
+            >
+              Welcome to simpledraw
+            </div>
+            <div
+              className={`text-xs space-y-2 text-left ${isDark ? "text-white/60" : "text-black/60"}`}
+            >
+              <div className="flex justify-between gap-6">
+                <span>Draw</span>
+                <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                  {mod} + drag
+                </kbd>
+              </div>
+              <div className="flex justify-between gap-6">
+                <span>Dashed line</span>
+                <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                  Shift + drag
+                </kbd>
+              </div>
+              <div className="flex justify-between gap-6">
+                <span>Erase</span>
+                <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                  {alt} + drag
+                </kbd>
+              </div>
+              <div className="flex justify-between gap-6">
+                <span>Clear</span>
+                <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                  {mod} + K
+                </kbd>
+              </div>
+            </div>
+            <div
+              className={`text-[10px] mt-4 ${isDark ? "text-white/30" : "text-black/30"}`}
+            >
+              Press any key or click to start
             </div>
           </div>
         </div>

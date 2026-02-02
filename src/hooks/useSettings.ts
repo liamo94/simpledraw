@@ -10,7 +10,7 @@ export type Settings = {
   confirmClear: boolean;
 };
 
-const STORAGE_KEY = "blackboard-settings";
+const STORAGE_KEY = "simpledraw-settings";
 
 const defaults: Settings = {
   lineWidth: 5,
