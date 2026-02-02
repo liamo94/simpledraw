@@ -241,7 +241,7 @@ export default function App() {
           height="16"
           viewBox="0 0 16 16"
           fill="none"
-          stroke="currentColor"
+          stroke={settings.lineColor}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -260,7 +260,7 @@ export default function App() {
           height="16"
           viewBox="0 0 16 16"
           fill="none"
-          stroke="currentColor"
+          stroke={settings.lineColor}
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeDasharray="3 3"
@@ -273,24 +273,23 @@ export default function App() {
       id: "erase",
       label: "Erase",
       icon: (
-        <svg
-          width="16"
-          height="16"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M5 14h8" />
+        <svg width="16" height="16" viewBox="0 0 16 16">
+          <defs>
+            <linearGradient id="eraser-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="50%" stopColor="#89CFF0" />
+              <stop offset="50%" stopColor="#FA8072" />
+            </linearGradient>
+          </defs>
           <rect
             x="2"
-            y="5"
+            y="4.5"
             width="12"
             height="7"
-            rx="1"
-            transform="rotate(-20 8 8.5)"
+            rx="1.5"
+            transform="rotate(-25 8 8)"
+            fill="url(#eraser-grad)"
+            stroke="#666"
+            strokeWidth="1"
           />
         </svg>
       ),

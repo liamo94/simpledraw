@@ -128,7 +128,6 @@ export default function Canvas({
   const isPanningRef = useRef(false);
   const panLastRef = useRef({ x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
-  const [drawMode, setDrawMode] = useState(false);
   const [erasing, setErasing] = useState(false);
 
   // Multi-touch tracking
@@ -467,12 +466,6 @@ export default function Canvas({
         );
       }
       if (e.key === "Alt") setErasing(true);
-      if (
-        e.key === "Meta" ||
-        e.key === "Control" ||
-        e.key === "Shift"
-      )
-        setDrawMode(true);
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -485,19 +478,9 @@ export default function Canvas({
           persistStrokes();
         }
       }
-      if (
-        e.key === "Meta" ||
-        e.key === "Control" ||
-        e.key === "Shift"
-      ) {
-        if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
-          setDrawMode(false);
-        }
-      }
     };
 
     const onBlur = () => {
-      setDrawMode(false);
       setErasing(false);
     };
 
