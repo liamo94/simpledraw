@@ -402,6 +402,22 @@ export default function Menu({
                       </kbd>
                     </div>
                     <div className="flex justify-between gap-4">
+                      <span>Next color</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        ]
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Prev color</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        [
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
                       <span>Thicker</span>
                       <kbd
                         className={isDark ? "text-white/40" : "text-black/40"}

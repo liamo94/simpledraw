@@ -456,6 +456,16 @@ export default function Canvas({
         e.preventDefault();
         window.dispatchEvent(new Event("simpledraw:center-view"));
       }
+      if (e.key === "[") {
+        window.dispatchEvent(
+          new CustomEvent("simpledraw:color-cycle", { detail: -1 }),
+        );
+      }
+      if (e.key === "]") {
+        window.dispatchEvent(
+          new CustomEvent("simpledraw:color-cycle", { detail: 1 }),
+        );
+      }
       if (e.key === "Alt") setErasing(true);
       if (
         e.key === "Meta" ||
@@ -820,16 +830,12 @@ export default function Canvas({
 
   const encodedColor = encodeURIComponent(lineColor);
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`;
-  const eraserStroke = resolvedTheme === "dark" ? "white" : "black";
-  const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='${eraserStroke}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 21h10'/%3E%3Crect x='3' y='5' width='18' height='12' rx='1' transform='rotate(-15 12 11)'/%3E%3Cpath d='m3.5 13.5 5 5'/%3E%3C/svg%3E") 12 12, crosshair`;
-
+  const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='50%25' stop-color='%2389CFF0'/%3E%3Cstop offset='50%25' stop-color='%23FA8072'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='5' width='18' height='12' rx='2.5' transform='rotate(-25 12 11)' fill='url(%23g)' stroke='%23666' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`;
   const cursor = panning
     ? "grabbing"
     : erasing
       ? eraserCursor
-      : drawMode
-        ? crosshairCursor
-        : "grab";
+      : crosshairCursor;
 
   return (
     <canvas

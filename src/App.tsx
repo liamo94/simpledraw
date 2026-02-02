@@ -20,7 +20,9 @@ export default function App() {
     getSystemTheme,
   );
   const [touchTool, setTouchTool] = useState<TouchTool>("draw");
-  const [hasTouch, setHasTouch] = useState(false);
+  const [hasTouch] = useState(
+    () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
+  );
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem("simpledraw-onboarded"),
   );
@@ -30,16 +32,6 @@ export default function App() {
 
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
-
-  // Detect touch device
-  useEffect(() => {
-    const onTouch = () => {
-      setHasTouch(true);
-      window.removeEventListener("touchstart", onTouch);
-    };
-    window.addEventListener("touchstart", onTouch);
-    return () => window.removeEventListener("touchstart", onTouch);
-  }, []);
 
   // Listen for OS theme changes
   useEffect(() => {
@@ -107,13 +99,40 @@ export default function App() {
       const cur = settingsRef.current.lineWidth;
       updateSettings({ lineWidth: Math.min(8, Math.max(1, cur + delta)) });
     };
+    const onColorCycle = (e: Event) => {
+      const dir = (e as CustomEvent).detail as number;
+      const dark =
+        settingsRef.current.theme === "system"
+          ? getSystemTheme() === "dark"
+          : settingsRef.current.theme === "dark";
+      const palette = [
+        dark ? "#ffffff" : "#000000",
+        "#ef4444",
+        "#ec4899",
+        "#22c55e",
+        "#3b82f6",
+        "#eab308",
+        "#f97316",
+        "#8b5cf6",
+        "#06b6d4",
+        "#92400e",
+        "#4b5563",
+      ];
+      const cur = settingsRef.current.lineColor;
+      const idx = palette.indexOf(cur);
+      const next =
+        (idx === -1 ? 0 : idx + dir + palette.length) % palette.length;
+      updateSettings({ lineColor: palette[next] });
+    };
     const onRequestClear = () => requestClear();
     window.addEventListener("simpledraw:zoom", onZoom);
     window.addEventListener("simpledraw:thickness", onThickness);
+    window.addEventListener("simpledraw:color-cycle", onColorCycle);
     window.addEventListener("simpledraw:request-clear", onRequestClear);
     return () => {
       window.removeEventListener("simpledraw:zoom", onZoom);
       window.removeEventListener("simpledraw:thickness", onThickness);
+      window.removeEventListener("simpledraw:color-cycle", onColorCycle);
       window.removeEventListener("simpledraw:request-clear", onRequestClear);
     };
   }, [updateSettings, requestClear]);
@@ -197,7 +216,7 @@ export default function App() {
   const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] = [
     {
       id: "hand",
-      label: "Pan",
+      label: "Move",
       icon: (
         <svg
           width="16"
@@ -209,7 +228,7 @@ export default function App() {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M8 1.5v9M5.5 3v7.5a2 2 0 0 0 2 2h3a3 3 0 0 0 3-3V5.5M5.5 3a1.25 1.25 0 1 1 2.5 0M5.5 3a1.25 1.25 0 0 0-2.5 0v5.5M3 4.5a1.25 1.25 0 0 0-2.5 0V9a5 5 0 0 0 5 5M10.5 1.5a1.25 1.25 0 1 1 2.5 0v4" />
+          <path d="M12 2.5a1.25 1.25 0 0 0-2.5 0V8M9.5 2a1.25 1.25 0 0 0-2.5 0v6.5M7 3a1.25 1.25 0 0 0-2.5 0v5.5M4.5 5a1.25 1.25 0 0 0-2.5 0v4.5a6 6 0 0 0 12 0V6a1.25 1.25 0 0 0-2.5 0" />
         </svg>
       ),
     },
