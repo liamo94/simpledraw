@@ -338,11 +338,27 @@ export default function Menu({
                     className={`text-xs space-y-1 ${isDark ? "text-white/60" : "text-black/60"}`}
                   >
                     <div className="flex justify-between gap-4">
+                      <span>Pan</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        Click + drag
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Zoom</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        Pinch / {mod} + scroll
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
                       <span>Draw</span>
                       <kbd
                         className={isDark ? "text-white/40" : "text-black/40"}
                       >
-                        {mod} + move
+                        {mod} + drag
                       </kbd>
                     </div>
                     <div className="flex justify-between gap-4">
@@ -350,7 +366,7 @@ export default function Menu({
                       <kbd
                         className={isDark ? "text-white/40" : "text-black/40"}
                       >
-                        Shift + move
+                        Shift + drag
                       </kbd>
                     </div>
                     <div className="flex justify-between gap-4">
@@ -358,7 +374,7 @@ export default function Menu({
                       <kbd
                         className={isDark ? "text-white/40" : "text-black/40"}
                       >
-                        {mod} + Shift + move
+                        {mod} + Shift + drag
                       </kbd>
                     </div>
                     <div className="flex justify-between gap-4">
@@ -366,7 +382,7 @@ export default function Menu({
                       <kbd
                         className={isDark ? "text-white/40" : "text-black/40"}
                       >
-                        {alt} + move
+                        {alt} + drag
                       </kbd>
                     </div>
                     <div className="flex justify-between gap-4">

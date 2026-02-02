@@ -12,7 +12,7 @@ type UndoAction =
   | { type: "draw"; stroke: Stroke }
   | { type: "erase"; strokes: Stroke[] };
 
-export type TouchTool = "draw" | "dashed" | "line" | "erase";
+export type TouchTool = "draw" | "dashed" | "line" | "erase" | "hand";
 
 const STROKES_KEY = "blackboard-strokes";
 
@@ -125,6 +125,10 @@ export default function Canvas({
   resolvedThemeRef.current = resolvedTheme;
   const touchToolRef = useRef(touchTool);
   touchToolRef.current = touchTool;
+  const isPanningRef = useRef(false);
+  const panLastRef = useRef({ x: 0, y: 0 });
+  const [panning, setPanning] = useState(false);
+  const [drawMode, setDrawMode] = useState(false);
   const [erasing, setErasing] = useState(false);
 
   // Multi-touch tracking
@@ -453,6 +457,12 @@ export default function Canvas({
         window.dispatchEvent(new Event("blackboard:center-view"));
       }
       if (e.key === "Alt") setErasing(true);
+      if (
+        e.key === "Meta" ||
+        e.key === "Control" ||
+        e.key === "Shift"
+      )
+        setDrawMode(true);
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -465,13 +475,29 @@ export default function Canvas({
           persistStrokes();
         }
       }
+      if (
+        e.key === "Meta" ||
+        e.key === "Control" ||
+        e.key === "Shift"
+      ) {
+        if (!e.metaKey && !e.ctrlKey && !e.shiftKey) {
+          setDrawMode(false);
+        }
+      }
+    };
+
+    const onBlur = () => {
+      setDrawMode(false);
+      setErasing(false);
     };
 
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
+    window.addEventListener("blur", onBlur);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
+      window.removeEventListener("blur", onBlur);
     };
   }, [clearCanvas, persistStrokes, redraw, flushEraseBuf]);
 
@@ -524,15 +550,32 @@ export default function Canvas({
       if (e.pointerType === "touch") {
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointersRef.current.size === 2) {
-          // Cancel any in-progress drawing and start pinch
+          // Cancel any in-progress drawing/pan and start pinch
           if (isDrawingRef.current) cancelCurrentStroke();
+          isPanningRef.current = false;
           const pts = [...pointersRef.current.values()];
           pinchRef.current = {
             dist: Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y),
             cx: (pts[0].x + pts[1].x) / 2,
             cy: (pts[0].y + pts[1].y) / 2,
           };
+        } else if (
+          pointersRef.current.size === 1 &&
+          touchToolRef.current === "hand"
+        ) {
+          isPanningRef.current = true;
+          panLastRef.current = { x: e.clientX, y: e.clientY };
         }
+      } else if (
+        (e.buttons & 1) !== 0 &&
+        !e.altKey &&
+        !cmdKey(e) &&
+        !e.shiftKey
+      ) {
+        // Mouse: bare left click = pan
+        isPanningRef.current = true;
+        panLastRef.current = { x: e.clientX, y: e.clientY };
+        setPanning(true);
       }
       (e.target as Element).setPointerCapture(e.pointerId);
     },
@@ -544,15 +587,26 @@ export default function Canvas({
       if (e.pointerType === "touch") {
         pointersRef.current.delete(e.pointerId);
         if (pointersRef.current.size < 2) pinchRef.current = null;
-        if (pointersRef.current.size === 0 && isDrawingRef.current) {
-          if (activeModifierRef.current === "alt") flushEraseBuf();
-          isDrawingRef.current = false;
-          activeModifierRef.current = null;
-          persistStrokes();
+        if (pointersRef.current.size === 0) {
+          if (isPanningRef.current) {
+            isPanningRef.current = false;
+            return;
+          }
+          if (isDrawingRef.current) {
+            if (activeModifierRef.current === "alt") flushEraseBuf();
+            isDrawingRef.current = false;
+            activeModifierRef.current = null;
+            persistStrokes();
+          }
         }
         return;
       }
-      // Mouse pointer up — end drawing if active
+      // Mouse pointer up
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        setPanning(false);
+        return;
+      }
       if (isDrawingRef.current) {
         if (activeModifierRef.current === "alt") flushEraseBuf();
         isDrawingRef.current = false;
@@ -592,6 +646,16 @@ export default function Canvas({
         if (pointersRef.current.size > 1) return;
       }
 
+      // --- Panning (mouse bare-click or touch hand tool) ---
+      if (isPanningRef.current) {
+        const view = viewRef.current;
+        view.x += e.clientX - panLastRef.current.x;
+        view.y += e.clientY - panLastRef.current.y;
+        panLastRef.current = { x: e.clientX, y: e.clientY };
+        redraw();
+        return;
+      }
+
       // --- Determine modifier ---
       let modifier: "meta" | "shift" | "alt" | "line" | null;
 
@@ -613,8 +677,6 @@ export default function Canvas({
                     : null;
         }
       } else {
-        const leftDown = (e.buttons & 1) !== 0;
-        const rightDown = (e.buttons & 2) !== 0;
         modifier = e.altKey
           ? "alt"
           : cmdKey(e) && e.shiftKey
@@ -623,11 +685,7 @@ export default function Canvas({
               ? "meta"
               : e.shiftKey
                 ? "shift"
-                : rightDown
-                  ? "shift"
-                  : leftDown
-                    ? "meta"
-                    : null;
+                : null;
       }
 
       if (!modifier) {
@@ -717,6 +775,10 @@ export default function Canvas({
   const onPointerLeave = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.pointerType === "touch") return; // handled by pointerUp with capture
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        setPanning(false);
+      }
       if (isDrawingRef.current) {
         if (activeModifierRef.current === "alt") flushEraseBuf();
         isDrawingRef.current = false;
@@ -736,6 +798,7 @@ export default function Canvas({
       e.preventDefault();
       const view = viewRef.current;
       if (e.ctrlKey || e.metaKey) {
+        // Pinch-to-zoom on trackpad (sets ctrlKey) or Ctrl/Cmd+scroll
         const zoom = Math.pow(0.99, e.deltaY);
         const newScale = Math.min(10, Math.max(0.1, view.scale * zoom));
         const ratio = newScale / view.scale;
@@ -744,6 +807,7 @@ export default function Canvas({
         view.scale = newScale;
         broadcastZoom();
       } else {
+        // Two-finger swipe on trackpad or mouse scroll = pan
         view.x -= e.deltaX;
         view.y -= e.deltaY;
       }
@@ -759,11 +823,19 @@ export default function Canvas({
   const eraserStroke = resolvedTheme === "dark" ? "white" : "black";
   const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='${eraserStroke}' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M7 21h10'/%3E%3Crect x='3' y='5' width='18' height='12' rx='1' transform='rotate(-15 12 11)'/%3E%3Cpath d='m3.5 13.5 5 5'/%3E%3C/svg%3E") 12 12, crosshair`;
 
+  const cursor = panning
+    ? "grabbing"
+    : erasing
+      ? eraserCursor
+      : drawMode
+        ? crosshairCursor
+        : "grab";
+
   return (
     <canvas
       ref={canvasRef}
       className="block touch-none"
-      style={{ cursor: erasing ? eraserCursor : crosshairCursor }}
+      style={{ cursor }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}

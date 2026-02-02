@@ -175,6 +175,24 @@ export default function App() {
 
   const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] = [
     {
+      id: "hand",
+      label: "Pan",
+      icon: (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M8 1.5v9M5.5 3v7.5a2 2 0 0 0 2 2h3a3 3 0 0 0 3-3V5.5M5.5 3a1.25 1.25 0 1 1 2.5 0M5.5 3a1.25 1.25 0 0 0-2.5 0v5.5M3 4.5a1.25 1.25 0 0 0-2.5 0V9a5 5 0 0 0 5 5M10.5 1.5a1.25 1.25 0 1 1 2.5 0v4" />
+        </svg>
+      ),
+    },
+    {
       id: "draw",
       label: "Draw",
       icon: (
