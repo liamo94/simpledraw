@@ -135,6 +135,8 @@ export default function Canvas({
   );
   const redoStackRef = useRef<UndoAction[]>([]);
   const pendingEraseRef = useRef<Set<Stroke>>(new Set());
+  const eraseTrailRef = useRef<{ x: number; y: number }[]>([]);
+  const eraseMovingRef = useRef(false);
   const isDrawingRef = useRef(false);
   const activeModifierRef = useRef<"meta" | "shift" | "alt" | "line" | null>(
     null,
@@ -162,6 +164,7 @@ export default function Canvas({
   }, []);
 
   const confirmErase = useCallback(() => {
+    eraseTrailRef.current = [];
     const pending = pendingEraseRef.current;
     if (pending.size > 0) {
       const erased = strokesRef.current.filter((s) => pending.has(s));
@@ -260,15 +263,56 @@ export default function Canvas({
       renderStrokesToCtx(ctx, strokesRef.current);
     }
 
+    // Draw erase trail with fading tail
+    const trail = eraseTrailRef.current;
+    if (trail.length >= 2) {
+      const pts = smoothPoints(trail);
+      const len = pts.length;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.setLineDash([]);
+      for (let i = 1; i < len; i++) {
+        const t = i / (len - 1);
+        ctx.beginPath();
+        ctx.lineWidth = (3 + t * 5) / scale;
+        ctx.strokeStyle = `rgba(252, 80, 80, ${t * 0.4})`;
+        ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
+        ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.stroke();
+      }
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
   const cancelErase = useCallback(() => {
+    eraseTrailRef.current = [];
     pendingEraseRef.current.clear();
     isDrawingRef.current = false;
     activeModifierRef.current = null;
     redraw();
   }, [redraw]);
+
+  // Drain erase trail when cursor stops moving
+  useEffect(() => {
+    if (!erasing) return;
+    let raf: number;
+    const tick = () => {
+      const trail = eraseTrailRef.current;
+      if (eraseMovingRef.current) {
+        // Reset flag — will be set again on next eraseAt call
+        eraseMovingRef.current = false;
+      } else if (trail.length > 0) {
+        // Not moving — drain tail toward head
+        const remove = Math.max(1, Math.ceil(trail.length * 0.15));
+        trail.splice(0, remove);
+        redraw();
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [erasing, redraw]);
 
   const clearCanvas = useCallback(() => {
     strokesRef.current = [];
@@ -577,6 +621,30 @@ export default function Canvas({
   }, [clearCanvas, persistStrokes, redraw, confirmErase, cancelErase]);
 
   const eraseAt = useCallback((x: number, y: number) => {
+    eraseTrailRef.current.push({ x, y });
+    eraseMovingRef.current = true;
+
+    // Limit trail by cumulative path length (world coords)
+    const maxLen = 200 / viewRef.current.scale;
+    const trail = eraseTrailRef.current;
+    if (trail.length > 2) {
+      let acc = 0;
+      let cutIdx = 0;
+      for (let i = trail.length - 1; i > 0; i--) {
+        const dx = trail[i].x - trail[i - 1].x;
+        const dy = trail[i].y - trail[i - 1].y;
+        acc += Math.sqrt(dx * dx + dy * dy);
+        if (acc > maxLen) {
+          cutIdx = i;
+          break;
+        }
+      }
+      if (cutIdx > 0) {
+        trail.splice(0, cutIdx);
+      } else if (trail.length > 50) {
+        trail.splice(0, trail.length - 50);
+      }
+    }
     const radius = 12 / viewRef.current.scale;
     for (const stroke of strokesRef.current) {
       if (pendingEraseRef.current.has(stroke)) continue;
@@ -791,6 +859,7 @@ export default function Canvas({
       if (modifier === "alt") {
         if (!isDrawingRef.current || activeModifierRef.current !== "alt") {
           pendingEraseRef.current.clear();
+          eraseTrailRef.current = [];
         }
         isDrawingRef.current = true;
         activeModifierRef.current = "alt";
