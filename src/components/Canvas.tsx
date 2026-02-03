@@ -134,7 +134,7 @@ export default function Canvas({
     loadedStrokes.map((stroke) => ({ type: "draw" as const, stroke })),
   );
   const redoStackRef = useRef<UndoAction[]>([]);
-  const eraseBufRef = useRef<Stroke[]>([]);
+  const pendingEraseRef = useRef<Set<Stroke>>(new Set());
   const isDrawingRef = useRef(false);
   const activeModifierRef = useRef<"meta" | "shift" | "alt" | "line" | null>(
     null,
@@ -161,14 +161,14 @@ export default function Canvas({
     saveStrokes(strokesRef.current);
   }, []);
 
-  const flushEraseBuf = useCallback(() => {
-    if (eraseBufRef.current.length > 0) {
-      undoStackRef.current.push({
-        type: "erase",
-        strokes: eraseBufRef.current,
-      });
-      eraseBufRef.current = [];
+  const confirmErase = useCallback(() => {
+    const pending = pendingEraseRef.current;
+    if (pending.size > 0) {
+      const erased = strokesRef.current.filter((s) => pending.has(s));
+      strokesRef.current = strokesRef.current.filter((s) => !pending.has(s));
+      undoStackRef.current.push({ type: "erase", strokes: erased });
       redoStackRef.current = [];
+      pending.clear();
     }
   }, []);
 
@@ -244,10 +244,31 @@ export default function Canvas({
       }
     }
 
-    renderStrokesToCtx(ctx, strokesRef.current);
+    const pending = pendingEraseRef.current;
+    if (pending.size > 0) {
+      renderStrokesToCtx(
+        ctx,
+        strokesRef.current.filter((s) => !pending.has(s)),
+      );
+      ctx.globalAlpha = 0.25;
+      renderStrokesToCtx(
+        ctx,
+        strokesRef.current.filter((s) => pending.has(s)),
+      );
+      ctx.globalAlpha = 1;
+    } else {
+      renderStrokesToCtx(ctx, strokesRef.current);
+    }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
+
+  const cancelErase = useCallback(() => {
+    pendingEraseRef.current.clear();
+    isDrawingRef.current = false;
+    activeModifierRef.current = null;
+    redraw();
+  }, [redraw]);
 
   const clearCanvas = useCallback(() => {
     strokesRef.current = [];
@@ -518,22 +539,31 @@ export default function Canvas({
         );
       }
       if (e.key === "Alt") setErasing(true);
+      if (e.key === "Escape" && activeModifierRef.current === "alt") {
+        e.preventDefault();
+        setErasing(false);
+        cancelErase();
+      }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === "Alt") {
         setErasing(false);
         if (activeModifierRef.current === "alt") {
-          flushEraseBuf();
+          confirmErase();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           persistStrokes();
+          redraw();
         }
       }
     };
 
     const onBlur = () => {
       setErasing(false);
+      if (activeModifierRef.current === "alt") {
+        cancelErase();
+      }
     };
 
     window.addEventListener("keydown", onKeyDown);
@@ -544,12 +574,12 @@ export default function Canvas({
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [clearCanvas, persistStrokes, redraw, flushEraseBuf]);
+  }, [clearCanvas, persistStrokes, redraw, confirmErase, cancelErase]);
 
   const eraseAt = useCallback((x: number, y: number) => {
     const radius = 12 / viewRef.current.scale;
-    const kept: Stroke[] = [];
     for (const stroke of strokesRef.current) {
+      if (pendingEraseRef.current.has(stroke)) continue;
       let hit = false;
       for (const p of stroke.points) {
         const dx = p.x - x;
@@ -569,10 +599,8 @@ export default function Canvas({
           }
         }
       }
-      if (hit) eraseBufRef.current.push(stroke);
-      else kept.push(stroke);
+      if (hit) pendingEraseRef.current.add(stroke);
     }
-    strokesRef.current = kept;
   }, []);
 
   const cancelCurrentStroke = useCallback(() => {
@@ -581,9 +609,7 @@ export default function Canvas({
       undoStackRef.current.pop();
     }
     if (isDrawingRef.current && activeModifierRef.current === "alt") {
-      // Put erased strokes back
-      strokesRef.current.push(...eraseBufRef.current);
-      eraseBufRef.current = [];
+      pendingEraseRef.current.clear();
     }
     isDrawingRef.current = false;
     activeModifierRef.current = null;
@@ -638,7 +664,10 @@ export default function Canvas({
             return;
           }
           if (isDrawingRef.current) {
-            if (activeModifierRef.current === "alt") flushEraseBuf();
+            if (activeModifierRef.current === "alt") {
+              confirmErase();
+              redraw();
+            }
             isDrawingRef.current = false;
             activeModifierRef.current = null;
             persistStrokes();
@@ -653,13 +682,16 @@ export default function Canvas({
         return;
       }
       if (isDrawingRef.current) {
-        if (activeModifierRef.current === "alt") flushEraseBuf();
+        if (activeModifierRef.current === "alt") {
+          confirmErase();
+          redraw();
+        }
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         persistStrokes();
       }
     },
-    [flushEraseBuf, persistStrokes],
+    [confirmErase, persistStrokes, redraw],
   );
 
   const onPointerMove = useCallback(
@@ -735,7 +767,10 @@ export default function Canvas({
 
       if (!modifier) {
         if (isDrawingRef.current) {
-          if (activeModifierRef.current === "alt") flushEraseBuf();
+          if (activeModifierRef.current === "alt") {
+            confirmErase();
+            redraw();
+          }
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           persistStrokes();
@@ -747,7 +782,7 @@ export default function Canvas({
 
       // Flush erase buffer when switching away from erasing
       if (modifier !== "alt" && activeModifierRef.current === "alt") {
-        flushEraseBuf();
+        confirmErase();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         persistStrokes();
@@ -755,7 +790,7 @@ export default function Canvas({
 
       if (modifier === "alt") {
         if (!isDrawingRef.current || activeModifierRef.current !== "alt") {
-          eraseBufRef.current = [];
+          pendingEraseRef.current.clear();
         }
         isDrawingRef.current = true;
         activeModifierRef.current = "alt";
@@ -812,7 +847,7 @@ export default function Canvas({
       dashGap,
       eraseAt,
       persistStrokes,
-      flushEraseBuf,
+      confirmErase,
       broadcastZoom,
     ],
   );
@@ -825,13 +860,16 @@ export default function Canvas({
         setPanning(false);
       }
       if (isDrawingRef.current) {
-        if (activeModifierRef.current === "alt") flushEraseBuf();
+        if (activeModifierRef.current === "alt") {
+          cancelErase();
+          return;
+        }
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         persistStrokes();
       }
     },
-    [persistStrokes, flushEraseBuf],
+    [persistStrokes, cancelErase],
   );
 
   // Wheel: pan (scroll) and zoom (Ctrl/Cmd + scroll)
