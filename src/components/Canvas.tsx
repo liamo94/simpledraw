@@ -69,6 +69,19 @@ function screenToWorld(
   return { x: (sx - view.x) / view.scale, y: (sy - view.y) / view.scale };
 }
 
+function smoothPoints(raw: { x: number; y: number }[]) {
+  if (raw.length < 3) return raw;
+  const out = [raw[0]];
+  for (let i = 1; i < raw.length - 1; i++) {
+    out.push({
+      x: raw[i - 1].x * 0.25 + raw[i].x * 0.5 + raw[i + 1].x * 0.25,
+      y: raw[i - 1].y * 0.25 + raw[i].y * 0.5 + raw[i + 1].y * 0.25,
+    });
+  }
+  out.push(raw[raw.length - 1]);
+  return out;
+}
+
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length < 2) continue;
@@ -83,9 +96,17 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
         ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
         : [],
     );
-    ctx.moveTo(stroke.points[0].x, stroke.points[0].y);
-    for (let i = 1; i < stroke.points.length; i++) {
-      ctx.lineTo(stroke.points[i].x, stroke.points[i].y);
+    const pts = smoothPoints(stroke.points);
+    ctx.moveTo(pts[0].x, pts[0].y);
+    if (pts.length === 2) {
+      ctx.lineTo(pts[1].x, pts[1].y);
+    } else {
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i + 1].x) / 2;
+        const my = (pts[i].y + pts[i + 1].y) / 2;
+        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+      }
+      ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
     }
     ctx.stroke();
   }
@@ -168,28 +189,59 @@ export default function Canvas({
     ctx.setTransform(scale, 0, 0, scale, x, y);
 
     if (showDotGridRef.current) {
-      const spacing = 40 / scale;
-      const dotRadius = 1 / scale;
+      const baseDotRadius = 1 / scale;
       const topLeft = screenToWorld(0, 0, { x, y, scale });
       const bottomRight = screenToWorld(canvas.width, canvas.height, {
         x,
         y,
         scale,
       });
-      const startX = Math.floor(topLeft.x / spacing) * spacing;
-      const startY = Math.floor(topLeft.y / spacing) * spacing;
 
-      ctx.fillStyle = isDark
-        ? "rgba(255, 255, 255, 0.25)"
-        : "rgba(0, 0, 0, 0.3)";
-      ctx.beginPath();
-      for (let wx = startX; wx <= bottomRight.x; wx += spacing) {
-        for (let wy = startY; wy <= bottomRight.y; wy += spacing) {
-          ctx.moveTo(wx + dotRadius, wy);
-          ctx.arc(wx, wy, dotRadius, 0, Math.PI * 2);
-        }
+      // Multi-level grid: each level fades independently based on screen gap
+      const BASE = 20;
+      const baseAlpha = isDark ? 0.25 : 0.3;
+
+      // Collect visible levels (fine → coarse)
+      const levels: { spacing: number; opacity: number }[] = [];
+      for (let spacing = BASE; spacing < 500000; spacing *= 5) {
+        const screenGap = spacing * scale;
+        if (screenGap < 4) continue;
+        if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
+        // Smooth fade: 0 at screenGap=6, 1 at screenGap=40
+        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 34));
+        levels.push({ spacing, opacity });
       }
-      ctx.fill();
+
+      // Draw from coarsest to finest so finer dots layer on top
+      for (let i = levels.length - 1; i >= 0; i--) {
+        const { spacing, opacity } = levels[i];
+        if (opacity <= 0) continue;
+        const coarser = i < levels.length - 1 ? levels[i + 1].spacing : null;
+
+        const alpha = opacity * baseAlpha;
+        ctx.fillStyle = isDark
+          ? `rgba(255, 255, 255, ${alpha})`
+          : `rgba(0, 0, 0, ${alpha})`;
+
+        ctx.beginPath();
+        const sx = Math.floor(topLeft.x / spacing) * spacing;
+        const sy = Math.floor(topLeft.y / spacing) * spacing;
+        for (let wx = sx; wx <= bottomRight.x; wx += spacing) {
+          for (let wy = sy; wy <= bottomRight.y; wy += spacing) {
+            // Skip positions already drawn by a coarser level
+            if (coarser) {
+              const onCoarserX =
+                Math.abs(((wx % coarser) + coarser) % coarser) < 0.5;
+              const onCoarserY =
+                Math.abs(((wy % coarser) + coarser) % coarser) < 0.5;
+              if (onCoarserX && onCoarserY) continue;
+            }
+            ctx.moveTo(wx + baseDotRadius, wy);
+            ctx.arc(wx, wy, baseDotRadius, 0, Math.PI * 2);
+          }
+        }
+        ctx.fill();
+      }
     }
 
     renderStrokesToCtx(ctx, strokesRef.current);
