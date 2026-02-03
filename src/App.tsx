@@ -317,73 +317,103 @@ export default function App() {
         resolvedTheme={resolvedTheme}
         touchTool={touchTool}
       />
-      {settings.showZoomControls && (
-        <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5">
-          <button
-            onClick={centerView}
-            title={`Fit to content (${isMac ? "\u2318" : "Ctrl"}+1)`}
-            className={`w-8 h-8 flex items-center justify-center rounded border transition-colors ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+      {hasTouch ? (
+        <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2">
+          <div
+            className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
+            style={{
+              background: isDark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.7)",
+              borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+            }}
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+            {touchTools.map((t) => (
+              <button
+                key={t.id}
+                onClick={() => setTouchTool(t.id)}
+                className={`flex items-center gap-1 px-2 py-2 rounded text-xs transition-colors ${
+                  touchTool === t.id
+                    ? isDark
+                      ? "bg-white/20 text-white"
+                      : "bg-black/20 text-black"
+                    : isDark
+                      ? "text-white/60 hover:bg-white/10"
+                      : "text-black/60 hover:bg-black/10"
+                }`}
+              >
+                {t.icon}
+                {t.label}
+              </button>
+            ))}
+          </div>
+          {settings.showZoomControls && (
+            <div
+              className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
+              style={{
+                background: isDark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.7)",
+                borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+              }}
             >
-              <rect x="2" y="2" width="12" height="12" rx="1.5" />
-              <path d="M5 2.5v3h-3M11 2.5v3h3M5 13.5v-3h-3M11 13.5v-3h3" />
-            </svg>
-          </button>
-          <button
-            onClick={zoomOut}
-            className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
-          >
-            -
-          </button>
-          <span
-            className={`text-xs tabular-nums w-10 text-center ${isDark ? "text-white/50" : "text-black/50"}`}
-          >
-            {Math.round(zoom * 100)}%
-          </span>
-          <button
-            onClick={zoomIn}
-            className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
-          >
-            +
-          </button>
+              <button
+                onClick={zoomOut}
+                className={`w-7 h-7 flex items-center justify-center rounded transition-colors text-sm font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+              >
+                -
+              </button>
+              <span
+                className={`text-[10px] tabular-nums text-center ${isDark ? "text-white/50" : "text-black/50"}`}
+              >
+                {Math.round(zoom * 100)}%
+              </span>
+              <button
+                onClick={zoomIn}
+                className={`w-7 h-7 flex items-center justify-center rounded transition-colors text-sm font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+              >
+                +
+              </button>
+            </div>
+          )}
         </div>
-      )}
-      {hasTouch && (
-        <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
-          style={{
-            background: isDark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.7)",
-            borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-          }}
-        >
-          {touchTools.map((t) => (
+      ) : (
+        settings.showZoomControls && (
+          <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5">
             <button
-              key={t.id}
-              onClick={() => setTouchTool(t.id)}
-              className={`flex items-center gap-1 px-3 py-2 rounded text-xs transition-colors ${
-                touchTool === t.id
-                  ? isDark
-                    ? "bg-white/20 text-white"
-                    : "bg-black/20 text-black"
-                  : isDark
-                    ? "text-white/60 hover:bg-white/10"
-                    : "text-black/60 hover:bg-black/10"
-              }`}
+              onClick={centerView}
+              title={`Fit to content (${isMac ? "\u2318" : "Ctrl"}+1)`}
+              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
             >
-              {t.icon}
-              {t.label}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                <path d="M5 2.5v3h-3M11 2.5v3h3M5 13.5v-3h-3M11 13.5v-3h3" />
+              </svg>
             </button>
-          ))}
-        </div>
+            <button
+              onClick={zoomOut}
+              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+            >
+              -
+            </button>
+            <span
+              className={`text-xs tabular-nums w-10 text-center ${isDark ? "text-white/50" : "text-black/50"}`}
+            >
+              {Math.round(zoom * 100)}%
+            </span>
+            <button
+              onClick={zoomIn}
+              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+            >
+              +
+            </button>
+          </div>
+        )
       )}
       {confirmingClear && (
         <div
