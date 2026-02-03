@@ -246,7 +246,13 @@ export default function Menu({
               onChange={(e) =>
                 updateSettings({ showZoomControls: e.target.checked })
               }
-              className={isDark ? "accent-white/70" : "accent-black/70"}
+              className={
+                settings.showZoomControls
+                  ? "accent-green-500"
+                  : isDark
+                    ? "accent-white/70"
+                    : "accent-black/70"
+              }
             />
           </label>
 
@@ -258,21 +264,35 @@ export default function Menu({
               onChange={(e) =>
                 updateSettings({ showDotGrid: e.target.checked })
               }
-              className={isDark ? "accent-white/70" : "accent-black/70"}
+              className={
+                settings.showZoomControls
+                  ? "accent-green-500"
+                  : isDark
+                    ? "accent-white/70"
+                    : "accent-black/70"
+              }
             />
           </label>
 
-          <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
-            <span>Confirm clear</span>
-            <input
-              type="checkbox"
-              checked={settings.confirmClear}
-              onChange={(e) =>
-                updateSettings({ confirmClear: e.target.checked })
-              }
-              className={isDark ? "accent-white/70" : "accent-black/70"}
-            />
-          </label>
+          {!hasTouch && (
+            <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
+              <span>Confirm clear</span>
+              <input
+                type="checkbox"
+                checked={settings.confirmClear}
+                onChange={(e) =>
+                  updateSettings({ confirmClear: e.target.checked })
+                }
+                className={
+                  settings.showZoomControls
+                    ? "accent-green-500"
+                    : isDark
+                      ? "accent-white/70"
+                      : "accent-black/70"
+                }
+              />
+            </label>
+          )}
 
           <div className="mt-3 text-sm">Theme</div>
           <div className="flex gap-1 mt-1.5">

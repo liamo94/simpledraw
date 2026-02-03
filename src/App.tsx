@@ -79,7 +79,7 @@ export default function App() {
   }, []);
 
   const requestClear = useCallback(() => {
-    if (settingsRef.current.confirmClear) {
+    if (settingsRef.current.confirmClear && !hasTouch) {
       const detail = { count: 0 };
       window.dispatchEvent(
         new CustomEvent("simpledraw:query-stroke-count", { detail }),
@@ -323,7 +323,9 @@ export default function App() {
             className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
             style={{
               background: isDark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.7)",
-              borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+              borderColor: isDark
+                ? "rgba(255,255,255,0.15)"
+                : "rgba(0,0,0,0.15)",
             }}
           >
             {touchTools.map((t) => (
@@ -349,8 +351,12 @@ export default function App() {
             <div
               className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
-                background: isDark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.7)",
-                borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                background: isDark
+                  ? "rgba(0,0,0,0.7)"
+                  : "rgba(255,255,255,0.7)",
+                borderColor: isDark
+                  ? "rgba(255,255,255,0.15)"
+                  : "rgba(0,0,0,0.15)",
               }}
             >
               <button
