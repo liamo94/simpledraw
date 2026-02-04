@@ -137,7 +137,7 @@ export default function Menu({
 
       {open && (
         <div
-          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-45 max-w-78 overflow-y-auto ${hasTouch ? "max-h-[calc(100vh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
+          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-45 max-w-78 overflow-y-auto ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
         >
           <div
             className={`text-lg mb-3 text-center ${isDark ? "text-white/90" : "text-black/90"}`}
@@ -214,19 +214,23 @@ export default function Menu({
             Clear screen
           </button>
 
-          <button
-            onClick={onExport}
-            className={`mt-3 w-full py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
-          >
-            Export PNG
-          </button>
-
-          <button
-            onClick={onExportTransparent}
-            className={`mt-1.5 w-full py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
-          >
-            Export transparent PNG
-          </button>
+          <div className="mt-3 flex items-center gap-3 text-sm">
+            <span>Export</span>
+            <div className="flex gap-1 flex-1">
+              <button
+                onClick={onExport}
+                className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
+              >
+                PNG
+              </button>
+              <button
+                onClick={onExportTransparent}
+                className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
+              >
+                Transparent
+              </button>
+            </div>
+          </div>
 
           <div className="mt-3 flex items-center justify-between text-sm">
             <span>Zoom</span>
