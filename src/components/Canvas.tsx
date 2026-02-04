@@ -311,6 +311,7 @@ export default function Canvas({
   useEffect(() => {
     if (!erasing) return;
     let raf: number;
+    let stopped = false;
     const tick = () => {
       const trail = eraseTrailRef.current;
       if (eraseMovingRef.current) {
@@ -322,10 +323,19 @@ export default function Canvas({
         trail.splice(0, remove);
         redraw();
       }
-      raf = requestAnimationFrame(tick);
+      // Keep running until trail is fully drained, even after erasing ends
+      if (!stopped || trail.length > 0) {
+        raf = requestAnimationFrame(tick);
+      }
     };
     raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
+    return () => {
+      stopped = true;
+      // Don't cancel if trail still needs draining
+      if (eraseTrailRef.current.length === 0) {
+        cancelAnimationFrame(raf);
+      }
+    };
   }, [erasing, redraw]);
 
   const clearCanvas = useCallback(() => {
@@ -815,6 +825,7 @@ export default function Canvas({
           tapStartRef.current = null;
           if (isDrawingRef.current) {
             if (activeModifierRef.current === "alt") {
+              setErasing(false);
               confirmErase();
               redraw();
             }
@@ -953,6 +964,7 @@ export default function Canvas({
         if (!isDrawingRef.current || activeModifierRef.current !== "alt") {
           pendingEraseRef.current.clear();
           eraseTrailRef.current = [];
+          setErasing(true);
         }
         isDrawingRef.current = true;
         activeModifierRef.current = "alt";
