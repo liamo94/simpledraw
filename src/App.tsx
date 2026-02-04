@@ -47,9 +47,11 @@ export default function App() {
     if (resolvedTheme === "dark") {
       document.body.style.background = "#0a0a1a";
       document.body.style.color = "rgba(255,255,255,0.8)";
+      document.documentElement.style.colorScheme = "dark";
     } else {
       document.body.style.background = "#f5f5f0";
       document.body.style.color = "rgba(0,0,0,0.8)";
+      document.documentElement.style.colorScheme = "light";
     }
   }, [resolvedTheme]);
 
@@ -228,7 +230,7 @@ export default function App() {
           strokeLinecap="round"
           strokeLinejoin="round"
         >
-          <path d="M12 2.5a1.25 1.25 0 0 0-2.5 0V8M9.5 2a1.25 1.25 0 0 0-2.5 0v6.5M7 3a1.25 1.25 0 0 0-2.5 0v5.5M4.5 5a1.25 1.25 0 0 0-2.5 0v4.5a6 6 0 0 0 12 0V6a1.25 1.25 0 0 0-2.5 0" />
+          <path d="M8 1.5v13M1.5 8h13M3 4.5L1.5 8 3 11.5M13 4.5L14.5 8 13 11.5M4.5 3L8 1.5 11.5 3M4.5 13L8 14.5 11.5 13" />
         </svg>
       ),
     },
@@ -343,7 +345,7 @@ export default function App() {
                 }`}
               >
                 {t.icon}
-                {t.label}
+                <span className="hidden min-[400px]:inline">{t.label}</span>
               </button>
             ))}
           </div>
@@ -366,7 +368,7 @@ export default function App() {
                 -
               </button>
               <span
-                className={`text-[10px] tabular-nums text-center ${isDark ? "text-white/50" : "text-black/50"}`}
+                className={`text-[10px] tabular-nums text-center min-w-8 ${isDark ? "text-white/50" : "text-black/50"}`}
               >
                 {Math.round(zoom * 100)}%
               </span>
@@ -459,7 +461,7 @@ export default function App() {
         </div>
       )}
       {showOnboarding && !hasTouch && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div
             className={`px-8 py-6 rounded-lg border text-center max-w-xs ${isDark ? "bg-[#0a0a1a] border-white/15" : "bg-[#f5f5f0] border-black/15"}`}
           >

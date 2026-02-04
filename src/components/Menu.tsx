@@ -30,6 +30,7 @@ export default function Menu({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [showAbout, setShowAbout] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   const isDark = resolvedTheme === "dark";
@@ -37,7 +38,10 @@ export default function Menu({
   useEffect(() => {
     const onToggle = () =>
       setOpen((o) => {
-        if (o) setShowInfo(false);
+        if (o) {
+          setShowInfo(false);
+          setShowAbout(false);
+        }
         return !o;
       });
     window.addEventListener("simpledraw:toggle-menu", onToggle);
@@ -51,6 +55,7 @@ export default function Menu({
       if (e.key === "Escape") {
         setOpen(false);
         setShowInfo(false);
+        setShowAbout(false);
       }
     };
 
@@ -58,6 +63,7 @@ export default function Menu({
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
         setOpen(false);
         setShowInfo(false);
+        setShowAbout(false);
       }
     };
 
@@ -93,7 +99,10 @@ export default function Menu({
       <button
         onClick={() =>
           setOpen((o) => {
-            if (o) setShowInfo(false);
+            if (o) {
+              setShowInfo(false);
+              setShowAbout(false);
+            }
             return !o;
           })
         }
@@ -128,7 +137,7 @@ export default function Menu({
 
       {open && (
         <div
-          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-45 overflow-y-auto max-h-[calc(100vh-5rem)] ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
+          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-45 max-w-78 overflow-y-auto ${hasTouch ? "max-h-[calc(100vh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
         >
           <div
             className={`text-lg mb-3 text-center ${isDark ? "text-white/90" : "text-black/90"}`}
@@ -248,7 +257,7 @@ export default function Menu({
               }
               className={
                 settings.showZoomControls
-                  ? "accent-green-500"
+                  ? "accent-blue-500"
                   : isDark
                     ? "accent-white/70"
                     : "accent-black/70"
@@ -266,7 +275,7 @@ export default function Menu({
               }
               className={
                 settings.showZoomControls
-                  ? "accent-green-500"
+                  ? "accent-blue-500"
                   : isDark
                     ? "accent-white/70"
                     : "accent-black/70"
@@ -285,7 +294,7 @@ export default function Menu({
                 }
                 className={
                   settings.showZoomControls
-                    ? "accent-green-500"
+                    ? "accent-blue-500"
                     : isDark
                       ? "accent-white/70"
                       : "accent-black/70"
@@ -489,6 +498,49 @@ export default function Menu({
                 </div>
               )}
             </>
+          )}
+
+          <button
+            onClick={() => setShowAbout((v) => !v)}
+            className={`mt-3 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
+          >
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform ${showAbout ? "rotate-90" : ""}`}
+            >
+              <path d="M3.5 1.5L7 5L3.5 8.5" />
+            </svg>
+            About
+          </button>
+
+          {showAbout && (
+            <div
+              className={`mt-2 pt-2 border-t text-xs leading-relaxed ${isDark ? "border-white/10 text-white/60" : "border-black/10 text-black/60"}`}
+            >
+              <p>simpledraw was built out of a need for three things:</p>
+              <ul className="mt-1.5 list-disc list-inside space-y-1">
+                <li>
+                  A classic freehand whiteboard &mdash; simple to draw on, no
+                  bloat.
+                </li>
+                <li>
+                  A keyboard-first experience. Drawing by clicking and dragging
+                  (especially on a trackpad) is painful, so every action is a
+                  modifier key away.
+                </li>
+                <li>
+                  Shortcuts for everything &mdash; solid lines, dashed lines,
+                  straight lines, eraser, colors, thickness, undo, redo.
+                </li>
+              </ul>
+            </div>
           )}
 
           <div

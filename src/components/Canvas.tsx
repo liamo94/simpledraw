@@ -84,7 +84,15 @@ function smoothPoints(raw: { x: number; y: number }[]) {
 
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
-    if (stroke.points.length < 2) continue;
+    if (stroke.points.length === 0) continue;
+    if (stroke.points.length === 1) {
+      const p = stroke.points[0];
+      ctx.beginPath();
+      ctx.fillStyle = stroke.color;
+      ctx.arc(p.x, p.y, stroke.lineWidth / 2, 0, Math.PI * 2);
+      ctx.fill();
+      continue;
+    }
     ctx.beginPath();
     ctx.strokeStyle = stroke.color;
     ctx.lineWidth = stroke.lineWidth;
@@ -148,10 +156,16 @@ export default function Canvas({
   resolvedThemeRef.current = resolvedTheme;
   const touchToolRef = useRef(touchTool);
   touchToolRef.current = touchTool;
+  const lineWidthRef = useRef(lineWidth);
+  lineWidthRef.current = lineWidth;
+  const lineColorRef = useRef(lineColor);
+  lineColorRef.current = lineColor;
   const isPanningRef = useRef(false);
   const panLastRef = useRef({ x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
   const [erasing, setErasing] = useState(false);
+  const cursorWorldRef = useRef({ x: 0, y: 0 });
+  const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
 
   // Multi-touch tracking
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
@@ -266,7 +280,7 @@ export default function Canvas({
     // Draw erase trail with fading tail
     const trail = eraseTrailRef.current;
     if (trail.length >= 2) {
-      const pts = smoothPoints(trail);
+      const pts = smoothPoints(smoothPoints(trail));
       const len = pts.length;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -582,6 +596,19 @@ export default function Canvas({
           new CustomEvent("simpledraw:color-cycle", { detail: 1 }),
         );
       }
+      if (e.key === "." && !cmdKey(e) && !e.altKey) {
+        const dot: Stroke = {
+          points: [{ ...cursorWorldRef.current }],
+          style: "solid",
+          lineWidth: lineWidthRef.current,
+          color: lineColorRef.current,
+        };
+        strokesRef.current.push(dot);
+        undoStackRef.current.push({ type: "draw", stroke: dot });
+        redoStackRef.current = [];
+        persistStrokes();
+        redraw();
+      }
       if (e.key === "Alt") setErasing(true);
       if (e.key === "Escape" && activeModifierRef.current === "alt") {
         e.preventDefault();
@@ -621,12 +648,27 @@ export default function Canvas({
   }, [clearCanvas, persistStrokes, redraw, confirmErase, cancelErase]);
 
   const eraseAt = useCallback((x: number, y: number) => {
-    eraseTrailRef.current.push({ x, y });
+    // Interpolate extra points when cursor jumps far (fast movement)
+    const trail = eraseTrailRef.current;
+    const maxGap = 6 / viewRef.current.scale;
+    if (trail.length > 0) {
+      const last = trail[trail.length - 1];
+      const dx = x - last.x;
+      const dy = y - last.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist > maxGap) {
+        const steps = Math.ceil(dist / maxGap);
+        for (let s = 1; s < steps; s++) {
+          const t = s / steps;
+          trail.push({ x: last.x + dx * t, y: last.y + dy * t });
+        }
+      }
+    }
+    trail.push({ x, y });
     eraseMovingRef.current = true;
 
     // Limit trail by cumulative path length (world coords)
     const maxLen = 200 / viewRef.current.scale;
-    const trail = eraseTrailRef.current;
     if (trail.length > 2) {
       let acc = 0;
       let cutIdx = 0;
@@ -705,6 +747,16 @@ export default function Canvas({
           isPanningRef.current = true;
           panLastRef.current = { x: e.clientX, y: e.clientY };
         }
+        // Track tap start for single-finger draw/dashed/line tools
+        const tool = touchToolRef.current;
+        if (
+          pointersRef.current.size === 1 &&
+          (tool === "draw" || tool === "dashed" || tool === "line")
+        ) {
+          tapStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
+        } else {
+          tapStartRef.current = null;
+        }
       } else if (
         (e.buttons & 1) !== 0 &&
         !e.altKey &&
@@ -729,8 +781,38 @@ export default function Canvas({
         if (pointersRef.current.size === 0) {
           if (isPanningRef.current) {
             isPanningRef.current = false;
+            tapStartRef.current = null;
             return;
           }
+          // Tap-to-dot: if finger didn't move beyond threshold, place a dot
+          if (tapStartRef.current && tapStartRef.current.id === e.pointerId) {
+            const dx = e.clientX - tapStartRef.current.x;
+            const dy = e.clientY - tapStartRef.current.y;
+            if (dx * dx + dy * dy <= 25) {
+              // Remove any stroke that was started by the move handler
+              if (isDrawingRef.current) {
+                strokesRef.current.pop();
+                undoStackRef.current.pop();
+                isDrawingRef.current = false;
+                activeModifierRef.current = null;
+              }
+              const wp = screenToWorld(tapStartRef.current.x, tapStartRef.current.y, viewRef.current);
+              const dot: Stroke = {
+                points: [wp],
+                style: "solid",
+                lineWidth: lineWidthRef.current,
+                color: lineColorRef.current,
+              };
+              strokesRef.current.push(dot);
+              undoStackRef.current.push({ type: "draw", stroke: dot });
+              redoStackRef.current = [];
+              persistStrokes();
+              redraw();
+              tapStartRef.current = null;
+              return;
+            }
+          }
+          tapStartRef.current = null;
           if (isDrawingRef.current) {
             if (activeModifierRef.current === "alt") {
               confirmErase();
@@ -789,6 +871,12 @@ export default function Canvas({
           return;
         }
         if (pointersRef.current.size > 1) return;
+        // Cancel tap if finger moved beyond threshold
+        if (tapStartRef.current) {
+          const dx = e.clientX - tapStartRef.current.x;
+          const dy = e.clientY - tapStartRef.current.y;
+          if (dx * dx + dy * dy > 25) tapStartRef.current = null;
+        }
       }
 
       // --- Panning (mouse bare-click or touch hand tool) ---
@@ -799,6 +887,11 @@ export default function Canvas({
         panLastRef.current = { x: e.clientX, y: e.clientY };
         redraw();
         return;
+      }
+
+      // Track cursor world position for desktop dot placement
+      if (e.pointerType !== "touch") {
+        cursorWorldRef.current = screenToWorld(e.clientX, e.clientY, viewRef.current);
       }
 
       // --- Determine modifier ---
@@ -982,7 +1075,7 @@ export default function Canvas({
   return (
     <canvas
       ref={canvasRef}
-      className="block touch-none"
+      className="block touch-none select-none"
       style={{ cursor }}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
