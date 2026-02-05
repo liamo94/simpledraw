@@ -1,5 +1,7 @@
 import { useState, useCallback } from "react";
 
+export type ShapeKind = "circle" | "rectangle" | "triangle" | "star";
+
 export type Settings = {
   lineWidth: number;
   lineColor: string;
@@ -8,6 +10,7 @@ export type Settings = {
   showDotGrid: boolean;
   theme: "system" | "dark" | "light";
   confirmClear: boolean;
+  activeShape: ShapeKind;
 };
 
 const STORAGE_KEY = "simpledraw-settings";
@@ -20,6 +23,7 @@ const defaults: Settings = {
   showDotGrid: true,
   theme: "system",
   confirmClear: true,
+  activeShape: "rectangle" as const,
 };
 
 function load(): Settings {

@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef, ReactNode } from "react";
 import Canvas from "./components/Canvas";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
-import useSettings from "./hooks/useSettings";
+import useSettings, { type ShapeKind } from "./hooks/useSettings";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 
@@ -26,6 +26,13 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem("simpledraw-onboarded"),
   );
+  const [showShapePicker, setShowShapePicker] = useState(false);
+  const [showThicknessPicker, setShowThicknessPicker] = useState<"draw" | "dashed" | null>(null);
+  const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const shapeButtonRef = useRef<HTMLButtonElement>(null);
+  const drawButtonRef = useRef<HTMLButtonElement>(null);
+  const dashedButtonRef = useRef<HTMLButtonElement>(null);
 
   const resolvedTheme =
     settings.theme === "system" ? systemTheme : settings.theme;
@@ -127,15 +134,24 @@ export default function App() {
       updateSettings({ lineColor: palette[next] });
     };
     const onRequestClear = () => requestClear();
+    const onCycleShape = () => {
+      const shapes: ShapeKind[] = ["rectangle", "circle", "triangle", "star"];
+      const cur = settingsRef.current.activeShape;
+      const idx = shapes.indexOf(cur);
+      const next = (idx + 1) % shapes.length;
+      updateSettings({ activeShape: shapes[next] });
+    };
     window.addEventListener("simpledraw:zoom", onZoom);
     window.addEventListener("simpledraw:thickness", onThickness);
     window.addEventListener("simpledraw:color-cycle", onColorCycle);
     window.addEventListener("simpledraw:request-clear", onRequestClear);
+    window.addEventListener("simpledraw:cycle-shape", onCycleShape);
     return () => {
       window.removeEventListener("simpledraw:zoom", onZoom);
       window.removeEventListener("simpledraw:thickness", onThickness);
       window.removeEventListener("simpledraw:color-cycle", onColorCycle);
       window.removeEventListener("simpledraw:request-clear", onRequestClear);
+      window.removeEventListener("simpledraw:cycle-shape", onCycleShape);
     };
   }, [updateSettings, requestClear]);
 
@@ -210,6 +226,33 @@ export default function App() {
       window.removeEventListener("pointerdown", dismiss);
     };
   }, [showOnboarding, dismissOnboarding]);
+
+  // Close shape picker when touching outside
+  useEffect(() => {
+    if (!showShapePicker) return;
+    const close = () => setShowShapePicker(false);
+    // Delay to avoid immediate close from the same touch that opened it
+    const timer = setTimeout(() => {
+      window.addEventListener("pointerdown", close, { once: true });
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointerdown", close);
+    };
+  }, [showShapePicker]);
+
+  // Close thickness picker when touching outside
+  useEffect(() => {
+    if (!showThicknessPicker) return;
+    const close = () => setShowThicknessPicker(null);
+    const timer = setTimeout(() => {
+      window.addEventListener("pointerdown", close, { once: true });
+    }, 100);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener("pointerdown", close);
+    };
+  }, [showThicknessPicker]);
 
   const isDark = resolvedTheme === "dark";
   const mod = isMac ? "\u2318" : "Ctrl";
@@ -296,6 +339,34 @@ export default function App() {
         </svg>
       ),
     },
+    {
+      id: "shape",
+      label: "Shape",
+      icon: (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke={settings.lineColor}
+          strokeWidth="1.5"
+          strokeLinejoin="round"
+        >
+          {settings.activeShape === "rectangle" && (
+            <rect x="2" y="3" width="12" height="10" rx="1" />
+          )}
+          {settings.activeShape === "circle" && (
+            <ellipse cx="8" cy="8" rx="6" ry="5" />
+          )}
+          {settings.activeShape === "triangle" && (
+            <polygon points="8,2 14,14 2,14" />
+          )}
+          {settings.activeShape === "star" && (
+            <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+          )}
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -318,11 +389,12 @@ export default function App() {
         showDotGrid={settings.showDotGrid}
         resolvedTheme={resolvedTheme}
         touchTool={touchTool}
+        activeShape={settings.activeShape}
       />
       {hasTouch ? (
         <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2">
           <div
-            className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
+            className="relative flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
             style={{
               background: isDark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.7)",
               borderColor: isDark
@@ -330,25 +402,164 @@ export default function App() {
                 : "rgba(0,0,0,0.15)",
             }}
           >
-            {touchTools.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTouchTool(t.id)}
-                className={`flex items-center gap-1 px-2 py-2 rounded text-xs transition-colors ${
-                  touchTool === t.id
-                    ? isDark
-                      ? "bg-white/20 text-white"
-                      : "bg-black/20 text-black"
-                    : isDark
-                      ? "text-white/60 hover:bg-white/10"
-                      : "text-black/60 hover:bg-black/10"
-                }`}
-              >
-                {t.icon}
-                <span className="hidden min-[400px]:inline">{t.label}</span>
-              </button>
-            ))}
+            {touchTools.map((t) => {
+              const hasLongPress = t.id === "shape" || t.id === "draw" || t.id === "dashed";
+              const buttonRef = t.id === "shape" ? shapeButtonRef : t.id === "draw" ? drawButtonRef : t.id === "dashed" ? dashedButtonRef : undefined;
+              return (
+                <button
+                  key={t.id}
+                  ref={buttonRef}
+                  onClick={() => {
+                    if (shapeLongPressRef.current) {
+                      clearTimeout(shapeLongPressRef.current);
+                      shapeLongPressRef.current = null;
+                    }
+                    if (thicknessLongPressRef.current) {
+                      clearTimeout(thicknessLongPressRef.current);
+                      thicknessLongPressRef.current = null;
+                    }
+                    if (!showShapePicker && !showThicknessPicker) setTouchTool(t.id);
+                    setShowShapePicker(false);
+                    setShowThicknessPicker(null);
+                  }}
+                  onPointerDown={
+                    hasLongPress
+                      ? () => {
+                          if (t.id === "shape") {
+                            shapeLongPressRef.current = setTimeout(() => {
+                              setShowShapePicker(true);
+                              shapeLongPressRef.current = null;
+                            }, 400);
+                          } else if (t.id === "draw" || t.id === "dashed") {
+                            thicknessLongPressRef.current = setTimeout(() => {
+                              setShowThicknessPicker(t.id as "draw" | "dashed");
+                              thicknessLongPressRef.current = null;
+                            }, 400);
+                          }
+                        }
+                      : undefined
+                  }
+                  onPointerUp={() => {
+                    if (shapeLongPressRef.current) {
+                      clearTimeout(shapeLongPressRef.current);
+                      shapeLongPressRef.current = null;
+                    }
+                    if (thicknessLongPressRef.current) {
+                      clearTimeout(thicknessLongPressRef.current);
+                      thicknessLongPressRef.current = null;
+                    }
+                  }}
+                  onPointerLeave={() => {
+                    if (shapeLongPressRef.current) {
+                      clearTimeout(shapeLongPressRef.current);
+                      shapeLongPressRef.current = null;
+                    }
+                    if (thicknessLongPressRef.current) {
+                      clearTimeout(thicknessLongPressRef.current);
+                      thicknessLongPressRef.current = null;
+                    }
+                  }}
+                  className={`flex items-center gap-1 px-2 py-2 rounded text-xs transition-colors ${
+                    touchTool === t.id
+                      ? isDark
+                        ? "bg-white/20 text-white"
+                        : "bg-black/20 text-black"
+                      : isDark
+                        ? "text-white/60 hover:bg-white/10"
+                        : "text-black/60 hover:bg-black/10"
+                  }`}
+                >
+                  {t.icon}
+                </button>
+              );
+            })}
           </div>
+          {showShapePicker && (
+            <div
+              className="absolute bottom-full mb-2 flex flex-col gap-1 p-1 rounded-lg border backdrop-blur-sm"
+              style={{
+                background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
+                borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                left: shapeButtonRef.current
+                  ? shapeButtonRef.current.getBoundingClientRect().left +
+                    shapeButtonRef.current.offsetWidth / 2 -
+                    24
+                  : "50%",
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              {(["rectangle", "circle", "triangle", "star"] as const).map((shape) => (
+                <button
+                  key={shape}
+                  onClick={() => {
+                    updateSettings({ activeShape: shape });
+                    setTouchTool("shape");
+                    setShowShapePicker(false);
+                  }}
+                  className={`p-2 rounded transition-colors ${
+                    settings.activeShape === shape
+                      ? isDark
+                        ? "bg-white/20"
+                        : "bg-black/20"
+                      : isDark
+                        ? "hover:bg-white/10"
+                        : "hover:bg-black/10"
+                  }`}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke={settings.lineColor}
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  >
+                    {shape === "rectangle" && (
+                      <rect x="2" y="3" width="12" height="10" rx="1" />
+                    )}
+                    {shape === "circle" && (
+                      <ellipse cx="8" cy="8" rx="6" ry="5" />
+                    )}
+                    {shape === "triangle" && (
+                      <polygon points="8,2 14,14 2,14" />
+                    )}
+                    {shape === "star" && (
+                      <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+                    )}
+                  </svg>
+                </button>
+              ))}
+            </div>
+          )}
+          {showThicknessPicker && (
+            <div
+              className="absolute bottom-full mb-2 p-3 rounded-lg border backdrop-blur-sm"
+              style={{
+                background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
+                borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                left: (showThicknessPicker === "draw" ? drawButtonRef : dashedButtonRef).current
+                  ? (showThicknessPicker === "draw" ? drawButtonRef : dashedButtonRef).current!.getBoundingClientRect().left +
+                    (showThicknessPicker === "draw" ? drawButtonRef : dashedButtonRef).current!.offsetWidth / 2 -
+                    60
+                  : "50%",
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
+              <div className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}>
+                Thickness: {settings.lineWidth}
+              </div>
+              <input
+                type="range"
+                min={1}
+                max={10}
+                step={1}
+                value={settings.lineWidth}
+                onChange={(e) => updateSettings({ lineWidth: Number(e.target.value) })}
+                className={`w-24 ${isDark ? "accent-white/70" : "accent-black/70"}`}
+              />
+            </div>
+          )}
           {settings.showZoomControls && (
             <div
               className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"

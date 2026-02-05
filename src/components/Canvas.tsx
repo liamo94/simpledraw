@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState } from "react";
+import type { ShapeKind } from "../hooks/useSettings";
 
 type Stroke = {
   points: { x: number; y: number }[];
@@ -6,13 +7,14 @@ type Stroke = {
   lineWidth: number;
   dashGap?: number;
   color: string;
+  shape?: ShapeKind;
 };
 
 type UndoAction =
   | { type: "draw"; stroke: Stroke }
   | { type: "erase"; strokes: Stroke[] };
 
-export type TouchTool = "draw" | "dashed" | "line" | "erase" | "hand";
+export type TouchTool = "draw" | "dashed" | "line" | "erase" | "hand" | "shape";
 
 const STROKES_KEY = "simpledraw-strokes";
 
@@ -82,6 +84,106 @@ function smoothPoints(raw: { x: number; y: number }[]) {
   return out;
 }
 
+const isMac = navigator.platform.toUpperCase().includes("MAC");
+
+function starPoints(
+  cx: number,
+  cy: number,
+  outerRx: number,
+  outerRy: number,
+  innerRx: number,
+  innerRy: number,
+): { x: number; y: number }[] {
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < 10; i++) {
+    const angle = (Math.PI / 5) * i - Math.PI / 2;
+    const rx = i % 2 === 0 ? outerRx : innerRx;
+    const ry = i % 2 === 0 ? outerRy : innerRy;
+    pts.push({ x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) });
+  }
+  return pts;
+}
+
+function renderShape(
+  ctx: CanvasRenderingContext2D,
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  shape: ShapeKind,
+) {
+  const x = Math.min(p0.x, p1.x);
+  const y = Math.min(p0.y, p1.y);
+  const w = Math.abs(p1.x - p0.x);
+  const h = Math.abs(p1.y - p0.y);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  ctx.beginPath();
+  switch (shape) {
+    case "rectangle":
+      ctx.rect(x, y, w, h);
+      break;
+    case "circle":
+      ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
+      break;
+    case "triangle":
+      ctx.moveTo(cx, y);
+      ctx.lineTo(x + w, y + h);
+      ctx.lineTo(x, y + h);
+      ctx.closePath();
+      break;
+    case "star": {
+      const pts = starPoints(cx, cy, w / 2, h / 2, w / 5, h / 5);
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      break;
+    }
+  }
+  ctx.stroke();
+}
+
+function shapeToSegments(
+  stroke: Stroke,
+): { x: number; y: number }[] {
+  const p0 = stroke.points[0];
+  const p1 = stroke.points[1];
+  const x = Math.min(p0.x, p1.x);
+  const y = Math.min(p0.y, p1.y);
+  const w = Math.abs(p1.x - p0.x);
+  const h = Math.abs(p1.y - p0.y);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+
+  switch (stroke.shape!) {
+    case "rectangle":
+      return [
+        { x, y }, { x: x + w, y },
+        { x: x + w, y: y + h }, { x, y: y + h },
+        { x, y },
+      ];
+    case "circle": {
+      const pts: { x: number; y: number }[] = [];
+      const n = 36;
+      for (let i = 0; i <= n; i++) {
+        const a = (Math.PI * 2 * i) / n;
+        pts.push({ x: cx + (w / 2) * Math.cos(a), y: cy + (h / 2) * Math.sin(a) });
+      }
+      return pts;
+    }
+    case "triangle":
+      return [
+        { x: cx, y },
+        { x: x + w, y: y + h },
+        { x, y: y + h },
+        { x: cx, y },
+      ];
+    case "star": {
+      const pts = starPoints(cx, cy, w / 2, h / 2, w / 5, h / 5);
+      return [...pts, pts[0]];
+    }
+  }
+}
+
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length === 0) continue;
@@ -91,6 +193,15 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
       ctx.fillStyle = stroke.color;
       ctx.arc(p.x, p.y, stroke.lineWidth / 2, 0, Math.PI * 2);
       ctx.fill();
+      continue;
+    }
+    if (stroke.shape && stroke.points.length === 2) {
+      ctx.strokeStyle = stroke.color;
+      ctx.lineWidth = stroke.lineWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.setLineDash([]);
+      renderShape(ctx, stroke.points[0], stroke.points[1], stroke.shape);
       continue;
     }
     ctx.beginPath();
@@ -127,6 +238,7 @@ export default function Canvas({
   showDotGrid,
   resolvedTheme,
   touchTool,
+  activeShape,
 }: {
   lineWidth: number;
   lineColor: string;
@@ -134,6 +246,7 @@ export default function Canvas({
   showDotGrid: boolean;
   resolvedTheme: "dark" | "light";
   touchTool: TouchTool;
+  activeShape: ShapeKind;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [loadedStrokes] = useState(loadStrokes);
@@ -146,7 +259,7 @@ export default function Canvas({
   const eraseTrailRef = useRef<{ x: number; y: number }[]>([]);
   const eraseMovingRef = useRef(false);
   const isDrawingRef = useRef(false);
-  const activeModifierRef = useRef<"meta" | "shift" | "alt" | "line" | null>(
+  const activeModifierRef = useRef<"meta" | "shift" | "alt" | "line" | "shape" | null>(
     null,
   );
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
@@ -160,10 +273,13 @@ export default function Canvas({
   lineWidthRef.current = lineWidth;
   const lineColorRef = useRef(lineColor);
   lineColorRef.current = lineColor;
+  const activeShapeRef = useRef(activeShape);
+  activeShapeRef.current = activeShape;
   const isPanningRef = useRef(false);
   const panLastRef = useRef({ x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
   const [erasing, setErasing] = useState(false);
+  const [shapeActive, setShapeActive] = useState(false);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
 
@@ -525,6 +641,19 @@ export default function Canvas({
     };
   }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent]);
 
+  const cancelCurrentStroke = useCallback(() => {
+    if (isDrawingRef.current && activeModifierRef.current !== "alt") {
+      strokesRef.current.pop();
+      undoStackRef.current.pop();
+    }
+    if (isDrawingRef.current && activeModifierRef.current === "alt") {
+      pendingEraseRef.current.clear();
+    }
+    isDrawingRef.current = false;
+    activeModifierRef.current = null;
+    redraw();
+  }, [redraw]);
+
   // Keyboard shortcuts + eraser cursor
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -620,10 +749,18 @@ export default function Canvas({
         redraw();
       }
       if (e.key === "Alt") setErasing(true);
+      if (e.key === "Control" && isMac) setShapeActive(true);
+      if (e.key === "s" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        window.dispatchEvent(new Event("simpledraw:cycle-shape"));
+      }
       if (e.key === "Escape" && activeModifierRef.current === "alt") {
         e.preventDefault();
         setErasing(false);
         cancelErase();
+      }
+      if (e.key === "Escape" && activeModifierRef.current === "shape") {
+        e.preventDefault();
+        cancelCurrentStroke();
       }
     };
 
@@ -638,10 +775,12 @@ export default function Canvas({
           redraw();
         }
       }
+      if (e.key === "Control" && isMac) setShapeActive(false);
     };
 
     const onBlur = () => {
       setErasing(false);
+      setShapeActive(false);
       if (activeModifierRef.current === "alt") {
         cancelErase();
       }
@@ -655,7 +794,7 @@ export default function Canvas({
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
     };
-  }, [clearCanvas, persistStrokes, redraw, confirmErase, cancelErase]);
+  }, [clearCanvas, persistStrokes, redraw, confirmErase, cancelErase, cancelCurrentStroke]);
 
   const eraseAt = useCallback((x: number, y: number) => {
     // Interpolate extra points when cursor jumps far (fast movement)
@@ -701,7 +840,11 @@ export default function Canvas({
     for (const stroke of strokesRef.current) {
       if (pendingEraseRef.current.has(stroke)) continue;
       let hit = false;
-      for (const p of stroke.points) {
+      // For shape strokes, test against the rendered shape polygon
+      const pts = stroke.shape && stroke.points.length === 2
+        ? shapeToSegments(stroke)
+        : stroke.points;
+      for (const p of pts) {
         const dx = p.x - x;
         const dy = p.y - y;
         if (dx * dx + dy * dy < radius * radius) {
@@ -710,9 +853,9 @@ export default function Canvas({
         }
       }
       if (!hit) {
-        for (let i = 1; i < stroke.points.length; i++) {
-          const a = stroke.points[i - 1];
-          const b = stroke.points[i];
+        for (let i = 1; i < pts.length; i++) {
+          const a = pts[i - 1];
+          const b = pts[i];
           if (distToSegment(x, y, a.x, a.y, b.x, b.y) < radius) {
             hit = true;
             break;
@@ -722,19 +865,6 @@ export default function Canvas({
       if (hit) pendingEraseRef.current.add(stroke);
     }
   }, []);
-
-  const cancelCurrentStroke = useCallback(() => {
-    if (isDrawingRef.current && activeModifierRef.current !== "alt") {
-      strokesRef.current.pop();
-      undoStackRef.current.pop();
-    }
-    if (isDrawingRef.current && activeModifierRef.current === "alt") {
-      pendingEraseRef.current.clear();
-    }
-    isDrawingRef.current = false;
-    activeModifierRef.current = null;
-    redraw();
-  }, [redraw]);
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -757,11 +887,11 @@ export default function Canvas({
           isPanningRef.current = true;
           panLastRef.current = { x: e.clientX, y: e.clientY };
         }
-        // Track tap start for single-finger draw/dashed/line tools
+        // Track tap start for single-finger draw/dashed/line/shape tools
         const tool = touchToolRef.current;
         if (
           pointersRef.current.size === 1 &&
-          (tool === "draw" || tool === "dashed" || tool === "line")
+          (tool === "draw" || tool === "dashed" || tool === "line" || tool === "shape")
         ) {
           tapStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
         } else {
@@ -906,7 +1036,7 @@ export default function Canvas({
       }
 
       // --- Determine modifier ---
-      let modifier: "meta" | "shift" | "alt" | "line" | null;
+      let modifier: "meta" | "shift" | "alt" | "line" | "shape" | null;
 
       if (e.pointerType === "touch") {
         const down = (e.buttons & 1) !== 0;
@@ -923,18 +1053,22 @@ export default function Canvas({
                   ? "line"
                   : tool === "erase"
                     ? "alt"
-                    : null;
+                    : tool === "shape"
+                      ? "shape"
+                      : null;
         }
       } else {
         modifier = e.altKey
           ? "alt"
-          : cmdKey(e) && e.shiftKey
-            ? "line"
-            : cmdKey(e)
-              ? "meta"
-              : e.shiftKey
-                ? "shift"
-                : null;
+          : e.ctrlKey && !e.metaKey && isMac
+            ? "shape"
+            : cmdKey(e) && e.shiftKey
+              ? "line"
+              : cmdKey(e)
+                ? "meta"
+                : e.shiftKey
+                  ? "shift"
+                  : null;
       }
 
       if (!modifier) {
@@ -982,6 +1116,28 @@ export default function Canvas({
             style: "solid",
             lineWidth,
             color: lineColor,
+          };
+          strokesRef.current.push(stroke);
+          undoStackRef.current.push({ type: "draw", stroke });
+          redoStackRef.current = [];
+        } else {
+          const current = strokesRef.current[strokesRef.current.length - 1];
+          current.points[1] = point;
+        }
+        redraw();
+        return;
+      }
+
+      if (modifier === "shape") {
+        if (!isDrawingRef.current || activeModifierRef.current !== "shape") {
+          isDrawingRef.current = true;
+          activeModifierRef.current = "shape";
+          const stroke: Stroke = {
+            points: [point, { ...point }],
+            style: "solid",
+            lineWidth,
+            color: lineColor,
+            shape: activeShapeRef.current,
           };
           strokesRef.current.push(stroke);
           undoStackRef.current.push({ type: "draw", stroke });
@@ -1078,11 +1234,19 @@ export default function Canvas({
   const encodedColor = encodeURIComponent(lineColor);
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`;
   const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='50%25' stop-color='%2389CFF0'/%3E%3Cstop offset='50%25' stop-color='%23FA8072'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='5' width='18' height='12' rx='2.5' transform='rotate(-25 12 11)' fill='url(%23g)' stroke='%23666' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`;
+  const shapeCursors: Record<ShapeKind, string> = {
+    rectangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Crect x='4' y='6' width='16' height='12' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
+    circle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cellipse cx='12' cy='12' rx='8' ry='6' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
+    triangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,4 20,20 4,20' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+    star: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 14.5,9 22,9 16,14 18.5,21 12,17 5.5,21 8,14 2,9 9.5,9' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+  };
   const cursor = panning
     ? "grabbing"
     : erasing
       ? eraserCursor
-      : crosshairCursor;
+      : shapeActive
+        ? shapeCursors[activeShape]
+        : crosshairCursor;
 
   return (
     <canvas
