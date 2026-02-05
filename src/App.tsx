@@ -28,6 +28,8 @@ export default function App() {
   );
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState<"draw" | "dashed" | null>(null);
+  const [toast, setToast] = useState<{ type: "text"; message: string } | { type: "shape"; shape: ShapeKind } | null>(null);
+  const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
@@ -101,12 +103,22 @@ export default function App() {
     doClear();
   }, [doClear]);
 
+  const showToast = useCallback((content: { type: "text"; message: string } | { type: "shape"; shape: ShapeKind }) => {
+    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+    setToast(content);
+    toastTimeoutRef.current = setTimeout(() => setToast(null), 1200);
+  }, []);
+
   useEffect(() => {
     const onZoom = (e: Event) => setZoom((e as CustomEvent).detail);
     const onThickness = (e: Event) => {
       const delta = (e as CustomEvent).detail as number;
       const cur = settingsRef.current.lineWidth;
-      updateSettings({ lineWidth: Math.min(8, Math.max(1, cur + delta)) });
+      const next = Math.min(10, Math.max(1, cur + delta));
+      if (next !== cur) {
+        updateSettings({ lineWidth: next });
+        showToast({ type: "text", message: `Thickness: ${next}` });
+      }
     };
     const onColorCycle = (e: Event) => {
       const dir = (e as CustomEvent).detail as number;
@@ -140,6 +152,7 @@ export default function App() {
       const idx = shapes.indexOf(cur);
       const next = (idx + 1) % shapes.length;
       updateSettings({ activeShape: shapes[next] });
+      showToast({ type: "shape", shape: shapes[next] });
     };
     window.addEventListener("simpledraw:zoom", onZoom);
     window.addEventListener("simpledraw:thickness", onThickness);
@@ -153,7 +166,7 @@ export default function App() {
       window.removeEventListener("simpledraw:request-clear", onRequestClear);
       window.removeEventListener("simpledraw:cycle-shape", onCycleShape);
     };
-  }, [updateSettings, requestClear]);
+  }, [updateSettings, requestClear, showToast]);
 
   // Confirmation overlay keyboard handler — capture phase to block Canvas
   useEffect(() => {
@@ -715,6 +728,43 @@ export default function App() {
               Press any key or click to start
             </div>
           </div>
+        </div>
+      )}
+      {toast && (
+        <div
+          className="fixed top-4 right-14 z-40 px-3 py-2 rounded-lg border backdrop-blur-sm text-sm animate-fade-in"
+          style={{
+            background: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.8)",
+            borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+            color: isDark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.9)",
+          }}
+        >
+          {toast.type === "text" ? (
+            toast.message
+          ) : (
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            >
+              {toast.shape === "rectangle" && (
+                <rect x="2" y="3" width="12" height="10" rx="1" />
+              )}
+              {toast.shape === "circle" && (
+                <ellipse cx="8" cy="8" rx="6" ry="5" />
+              )}
+              {toast.shape === "triangle" && (
+                <polygon points="8,2 14,14 2,14" />
+              )}
+              {toast.shape === "star" && (
+                <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+              )}
+            </svg>
+          )}
         </div>
       )}
     </>

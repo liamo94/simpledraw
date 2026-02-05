@@ -185,30 +185,26 @@ export default function Menu({
             className={`w-full mt-1.5 ${isDark ? "accent-white/70" : "accent-black/70"}`}
           />
 
-          {isMac && (
-            <>
-              <div className="mt-3 text-sm">Shape</div>
-              <div className="flex gap-1 mt-1.5">
-                {(["rectangle", "circle", "triangle", "star"] as const).map((s) => (
-                  <button
-                    key={s}
-                    onClick={() => updateSettings({ activeShape: s })}
-                    className={`flex-1 py-1 rounded text-xs transition-colors ${
-                      settings.activeShape === s
-                        ? isDark
-                          ? "bg-white/20 text-white"
-                          : "bg-black/20 text-black"
-                        : isDark
-                          ? "bg-white/5 text-white/60 hover:bg-white/10"
-                          : "bg-black/5 text-black/60 hover:bg-black/10"
-                    }`}
-                  >
-                    {s.charAt(0).toUpperCase() + s.slice(1)}
-                  </button>
-                ))}
-              </div>
-            </>
-          )}
+          <div className="mt-3 text-sm">Shape</div>
+          <div className="flex gap-1 mt-1.5">
+            {(["rectangle", "circle", "triangle", "star"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => updateSettings({ activeShape: s })}
+                className={`flex-1 py-1 rounded text-xs transition-colors ${
+                  settings.activeShape === s
+                    ? isDark
+                      ? "bg-white/20 text-white"
+                      : "bg-black/20 text-black"
+                    : isDark
+                      ? "bg-white/5 text-white/60 hover:bg-white/10"
+                      : "bg-black/5 text-black/60 hover:bg-black/10"
+                }`}
+              >
+                {s.charAt(0).toUpperCase() + s.slice(1)}
+              </button>
+            ))}
+          </div>
 
           <div className="mt-3 text-sm">Color</div>
           <div className="flex gap-1.5 mt-1.5 flex-wrap">
@@ -443,26 +439,22 @@ export default function Menu({
                         {alt} + drag
                       </kbd>
                     </div>
-                    {isMac && (
-                      <>
-                        <div className="flex justify-between gap-4">
-                          <span>Draw shape</span>
-                          <kbd
-                            className={isDark ? "text-white/40" : "text-black/40"}
-                          >
-                            Ctrl + drag
-                          </kbd>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span>Cycle shape</span>
-                          <kbd
-                            className={isDark ? "text-white/40" : "text-black/40"}
-                          >
-                            S
-                          </kbd>
-                        </div>
-                      </>
-                    )}
+                    <div className="flex justify-between gap-4">
+                      <span>Draw shape</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        {isMac ? "Ctrl" : `${alt} + Shift`} + drag
+                      </kbd>
+                    </div>
+                    <div className="flex justify-between gap-4">
+                      <span>Cycle shape</span>
+                      <kbd
+                        className={isDark ? "text-white/40" : "text-black/40"}
+                      >
+                        S
+                      </kbd>
+                    </div>
                     <div className="flex justify-between gap-4">
                       <span>Undo</span>
                       <kbd

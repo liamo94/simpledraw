@@ -748,7 +748,12 @@ export default function Canvas({
         persistStrokes();
         redraw();
       }
-      if (e.key === "Alt") setErasing(true);
+      if (e.key === "Alt" && !e.shiftKey) setErasing(true);
+      if (e.key === "Alt" && e.shiftKey && !isMac) setShapeActive(true);
+      if (e.key === "Shift" && e.altKey && !isMac) {
+        setErasing(false);
+        setShapeActive(true);
+      }
       if (e.key === "Control" && isMac) setShapeActive(true);
       if (e.key === "s" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         window.dispatchEvent(new Event("simpledraw:cycle-shape"));
@@ -776,6 +781,7 @@ export default function Canvas({
         }
       }
       if (e.key === "Control" && isMac) setShapeActive(false);
+      if ((e.key === "Alt" || e.key === "Shift") && !isMac) setShapeActive(false);
     };
 
     const onBlur = () => {
@@ -1058,17 +1064,19 @@ export default function Canvas({
                       : null;
         }
       } else {
-        modifier = e.altKey
-          ? "alt"
-          : e.ctrlKey && !e.metaKey && isMac
-            ? "shape"
-            : cmdKey(e) && e.shiftKey
-              ? "line"
-              : cmdKey(e)
-                ? "meta"
-                : e.shiftKey
-                  ? "shift"
-                  : null;
+        modifier = e.altKey && e.shiftKey && !isMac
+          ? "shape"
+          : e.altKey
+            ? "alt"
+            : e.ctrlKey && !e.metaKey && isMac
+              ? "shape"
+              : cmdKey(e) && e.shiftKey
+                ? "line"
+                : cmdKey(e)
+                  ? "meta"
+                  : e.shiftKey
+                    ? "shift"
+                    : null;
       }
 
       if (!modifier) {
