@@ -405,7 +405,7 @@ export default function App() {
         activeShape={settings.activeShape}
       />
       {hasTouch ? (
-        <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2">
+        <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2 touch-toolbar">
           <div
             className="relative flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
             style={{
