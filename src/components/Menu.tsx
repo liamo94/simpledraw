@@ -1,5 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import type { Settings } from "../hooks/useSettings";
+import type { Settings, Theme } from "../hooks/useSettings";
+
+function isDarkTheme(theme: Theme): boolean {
+  return theme === "dark" || theme === "midnight";
+}
 
 type Props = {
   settings: Settings;
@@ -9,7 +13,6 @@ type Props = {
   onClear: () => void;
   zoom: number;
   onResetView: () => void;
-  resolvedTheme: "dark" | "light";
   hasTouch: boolean;
 };
 
@@ -25,7 +28,6 @@ export default function Menu({
   onClear,
   zoom,
   onResetView,
-  resolvedTheme,
   hasTouch,
 }: Props) {
   const [open, setOpen] = useState(false);
@@ -33,7 +35,7 @@ export default function Menu({
   const [showAbout, setShowAbout] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  const isDark = resolvedTheme === "dark";
+  const isDark = isDarkTheme(settings.theme);
 
   useEffect(() => {
     const onToggle = () =>
@@ -82,6 +84,7 @@ export default function Menu({
     "#ef4444",
     "#ec4899",
     "#22c55e",
+    "#84cc16",
     "#3b82f6",
     "#eab308",
     "#f97316",
@@ -137,7 +140,7 @@ export default function Menu({
 
       {open && (
         <div
-          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-45 max-w-78 overflow-y-auto ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
+          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-[340px] max-w-[360px] overflow-y-auto ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
         >
           <div
             className={`text-lg mb-3 text-center ${isDark ? "text-white/90" : "text-black/90"}`}
@@ -186,22 +189,47 @@ export default function Menu({
           />
 
           <div className="mt-3 text-sm">Shape</div>
-          <div className="flex gap-1 mt-1.5">
-            {(["rectangle", "circle", "triangle", "star"] as const).map((s) => (
+          <div className="flex gap-1.5 mt-1.5 flex-wrap justify-center">
+            {(["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => updateSettings({ activeShape: s })}
-                className={`flex-1 py-1 rounded text-xs transition-colors ${
+                className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
                   settings.activeShape === s
                     ? isDark
-                      ? "bg-white/20 text-white"
-                      : "bg-black/20 text-black"
+                      ? "bg-white/20"
+                      : "bg-black/20"
                     : isDark
-                      ? "bg-white/5 text-white/60 hover:bg-white/10"
-                      : "bg-black/5 text-black/60 hover:bg-black/10"
+                      ? "bg-white/5 hover:bg-white/10"
+                      : "bg-black/5 hover:bg-black/10"
                 }`}
+                title={s.charAt(0).toUpperCase() + s.slice(1)}
               >
-                {s.charAt(0).toUpperCase() + s.slice(1)}
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke={isDark ? "white" : "black"}
+                  strokeWidth="1.5"
+                  strokeLinejoin="round"
+                  strokeOpacity={settings.activeShape === s ? 1 : 0.6}
+                >
+                  {s === "rectangle" && <rect x="2" y="3" width="12" height="10" rx="0.5" />}
+                  {s === "circle" && <circle cx="8" cy="8" r="6" />}
+                  {s === "triangle" && <polygon points="8,2 14,14 2,14" />}
+                  {s === "diamond" && <polygon points="8,1 15,8 8,15 1,8" />}
+                  {s === "pentagon" && <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />}
+                  {s === "hexagon" && <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />}
+                  {s === "octagon" && <polygon points="5,2 11,2 14,5 14,11 11,14 5,14 2,11 2,5" />}
+                  {s === "star" && <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />}
+                  {s === "arrow" && (
+                    <>
+                      <line x1="2" y1="8" x2="12" y2="8" />
+                      <polyline points="9,5 12,8 9,11" strokeLinecap="round" />
+                    </>
+                  )}
+                </svg>
               </button>
             ))}
           </div>
@@ -330,7 +358,7 @@ export default function Menu({
 
           <div className="mt-3 text-sm">Theme</div>
           <div className="flex gap-1 mt-1.5">
-            {(["system", "dark", "light"] as const).map((t) => (
+            {(["dark", "midnight", "white"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => updateSettings({ theme: t })}

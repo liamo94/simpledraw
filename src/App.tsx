@@ -2,23 +2,18 @@ import { useCallback, useState, useEffect, useRef, ReactNode } from "react";
 import Canvas from "./components/Canvas";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
-import useSettings, { type ShapeKind } from "./hooks/useSettings";
+import useSettings, { type ShapeKind, type Theme } from "./hooks/useSettings";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 
-function getSystemTheme(): "dark" | "light" {
-  return window.matchMedia("(prefers-color-scheme: dark)").matches
-    ? "dark"
-    : "light";
+function isDarkTheme(theme: Theme): boolean {
+  return theme === "dark" || theme === "midnight";
 }
 
 export default function App() {
   const [settings, updateSettings] = useSettings();
 
   const [zoom, setZoom] = useState(1);
-  const [systemTheme, setSystemTheme] = useState<"dark" | "light">(
-    getSystemTheme,
-  );
   const [touchTool, setTouchTool] = useState<TouchTool>("draw");
   const [hasTouch] = useState(
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
@@ -36,51 +31,37 @@ export default function App() {
   const drawButtonRef = useRef<HTMLButtonElement>(null);
   const dashedButtonRef = useRef<HTMLButtonElement>(null);
 
-  const resolvedTheme =
-    settings.theme === "system" ? systemTheme : settings.theme;
-
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
-  // Listen for OS theme changes
+  // Apply body styles based on theme
   useEffect(() => {
-    const mql = window.matchMedia("(prefers-color-scheme: dark)");
-    const onChange = (e: MediaQueryListEvent) =>
-      setSystemTheme(e.matches ? "dark" : "light");
-    mql.addEventListener("change", onChange);
-    return () => mql.removeEventListener("change", onChange);
-  }, []);
-
-  // Apply body styles based on resolved theme
-  useEffect(() => {
-    if (resolvedTheme === "dark") {
-      document.body.style.background = "#0a0a1a";
-      document.body.style.color = "rgba(255,255,255,0.8)";
-      document.documentElement.style.colorScheme = "dark";
+    const isDark = isDarkTheme(settings.theme);
+    if (settings.theme === "midnight") {
+      document.body.style.background = "#1a1a2e";
+    } else if (settings.theme === "dark") {
+      document.body.style.background = "#050510";
     } else {
       document.body.style.background = "#f5f5f0";
-      document.body.style.color = "rgba(0,0,0,0.8)";
-      document.documentElement.style.colorScheme = "light";
     }
-  }, [resolvedTheme]);
+    document.body.style.color = isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.8)";
+    document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+  }, [settings.theme]);
 
-  // Swap default line color when theme changes
-  const prevThemeRef = useRef(resolvedTheme);
+  // Swap default line color when theme changes between dark/light
+  const prevThemeRef = useRef(settings.theme);
   useEffect(() => {
-    if (prevThemeRef.current === resolvedTheme) return;
-    const prev = prevThemeRef.current;
-    prevThemeRef.current = resolvedTheme;
+    if (prevThemeRef.current === settings.theme) return;
+    const prevIsDark = isDarkTheme(prevThemeRef.current);
+    const nowIsDark = isDarkTheme(settings.theme);
+    prevThemeRef.current = settings.theme;
     const color = settingsRef.current.lineColor;
-    if (resolvedTheme === "light" && prev === "dark" && color === "#ffffff") {
+    if (!nowIsDark && prevIsDark && color === "#ffffff") {
       updateSettings({ lineColor: "#000000" });
-    } else if (
-      resolvedTheme === "dark" &&
-      prev === "light" &&
-      color === "#000000"
-    ) {
+    } else if (nowIsDark && !prevIsDark && color === "#000000") {
       updateSettings({ lineColor: "#ffffff" });
     }
-  }, [resolvedTheme, updateSettings]);
+  }, [settings.theme, updateSettings]);
 
   const [confirmingClear, setConfirmingClear] = useState(false);
 
@@ -122,15 +103,13 @@ export default function App() {
     };
     const onColorCycle = (e: Event) => {
       const dir = (e as CustomEvent).detail as number;
-      const dark =
-        settingsRef.current.theme === "system"
-          ? getSystemTheme() === "dark"
-          : settingsRef.current.theme === "dark";
+      const dark = isDarkTheme(settingsRef.current.theme);
       const palette = [
         dark ? "#ffffff" : "#000000",
         "#ef4444",
         "#ec4899",
         "#22c55e",
+        "#84cc16",
         "#3b82f6",
         "#eab308",
         "#f97316",
@@ -147,24 +126,56 @@ export default function App() {
     };
     const onRequestClear = () => requestClear();
     const onCycleShape = () => {
-      const shapes: ShapeKind[] = ["rectangle", "circle", "triangle", "star"];
+      const shapes: ShapeKind[] = ["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"];
       const cur = settingsRef.current.activeShape;
       const idx = shapes.indexOf(cur);
       const next = (idx + 1) % shapes.length;
       updateSettings({ activeShape: shapes[next] });
       showToast({ type: "shape", shape: shapes[next] });
     };
+    const onCycleShapeBack = () => {
+      const shapes: ShapeKind[] = ["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"];
+      const cur = settingsRef.current.activeShape;
+      const idx = shapes.indexOf(cur);
+      const next = (idx - 1 + shapes.length) % shapes.length;
+      updateSettings({ activeShape: shapes[next] });
+      showToast({ type: "shape", shape: shapes[next] });
+    };
+    const onSetColorIndex = (e: Event) => {
+      const dark = isDarkTheme(settingsRef.current.theme);
+      const palette = [
+        dark ? "#ffffff" : "#000000",
+        "#ef4444",
+        "#ec4899",
+        "#22c55e",
+        "#84cc16",
+        "#3b82f6",
+        "#eab308",
+        "#f97316",
+        "#8b5cf6",
+        "#06b6d4",
+      ];
+      const idx = (e as CustomEvent).detail as number;
+      if (idx >= 0 && idx < palette.length) {
+        updateSettings({ lineColor: palette[idx] });
+        showToast({ type: "text", message: `Color ${idx + 1}` });
+      }
+    };
     window.addEventListener("simpledraw:zoom", onZoom);
     window.addEventListener("simpledraw:thickness", onThickness);
     window.addEventListener("simpledraw:color-cycle", onColorCycle);
     window.addEventListener("simpledraw:request-clear", onRequestClear);
     window.addEventListener("simpledraw:cycle-shape", onCycleShape);
+    window.addEventListener("simpledraw:cycle-shape-back", onCycleShapeBack);
+    window.addEventListener("simpledraw:set-color-index", onSetColorIndex);
     return () => {
       window.removeEventListener("simpledraw:zoom", onZoom);
       window.removeEventListener("simpledraw:thickness", onThickness);
       window.removeEventListener("simpledraw:color-cycle", onColorCycle);
       window.removeEventListener("simpledraw:request-clear", onRequestClear);
       window.removeEventListener("simpledraw:cycle-shape", onCycleShape);
+      window.removeEventListener("simpledraw:cycle-shape-back", onCycleShapeBack);
+      window.removeEventListener("simpledraw:set-color-index", onSetColorIndex);
     };
   }, [updateSettings, requestClear, showToast]);
 
@@ -267,7 +278,7 @@ export default function App() {
     };
   }, [showThicknessPicker]);
 
-  const isDark = resolvedTheme === "dark";
+  const isDark = isDarkTheme(settings.theme);
   const mod = isMac ? "\u2318" : "Ctrl";
   const alt = isMac ? "\u2325" : "Alt";
 
@@ -369,14 +380,50 @@ export default function App() {
             <rect x="2" y="3" width="12" height="10" rx="1" />
           )}
           {settings.activeShape === "circle" && (
-            <ellipse cx="8" cy="8" rx="6" ry="5" />
+            <circle cx="8" cy="8" r="6" />
           )}
           {settings.activeShape === "triangle" && (
             <polygon points="8,2 14,14 2,14" />
           )}
+          {settings.activeShape === "diamond" && (
+            <polygon points="8,1 15,8 8,15 1,8" />
+          )}
+          {settings.activeShape === "pentagon" && (
+            <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
+          )}
+          {settings.activeShape === "hexagon" && (
+            <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
+          )}
+          {settings.activeShape === "octagon" && (
+            <polygon points="5,2 11,2 14,5 14,11 11,14 5,14 2,11 2,5" />
+          )}
           {settings.activeShape === "star" && (
             <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
           )}
+          {settings.activeShape === "arrow" && (
+            <>
+              <line x1="2" y1="8" x2="12" y2="8" />
+              <polyline points="9,5 12,8 9,11" />
+            </>
+          )}
+        </svg>
+      ),
+    },
+    {
+      id: "highlight",
+      label: "Mark",
+      icon: (
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke={settings.lineColor}
+          strokeWidth="3"
+          strokeLinecap="round"
+          strokeOpacity="0.4"
+        >
+          <line x1="2" y1="8" x2="14" y2="8" />
         </svg>
       ),
     },
@@ -392,7 +439,6 @@ export default function App() {
         onClear={requestClear}
         zoom={zoom}
         onResetView={resetView}
-        resolvedTheme={resolvedTheme}
         hasTouch={hasTouch}
       />
       <Canvas
@@ -400,7 +446,7 @@ export default function App() {
         lineColor={settings.lineColor}
         dashGap={settings.dashGap}
         showDotGrid={settings.showDotGrid}
-        resolvedTheme={resolvedTheme}
+        theme={settings.theme}
         touchTool={touchTool}
         activeShape={settings.activeShape}
       />
@@ -501,7 +547,7 @@ export default function App() {
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              {(["rectangle", "circle", "triangle", "star"] as const).map((shape) => (
+              {(["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"] as const).map((shape) => (
                 <button
                   key={shape}
                   onClick={() => {
@@ -532,13 +578,31 @@ export default function App() {
                       <rect x="2" y="3" width="12" height="10" rx="1" />
                     )}
                     {shape === "circle" && (
-                      <ellipse cx="8" cy="8" rx="6" ry="5" />
+                      <circle cx="8" cy="8" r="6" />
                     )}
                     {shape === "triangle" && (
                       <polygon points="8,2 14,14 2,14" />
                     )}
+                    {shape === "diamond" && (
+                      <polygon points="8,1 15,8 8,15 1,8" />
+                    )}
+                    {shape === "pentagon" && (
+                      <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
+                    )}
+                    {shape === "hexagon" && (
+                      <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
+                    )}
+                    {shape === "octagon" && (
+                      <polygon points="5,2 11,2 14,5 14,11 11,14 5,14 2,11 2,5" />
+                    )}
                     {shape === "star" && (
                       <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+                    )}
+                    {shape === "arrow" && (
+                      <>
+                        <line x1="2" y1="8" x2="12" y2="8" />
+                        <polyline points="9,5 12,8 9,11" />
+                      </>
                     )}
                   </svg>
                 </button>
@@ -569,7 +633,7 @@ export default function App() {
                 step={1}
                 value={settings.lineWidth}
                 onChange={(e) => updateSettings({ lineWidth: Number(e.target.value) })}
-                className={`w-24 ${isDark ? "accent-white/70" : "accent-black/70"}`}
+                className={`w-32 ${isDark ? "accent-white/70" : "accent-black/70"}`}
               />
             </div>
           )}
@@ -755,13 +819,31 @@ export default function App() {
                 <rect x="2" y="3" width="12" height="10" rx="1" />
               )}
               {toast.shape === "circle" && (
-                <ellipse cx="8" cy="8" rx="6" ry="5" />
+                <circle cx="8" cy="8" r="6" />
               )}
               {toast.shape === "triangle" && (
                 <polygon points="8,2 14,14 2,14" />
               )}
+              {toast.shape === "diamond" && (
+                <polygon points="8,1 15,8 8,15 1,8" />
+              )}
+              {toast.shape === "pentagon" && (
+                <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
+              )}
+              {toast.shape === "hexagon" && (
+                <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
+              )}
+              {toast.shape === "octagon" && (
+                <polygon points="5,2 11,2 14,5 14,11 11,14 5,14 2,11 2,5" />
+              )}
               {toast.shape === "star" && (
                 <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+              )}
+              {toast.shape === "arrow" && (
+                <>
+                  <line x1="2" y1="8" x2="12" y2="8" />
+                  <polyline points="9,5 12,8 9,11" />
+                </>
               )}
             </svg>
           )}

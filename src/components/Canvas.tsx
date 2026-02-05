@@ -1,5 +1,15 @@
 import { useRef, useEffect, useCallback, useState } from "react";
-import type { ShapeKind } from "../hooks/useSettings";
+import type { ShapeKind, Theme } from "../hooks/useSettings";
+
+function isDarkTheme(theme: Theme): boolean {
+  return theme === "dark" || theme === "midnight";
+}
+
+function getBackgroundColor(theme: Theme): string {
+  if (theme === "midnight") return "#1a1a2e";
+  if (theme === "dark") return "#050510";
+  return "#f5f5f0";
+}
 
 type Stroke = {
   points: { x: number; y: number }[];
@@ -8,13 +18,14 @@ type Stroke = {
   dashGap?: number;
   color: string;
   shape?: ShapeKind;
+  highlight?: boolean;
 };
 
 type UndoAction =
   | { type: "draw"; stroke: Stroke }
   | { type: "erase"; strokes: Stroke[] };
 
-export type TouchTool = "draw" | "dashed" | "line" | "erase" | "hand" | "shape";
+export type TouchTool = "draw" | "dashed" | "line" | "erase" | "hand" | "shape" | "highlight";
 
 const STROKES_KEY = "simpledraw-strokes";
 
@@ -104,11 +115,27 @@ function starPoints(
   return pts;
 }
 
+function regularPolygonPoints(
+  cx: number,
+  cy: number,
+  rx: number,
+  ry: number,
+  sides: number,
+): { x: number; y: number }[] {
+  const pts: { x: number; y: number }[] = [];
+  for (let i = 0; i < sides; i++) {
+    const angle = (Math.PI * 2 * i) / sides - Math.PI / 2;
+    pts.push({ x: cx + rx * Math.cos(angle), y: cy + ry * Math.sin(angle) });
+  }
+  return pts;
+}
+
 function renderShape(
   ctx: CanvasRenderingContext2D,
   p0: { x: number; y: number },
   p1: { x: number; y: number },
   shape: ShapeKind,
+  lineWidth: number,
 ) {
   const x = Math.min(p0.x, p1.x);
   const y = Math.min(p0.y, p1.y);
@@ -135,6 +162,57 @@ function renderShape(
       const pts = starPoints(cx, cy, w / 2, h / 2, w / 5, h / 5);
       ctx.moveTo(pts[0].x, pts[0].y);
       for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      break;
+    }
+    case "arrow": {
+      // Draw line from p0 to p1
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      ctx.stroke();
+      // Draw arrowhead
+      const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+      const headLen = Math.max(15, lineWidth * 3);
+      const headAngle = Math.PI / 6;
+      ctx.beginPath();
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(
+        p1.x - headLen * Math.cos(angle - headAngle),
+        p1.y - headLen * Math.sin(angle - headAngle)
+      );
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(
+        p1.x - headLen * Math.cos(angle + headAngle),
+        p1.y - headLen * Math.sin(angle + headAngle)
+      );
+      break;
+    }
+    case "pentagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 5);
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      break;
+    }
+    case "hexagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 6);
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      break;
+    }
+    case "octagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 8);
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      ctx.closePath();
+      break;
+    }
+    case "diamond": {
+      ctx.moveTo(cx, y);
+      ctx.lineTo(x + w, cy);
+      ctx.lineTo(cx, y + h);
+      ctx.lineTo(x, cy);
       ctx.closePath();
       break;
     }
@@ -181,32 +259,73 @@ function shapeToSegments(
       const pts = starPoints(cx, cy, w / 2, h / 2, w / 5, h / 5);
       return [...pts, pts[0]];
     }
+    case "arrow": {
+      // Line from p0 to p1 plus arrowhead points
+      const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+      const headLen = 15;
+      const headAngle = Math.PI / 6;
+      return [
+        p0, p1,
+        { x: p1.x - headLen * Math.cos(angle - headAngle), y: p1.y - headLen * Math.sin(angle - headAngle) },
+        p1,
+        { x: p1.x - headLen * Math.cos(angle + headAngle), y: p1.y - headLen * Math.sin(angle + headAngle) },
+      ];
+    }
+    case "pentagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 5);
+      return [...pts, pts[0]];
+    }
+    case "hexagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 6);
+      return [...pts, pts[0]];
+    }
+    case "octagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 8);
+      return [...pts, pts[0]];
+    }
+    case "diamond": {
+      return [
+        { x: cx, y },
+        { x: x + w, y: cy },
+        { x: cx, y: y + h },
+        { x, y: cy },
+        { x: cx, y },
+      ];
+    }
   }
+}
+
+function hexToRgba(hex: string, alpha: number): string {
+  const r = parseInt(hex.slice(1, 3), 16);
+  const g = parseInt(hex.slice(3, 5), 16);
+  const b = parseInt(hex.slice(5, 7), 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }
 
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length === 0) continue;
+    const color = stroke.highlight ? hexToRgba(stroke.color, 0.4) : stroke.color;
     if (stroke.points.length === 1) {
       const p = stroke.points[0];
       ctx.beginPath();
-      ctx.fillStyle = stroke.color;
+      ctx.fillStyle = color;
       ctx.arc(p.x, p.y, stroke.lineWidth / 2, 0, Math.PI * 2);
       ctx.fill();
       continue;
     }
     if (stroke.shape && stroke.points.length === 2) {
-      ctx.strokeStyle = stroke.color;
+      ctx.strokeStyle = color;
       ctx.lineWidth = stroke.lineWidth;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
       ctx.setLineDash([]);
-      renderShape(ctx, stroke.points[0], stroke.points[1], stroke.shape);
+      renderShape(ctx, stroke.points[0], stroke.points[1], stroke.shape, stroke.lineWidth);
       continue;
     }
     ctx.beginPath();
-    ctx.strokeStyle = stroke.color;
-    ctx.lineWidth = stroke.lineWidth;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = stroke.highlight ? stroke.lineWidth * 2.5 : stroke.lineWidth;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     const dashScale = stroke.lineWidth / 4;
@@ -236,7 +355,7 @@ export default function Canvas({
   lineColor,
   dashGap,
   showDotGrid,
-  resolvedTheme,
+  theme,
   touchTool,
   activeShape,
 }: {
@@ -244,7 +363,7 @@ export default function Canvas({
   lineColor: string;
   dashGap: number;
   showDotGrid: boolean;
-  resolvedTheme: "dark" | "light";
+  theme: Theme;
   touchTool: TouchTool;
   activeShape: ShapeKind;
 }) {
@@ -259,14 +378,14 @@ export default function Canvas({
   const eraseTrailRef = useRef<{ x: number; y: number }[]>([]);
   const eraseMovingRef = useRef(false);
   const isDrawingRef = useRef(false);
-  const activeModifierRef = useRef<"meta" | "shift" | "alt" | "line" | "shape" | null>(
+  const activeModifierRef = useRef<"meta" | "shift" | "alt" | "line" | "shape" | "highlight" | null>(
     null,
   );
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
   const showDotGridRef = useRef(showDotGrid);
   showDotGridRef.current = showDotGrid;
-  const resolvedThemeRef = useRef(resolvedTheme);
-  resolvedThemeRef.current = resolvedTheme;
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
   const touchToolRef = useRef(touchTool);
   touchToolRef.current = touchTool;
   const lineWidthRef = useRef(lineWidth);
@@ -280,6 +399,8 @@ export default function Canvas({
   const [panning, setPanning] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [shapeActive, setShapeActive] = useState(false);
+  const [highlighting, setHighlighting] = useState(false);
+  const highlightKeyRef = useRef(false);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
 
@@ -288,6 +409,8 @@ export default function Canvas({
   const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(
     null,
   );
+  // Two-finger tap tracking for undo
+  const twoFingerTapRef = useRef<{ startPositions: Map<number, { x: number; y: number }>; moved: boolean } | null>(null);
 
   const persistStrokes = useCallback(() => {
     saveStrokes(strokesRef.current);
@@ -313,11 +436,11 @@ export default function Canvas({
 
     const { x, y, scale } = viewRef.current;
 
-    const isDark = resolvedThemeRef.current === "dark";
+    const isDark = isDarkTheme(themeRef.current);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = isDark ? "#0a0a1a" : "#f5f5f0";
+    ctx.fillStyle = getBackgroundColor(themeRef.current);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.setTransform(scale, 0, 0, scale, x, y);
 
@@ -462,28 +585,32 @@ export default function Canvas({
     redraw();
   }, [redraw, persistStrokes]);
 
-  // Swap default stroke colors when theme changes, then redraw
-  const prevThemeRef = useRef(resolvedTheme);
+  // Swap default stroke colors when switching between dark/light themes, then redraw
+  const prevThemeRef = useRef(theme);
   useEffect(() => {
-    if (prevThemeRef.current !== resolvedTheme) {
-      const from = resolvedTheme === "light" ? "#ffffff" : "#000000";
-      const to = resolvedTheme === "light" ? "#000000" : "#ffffff";
-      for (const stroke of strokesRef.current) {
-        if (stroke.color === from) stroke.color = to;
-      }
-      const swapAction = (a: UndoAction) => {
-        const list = a.type === "draw" ? [a.stroke] : a.strokes;
-        for (const s of list) {
-          if (s.color === from) s.color = to;
+    if (prevThemeRef.current !== theme) {
+      const prevIsDark = isDarkTheme(prevThemeRef.current);
+      const nowIsDark = isDarkTheme(theme);
+      if (prevIsDark !== nowIsDark) {
+        const from = nowIsDark ? "#000000" : "#ffffff";
+        const to = nowIsDark ? "#ffffff" : "#000000";
+        for (const stroke of strokesRef.current) {
+          if (stroke.color === from) stroke.color = to;
         }
-      };
-      undoStackRef.current.forEach(swapAction);
-      redoStackRef.current.forEach(swapAction);
-      prevThemeRef.current = resolvedTheme;
-      persistStrokes();
+        const swapAction = (a: UndoAction) => {
+          const list = a.type === "draw" ? [a.stroke] : a.strokes;
+          for (const s of list) {
+            if (s.color === from) s.color = to;
+          }
+        };
+        undoStackRef.current.forEach(swapAction);
+        redoStackRef.current.forEach(swapAction);
+        persistStrokes();
+      }
+      prevThemeRef.current = theme;
     }
     redraw();
-  }, [showDotGrid, resolvedTheme, redraw, persistStrokes]);
+  }, [showDotGrid, theme, redraw, persistStrokes]);
 
   // Handle resize
   useEffect(() => {
@@ -776,8 +903,22 @@ export default function Canvas({
         setShapeActive(true);
       }
       if (e.key === "Control" && isMac) setShapeActive(true);
-      if (e.key === "s" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+      if (e.key === "s" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         window.dispatchEvent(new Event("simpledraw:cycle-shape"));
+      }
+      if (e.key === "S" && !cmdKey(e) && !e.altKey && !e.ctrlKey && e.shiftKey) {
+        window.dispatchEvent(new Event("simpledraw:cycle-shape-back"));
+      }
+      if (e.key === "v" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        highlightKeyRef.current = true;
+        setHighlighting(true);
+      }
+      // Number keys 1-9 for quick color selection
+      if (e.key >= "1" && e.key <= "9" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        const colorIndex = parseInt(e.key) - 1;
+        window.dispatchEvent(
+          new CustomEvent("simpledraw:set-color-index", { detail: colorIndex }),
+        );
       }
       if (e.key === "Escape" && activeModifierRef.current === "alt") {
         e.preventDefault();
@@ -785,6 +926,10 @@ export default function Canvas({
         cancelErase();
       }
       if (e.key === "Escape" && activeModifierRef.current === "shape") {
+        e.preventDefault();
+        cancelCurrentStroke();
+      }
+      if (e.key === "Escape" && activeModifierRef.current === "highlight") {
         e.preventDefault();
         cancelCurrentStroke();
       }
@@ -801,6 +946,15 @@ export default function Canvas({
           redraw();
         }
       }
+      if (e.key === "v") {
+        highlightKeyRef.current = false;
+        setHighlighting(false);
+        if (activeModifierRef.current === "highlight") {
+          isDrawingRef.current = false;
+          activeModifierRef.current = null;
+          persistStrokes();
+        }
+      }
       if (e.key === "Control" && isMac) setShapeActive(false);
       if ((e.key === "Alt" || e.key === "Shift") && !isMac) setShapeActive(false);
     };
@@ -808,8 +962,15 @@ export default function Canvas({
     const onBlur = () => {
       setErasing(false);
       setShapeActive(false);
+      setHighlighting(false);
+      highlightKeyRef.current = false;
       if (activeModifierRef.current === "alt") {
         cancelErase();
+      }
+      if (activeModifierRef.current === "highlight") {
+        isDrawingRef.current = false;
+        activeModifierRef.current = null;
+        persistStrokes();
       }
     };
 
@@ -907,6 +1068,11 @@ export default function Canvas({
             cx: (pts[0].x + pts[1].x) / 2,
             cy: (pts[0].y + pts[1].y) / 2,
           };
+          // Start tracking two-finger tap for undo
+          twoFingerTapRef.current = {
+            startPositions: new Map(pointersRef.current),
+            moved: false,
+          };
         } else if (
           pointersRef.current.size === 1 &&
           touchToolRef.current === "hand"
@@ -914,11 +1080,11 @@ export default function Canvas({
           isPanningRef.current = true;
           panLastRef.current = { x: e.clientX, y: e.clientY };
         }
-        // Track tap start for single-finger draw/dashed/line/shape tools
+        // Track tap start for single-finger draw/dashed/line/shape/highlight tools
         const tool = touchToolRef.current;
         if (
           pointersRef.current.size === 1 &&
-          (tool === "draw" || tool === "dashed" || tool === "line" || tool === "shape")
+          (tool === "draw" || tool === "dashed" || tool === "line" || tool === "shape" || tool === "highlight")
         ) {
           tapStartRef.current = { x: e.clientX, y: e.clientY, id: e.pointerId };
         } else {
@@ -944,7 +1110,26 @@ export default function Canvas({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.pointerType === "touch") {
         pointersRef.current.delete(e.pointerId);
-        if (pointersRef.current.size < 2) pinchRef.current = null;
+        if (pointersRef.current.size < 2) {
+          // Check for two-finger tap (undo gesture)
+          if (pointersRef.current.size === 1 && twoFingerTapRef.current && !twoFingerTapRef.current.moved) {
+            // Two fingers were down and neither moved much - trigger undo
+            const action = undoStackRef.current.pop();
+            if (action) {
+              if (action.type === "draw") {
+                const idx = strokesRef.current.lastIndexOf(action.stroke);
+                if (idx !== -1) strokesRef.current.splice(idx, 1);
+              } else {
+                strokesRef.current.push(...action.strokes);
+              }
+              redoStackRef.current.push(action);
+              persistStrokes();
+              redraw();
+            }
+          }
+          twoFingerTapRef.current = null;
+          pinchRef.current = null;
+        }
         if (pointersRef.current.size === 0) {
           if (isPanningRef.current) {
             isPanningRef.current = false;
@@ -1022,6 +1207,20 @@ export default function Canvas({
           const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
           const cx = (pts[0].x + pts[1].x) / 2;
           const cy = (pts[0].y + pts[1].y) / 2;
+          // Check if fingers moved enough to invalidate two-finger tap
+          if (twoFingerTapRef.current && !twoFingerTapRef.current.moved) {
+            const startPts = twoFingerTapRef.current.startPositions;
+            let totalMove = 0;
+            for (const [id, pos] of pointersRef.current) {
+              const start = startPts.get(id);
+              if (start) {
+                totalMove += Math.hypot(pos.x - start.x, pos.y - start.y);
+              }
+            }
+            if (totalMove > 20) {
+              twoFingerTapRef.current.moved = true;
+            }
+          }
           // Pan
           const view = viewRef.current;
           view.x += cx - pinchRef.current.cx;
@@ -1063,7 +1262,7 @@ export default function Canvas({
       }
 
       // --- Determine modifier ---
-      let modifier: "meta" | "shift" | "alt" | "line" | "shape" | null;
+      let modifier: "meta" | "shift" | "alt" | "line" | "shape" | "highlight" | null;
 
       if (e.pointerType === "touch") {
         const down = (e.buttons & 1) !== 0;
@@ -1082,20 +1281,24 @@ export default function Canvas({
                     ? "alt"
                     : tool === "shape"
                       ? "shape"
-                      : null;
+                      : tool === "highlight"
+                        ? "highlight"
+                        : null;
         }
       } else {
-        modifier = e.altKey && e.shiftKey && !isMac
-          ? "shape"
-          : e.altKey
-            ? "alt"
-            : e.ctrlKey && !e.metaKey && isMac
-              ? "shape"
-              : cmdKey(e) && e.shiftKey
-                ? "line"
-                : cmdKey(e)
-                  ? "meta"
-                  : e.shiftKey
+        modifier = highlightKeyRef.current
+          ? "highlight"
+          : e.altKey && e.shiftKey && !isMac
+            ? "shape"
+            : e.altKey
+              ? "alt"
+              : e.ctrlKey && !e.metaKey && isMac
+                ? "shape"
+                : cmdKey(e) && e.shiftKey
+                  ? "line"
+                  : cmdKey(e)
+                    ? "meta"
+                    : e.shiftKey
                     ? "shift"
                     : null;
       }
@@ -1174,6 +1377,29 @@ export default function Canvas({
         } else {
           const current = strokesRef.current[strokesRef.current.length - 1];
           current.points[1] = point;
+        }
+        redraw();
+        return;
+      }
+
+      if (modifier === "highlight") {
+        if (!isDrawingRef.current || activeModifierRef.current !== "highlight") {
+          isDrawingRef.current = true;
+          activeModifierRef.current = "highlight";
+          const stroke: Stroke = {
+            points: [point],
+            style: "solid",
+            lineWidth,
+            dashGap,
+            color: lineColor,
+            highlight: true,
+          };
+          strokesRef.current.push(stroke);
+          undoStackRef.current.push({ type: "draw", stroke });
+          redoStackRef.current = [];
+        } else {
+          const current = strokesRef.current[strokesRef.current.length - 1];
+          current.points.push(point);
         }
         redraw();
         return;
@@ -1268,14 +1494,22 @@ export default function Canvas({
     circle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cellipse cx='12' cy='12' rx='8' ry='6' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
     triangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,4 20,20 4,20' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     star: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 14.5,9 22,9 16,14 18.5,21 12,17 5.5,21 8,14 2,9 9.5,9' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+    arrow: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='18' y2='12' stroke='${encodedColor}' stroke-width='1.5'/%3E%3Cpolyline points='14,8 18,12 14,16' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+    pentagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,3 21,10 18,21 6,21 3,10' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+    hexagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+    octagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='8,2 16,2 22,8 22,16 16,22 8,22 2,16 2,8' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+    diamond: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 22,12 12,22 2,12' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
   };
+  const highlightCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='6' stroke-linecap='round' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
   const cursor = panning
     ? "grabbing"
     : erasing
       ? eraserCursor
-      : shapeActive
-        ? shapeCursors[activeShape]
-        : crosshairCursor;
+      : highlighting
+        ? highlightCursor
+        : shapeActive
+          ? shapeCursors[activeShape]
+          : crosshairCursor;
 
   return (
     <canvas
