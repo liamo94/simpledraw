@@ -735,6 +735,27 @@ export default function Canvas({
           new CustomEvent("simpledraw:color-cycle", { detail: 1 }),
         );
       }
+      const panAmount = e.shiftKey ? 200 : 50;
+      if (e.key === "ArrowUp" && !cmdKey(e) && !e.altKey) {
+        e.preventDefault();
+        viewRef.current.y -= panAmount;
+        redraw();
+      }
+      if (e.key === "ArrowDown" && !cmdKey(e) && !e.altKey) {
+        e.preventDefault();
+        viewRef.current.y += panAmount;
+        redraw();
+      }
+      if (e.key === "ArrowLeft" && !cmdKey(e) && !e.altKey) {
+        e.preventDefault();
+        viewRef.current.x -= panAmount;
+        redraw();
+      }
+      if (e.key === "ArrowRight" && !cmdKey(e) && !e.altKey) {
+        e.preventDefault();
+        viewRef.current.x += panAmount;
+        redraw();
+      }
       if (e.key === "." && !cmdKey(e) && !e.altKey) {
         const dot: Stroke = {
           points: [{ ...cursorWorldRef.current }],
