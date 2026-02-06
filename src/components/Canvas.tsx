@@ -8,6 +8,7 @@ function isDarkTheme(theme: Theme): boolean {
 function getBackgroundColor(theme: Theme): string {
   if (theme === "midnight") return "#1a1a2e";
   if (theme === "dark") return "#050510";
+  if (theme === "journal") return "#fde68a";
   return "#f5f5f0";
 }
 

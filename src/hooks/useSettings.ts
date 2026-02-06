@@ -2,7 +2,7 @@ import { useState, useCallback } from "react";
 
 export type ShapeKind = "circle" | "rectangle" | "triangle" | "star" | "arrow" | "pentagon" | "hexagon" | "octagon" | "diamond";
 
-export type Theme = "dark" | "midnight" | "white";
+export type Theme = "dark" | "midnight" | "white" | "journal";
 
 export type Settings = {
   lineWidth: number;

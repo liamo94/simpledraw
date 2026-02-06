@@ -41,6 +41,8 @@ export default function App() {
       document.body.style.background = "#1a1a2e";
     } else if (settings.theme === "dark") {
       document.body.style.background = "#050510";
+    } else if (settings.theme === "journal") {
+      document.body.style.background = "#fde68a";
     } else {
       document.body.style.background = "#f5f5f0";
     }
@@ -288,8 +290,8 @@ export default function App() {
       label: "Move",
       icon: (
         <svg
-          width="16"
-          height="16"
+          width="17"
+          height="17"
           viewBox="0 0 16 16"
           fill="none"
           stroke="currentColor"
@@ -306,8 +308,8 @@ export default function App() {
       label: "Draw",
       icon: (
         <svg
-          width="16"
-          height="16"
+          width="17"
+          height="17"
           viewBox="0 0 16 16"
           fill="none"
           stroke={settings.lineColor}
@@ -325,8 +327,8 @@ export default function App() {
       label: "Dash",
       icon: (
         <svg
-          width="16"
-          height="16"
+          width="17"
+          height="17"
           viewBox="0 0 16 16"
           fill="none"
           stroke={settings.lineColor}
@@ -342,7 +344,7 @@ export default function App() {
       id: "erase",
       label: "Erase",
       icon: (
-        <svg width="16" height="16" viewBox="0 0 16 16">
+        <svg width="18" height="18" viewBox="0 0 16 16">
           <defs>
             <linearGradient id="eraser-grad" x1="0" y1="0" x2="1" y2="0">
               <stop offset="50%" stopColor="#89CFF0" />
@@ -368,8 +370,8 @@ export default function App() {
       label: "Shape",
       icon: (
         <svg
-          width="16"
-          height="16"
+          width="17"
+          height="17"
           viewBox="0 0 16 16"
           fill="none"
           stroke={settings.lineColor}
@@ -414,8 +416,8 @@ export default function App() {
       label: "Mark",
       icon: (
         <svg
-          width="16"
-          height="16"
+          width="17"
+          height="17"
           viewBox="0 0 16 16"
           fill="none"
           stroke={settings.lineColor}
@@ -518,7 +520,7 @@ export default function App() {
                       thicknessLongPressRef.current = null;
                     }
                   }}
-                  className={`flex items-center gap-1 px-2 py-2 rounded text-xs transition-colors ${
+                  className={`flex items-center gap-1 px-2.5 py-2.5 rounded text-xs transition-colors ${
                     touchTool === t.id
                       ? isDark
                         ? "bg-white/20 text-white"
@@ -532,6 +534,29 @@ export default function App() {
                 </button>
               );
             })}
+            {showThicknessPicker && (
+              <div
+                className="absolute bottom-full mb-2 left-0 right-0 p-3 rounded-lg border backdrop-blur-sm"
+                style={{
+                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
+                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <div className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}>
+                  Thickness: {settings.lineWidth}
+                </div>
+                <input
+                  type="range"
+                  min={1}
+                  max={10}
+                  step={1}
+                  value={settings.lineWidth}
+                  onChange={(e) => updateSettings({ lineWidth: Number(e.target.value) })}
+                  className={`w-full ${isDark ? "accent-white/70" : "accent-black/70"}`}
+                />
+              </div>
+            )}
           </div>
           {showShapePicker && (
             <div
@@ -609,34 +634,6 @@ export default function App() {
               ))}
             </div>
           )}
-          {showThicknessPicker && (
-            <div
-              className="absolute bottom-full mb-2 p-3 rounded-lg border backdrop-blur-sm"
-              style={{
-                background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
-                borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-                left: (showThicknessPicker === "draw" ? drawButtonRef : dashedButtonRef).current
-                  ? (showThicknessPicker === "draw" ? drawButtonRef : dashedButtonRef).current!.getBoundingClientRect().left +
-                    (showThicknessPicker === "draw" ? drawButtonRef : dashedButtonRef).current!.offsetWidth / 2 -
-                    60
-                  : "50%",
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              <div className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}>
-                Thickness: {settings.lineWidth}
-              </div>
-              <input
-                type="range"
-                min={1}
-                max={10}
-                step={1}
-                value={settings.lineWidth}
-                onChange={(e) => updateSettings({ lineWidth: Number(e.target.value) })}
-                className={`w-32 ${isDark ? "accent-white/70" : "accent-black/70"}`}
-              />
-            </div>
-          )}
           {settings.showZoomControls && (
             <div
               className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
@@ -651,18 +648,18 @@ export default function App() {
             >
               <button
                 onClick={zoomOut}
-                className={`w-7 h-7 flex items-center justify-center rounded transition-colors text-sm font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
               >
                 -
               </button>
               <span
-                className={`text-[10px] tabular-nums text-center min-w-8 ${isDark ? "text-white/50" : "text-black/50"}`}
+                className={`text-[11px] tabular-nums text-center min-w-8 ${isDark ? "text-white/50" : "text-black/50"}`}
               >
                 {Math.round(zoom * 100)}%
               </span>
               <button
                 onClick={zoomIn}
-                className={`w-7 h-7 flex items-center justify-center rounded transition-colors text-sm font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
               >
                 +
               </button>

@@ -235,7 +235,7 @@ export default function Menu({
           </div>
 
           <div className="mt-3 text-sm">Color</div>
-          <div className="flex gap-1.5 mt-1.5 flex-wrap">
+          <div className="flex gap-1.5 mt-1.5 flex-wrap justify-center">
             {palette.map((color) => (
               <button
                 key={color}
@@ -358,7 +358,7 @@ export default function Menu({
 
           <div className="mt-3 text-sm">Theme</div>
           <div className="flex gap-1 mt-1.5">
-            {(["dark", "midnight", "white"] as const).map((t) => (
+            {(["dark", "midnight", "white", "journal"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => updateSettings({ theme: t })}
