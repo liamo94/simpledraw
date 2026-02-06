@@ -256,27 +256,35 @@ export default function App() {
   // Close shape picker when touching outside
   useEffect(() => {
     if (!showShapePicker) return;
-    const close = () => setShowShapePicker(false);
+    const close = (e: PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setShowShapePicker(false);
+    };
     // Delay to avoid immediate close from the same touch that opened it
     const timer = setTimeout(() => {
-      window.addEventListener("pointerdown", close, { once: true });
+      window.addEventListener("pointerdown", close, { once: true, capture: true });
     }, 100);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("pointerdown", close, { capture: true });
     };
   }, [showShapePicker]);
 
   // Close thickness picker when touching outside
   useEffect(() => {
     if (!showThicknessPicker) return;
-    const close = () => setShowThicknessPicker(null);
+    const close = (e: PointerEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+      setShowThicknessPicker(null);
+    };
     const timer = setTimeout(() => {
-      window.addEventListener("pointerdown", close, { once: true });
+      window.addEventListener("pointerdown", close, { once: true, capture: true });
     }, 100);
     return () => {
       clearTimeout(timer);
-      window.removeEventListener("pointerdown", close);
+      window.removeEventListener("pointerdown", close, { capture: true });
     };
   }, [showThicknessPicker]);
 
@@ -544,15 +552,15 @@ export default function App() {
                 onPointerDown={(e) => e.stopPropagation()}
               >
                 <div className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}>
-                  Thickness: {settings.lineWidth}
+                  {showThicknessPicker === "draw" ? `Thickness: ${settings.lineWidth}` : `Dash gap: ${settings.dashGap}`}
                 </div>
                 <input
                   type="range"
                   min={1}
                   max={10}
                   step={1}
-                  value={settings.lineWidth}
-                  onChange={(e) => updateSettings({ lineWidth: Number(e.target.value) })}
+                  value={showThicknessPicker === "draw" ? settings.lineWidth : settings.dashGap}
+                  onChange={(e) => updateSettings(showThicknessPicker === "draw" ? { lineWidth: Number(e.target.value) } : { dashGap: Number(e.target.value) })}
                   className={`w-full ${isDark ? "accent-white/70" : "accent-black/70"}`}
                 />
               </div>

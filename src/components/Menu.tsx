@@ -77,8 +77,6 @@ export default function Menu({
     };
   }, [open]);
 
-  const defaultLineColor = isDark ? "#ffffff" : "#000000";
-
   const palette = [
     isDark ? "#ffffff" : "#000000",
     "#ef4444",
@@ -140,7 +138,7 @@ export default function Menu({
 
       {open && (
         <div
-          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm min-w-[340px] max-w-[360px] overflow-y-auto ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
+          className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
         >
           <div
             className={`text-lg mb-3 text-center ${isDark ? "text-white/90" : "text-black/90"}`}
@@ -149,7 +147,7 @@ export default function Menu({
             simpledraw
           </div>
           <label className="flex items-center justify-between gap-3 text-sm">
-            <span>Thickness</span>
+            <span>Line thickness</span>
             <span
               className={`text-xs tabular-nums w-3 text-right ${isDark ? "text-white/50" : "text-black/50"}`}
             >
@@ -358,7 +356,7 @@ export default function Menu({
 
           <div className="mt-3 text-sm">Theme</div>
           <div className="flex gap-1 mt-1.5">
-            {(["dark", "midnight", "white", "journal"] as const).map((t) => (
+            {(["dark", "midnight", "journal", "white"] as const).map((t) => (
               <button
                 key={t}
                 onClick={() => updateSettings({ theme: t })}
@@ -376,19 +374,6 @@ export default function Menu({
               </button>
             ))}
           </div>
-
-          <button
-            onClick={() =>
-              updateSettings({
-                lineWidth: 5,
-                lineColor: defaultLineColor,
-                dashGap: 5,
-              })
-            }
-            className={`mt-3 w-full py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
-          >
-            Reset defaults
-          </button>
 
           {!hasTouch && (
             <>
@@ -591,7 +576,7 @@ export default function Menu({
 
           {showAbout && (
             <div
-              className={`mt-2 pt-2 border-t text-xs leading-relaxed ${isDark ? "border-white/10 text-white/60" : "border-black/10 text-black/60"}`}
+              className={`mt-2 pt-2 border-t text-xs leading-relaxed break-words ${isDark ? "border-white/10 text-white/60" : "border-black/10 text-black/60"}`}
             >
               <p>simpledraw was built out of a need for three things:</p>
               <ul className="mt-1.5 list-disc list-inside space-y-1">
