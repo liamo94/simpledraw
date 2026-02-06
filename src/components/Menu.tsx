@@ -61,21 +61,17 @@ export default function Menu({
       }
     };
 
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setOpen(false);
-        setShowInfo(false);
-        setShowAbout(false);
-      }
-    };
-
     window.addEventListener("keydown", onKey);
-    window.addEventListener("mousedown", onClick);
     return () => {
       window.removeEventListener("keydown", onKey);
-      window.removeEventListener("mousedown", onClick);
     };
   }, [open]);
+
+  const closeMenu = () => {
+    setOpen(false);
+    setShowInfo(false);
+    setShowAbout(false);
+  };
 
   const palette = [
     isDark ? "#ffffff" : "#000000",
@@ -93,20 +89,27 @@ export default function Menu({
   ];
 
   return (
-    <div
-      ref={menuRef}
-      className="fixed top-4 right-4 z-50 flex flex-col items-end"
-    >
-      <button
-        onClick={() =>
-          setOpen((o) => {
-            if (o) {
-              setShowInfo(false);
-              setShowAbout(false);
-            }
-            return !o;
-          })
-        }
+    <>
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onPointerDown={closeMenu}
+        />
+      )}
+      <div
+        ref={menuRef}
+        className="fixed top-4 right-4 z-50 flex flex-col items-end"
+      >
+        <button
+          onClick={() =>
+            setOpen((o) => {
+              if (o) {
+                setShowInfo(false);
+                setShowAbout(false);
+              }
+              return !o;
+            })
+          }
         className={`w-8 h-8 flex items-center justify-center rounded border transition-colors ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
       >
         <svg
@@ -611,6 +614,7 @@ export default function Menu({
           </div>
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }

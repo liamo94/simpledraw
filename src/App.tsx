@@ -253,40 +253,6 @@ export default function App() {
     };
   }, [showOnboarding, dismissOnboarding]);
 
-  // Close shape picker when touching outside
-  useEffect(() => {
-    if (!showShapePicker) return;
-    const close = (e: PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setShowShapePicker(false);
-    };
-    // Delay to avoid immediate close from the same touch that opened it
-    const timer = setTimeout(() => {
-      window.addEventListener("pointerdown", close, { once: true, capture: true });
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("pointerdown", close, { capture: true });
-    };
-  }, [showShapePicker]);
-
-  // Close thickness picker when touching outside
-  useEffect(() => {
-    if (!showThicknessPicker) return;
-    const close = (e: PointerEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setShowThicknessPicker(null);
-    };
-    const timer = setTimeout(() => {
-      window.addEventListener("pointerdown", close, { once: true, capture: true });
-    }, 100);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("pointerdown", close, { capture: true });
-    };
-  }, [showThicknessPicker]);
 
   const isDark = isDarkTheme(settings.theme);
   const mod = isMac ? "\u2318" : "Ctrl";
@@ -461,7 +427,17 @@ export default function App() {
         activeShape={settings.activeShape}
       />
       {hasTouch ? (
-        <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2 touch-toolbar">
+        <>
+          {(showShapePicker || showThicknessPicker) && (
+            <div
+              className="fixed inset-0 z-40"
+              onPointerDown={() => {
+                setShowShapePicker(false);
+                setShowThicknessPicker(null);
+              }}
+            />
+          )}
+          <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2 touch-toolbar">
           <div
             className="relative flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
             style={{
@@ -674,6 +650,7 @@ export default function App() {
             </div>
           )}
         </div>
+        </>
       ) : (
         settings.showZoomControls && (
           <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5">
