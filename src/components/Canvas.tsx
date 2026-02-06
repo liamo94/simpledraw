@@ -863,6 +863,18 @@ export default function Canvas({
           new CustomEvent("simpledraw:color-cycle", { detail: 1 }),
         );
       }
+      if ((e.key === "+" || e.key === "=") && !cmdKey(e) && !e.altKey) {
+        e.preventDefault();
+        window.dispatchEvent(
+          new CustomEvent("simpledraw:zoom-step", { detail: 1.25 }),
+        );
+      }
+      if (e.key === "-" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        e.preventDefault();
+        window.dispatchEvent(
+          new CustomEvent("simpledraw:zoom-step", { detail: 0.8 }),
+        );
+      }
       const panAmount = e.shiftKey ? 200 : 50;
       if (e.key === "ArrowUp" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
