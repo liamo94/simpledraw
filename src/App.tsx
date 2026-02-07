@@ -22,7 +22,7 @@ export default function App() {
     () => !localStorage.getItem("simpledraw-onboarded"),
   );
   const [showShapePicker, setShowShapePicker] = useState(false);
-  const [showThicknessPicker, setShowThicknessPicker] = useState<"draw" | "dashed" | null>(null);
+  const [showThicknessPicker, setShowThicknessPicker] = useState<"draw" | "dashed" | "line" | "highlight" | null>(null);
   const [toast, setToast] = useState<{ type: "text"; message: string } | { type: "shape"; shape: ShapeKind } | null>(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -315,31 +315,6 @@ export default function App() {
       ),
     },
     {
-      id: "erase",
-      label: "Erase",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 16 16">
-          <defs>
-            <linearGradient id="eraser-grad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="50%" stopColor="#89CFF0" />
-              <stop offset="50%" stopColor="#FA8072" />
-            </linearGradient>
-          </defs>
-          <rect
-            x="2"
-            y="4.5"
-            width="12"
-            height="7"
-            rx="1.5"
-            transform="rotate(-25 8 8)"
-            fill="url(#eraser-grad)"
-            stroke="#666"
-            strokeWidth="1"
-          />
-        </svg>
-      ),
-    },
-    {
       id: "shape",
       label: "Shape",
       icon: (
@@ -403,6 +378,31 @@ export default function App() {
         </svg>
       ),
     },
+    {
+      id: "erase",
+      label: "Erase",
+      icon: (
+        <svg width="18" height="18" viewBox="0 0 16 16">
+          <defs>
+            <linearGradient id="eraser-grad" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="50%" stopColor="#89CFF0" />
+              <stop offset="50%" stopColor="#FA8072" />
+            </linearGradient>
+          </defs>
+          <rect
+            x="2"
+            y="4.5"
+            width="12"
+            height="7"
+            rx="1.5"
+            transform="rotate(-25 8 8)"
+            fill="url(#eraser-grad)"
+            stroke="#666"
+            strokeWidth="1"
+          />
+        </svg>
+      ),
+    },
   ];
 
   return (
@@ -448,7 +448,7 @@ export default function App() {
             }}
           >
             {touchTools.map((t) => {
-              const hasLongPress = t.id === "shape" || t.id === "draw" || t.id === "dashed";
+              const hasLongPress = t.id === "shape" || t.id === "draw" || t.id === "dashed" || t.id === "line" || t.id === "highlight";
               const buttonRef = t.id === "shape" ? shapeButtonRef : t.id === "draw" ? drawButtonRef : t.id === "dashed" ? dashedButtonRef : undefined;
               return (
                 <button
@@ -473,11 +473,13 @@ export default function App() {
                           if (t.id === "shape") {
                             shapeLongPressRef.current = setTimeout(() => {
                               setShowShapePicker(true);
+                              setTouchTool(t.id);
                               shapeLongPressRef.current = null;
                             }, 400);
-                          } else if (t.id === "draw" || t.id === "dashed") {
+                          } else if (t.id === "draw" || t.id === "dashed" || t.id === "line" || t.id === "highlight") {
                             thicknessLongPressRef.current = setTimeout(() => {
-                              setShowThicknessPicker(t.id as "draw" | "dashed");
+                              setShowThicknessPicker(t.id as "draw" | "dashed" | "line" | "highlight");
+                              setTouchTool(t.id);
                               thicknessLongPressRef.current = null;
                             }, 400);
                           }
@@ -527,16 +529,37 @@ export default function App() {
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
+                <div className="flex gap-1.5 flex-wrap justify-center mb-3">
+                  {[
+                    isDark ? "#ffffff" : "#000000",
+                    "#ef4444", "#ec4899", "#22c55e", "#84cc16",
+                    "#3b82f6", "#eab308", "#f97316", "#8b5cf6",
+                    "#06b6d4", "#92400e", "#4b5563",
+                  ].map((color) => (
+                    <button
+                      key={color}
+                      onClick={() => updateSettings({ lineColor: color })}
+                      className="w-6 h-6 rounded-full border-2 transition-transform"
+                      style={{
+                        backgroundColor: color,
+                        borderColor: settings.lineColor === color
+                          ? (isDark ? "white" : "black")
+                          : "transparent",
+                        transform: settings.lineColor === color ? "scale(1.15)" : undefined,
+                      }}
+                    />
+                  ))}
+                </div>
                 <div className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}>
-                  {showThicknessPicker === "draw" ? `Thickness: ${settings.lineWidth}` : `Dash gap: ${settings.dashGap}`}
+                  {showThicknessPicker === "dashed" ? `Dash gap: ${settings.dashGap}` : `Thickness: ${settings.lineWidth}`}
                 </div>
                 <input
                   type="range"
                   min={1}
                   max={10}
                   step={1}
-                  value={showThicknessPicker === "draw" ? settings.lineWidth : settings.dashGap}
-                  onChange={(e) => updateSettings(showThicknessPicker === "draw" ? { lineWidth: Number(e.target.value) } : { dashGap: Number(e.target.value) })}
+                  value={showThicknessPicker === "dashed" ? settings.dashGap : settings.lineWidth}
+                  onChange={(e) => updateSettings(showThicknessPicker === "dashed" ? { dashGap: Number(e.target.value) } : { lineWidth: Number(e.target.value) })}
                   className={`w-full ${isDark ? "accent-white/70" : "accent-black/70"}`}
                 />
               </div>
