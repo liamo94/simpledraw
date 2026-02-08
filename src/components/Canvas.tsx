@@ -213,13 +213,6 @@ function renderShape(
       ctx.closePath();
       break;
     }
-    case "octagon": {
-      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 8);
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.closePath();
-      break;
-    }
     case "diamond": {
       ctx.moveTo(cx, y);
       ctx.lineTo(x + w, cy);
@@ -311,10 +304,6 @@ function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
     }
     case "hexagon": {
       const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 6);
-      return [...pts, pts[0]];
-    }
-    case "octagon": {
-      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 8);
       return [...pts, pts[0]];
     }
     case "diamond": {
@@ -831,7 +820,11 @@ export default function Canvas({
   const MIN_SHAPE_SIZE = 8;
 
   const discardTinyShape = useCallback(() => {
-    if (activeModifierRef.current !== "shape" && activeModifierRef.current !== "line") return;
+    if (
+      activeModifierRef.current !== "shape" &&
+      activeModifierRef.current !== "line"
+    )
+      return;
     const stroke = strokesRef.current[strokesRef.current.length - 1];
     if (!stroke || stroke.points.length < 2) return;
     const dx = Math.abs(stroke.points[1].x - stroke.points[0].x);
@@ -1024,8 +1017,19 @@ export default function Canvas({
         setHighlighting(true);
       }
       // Letter-key shape shortcuts
-      const shapeKeyMap: Record<string, ShapeKind> = { a: "arrow", r: "rectangle", t: "triangle", c: "circle" };
-      if (shapeKeyMap[e.key] && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+      const shapeKeyMap: Record<string, ShapeKind> = {
+        a: "arrow",
+        r: "rectangle",
+        t: "triangle",
+        c: "circle",
+      };
+      if (
+        shapeKeyMap[e.key] &&
+        !cmdKey(e) &&
+        !e.altKey &&
+        !e.ctrlKey &&
+        !e.shiftKey
+      ) {
         keyShapeRef.current = shapeKeyMap[e.key];
         setShapeActive(true);
       }
@@ -1677,7 +1681,6 @@ export default function Canvas({
     arrow: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='18' y2='12' stroke='${encodedColor}' stroke-width='1.5'/%3E%3Cpolyline points='14,8 18,12 14,16' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     pentagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,3 21,10 18,21 6,21 3,10' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     hexagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
-    octagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='8,2 16,2 22,8 22,16 16,22 8,22 2,16 2,8' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     diamond: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 22,12 12,22 2,12' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     lightning: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='13,2 4,12 11,12 9,22 20,10 13,10' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
   };

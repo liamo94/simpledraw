@@ -22,11 +22,19 @@ export default function App() {
     () => !localStorage.getItem("simpledraw-onboarded"),
   );
   const [showShapePicker, setShowShapePicker] = useState(false);
-  const [showThicknessPicker, setShowThicknessPicker] = useState<"draw" | "dashed" | "line" | "highlight" | null>(null);
-  const [toast, setToast] = useState<{ type: "text"; message: string } | { type: "shape"; shape: ShapeKind } | null>(null);
+  const [showThicknessPicker, setShowThicknessPicker] = useState<
+    "draw" | "dashed" | "line" | "highlight" | null
+  >(null);
+  const [toast, setToast] = useState<
+    | { type: "text"; message: string }
+    | { type: "shape"; shape: ShapeKind }
+    | null
+  >(null);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const longPressFiredRef = useRef(false);
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
   const drawButtonRef = useRef<HTMLButtonElement>(null);
@@ -47,7 +55,9 @@ export default function App() {
     } else {
       document.body.style.background = "#f5f5f0";
     }
-    document.body.style.color = isDark ? "rgba(255,255,255,0.8)" : "rgba(0,0,0,0.8)";
+    document.body.style.color = isDark
+      ? "rgba(255,255,255,0.8)"
+      : "rgba(0,0,0,0.8)";
     document.documentElement.style.colorScheme = isDark ? "dark" : "light";
   }, [settings.theme]);
 
@@ -87,11 +97,18 @@ export default function App() {
     doClear();
   }, [doClear]);
 
-  const showToast = useCallback((content: { type: "text"; message: string } | { type: "shape"; shape: ShapeKind }) => {
-    if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
-    setToast(content);
-    toastTimeoutRef.current = setTimeout(() => setToast(null), 1200);
-  }, []);
+  const showToast = useCallback(
+    (
+      content:
+        | { type: "text"; message: string }
+        | { type: "shape"; shape: ShapeKind },
+    ) => {
+      if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      setToast(content);
+      toastTimeoutRef.current = setTimeout(() => setToast(null), 1200);
+    },
+    [],
+  );
 
   useEffect(() => {
     const onZoom = (e: Event) => setZoom((e as CustomEvent).detail);
@@ -129,7 +146,18 @@ export default function App() {
     };
     const onRequestClear = () => requestClear();
     const onCycleShape = () => {
-      const shapes: ShapeKind[] = ["line", "rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow", "lightning"];
+      const shapes: ShapeKind[] = [
+        "line",
+        "rectangle",
+        "circle",
+        "triangle",
+        "diamond",
+        "pentagon",
+        "hexagon",
+        "star",
+        "arrow",
+        "lightning",
+      ];
       const cur = settingsRef.current.activeShape;
       const idx = shapes.indexOf(cur);
       const next = (idx + 1) % shapes.length;
@@ -137,7 +165,18 @@ export default function App() {
       showToast({ type: "shape", shape: shapes[next] });
     };
     const onCycleShapeBack = () => {
-      const shapes: ShapeKind[] = ["line", "rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow", "lightning"];
+      const shapes: ShapeKind[] = [
+        "line",
+        "rectangle",
+        "circle",
+        "triangle",
+        "diamond",
+        "pentagon",
+        "hexagon",
+        "star",
+        "arrow",
+        "lightning",
+      ];
       const cur = settingsRef.current.activeShape;
       const idx = shapes.indexOf(cur);
       const next = (idx - 1 + shapes.length) % shapes.length;
@@ -177,7 +216,10 @@ export default function App() {
       window.removeEventListener("simpledraw:color-cycle", onColorCycle);
       window.removeEventListener("simpledraw:request-clear", onRequestClear);
       window.removeEventListener("simpledraw:cycle-shape", onCycleShape);
-      window.removeEventListener("simpledraw:cycle-shape-back", onCycleShapeBack);
+      window.removeEventListener(
+        "simpledraw:cycle-shape-back",
+        onCycleShapeBack,
+      );
       window.removeEventListener("simpledraw:set-color-index", onSetColorIndex);
     };
   }, [updateSettings, requestClear, showToast]);
@@ -253,7 +295,6 @@ export default function App() {
       window.removeEventListener("pointerdown", dismiss);
     };
   }, [showOnboarding, dismissOnboarding]);
-
 
   const isDark = isDarkTheme(settings.theme);
   const mod = isMac ? "\u2318" : "Ctrl";
@@ -334,9 +375,7 @@ export default function App() {
           {settings.activeShape === "rectangle" && (
             <rect x="2" y="3" width="12" height="10" rx="1" />
           )}
-          {settings.activeShape === "circle" && (
-            <circle cx="8" cy="8" r="6" />
-          )}
+          {settings.activeShape === "circle" && <circle cx="8" cy="8" r="6" />}
           {settings.activeShape === "triangle" && (
             <polygon points="8,2 14,14 2,14" />
           )}
@@ -348,9 +387,6 @@ export default function App() {
           )}
           {settings.activeShape === "hexagon" && (
             <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-          )}
-          {settings.activeShape === "octagon" && (
-            <polygon points="5,2 11,2 14,5 14,11 11,14 5,14 2,11 2,5" />
           )}
           {settings.activeShape === "star" && (
             <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
@@ -445,224 +481,8 @@ export default function App() {
             />
           )}
           <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2 touch-toolbar">
-          <div
-            className="relative flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
-            style={{
-              background: isDark ? "rgba(0,0,0,0.7)" : "rgba(255,255,255,0.7)",
-              borderColor: isDark
-                ? "rgba(255,255,255,0.15)"
-                : "rgba(0,0,0,0.15)",
-            }}
-          >
-            {touchTools.map((t) => {
-              const hasLongPress = t.id === "shape" || t.id === "draw" || t.id === "dashed" || t.id === "line" || t.id === "highlight";
-              const buttonRef = t.id === "shape" ? shapeButtonRef : t.id === "draw" ? drawButtonRef : t.id === "dashed" ? dashedButtonRef : undefined;
-              return (
-                <button
-                  key={t.id}
-                  ref={buttonRef}
-                  onClick={() => {
-                    if (shapeLongPressRef.current) {
-                      clearTimeout(shapeLongPressRef.current);
-                      shapeLongPressRef.current = null;
-                    }
-                    if (thicknessLongPressRef.current) {
-                      clearTimeout(thicknessLongPressRef.current);
-                      thicknessLongPressRef.current = null;
-                    }
-                    if (longPressFiredRef.current) {
-                      longPressFiredRef.current = false;
-                      return;
-                    }
-                    if (!showShapePicker && !showThicknessPicker) setTouchTool(t.id);
-                    setShowShapePicker(false);
-                    setShowThicknessPicker(null);
-                  }}
-                  onPointerDown={
-                    hasLongPress
-                      ? () => {
-                          if (t.id === "shape") {
-                            shapeLongPressRef.current = setTimeout(() => {
-                              setShowShapePicker(true);
-                              setShowThicknessPicker(null);
-                              setTouchTool(t.id);
-                              shapeLongPressRef.current = null;
-                              longPressFiredRef.current = true;
-                            }, 400);
-                          } else if (t.id === "draw" || t.id === "dashed" || t.id === "line" || t.id === "highlight") {
-                            thicknessLongPressRef.current = setTimeout(() => {
-                              setShowThicknessPicker(t.id as "draw" | "dashed" | "line" | "highlight");
-                              setShowShapePicker(false);
-                              setTouchTool(t.id);
-                              thicknessLongPressRef.current = null;
-                              longPressFiredRef.current = true;
-                            }, 400);
-                          }
-                        }
-                      : undefined
-                  }
-                  onPointerUp={() => {
-                    if (shapeLongPressRef.current) {
-                      clearTimeout(shapeLongPressRef.current);
-                      shapeLongPressRef.current = null;
-                    }
-                    if (thicknessLongPressRef.current) {
-                      clearTimeout(thicknessLongPressRef.current);
-                      thicknessLongPressRef.current = null;
-                    }
-                  }}
-                  onPointerLeave={() => {
-                    if (shapeLongPressRef.current) {
-                      clearTimeout(shapeLongPressRef.current);
-                      shapeLongPressRef.current = null;
-                    }
-                    if (thicknessLongPressRef.current) {
-                      clearTimeout(thicknessLongPressRef.current);
-                      thicknessLongPressRef.current = null;
-                    }
-                  }}
-                  className={`flex items-center gap-1 px-2.5 py-2.5 rounded text-xs transition-colors ${
-                    touchTool === t.id
-                      ? isDark
-                        ? "bg-white/20 text-white"
-                        : "bg-black/20 text-black"
-                      : isDark
-                        ? "text-white/60 hover:bg-white/10"
-                        : "text-black/60 hover:bg-black/10"
-                  }`}
-                >
-                  {t.icon}
-                </button>
-              );
-            })}
-            {showThicknessPicker && (
-              <div
-                className="absolute bottom-full mb-2 left-0 right-0 p-3 rounded-lg border backdrop-blur-sm"
-                style={{
-                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
-                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-              >
-                <div className="flex gap-1.5 flex-wrap justify-center mb-3">
-                  {[
-                    isDark ? "#ffffff" : "#000000",
-                    "#ef4444", "#ec4899", "#22c55e", "#84cc16",
-                    "#3b82f6", "#eab308", "#f97316", "#8b5cf6",
-                    "#06b6d4", "#92400e", "#4b5563",
-                  ].map((color) => (
-                    <button
-                      key={color}
-                      onClick={() => updateSettings({ lineColor: color })}
-                      className="w-6 h-6 rounded-full border-2 transition-transform"
-                      style={{
-                        backgroundColor: color,
-                        borderColor: settings.lineColor === color
-                          ? (isDark ? "white" : "black")
-                          : "transparent",
-                        transform: settings.lineColor === color ? "scale(1.15)" : undefined,
-                      }}
-                    />
-                  ))}
-                </div>
-                <div className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}>
-                  {showThicknessPicker === "dashed" ? `Dash gap: ${settings.dashGap}` : `Thickness: ${settings.lineWidth}`}
-                </div>
-                <input
-                  type="range"
-                  min={1}
-                  max={10}
-                  step={1}
-                  value={showThicknessPicker === "dashed" ? settings.dashGap : settings.lineWidth}
-                  onChange={(e) => updateSettings(showThicknessPicker === "dashed" ? { dashGap: Number(e.target.value) } : { lineWidth: Number(e.target.value) })}
-                  className={`w-full ${isDark ? "accent-white/70" : "accent-black/70"}`}
-                />
-              </div>
-            )}
-          </div>
-          {showShapePicker && (
             <div
-              className="absolute bottom-full mb-2 flex flex-wrap gap-1 p-1 rounded-lg border backdrop-blur-sm"
-              style={{
-                background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
-                borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-                left: "50%",
-                transform: "translateX(-50%)",
-                maxWidth: "calc(100vw - 2rem)",
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
-            >
-              {(["line", "rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow", "lightning"] as const).map((shape) => (
-                <button
-                  key={shape}
-                  onClick={() => {
-                    updateSettings({ activeShape: shape });
-                    setTouchTool("shape");
-                    setShowShapePicker(false);
-                  }}
-                  className={`p-2 rounded transition-colors ${
-                    settings.activeShape === shape
-                      ? isDark
-                        ? "bg-white/20"
-                        : "bg-black/20"
-                      : isDark
-                        ? "hover:bg-white/10"
-                        : "hover:bg-black/10"
-                  }`}
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke={settings.lineColor}
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
-                  >
-                    {shape === "line" && (
-                      <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
-                    )}
-                    {shape === "rectangle" && (
-                      <rect x="2" y="3" width="12" height="10" rx="1" />
-                    )}
-                    {shape === "circle" && (
-                      <circle cx="8" cy="8" r="6" />
-                    )}
-                    {shape === "triangle" && (
-                      <polygon points="8,2 14,14 2,14" />
-                    )}
-                    {shape === "diamond" && (
-                      <polygon points="8,1 15,8 8,15 1,8" />
-                    )}
-                    {shape === "pentagon" && (
-                      <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-                    )}
-                    {shape === "hexagon" && (
-                      <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-                    )}
-                    {shape === "octagon" && (
-                      <polygon points="5,2 11,2 14,5 14,11 11,14 5,14 2,11 2,5" />
-                    )}
-                    {shape === "star" && (
-                      <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-                    )}
-                    {shape === "arrow" && (
-                      <>
-                        <line x1="2" y1="8" x2="12" y2="8" />
-                        <polyline points="9,5 12,8 9,11" />
-                      </>
-                    )}
-                    {shape === "lightning" && (
-                      <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
-                    )}
-                  </svg>
-                </button>
-              ))}
-            </div>
-          )}
-          {settings.showZoomControls && (
-            <div
-              className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
+              className="relative flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
                 background: isDark
                   ? "rgba(0,0,0,0.7)"
@@ -672,26 +492,318 @@ export default function App() {
                   : "rgba(0,0,0,0.15)",
               }}
             >
-              <button
-                onClick={zoomOut}
-                className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
-              >
-                -
-              </button>
-              <span
-                className={`text-[11px] tabular-nums text-center min-w-8 ${isDark ? "text-white/50" : "text-black/50"}`}
-              >
-                {Math.round(zoom * 100)}%
-              </span>
-              <button
-                onClick={zoomIn}
-                className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
-              >
-                +
-              </button>
+              {touchTools.map((t) => {
+                const hasLongPress =
+                  t.id === "shape" ||
+                  t.id === "draw" ||
+                  t.id === "dashed" ||
+                  t.id === "line" ||
+                  t.id === "highlight";
+                const buttonRef =
+                  t.id === "shape"
+                    ? shapeButtonRef
+                    : t.id === "draw"
+                      ? drawButtonRef
+                      : t.id === "dashed"
+                        ? dashedButtonRef
+                        : undefined;
+                return (
+                  <button
+                    key={t.id}
+                    ref={buttonRef}
+                    onClick={() => {
+                      if (shapeLongPressRef.current) {
+                        clearTimeout(shapeLongPressRef.current);
+                        shapeLongPressRef.current = null;
+                      }
+                      if (thicknessLongPressRef.current) {
+                        clearTimeout(thicknessLongPressRef.current);
+                        thicknessLongPressRef.current = null;
+                      }
+                      if (longPressFiredRef.current) {
+                        longPressFiredRef.current = false;
+                        return;
+                      }
+                      if (!showShapePicker && !showThicknessPicker)
+                        setTouchTool(t.id);
+                      setShowShapePicker(false);
+                      setShowThicknessPicker(null);
+                    }}
+                    onPointerDown={
+                      hasLongPress
+                        ? () => {
+                            if (t.id === "shape") {
+                              shapeLongPressRef.current = setTimeout(() => {
+                                setShowShapePicker(true);
+                                setShowThicknessPicker(null);
+                                setTouchTool(t.id);
+                                shapeLongPressRef.current = null;
+                                longPressFiredRef.current = true;
+                              }, 400);
+                            } else if (
+                              t.id === "draw" ||
+                              t.id === "dashed" ||
+                              t.id === "line" ||
+                              t.id === "highlight"
+                            ) {
+                              thicknessLongPressRef.current = setTimeout(() => {
+                                setShowThicknessPicker(
+                                  t.id as
+                                    | "draw"
+                                    | "dashed"
+                                    | "line"
+                                    | "highlight",
+                                );
+                                setShowShapePicker(false);
+                                setTouchTool(t.id);
+                                thicknessLongPressRef.current = null;
+                                longPressFiredRef.current = true;
+                              }, 400);
+                            }
+                          }
+                        : undefined
+                    }
+                    onPointerUp={() => {
+                      if (shapeLongPressRef.current) {
+                        clearTimeout(shapeLongPressRef.current);
+                        shapeLongPressRef.current = null;
+                      }
+                      if (thicknessLongPressRef.current) {
+                        clearTimeout(thicknessLongPressRef.current);
+                        thicknessLongPressRef.current = null;
+                      }
+                    }}
+                    onPointerLeave={() => {
+                      if (shapeLongPressRef.current) {
+                        clearTimeout(shapeLongPressRef.current);
+                        shapeLongPressRef.current = null;
+                      }
+                      if (thicknessLongPressRef.current) {
+                        clearTimeout(thicknessLongPressRef.current);
+                        thicknessLongPressRef.current = null;
+                      }
+                    }}
+                    className={`flex items-center gap-1 px-2.5 py-2.5 rounded text-xs transition-colors ${
+                      touchTool === t.id
+                        ? isDark
+                          ? "bg-white/20 text-white"
+                          : "bg-black/20 text-black"
+                        : isDark
+                          ? "text-white/60 hover:bg-white/10"
+                          : "text-black/60 hover:bg-black/10"
+                    }`}
+                  >
+                    {t.icon}
+                  </button>
+                );
+              })}
+              {showThicknessPicker && (
+                <div
+                  className="absolute bottom-full mb-2 left-0 right-0 p-3 rounded-lg border backdrop-blur-sm"
+                  style={{
+                    background: isDark
+                      ? "rgba(0,0,0,0.85)"
+                      : "rgba(255,255,255,0.85)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.15)"
+                      : "rgba(0,0,0,0.15)",
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <div className="flex gap-1.5 flex-wrap justify-center mb-3">
+                    {[
+                      isDark ? "#ffffff" : "#000000",
+                      "#ef4444",
+                      "#ec4899",
+                      "#22c55e",
+                      "#84cc16",
+                      "#3b82f6",
+                      "#eab308",
+                      "#f97316",
+                      "#8b5cf6",
+                      "#06b6d4",
+                      "#92400e",
+                      "#4b5563",
+                    ].map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => updateSettings({ lineColor: color })}
+                        className="w-6 h-6 rounded-full border-2 transition-transform"
+                        style={{
+                          backgroundColor: color,
+                          borderColor:
+                            settings.lineColor === color
+                              ? isDark
+                                ? "white"
+                                : "black"
+                              : "transparent",
+                          transform:
+                            settings.lineColor === color
+                              ? "scale(1.15)"
+                              : undefined,
+                        }}
+                      />
+                    ))}
+                  </div>
+                  <div
+                    className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}
+                  >
+                    {showThicknessPicker === "dashed"
+                      ? `Dash gap: ${settings.dashGap}`
+                      : `Thickness: ${settings.lineWidth}`}
+                  </div>
+                  <input
+                    type="range"
+                    min={1}
+                    max={10}
+                    step={1}
+                    value={
+                      showThicknessPicker === "dashed"
+                        ? settings.dashGap
+                        : settings.lineWidth
+                    }
+                    onChange={(e) =>
+                      updateSettings(
+                        showThicknessPicker === "dashed"
+                          ? { dashGap: Number(e.target.value) }
+                          : { lineWidth: Number(e.target.value) },
+                      )
+                    }
+                    className={`w-full ${isDark ? "accent-white/70" : "accent-black/70"}`}
+                  />
+                </div>
+              )}
             </div>
-          )}
-        </div>
+            {showShapePicker && (
+              <div
+                className="absolute bottom-full mb-2 flex flex-wrap gap-1 p-1 rounded-lg border backdrop-blur-sm"
+                style={{
+                  background: isDark
+                    ? "rgba(0,0,0,0.85)"
+                    : "rgba(255,255,255,0.85)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(0,0,0,0.15)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  maxWidth: "calc(100vw - 2rem)",
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {(
+                  [
+                    "line",
+                    "rectangle",
+                    "circle",
+                    "triangle",
+                    "diamond",
+                    "pentagon",
+                    "hexagon",
+                    "star",
+                    "arrow",
+                    "lightning",
+                  ] as const
+                ).map((shape) => (
+                  <button
+                    key={shape}
+                    onClick={() => {
+                      updateSettings({ activeShape: shape });
+                      setTouchTool("shape");
+                      setShowShapePicker(false);
+                    }}
+                    className={`p-2 rounded transition-colors ${
+                      settings.activeShape === shape
+                        ? isDark
+                          ? "bg-white/20"
+                          : "bg-black/20"
+                        : isDark
+                          ? "hover:bg-white/10"
+                          : "hover:bg-black/10"
+                    }`}
+                  >
+                    <svg
+                      width="20"
+                      height="20"
+                      viewBox="0 0 16 16"
+                      fill="none"
+                      stroke={settings.lineColor}
+                      strokeWidth="1.5"
+                      strokeLinejoin="round"
+                    >
+                      {shape === "line" && (
+                        <line
+                          x1="3"
+                          y1="13"
+                          x2="13"
+                          y2="3"
+                          strokeLinecap="round"
+                        />
+                      )}
+                      {shape === "rectangle" && (
+                        <rect x="2" y="3" width="12" height="10" rx="1" />
+                      )}
+                      {shape === "circle" && <circle cx="8" cy="8" r="6" />}
+                      {shape === "triangle" && (
+                        <polygon points="8,2 14,14 2,14" />
+                      )}
+                      {shape === "diamond" && (
+                        <polygon points="8,1 15,8 8,15 1,8" />
+                      )}
+                      {shape === "pentagon" && (
+                        <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
+                      )}
+                      {shape === "hexagon" && (
+                        <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
+                      )}
+                      {shape === "star" && (
+                        <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+                      )}
+                      {shape === "arrow" && (
+                        <>
+                          <line x1="2" y1="8" x2="12" y2="8" />
+                          <polyline points="9,5 12,8 9,11" />
+                        </>
+                      )}
+                      {shape === "lightning" && (
+                        <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
+                      )}
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            )}
+            {settings.showZoomControls && (
+              <div
+                className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
+                style={{
+                  background: isDark
+                    ? "rgba(0,0,0,0.7)"
+                    : "rgba(255,255,255,0.7)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(0,0,0,0.15)",
+                }}
+              >
+                <button
+                  onClick={zoomOut}
+                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                >
+                  -
+                </button>
+                <span
+                  className={`text-[11px] tabular-nums text-center min-w-8 ${isDark ? "text-white/50" : "text-black/50"}`}
+                >
+                  {Math.round(zoom * 100)}%
+                </span>
+                <button
+                  onClick={zoomIn}
+                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                >
+                  +
+                </button>
+              </div>
+            )}
+          </div>
         </>
       ) : (
         settings.showZoomControls && (
@@ -845,9 +957,7 @@ export default function App() {
               {toast.shape === "rectangle" && (
                 <rect x="2" y="3" width="12" height="10" rx="1" />
               )}
-              {toast.shape === "circle" && (
-                <circle cx="8" cy="8" r="6" />
-              )}
+              {toast.shape === "circle" && <circle cx="8" cy="8" r="6" />}
               {toast.shape === "triangle" && (
                 <polygon points="8,2 14,14 2,14" />
               )}
@@ -859,9 +969,6 @@ export default function App() {
               )}
               {toast.shape === "hexagon" && (
                 <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-              )}
-              {toast.shape === "octagon" && (
-                <polygon points="5,2 11,2 14,5 14,11 11,14 5,14 2,11 2,5" />
               )}
               {toast.shape === "star" && (
                 <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
