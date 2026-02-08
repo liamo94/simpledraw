@@ -1,6 +1,6 @@
 import { useState, useCallback } from "react";
 
-export type ShapeKind = "circle" | "rectangle" | "triangle" | "star" | "arrow" | "pentagon" | "hexagon" | "octagon" | "diamond";
+export type ShapeKind = "line" | "circle" | "rectangle" | "triangle" | "star" | "arrow" | "pentagon" | "hexagon" | "octagon" | "diamond" | "lightning";
 
 export type Theme = "dark" | "midnight" | "white" | "journal";
 

@@ -27,6 +27,7 @@ export default function App() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const longPressFiredRef = useRef(false);
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
   const drawButtonRef = useRef<HTMLButtonElement>(null);
   const dashedButtonRef = useRef<HTMLButtonElement>(null);
@@ -128,7 +129,7 @@ export default function App() {
     };
     const onRequestClear = () => requestClear();
     const onCycleShape = () => {
-      const shapes: ShapeKind[] = ["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"];
+      const shapes: ShapeKind[] = ["line", "rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow", "lightning"];
       const cur = settingsRef.current.activeShape;
       const idx = shapes.indexOf(cur);
       const next = (idx + 1) % shapes.length;
@@ -136,7 +137,7 @@ export default function App() {
       showToast({ type: "shape", shape: shapes[next] });
     };
     const onCycleShapeBack = () => {
-      const shapes: ShapeKind[] = ["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"];
+      const shapes: ShapeKind[] = ["line", "rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow", "lightning"];
       const cur = settingsRef.current.activeShape;
       const idx = shapes.indexOf(cur);
       const next = (idx - 1 + shapes.length) % shapes.length;
@@ -327,6 +328,9 @@ export default function App() {
           strokeWidth="1.5"
           strokeLinejoin="round"
         >
+          {settings.activeShape === "line" && (
+            <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
+          )}
           {settings.activeShape === "rectangle" && (
             <rect x="2" y="3" width="12" height="10" rx="1" />
           )}
@@ -356,6 +360,9 @@ export default function App() {
               <line x1="2" y1="8" x2="12" y2="8" />
               <polyline points="9,5 12,8 9,11" />
             </>
+          )}
+          {settings.activeShape === "lightning" && (
+            <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
           )}
         </svg>
       ),
@@ -463,6 +470,10 @@ export default function App() {
                       clearTimeout(thicknessLongPressRef.current);
                       thicknessLongPressRef.current = null;
                     }
+                    if (longPressFiredRef.current) {
+                      longPressFiredRef.current = false;
+                      return;
+                    }
                     if (!showShapePicker && !showThicknessPicker) setTouchTool(t.id);
                     setShowShapePicker(false);
                     setShowThicknessPicker(null);
@@ -476,6 +487,7 @@ export default function App() {
                               setShowThicknessPicker(null);
                               setTouchTool(t.id);
                               shapeLongPressRef.current = null;
+                              longPressFiredRef.current = true;
                             }, 400);
                           } else if (t.id === "draw" || t.id === "dashed" || t.id === "line" || t.id === "highlight") {
                             thicknessLongPressRef.current = setTimeout(() => {
@@ -483,6 +495,7 @@ export default function App() {
                               setShowShapePicker(false);
                               setTouchTool(t.id);
                               thicknessLongPressRef.current = null;
+                              longPressFiredRef.current = true;
                             }, 400);
                           }
                         }
@@ -569,19 +582,17 @@ export default function App() {
           </div>
           {showShapePicker && (
             <div
-              className="absolute bottom-full mb-2 flex flex-col gap-1 p-1 rounded-lg border backdrop-blur-sm"
+              className="absolute bottom-full mb-2 flex flex-wrap gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
                 background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
                 borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-                left: shapeButtonRef.current
-                  ? shapeButtonRef.current.getBoundingClientRect().left +
-                    shapeButtonRef.current.offsetWidth / 2 -
-                    24
-                  : "50%",
+                left: "50%",
+                transform: "translateX(-50%)",
+                maxWidth: "calc(100vw - 2rem)",
               }}
               onPointerDown={(e) => e.stopPropagation()}
             >
-              {(["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"] as const).map((shape) => (
+              {(["line", "rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow", "lightning"] as const).map((shape) => (
                 <button
                   key={shape}
                   onClick={() => {
@@ -608,6 +619,9 @@ export default function App() {
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                   >
+                    {shape === "line" && (
+                      <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
+                    )}
                     {shape === "rectangle" && (
                       <rect x="2" y="3" width="12" height="10" rx="1" />
                     )}
@@ -637,6 +651,9 @@ export default function App() {
                         <line x1="2" y1="8" x2="12" y2="8" />
                         <polyline points="9,5 12,8 9,11" />
                       </>
+                    )}
+                    {shape === "lightning" && (
+                      <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
                     )}
                   </svg>
                 </button>
@@ -822,6 +839,9 @@ export default function App() {
               strokeWidth="1.5"
               strokeLinejoin="round"
             >
+              {toast.shape === "line" && (
+                <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
+              )}
               {toast.shape === "rectangle" && (
                 <rect x="2" y="3" width="12" height="10" rx="1" />
               )}
@@ -851,6 +871,9 @@ export default function App() {
                   <line x1="2" y1="8" x2="12" y2="8" />
                   <polyline points="9,5 12,8 9,11" />
                 </>
+              )}
+              {toast.shape === "lightning" && (
+                <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
               )}
             </svg>
           )}

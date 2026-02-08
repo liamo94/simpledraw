@@ -190,12 +190,12 @@ export default function Menu({
           />
 
           <div className="mt-3 text-sm">Shape</div>
-          <div className="flex gap-1.5 mt-1.5 flex-wrap justify-center">
-            {(["rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow"] as const).map((s) => (
+          <div className="flex gap-1 mt-1.5 justify-center">
+            {(["line", "rectangle", "circle", "triangle", "diamond", "pentagon", "hexagon", "octagon", "star", "arrow", "lightning"] as const).map((s) => (
               <button
                 key={s}
                 onClick={() => updateSettings({ activeShape: s })}
-                className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                className={`w-6 h-6 flex items-center justify-center rounded transition-colors ${
                   settings.activeShape === s
                     ? isDark
                       ? "bg-white/20"
@@ -207,8 +207,8 @@ export default function Menu({
                 title={s.charAt(0).toUpperCase() + s.slice(1)}
               >
                 <svg
-                  width="16"
-                  height="16"
+                  width="14"
+                  height="14"
                   viewBox="0 0 16 16"
                   fill="none"
                   stroke={isDark ? "white" : "black"}
@@ -216,6 +216,7 @@ export default function Menu({
                   strokeLinejoin="round"
                   strokeOpacity={settings.activeShape === s ? 1 : 0.6}
                 >
+                  {s === "line" && <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />}
                   {s === "rectangle" && <rect x="2" y="3" width="12" height="10" rx="0.5" />}
                   {s === "circle" && <circle cx="8" cy="8" r="6" />}
                   {s === "triangle" && <polygon points="8,2 14,14 2,14" />}
@@ -229,6 +230,9 @@ export default function Menu({
                       <line x1="2" y1="8" x2="12" y2="8" />
                       <polyline points="9,5 12,8 9,11" strokeLinecap="round" />
                     </>
+                  )}
+                  {s === "lightning" && (
+                    <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
                   )}
                 </svg>
               </button>

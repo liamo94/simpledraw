@@ -154,6 +154,10 @@ function renderShape(
 
   ctx.beginPath();
   switch (shape) {
+    case "line":
+      ctx.moveTo(p0.x, p0.y);
+      ctx.lineTo(p1.x, p1.y);
+      break;
     case "rectangle":
       ctx.rect(x, y, w, h);
       break;
@@ -224,6 +228,16 @@ function renderShape(
       ctx.closePath();
       break;
     }
+    case "lightning": {
+      ctx.moveTo(x + w * 0.55, y);
+      ctx.lineTo(x + w * 0.15, y + h * 0.5);
+      ctx.lineTo(x + w * 0.45, y + h * 0.5);
+      ctx.lineTo(x + w * 0.35, y + h);
+      ctx.lineTo(x + w * 0.85, y + h * 0.4);
+      ctx.lineTo(x + w * 0.55, y + h * 0.4);
+      ctx.closePath();
+      break;
+    }
   }
   ctx.stroke();
 }
@@ -239,6 +253,8 @@ function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
   const cy = y + h / 2;
 
   switch (stroke.shape!) {
+    case "line":
+      return [p0, p1];
     case "rectangle":
       return [
         { x, y },
@@ -309,6 +325,17 @@ function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
         { x, y: cy },
         { x: cx, y },
       ];
+    }
+    case "lightning": {
+      const pts = [
+        { x: x + w * 0.55, y },
+        { x: x + w * 0.15, y: y + h * 0.5 },
+        { x: x + w * 0.45, y: y + h * 0.5 },
+        { x: x + w * 0.35, y: y + h },
+        { x: x + w * 0.85, y: y + h * 0.4 },
+        { x: x + w * 0.55, y: y + h * 0.4 },
+      ];
+      return [...pts, pts[0]];
     }
   }
 }
@@ -430,6 +457,7 @@ export default function Canvas({
   const shapeFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [highlighting, setHighlighting] = useState(false);
   const highlightKeyRef = useRef(false);
+  const keyShapeRef = useRef<ShapeKind | null>(null);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
 
@@ -800,6 +828,20 @@ export default function Canvas({
     };
   }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent]);
 
+  const MIN_SHAPE_SIZE = 8;
+
+  const discardTinyShape = useCallback(() => {
+    if (activeModifierRef.current !== "shape" && activeModifierRef.current !== "line") return;
+    const stroke = strokesRef.current[strokesRef.current.length - 1];
+    if (!stroke || stroke.points.length < 2) return;
+    const dx = Math.abs(stroke.points[1].x - stroke.points[0].x);
+    const dy = Math.abs(stroke.points[1].y - stroke.points[0].y);
+    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE) {
+      strokesRef.current.pop();
+      undoStackRef.current.pop();
+    }
+  }, []);
+
   const cancelCurrentStroke = useCallback(() => {
     if (isDrawingRef.current && activeModifierRef.current !== "alt") {
       strokesRef.current.pop();
@@ -981,6 +1023,12 @@ export default function Canvas({
         highlightKeyRef.current = true;
         setHighlighting(true);
       }
+      // Letter-key shape shortcuts
+      const shapeKeyMap: Record<string, ShapeKind> = { a: "arrow", r: "rectangle", t: "triangle", c: "circle" };
+      if (shapeKeyMap[e.key] && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        keyShapeRef.current = shapeKeyMap[e.key];
+        setShapeActive(true);
+      }
       // Number keys 1-9 for quick color selection
       if (
         e.key >= "1" &&
@@ -1032,6 +1080,17 @@ export default function Canvas({
       if (e.key === "Control" && isMac) setShapeActive(false);
       if ((e.key === "Alt" || e.key === "Shift") && !isMac)
         setShapeActive(false);
+      if (["a", "r", "t", "c"].includes(e.key)) {
+        keyShapeRef.current = null;
+        setShapeActive(false);
+        if (activeModifierRef.current === "shape") {
+          discardTinyShape();
+          isDrawingRef.current = false;
+          activeModifierRef.current = null;
+          persistStrokes();
+          redraw();
+        }
+      }
     };
 
     const onBlur = () => {
@@ -1039,6 +1098,7 @@ export default function Canvas({
       setShapeActive(false);
       setHighlighting(false);
       highlightKeyRef.current = false;
+      keyShapeRef.current = null;
       if (activeModifierRef.current === "alt") {
         cancelErase();
       }
@@ -1064,6 +1124,7 @@ export default function Canvas({
     confirmErase,
     cancelErase,
     cancelCurrentStroke,
+    discardTinyShape,
   ]);
 
   const eraseAt = useCallback((x: number, y: number) => {
@@ -1266,9 +1327,11 @@ export default function Canvas({
               confirmErase();
               redraw();
             }
+            discardTinyShape();
             isDrawingRef.current = false;
             activeModifierRef.current = null;
             persistStrokes();
+            redraw();
           }
         }
         return;
@@ -1284,12 +1347,14 @@ export default function Canvas({
           confirmErase();
           redraw();
         }
+        discardTinyShape();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         persistStrokes();
+        redraw();
       }
     },
-    [confirmErase, persistStrokes, redraw],
+    [confirmErase, discardTinyShape, persistStrokes, redraw],
   );
 
   const onPointerMove = useCallback(
@@ -1394,19 +1459,21 @@ export default function Canvas({
       } else {
         modifier = highlightKeyRef.current
           ? "highlight"
-          : e.altKey && e.shiftKey && !isMac
+          : keyShapeRef.current
             ? "shape"
-            : e.altKey
-              ? "alt"
-              : e.ctrlKey && !e.metaKey && isMac
-                ? "shape"
-                : cmdKey(e) && e.shiftKey
-                  ? "line"
-                  : cmdKey(e)
-                    ? "meta"
-                    : e.shiftKey
-                      ? "shift"
-                      : null;
+            : e.altKey && e.shiftKey && !isMac
+              ? "shape"
+              : e.altKey
+                ? "alt"
+                : e.ctrlKey && !e.metaKey && isMac
+                  ? "shape"
+                  : cmdKey(e) && e.shiftKey
+                    ? "line"
+                    : cmdKey(e)
+                      ? "meta"
+                      : e.shiftKey
+                        ? "shift"
+                        : null;
       }
 
       if (!modifier) {
@@ -1415,9 +1482,11 @@ export default function Canvas({
             confirmErase();
             redraw();
           }
+          discardTinyShape();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           persistStrokes();
+          redraw();
         }
         return;
       }
@@ -1475,7 +1544,7 @@ export default function Canvas({
             style: "solid",
             lineWidth,
             color: lineColor,
-            shape: activeShapeRef.current,
+            shape: keyShapeRef.current || activeShapeRef.current,
           };
           strokesRef.current.push(stroke);
           undoStackRef.current.push({ type: "draw", stroke });
@@ -1542,6 +1611,7 @@ export default function Canvas({
       eraseAt,
       persistStrokes,
       confirmErase,
+      discardTinyShape,
       broadcastZoom,
     ],
   );
@@ -1599,6 +1669,7 @@ export default function Canvas({
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`;
   const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='50%25' stop-color='%2389CFF0'/%3E%3Cstop offset='50%25' stop-color='%23FA8072'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='5' width='18' height='12' rx='2.5' transform='rotate(-25 12 11)' fill='url(%23g)' stroke='%23666' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`;
   const shapeCursors: Record<ShapeKind, string> = {
+    line: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='20' x2='20' y2='4' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     rectangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Crect x='4' y='4' width='16' height='16' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
     circle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='8' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
     triangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,4 20,20 4,20' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
@@ -1608,6 +1679,7 @@ export default function Canvas({
     hexagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 21,7 21,17 12,22 3,17 3,7' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     octagon: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='8,2 16,2 22,8 22,16 16,22 8,22 2,16 2,8' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     diamond: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 22,12 12,22 2,12' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
+    lightning: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='13,2 4,12 11,12 9,22 20,10 13,10' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
   };
   const highlightCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='6' stroke-linecap='round' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
   const cursor = panning
@@ -1617,7 +1689,7 @@ export default function Canvas({
       : highlighting
         ? highlightCursor
         : shapeActive
-          ? shapeCursors[activeShape]
+          ? shapeCursors[keyShapeRef.current || activeShape]
           : crosshairCursor;
 
   return (
