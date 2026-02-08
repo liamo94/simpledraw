@@ -473,12 +473,14 @@ export default function App() {
                           if (t.id === "shape") {
                             shapeLongPressRef.current = setTimeout(() => {
                               setShowShapePicker(true);
+                              setShowThicknessPicker(null);
                               setTouchTool(t.id);
                               shapeLongPressRef.current = null;
                             }, 400);
                           } else if (t.id === "draw" || t.id === "dashed" || t.id === "line" || t.id === "highlight") {
                             thicknessLongPressRef.current = setTimeout(() => {
                               setShowThicknessPicker(t.id as "draw" | "dashed" | "line" | "highlight");
+                              setShowShapePicker(false);
                               setTouchTool(t.id);
                               thicknessLongPressRef.current = null;
                             }, 400);

@@ -427,6 +427,7 @@ export default function Canvas({
   const [panning, setPanning] = useState(false);
   const [erasing, setErasing] = useState(false);
   const [shapeActive, setShapeActive] = useState(false);
+  const shapeFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [highlighting, setHighlighting] = useState(false);
   const highlightKeyRef = useRef(false);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
@@ -954,6 +955,12 @@ export default function Canvas({
         !e.shiftKey
       ) {
         window.dispatchEvent(new Event("simpledraw:cycle-shape"));
+        if (shapeFlashRef.current) clearTimeout(shapeFlashRef.current);
+        setShapeActive(true);
+        shapeFlashRef.current = setTimeout(() => {
+          setShapeActive(false);
+          shapeFlashRef.current = null;
+        }, 300);
       }
       if (
         e.key === "S" &&
@@ -963,6 +970,12 @@ export default function Canvas({
         e.shiftKey
       ) {
         window.dispatchEvent(new Event("simpledraw:cycle-shape-back"));
+        if (shapeFlashRef.current) clearTimeout(shapeFlashRef.current);
+        setShapeActive(true);
+        shapeFlashRef.current = setTimeout(() => {
+          setShapeActive(false);
+          shapeFlashRef.current = null;
+        }, 300);
       }
       if (e.key === "v" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         highlightKeyRef.current = true;
@@ -1586,8 +1599,8 @@ export default function Canvas({
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`;
   const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='50%25' stop-color='%2389CFF0'/%3E%3Cstop offset='50%25' stop-color='%23FA8072'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='5' width='18' height='12' rx='2.5' transform='rotate(-25 12 11)' fill='url(%23g)' stroke='%23666' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`;
   const shapeCursors: Record<ShapeKind, string> = {
-    rectangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Crect x='4' y='6' width='16' height='12' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
-    circle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cellipse cx='12' cy='12' rx='8' ry='6' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
+    rectangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Crect x='4' y='4' width='16' height='16' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
+    circle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='8' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`,
     triangle: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,4 20,20 4,20' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     star: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='12,2 14.5,9 22,9 16,14 18.5,21 12,17 5.5,21 8,14 2,9 9.5,9' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
     arrow: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='18' y2='12' stroke='${encodedColor}' stroke-width='1.5'/%3E%3Cpolyline points='14,8 18,12 14,16' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
