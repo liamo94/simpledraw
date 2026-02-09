@@ -355,7 +355,12 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
       ctx.lineWidth = stroke.lineWidth;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
-      ctx.setLineDash([]);
+      const dashScale = stroke.lineWidth / 4;
+      ctx.setLineDash(
+        stroke.style === "dashed"
+          ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
+          : [],
+      );
       renderShape(
         ctx,
         stroke.points[0],
@@ -1095,8 +1100,7 @@ export default function Canvas({
         shapeKeyMap[e.key] &&
         !cmdKey(e) &&
         !e.altKey &&
-        !e.ctrlKey &&
-        !e.shiftKey
+        !e.ctrlKey
       ) {
         keyShapeRef.current = shapeKeyMap[e.key];
         setShapeActive(true);
@@ -1681,7 +1685,8 @@ export default function Canvas({
           activeModifierRef.current = "shape";
           const stroke: Stroke = {
             points: [point, { ...point }],
-            style: "solid",
+            style: e.shiftKey ? "dashed" : "solid",
+            dashGap: e.shiftKey ? dashGap : undefined,
             lineWidth,
             color: lineColor,
             shape: keyShapeRef.current || activeShapeRef.current,

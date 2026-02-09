@@ -560,6 +560,13 @@ export default function Menu({
                           </span>
                           <kbd className={isDark ? "text-white/40" : "text-black/40"}>A + drag</kbd>
                         </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeDasharray="3 2"><rect x="2" y="3" width="12" height="10" rx="0.5" /></svg>
+                            Dashed shape
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>{isMac ? "Shift + Ctrl" : `Shift + ${alt}`} + drag</kbd>
+                        </div>
                       </div>
 
                       <div className={`text-[10px] font-medium uppercase tracking-wider mt-2.5 mb-1 ${isDark ? "text-white/30" : "text-black/30"}`}>Tools</div>
