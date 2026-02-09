@@ -423,8 +423,10 @@ export default function Canvas({
   const eraseMovingRef = useRef(false);
   const isDrawingRef = useRef(false);
   const activeModifierRef = useRef<
-    "meta" | "shift" | "alt" | "line" | "shape" | "highlight" | null
+    "meta" | "shift" | "alt" | "line" | "shape" | "highlight" | "laser" | null
   >(null);
+  const laserTrailRef = useRef<{ x: number; y: number }[]>([]);
+  const laserMovingRef = useRef(false);
   const viewRef = useRef({ x: 0, y: 0, scale: 1 });
   const showDotGridRef = useRef(showDotGrid);
   showDotGridRef.current = showDotGrid;
@@ -446,6 +448,8 @@ export default function Canvas({
   const shapeFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [highlighting, setHighlighting] = useState(false);
   const highlightKeyRef = useRef(false);
+  const laserKeyRef = useRef(false);
+  const [lasering, setLasering] = useState(false);
   const keyShapeRef = useRef<ShapeKind | null>(null);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -584,6 +588,39 @@ export default function Canvas({
       }
     }
 
+    // Draw laser pointer trail (screen-space thickness)
+    const laser = laserTrailRef.current;
+    if (laser.length >= 2) {
+      const pts = smoothPoints(smoothPoints(laser));
+      const len = pts.length;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      ctx.setLineDash([]);
+      for (let i = 1; i < len; i++) {
+        const t = i / (len - 1);
+        ctx.beginPath();
+        ctx.lineWidth = (2 + t * 4) / scale;
+        ctx.strokeStyle = `rgba(255, 30, 30, ${t * 0.8})`;
+        ctx.moveTo(pts[i - 1].x, pts[i - 1].y);
+        ctx.lineTo(pts[i].x, pts[i].y);
+        ctx.stroke();
+      }
+      // Bright dot at the head
+      if (len > 0) {
+        const head = pts[len - 1];
+        const dotR = 4 / scale;
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(255, 60, 60, 0.9)";
+        ctx.arc(head.x, head.y, dotR, 0, Math.PI * 2);
+        ctx.fill();
+        // Glow
+        ctx.beginPath();
+        ctx.fillStyle = "rgba(255, 80, 80, 0.3)";
+        ctx.arc(head.x, head.y, dotR * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
@@ -625,6 +662,33 @@ export default function Canvas({
       }
     };
   }, [erasing, redraw]);
+
+  // Drain laser trail
+  useEffect(() => {
+    if (!lasering) return;
+    let raf: number;
+    let stopped = false;
+    const tick = () => {
+      const trail = laserTrailRef.current;
+      if (laserMovingRef.current) {
+        laserMovingRef.current = false;
+      } else if (trail.length > 0) {
+        const remove = Math.max(1, Math.ceil(trail.length * 0.15));
+        trail.splice(0, remove);
+        redraw();
+      }
+      if (!stopped || trail.length > 0) {
+        raf = requestAnimationFrame(tick);
+      }
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      stopped = true;
+      if (laserTrailRef.current.length === 0) {
+        cancelAnimationFrame(raf);
+      }
+    };
+  }, [lasering, redraw]);
 
   const clearCanvas = useCallback(() => {
     strokesRef.current = [];
@@ -1016,6 +1080,10 @@ export default function Canvas({
         highlightKeyRef.current = true;
         setHighlighting(true);
       }
+      if (e.key === "q" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        laserKeyRef.current = true;
+        setLasering(true);
+      }
       // Letter-key shape shortcuts
       const shapeKeyMap: Record<string, ShapeKind> = {
         a: "arrow",
@@ -1059,6 +1127,14 @@ export default function Canvas({
         e.preventDefault();
         cancelCurrentStroke();
       }
+      if (e.key === "Escape" && activeModifierRef.current === "laser") {
+        e.preventDefault();
+        laserTrailRef.current = [];
+        isDrawingRef.current = false;
+        activeModifierRef.current = null;
+        setLasering(false);
+        redraw();
+      }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
@@ -1070,6 +1146,14 @@ export default function Canvas({
           activeModifierRef.current = null;
           persistStrokes();
           redraw();
+        }
+      }
+      if (e.key === "q") {
+        laserKeyRef.current = false;
+        setLasering(false);
+        if (activeModifierRef.current === "laser") {
+          isDrawingRef.current = false;
+          activeModifierRef.current = null;
         }
       }
       if (e.key === "v") {
@@ -1101,7 +1185,9 @@ export default function Canvas({
       setErasing(false);
       setShapeActive(false);
       setHighlighting(false);
+      setLasering(false);
       highlightKeyRef.current = false;
+      laserKeyRef.current = false;
       keyShapeRef.current = null;
       if (activeModifierRef.current === "alt") {
         cancelErase();
@@ -1110,6 +1196,11 @@ export default function Canvas({
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         persistStrokes();
+      }
+      if (activeModifierRef.current === "laser") {
+        laserTrailRef.current = [];
+        isDrawingRef.current = false;
+        activeModifierRef.current = null;
       }
     };
 
@@ -1437,6 +1528,7 @@ export default function Canvas({
         | "line"
         | "shape"
         | "highlight"
+        | "laser"
         | null;
 
       if (e.pointerType === "touch") {
@@ -1461,7 +1553,9 @@ export default function Canvas({
                         : null;
         }
       } else {
-        modifier = highlightKeyRef.current
+        modifier = laserKeyRef.current
+          ? "laser"
+          : highlightKeyRef.current
           ? "highlight"
           : keyShapeRef.current
             ? "shape"
@@ -1514,6 +1608,48 @@ export default function Canvas({
         isDrawingRef.current = true;
         activeModifierRef.current = "alt";
         eraseAt(point.x, point.y);
+        redraw();
+        return;
+      }
+
+      if (modifier === "laser") {
+        if (!isDrawingRef.current || activeModifierRef.current !== "laser") {
+          laserTrailRef.current = [];
+        }
+        isDrawingRef.current = true;
+        activeModifierRef.current = "laser";
+        // Add point to laser trail with interpolation
+        const trail = laserTrailRef.current;
+        const maxGap = 6 / viewRef.current.scale;
+        if (trail.length > 0) {
+          const last = trail[trail.length - 1];
+          const dx = point.x - last.x;
+          const dy = point.y - last.y;
+          const dist = Math.sqrt(dx * dx + dy * dy);
+          if (dist > maxGap) {
+            const steps = Math.ceil(dist / maxGap);
+            for (let s = 1; s < steps; s++) {
+              const t = s / steps;
+              trail.push({ x: last.x + dx * t, y: last.y + dy * t });
+            }
+          }
+        }
+        trail.push({ ...point });
+        laserMovingRef.current = true;
+        // Limit trail length
+        const maxLen = 450 / viewRef.current.scale;
+        if (trail.length > 2) {
+          let acc = 0;
+          let cutIdx = 0;
+          for (let i = trail.length - 1; i > 0; i--) {
+            const dx = trail[i].x - trail[i - 1].x;
+            const dy = trail[i].y - trail[i - 1].y;
+            acc += Math.sqrt(dx * dx + dy * dy);
+            if (acc > maxLen) { cutIdx = i; break; }
+          }
+          if (cutIdx > 0) trail.splice(0, cutIdx);
+          else if (trail.length > 120) trail.splice(0, trail.length - 120);
+        }
         redraw();
         return;
       }
@@ -1685,15 +1821,18 @@ export default function Canvas({
     lightning: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpolygon points='13,2 4,12 11,12 9,22 20,10 13,10' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E%3C/svg%3E") 12 12, crosshair`,
   };
   const highlightCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='6' stroke-linecap='round' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
+  const laserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='4' fill='%23ff3030' fill-opacity='0.9'/%3E%3Ccircle cx='12' cy='12' r='7' fill='none' stroke='%23ff3030' stroke-width='1' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
   const cursor = panning
     ? "grabbing"
-    : erasing
-      ? eraserCursor
-      : highlighting
-        ? highlightCursor
-        : shapeActive
-          ? shapeCursors[keyShapeRef.current || activeShape]
-          : crosshairCursor;
+    : lasering
+      ? laserCursor
+      : erasing
+        ? eraserCursor
+        : highlighting
+          ? highlightCursor
+          : shapeActive
+            ? shapeCursors[keyShapeRef.current || activeShape]
+            : crosshairCursor;
 
   return (
     <canvas
