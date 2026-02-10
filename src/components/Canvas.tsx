@@ -35,7 +35,7 @@ export type TouchTool =
   | "shape"
   | "highlight";
 
-const STROKES_KEY = "simpledraw-strokes";
+const STROKES_KEY = "drawtool-strokes";
 
 function loadStrokes(): Stroke[] {
   try {
@@ -748,7 +748,7 @@ export default function Canvas({
 
   const broadcastZoom = useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent("simpledraw:zoom", { detail: viewRef.current.scale }),
+      new CustomEvent("drawtool:zoom", { detail: viewRef.current.scale }),
     );
   }, []);
 
@@ -847,7 +847,7 @@ export default function Canvas({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "simpledraw-transparent.png";
+      a.download = "drawtool-transparent.png";
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -864,23 +864,23 @@ export default function Canvas({
       (e as CustomEvent).detail.count = strokesRef.current.length;
     };
     const onExportTransparent = () => exportTransparent();
-    window.addEventListener("simpledraw:clear", onClear);
-    window.addEventListener("simpledraw:reset-view", onResetView);
-    window.addEventListener("simpledraw:center-view", onCenterView);
-    window.addEventListener("simpledraw:zoom-step", onZoomStep);
-    window.addEventListener("simpledraw:query-stroke-count", onQueryCount);
+    window.addEventListener("drawtool:clear", onClear);
+    window.addEventListener("drawtool:reset-view", onResetView);
+    window.addEventListener("drawtool:center-view", onCenterView);
+    window.addEventListener("drawtool:zoom-step", onZoomStep);
+    window.addEventListener("drawtool:query-stroke-count", onQueryCount);
     window.addEventListener(
-      "simpledraw:export-transparent",
+      "drawtool:export-transparent",
       onExportTransparent,
     );
     return () => {
-      window.removeEventListener("simpledraw:clear", onClear);
-      window.removeEventListener("simpledraw:reset-view", onResetView);
-      window.removeEventListener("simpledraw:center-view", onCenterView);
-      window.removeEventListener("simpledraw:zoom-step", onZoomStep);
-      window.removeEventListener("simpledraw:query-stroke-count", onQueryCount);
+      window.removeEventListener("drawtool:clear", onClear);
+      window.removeEventListener("drawtool:reset-view", onResetView);
+      window.removeEventListener("drawtool:center-view", onCenterView);
+      window.removeEventListener("drawtool:zoom-step", onZoomStep);
+      window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
       window.removeEventListener(
-        "simpledraw:export-transparent",
+        "drawtool:export-transparent",
         onExportTransparent,
       );
     };
@@ -922,7 +922,7 @@ export default function Canvas({
     const onKeyDown = (e: KeyboardEvent) => {
       if (cmdKey(e) && e.key === "k") {
         e.preventDefault();
-        window.dispatchEvent(new Event("simpledraw:request-clear"));
+        window.dispatchEvent(new Event("drawtool:request-clear"));
       }
       if (cmdKey(e) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -963,7 +963,7 @@ export default function Canvas({
       ) {
         e.preventDefault();
         window.dispatchEvent(
-          new CustomEvent("simpledraw:thickness", { detail: 1 }),
+          new CustomEvent("drawtool:thickness", { detail: 1 }),
         );
       }
       if (
@@ -973,41 +973,41 @@ export default function Canvas({
       ) {
         e.preventDefault();
         window.dispatchEvent(
-          new CustomEvent("simpledraw:thickness", { detail: -1 }),
+          new CustomEvent("drawtool:thickness", { detail: -1 }),
         );
       }
       if (e.ctrlKey && !e.metaKey && e.key === "o") {
         e.preventDefault();
-        window.dispatchEvent(new Event("simpledraw:toggle-menu"));
+        window.dispatchEvent(new Event("drawtool:toggle-menu"));
       }
       if (cmdKey(e) && e.key === "0") {
         e.preventDefault();
-        window.dispatchEvent(new Event("simpledraw:reset-view"));
+        window.dispatchEvent(new Event("drawtool:reset-view"));
       }
       if (cmdKey(e) && e.key === "1") {
         e.preventDefault();
-        window.dispatchEvent(new Event("simpledraw:center-view"));
+        window.dispatchEvent(new Event("drawtool:center-view"));
       }
       if (e.key === "[") {
         window.dispatchEvent(
-          new CustomEvent("simpledraw:color-cycle", { detail: -1 }),
+          new CustomEvent("drawtool:color-cycle", { detail: -1 }),
         );
       }
       if (e.key === "]") {
         window.dispatchEvent(
-          new CustomEvent("simpledraw:color-cycle", { detail: 1 }),
+          new CustomEvent("drawtool:color-cycle", { detail: 1 }),
         );
       }
       if ((e.key === "+" || e.key === "=") && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         window.dispatchEvent(
-          new CustomEvent("simpledraw:zoom-step", { detail: 1.25 }),
+          new CustomEvent("drawtool:zoom-step", { detail: 1.25 }),
         );
       }
       if (e.key === "-" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         window.dispatchEvent(
-          new CustomEvent("simpledraw:zoom-step", { detail: 0.8 }),
+          new CustomEvent("drawtool:zoom-step", { detail: 0.8 }),
         );
       }
       const panAmount = e.shiftKey ? 200 : 50;
@@ -1058,7 +1058,7 @@ export default function Canvas({
         !e.ctrlKey &&
         !e.shiftKey
       ) {
-        window.dispatchEvent(new Event("simpledraw:cycle-shape"));
+        window.dispatchEvent(new Event("drawtool:cycle-shape"));
         if (shapeFlashRef.current) clearTimeout(shapeFlashRef.current);
         setShapeActive(true);
         shapeFlashRef.current = setTimeout(() => {
@@ -1073,7 +1073,7 @@ export default function Canvas({
         !e.ctrlKey &&
         e.shiftKey
       ) {
-        window.dispatchEvent(new Event("simpledraw:cycle-shape-back"));
+        window.dispatchEvent(new Event("drawtool:cycle-shape-back"));
         if (shapeFlashRef.current) clearTimeout(shapeFlashRef.current);
         setShapeActive(true);
         shapeFlashRef.current = setTimeout(() => {
@@ -1115,7 +1115,7 @@ export default function Canvas({
       ) {
         const colorIndex = parseInt(e.key) - 1;
         window.dispatchEvent(
-          new CustomEvent("simpledraw:set-color-index", { detail: colorIndex }),
+          new CustomEvent("drawtool:set-color-index", { detail: colorIndex }),
         );
       }
       if (e.key === "Escape" && activeModifierRef.current === "alt") {

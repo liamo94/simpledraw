@@ -15,7 +15,7 @@ export type Settings = {
   activeShape: ShapeKind;
 };
 
-const STORAGE_KEY = "simpledraw-settings";
+const STORAGE_KEY = "drawtool-settings";
 
 function getSystemTheme(): Theme {
   return window.matchMedia("(prefers-color-scheme: dark)").matches

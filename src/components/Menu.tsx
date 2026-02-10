@@ -46,8 +46,8 @@ export default function Menu({
         }
         return !o;
       });
-    window.addEventListener("simpledraw:toggle-menu", onToggle);
-    return () => window.removeEventListener("simpledraw:toggle-menu", onToggle);
+    window.addEventListener("drawtool:toggle-menu", onToggle);
+    return () => window.removeEventListener("drawtool:toggle-menu", onToggle);
   }, []);
 
   useEffect(() => {
@@ -142,7 +142,7 @@ export default function Menu({
               className={`text-lg mb-3 text-center ${isDark ? "text-white/90" : "text-black/90"}`}
               style={{ fontFamily: "Pacifico, cursive" }}
             >
-              simpledraw
+              drawtool
             </div>
             <label className="flex items-center justify-between gap-3 text-sm">
               <span>Line thickness</span>
@@ -665,7 +665,7 @@ export default function Menu({
               <div
                 className={`mt-2 pt-2 border-t text-xs leading-relaxed break-words ${isDark ? "border-white/10 text-white/60" : "border-black/10 text-black/60"}`}
               >
-                <p>simpledraw was built out of a need for three things:</p>
+                <p>drawtool was built out of a need for three things:</p>
                 <ul className="mt-1.5 list-disc list-inside space-y-1">
                   <li>
                     A classic freehand whiteboard &mdash; simple to draw on, no

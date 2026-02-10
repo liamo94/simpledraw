@@ -19,7 +19,7 @@ export default function App() {
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
   );
   const [showOnboarding, setShowOnboarding] = useState(
-    () => !localStorage.getItem("simpledraw-onboarded"),
+    () => !localStorage.getItem("drawtool-onboarded"),
   );
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState<
@@ -80,14 +80,14 @@ export default function App() {
 
   const doClear = useCallback(() => {
     setConfirmingClear(false);
-    window.dispatchEvent(new Event("simpledraw:clear"));
+    window.dispatchEvent(new Event("drawtool:clear"));
   }, []);
 
   const requestClear = useCallback(() => {
     if (settingsRef.current.confirmClear && !hasTouch) {
       const detail = { count: 0 };
       window.dispatchEvent(
-        new CustomEvent("simpledraw:query-stroke-count", { detail }),
+        new CustomEvent("drawtool:query-stroke-count", { detail }),
       );
       if (detail.count > 16) {
         setConfirmingClear(true);
@@ -203,24 +203,24 @@ export default function App() {
         showToast({ type: "text", message: `Color ${idx + 1}` });
       }
     };
-    window.addEventListener("simpledraw:zoom", onZoom);
-    window.addEventListener("simpledraw:thickness", onThickness);
-    window.addEventListener("simpledraw:color-cycle", onColorCycle);
-    window.addEventListener("simpledraw:request-clear", onRequestClear);
-    window.addEventListener("simpledraw:cycle-shape", onCycleShape);
-    window.addEventListener("simpledraw:cycle-shape-back", onCycleShapeBack);
-    window.addEventListener("simpledraw:set-color-index", onSetColorIndex);
+    window.addEventListener("drawtool:zoom", onZoom);
+    window.addEventListener("drawtool:thickness", onThickness);
+    window.addEventListener("drawtool:color-cycle", onColorCycle);
+    window.addEventListener("drawtool:request-clear", onRequestClear);
+    window.addEventListener("drawtool:cycle-shape", onCycleShape);
+    window.addEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
+    window.addEventListener("drawtool:set-color-index", onSetColorIndex);
     return () => {
-      window.removeEventListener("simpledraw:zoom", onZoom);
-      window.removeEventListener("simpledraw:thickness", onThickness);
-      window.removeEventListener("simpledraw:color-cycle", onColorCycle);
-      window.removeEventListener("simpledraw:request-clear", onRequestClear);
-      window.removeEventListener("simpledraw:cycle-shape", onCycleShape);
+      window.removeEventListener("drawtool:zoom", onZoom);
+      window.removeEventListener("drawtool:thickness", onThickness);
+      window.removeEventListener("drawtool:color-cycle", onColorCycle);
+      window.removeEventListener("drawtool:request-clear", onRequestClear);
+      window.removeEventListener("drawtool:cycle-shape", onCycleShape);
       window.removeEventListener(
-        "simpledraw:cycle-shape-back",
+        "drawtool:cycle-shape-back",
         onCycleShapeBack,
       );
-      window.removeEventListener("simpledraw:set-color-index", onSetColorIndex);
+      window.removeEventListener("drawtool:set-color-index", onSetColorIndex);
     };
   }, [updateSettings, requestClear, showToast]);
 
@@ -242,12 +242,12 @@ export default function App() {
   }, [confirmingClear, doClear]);
 
   const resetView = useCallback(() => {
-    window.dispatchEvent(new Event("simpledraw:reset-view"));
+    window.dispatchEvent(new Event("drawtool:reset-view"));
     setZoom(1);
   }, []);
 
   const centerView = useCallback(() => {
-    window.dispatchEvent(new Event("simpledraw:center-view"));
+    window.dispatchEvent(new Event("drawtool:center-view"));
   }, []);
 
   const exportPng = useCallback(() => {
@@ -258,31 +258,31 @@ export default function App() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "simpledraw.png";
+      a.download = "drawtool.png";
       a.click();
       URL.revokeObjectURL(url);
     });
   }, []);
 
   const exportTransparent = useCallback(() => {
-    window.dispatchEvent(new Event("simpledraw:export-transparent"));
+    window.dispatchEvent(new Event("drawtool:export-transparent"));
   }, []);
 
   const zoomIn = useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent("simpledraw:zoom-step", { detail: 1.25 }),
+      new CustomEvent("drawtool:zoom-step", { detail: 1.25 }),
     );
   }, []);
 
   const zoomOut = useCallback(() => {
     window.dispatchEvent(
-      new CustomEvent("simpledraw:zoom-step", { detail: 0.8 }),
+      new CustomEvent("drawtool:zoom-step", { detail: 0.8 }),
     );
   }, []);
 
   const dismissOnboarding = useCallback(() => {
     setShowOnboarding(false);
-    localStorage.setItem("simpledraw-onboarded", "1");
+    localStorage.setItem("drawtool-onboarded", "1");
   }, []);
 
   useEffect(() => {
@@ -892,7 +892,7 @@ export default function App() {
             <div
               className={`text-sm font-medium mb-4 ${isDark ? "text-white/90" : "text-black/90"}`}
             >
-              Welcome to simpledraw
+              Welcome to drawtool
             </div>
             <div
               className={`text-xs space-y-2 text-left ${isDark ? "text-white/60" : "text-black/60"}`}
