@@ -139,10 +139,34 @@ export default function Menu({
             className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
           >
             <div
-              className={`text-lg mb-3 text-center ${isDark ? "text-white/90" : "text-black/90"}`}
+              className="text-xl mb-3 text-center select-none"
               style={{ fontFamily: "Pacifico, cursive" }}
             >
-              drawtool
+              {[
+                { letter: "d", color: "#3b82f6", rotate: -6 },
+                { letter: "r", color: "#ef4444", rotate: 3 },
+                { letter: "a", color: "#22c55e", rotate: -4 },
+                { letter: "w", color: "#eab308", rotate: 5 },
+                { letter: "t", color: "#ec4899", rotate: -3 },
+                { letter: "o", color: "#f97316", rotate: 4 },
+                { letter: "o", color: "#8b5cf6", rotate: -5 },
+                { letter: "l", color: "#06b6d4", rotate: 3 },
+              ].map((l, i) => (
+                <span
+                  key={i}
+                  style={{
+                    color: l.color,
+                    display: "inline-block",
+                    marginLeft: i === 0 ? 0 : 2,
+                    transform: `rotate(${l.rotate}deg)`,
+                    textShadow: isDark
+                      ? `0 0 8px ${l.color}44`
+                      : `1px 1px 0 ${l.color}22`,
+                  }}
+                >
+                  {l.letter}
+                </span>
+              ))}
             </div>
             <label className="flex items-center justify-between gap-3 text-sm">
               <span>Line thickness</span>
