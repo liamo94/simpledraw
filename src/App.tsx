@@ -890,9 +890,34 @@ export default function App() {
             className={`px-8 py-6 rounded-lg border text-center max-w-xs ${isDark ? "bg-[#0a0a1a] border-white/15" : "bg-[#f5f5f0] border-black/15"}`}
           >
             <div
-              className={`text-sm font-medium mb-4 ${isDark ? "text-white/90" : "text-black/90"}`}
+              className="text-xl mb-4 select-none"
+              style={{ fontFamily: "Pacifico, cursive" }}
             >
-              Welcome to drawtool
+              {[
+                { letter: "d", color: "#3b82f6", rotate: -6 },
+                { letter: "r", color: "#ef4444", rotate: 3 },
+                { letter: "a", color: "#22c55e", rotate: -4 },
+                { letter: "w", color: "#eab308", rotate: 5 },
+                { letter: "t", color: "#ec4899", rotate: -3 },
+                { letter: "o", color: "#f97316", rotate: 4 },
+                { letter: "o", color: "#8b5cf6", rotate: -5 },
+                { letter: "l", color: "#06b6d4", rotate: 3 },
+              ].map((l, i) => (
+                <span
+                  key={i}
+                  style={{
+                    color: l.color,
+                    display: "inline-block",
+                    marginLeft: i === 0 ? 0 : 2,
+                    transform: `rotate(${l.rotate}deg)`,
+                    textShadow: isDark
+                      ? `0 0 8px ${l.color}44`
+                      : `1px 1px 0 ${l.color}22`,
+                  }}
+                >
+                  {l.letter}
+                </span>
+              ))}
             </div>
             <div
               className={`text-xs space-y-2 text-left ${isDark ? "text-white/60" : "text-black/60"}`}
@@ -916,6 +941,12 @@ export default function App() {
                 </kbd>
               </div>
               <div className="flex justify-between gap-6">
+                <span>Shape</span>
+                <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                  {isMac ? "Ctrl" : `${alt} + Shift`} + drag
+                </kbd>
+              </div>
+              <div className="flex justify-between gap-6">
                 <span>Clear</span>
                 <kbd className={isDark ? "text-white/40" : "text-black/40"}>
                   {mod} + K
@@ -924,6 +955,11 @@ export default function App() {
             </div>
             <div
               className={`text-[10px] mt-4 ${isDark ? "text-white/30" : "text-black/30"}`}
+            >
+              Open the menu (Ctrl+O) for all shortcuts
+            </div>
+            <div
+              className={`text-[10px] mt-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
             >
               Press any key or click to start
             </div>
