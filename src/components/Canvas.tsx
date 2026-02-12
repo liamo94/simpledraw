@@ -35,11 +35,16 @@ export type TouchTool =
   | "shape"
   | "highlight";
 
-const STROKES_KEY = "drawtool-strokes";
+function strokesKey(n: number) {
+  return `drawtool-strokes-${n}`;
+}
+function viewKey(n: number) {
+  return `drawtool-view-${n}`;
+}
 
-function loadStrokes(): Stroke[] {
+function loadStrokes(canvasIndex: number): Stroke[] {
   try {
-    const raw = localStorage.getItem(STROKES_KEY);
+    const raw = localStorage.getItem(strokesKey(canvasIndex));
     if (raw) return JSON.parse(raw);
   } catch {
     /* ignore */
@@ -47,14 +52,42 @@ function loadStrokes(): Stroke[] {
   return [];
 }
 
-function saveStrokes(strokes: Stroke[]) {
+function saveStrokes(strokes: Stroke[], canvasIndex: number) {
   try {
     const json = JSON.stringify(strokes);
-    if (json.length < 5_000_000) localStorage.setItem(STROKES_KEY, json);
+    if (json.length < 5_000_000)
+      localStorage.setItem(strokesKey(canvasIndex), json);
   } catch {
     /* ignore */
   }
 }
+
+function loadView(canvasIndex: number): { x: number; y: number; scale: number } {
+  try {
+    const raw = localStorage.getItem(viewKey(canvasIndex));
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
+  return { x: 0, y: 0, scale: 1 };
+}
+
+function saveView(view: { x: number; y: number; scale: number }, canvasIndex: number) {
+  try {
+    localStorage.setItem(viewKey(canvasIndex), JSON.stringify(view));
+  } catch {
+    /* ignore */
+  }
+}
+
+type CanvasSnapshot = {
+  strokes: Stroke[];
+  undoStack: UndoAction[];
+  redoStack: UndoAction[];
+  view: { x: number; y: number; scale: number };
+};
+
+const snapshotCache = new Map<number, CanvasSnapshot>();
 
 function distToSegment(
   px: number,
@@ -407,6 +440,7 @@ export default function Canvas({
   theme,
   touchTool,
   activeShape,
+  canvasIndex,
 }: {
   lineWidth: number;
   lineColor: string;
@@ -415,9 +449,11 @@ export default function Canvas({
   theme: Theme;
   touchTool: TouchTool;
   activeShape: ShapeKind;
+  canvasIndex: number;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [loadedStrokes] = useState(loadStrokes);
+  const canvasIndexRef = useRef(canvasIndex);
+  const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
   const strokesRef = useRef<Stroke[]>(loadedStrokes);
   const undoStackRef = useRef<UndoAction[]>(
     loadedStrokes.map((stroke) => ({ type: "draw" as const, stroke })),
@@ -432,7 +468,7 @@ export default function Canvas({
   >(null);
   const laserTrailRef = useRef<{ x: number; y: number }[]>([]);
   const laserMovingRef = useRef(false);
-  const viewRef = useRef({ x: 0, y: 0, scale: 1 });
+  const viewRef = useRef(loadView(canvasIndex));
   const showDotGridRef = useRef(showDotGrid);
   showDotGridRef.current = showDotGrid;
   const themeRef = useRef(theme);
@@ -471,7 +507,11 @@ export default function Canvas({
   } | null>(null);
 
   const persistStrokes = useCallback(() => {
-    saveStrokes(strokesRef.current);
+    saveStrokes(strokesRef.current, canvasIndexRef.current);
+  }, []);
+
+  const persistView = useCallback(() => {
+    saveView(viewRef.current, canvasIndexRef.current);
   }, []);
 
   const confirmErase = useCallback(() => {
@@ -712,18 +752,39 @@ export default function Canvas({
       if (prevIsDark !== nowIsDark) {
         const from = nowIsDark ? "#000000" : "#ffffff";
         const to = nowIsDark ? "#ffffff" : "#000000";
-        for (const stroke of strokesRef.current) {
-          if (stroke.color === from) stroke.color = to;
-        }
+        const swapStrokes = (strokes: Stroke[]) => {
+          for (const s of strokes) {
+            if (s.color === from) s.color = to;
+          }
+        };
         const swapAction = (a: UndoAction) => {
           const list = a.type === "draw" ? [a.stroke] : a.strokes;
           for (const s of list) {
             if (s.color === from) s.color = to;
           }
         };
+        // Swap active canvas
+        swapStrokes(strokesRef.current);
         undoStackRef.current.forEach(swapAction);
         redoStackRef.current.forEach(swapAction);
         persistStrokes();
+        // Swap cached (inactive) canvases
+        for (const [idx, snapshot] of snapshotCache) {
+          if (idx === canvasIndexRef.current) continue;
+          swapStrokes(snapshot.strokes);
+          snapshot.undoStack.forEach(swapAction);
+          snapshot.redoStack.forEach(swapAction);
+          saveStrokes(snapshot.strokes, idx);
+        }
+        // Swap uncached canvases still in localStorage
+        for (let i = 1; i <= 9; i++) {
+          if (i === canvasIndexRef.current || snapshotCache.has(i)) continue;
+          const strokes = loadStrokes(i);
+          if (strokes.length > 0) {
+            swapStrokes(strokes);
+            saveStrokes(strokes, i);
+          }
+        }
       }
       prevThemeRef.current = theme;
     }
@@ -752,11 +813,68 @@ export default function Canvas({
     );
   }, []);
 
+  // Canvas switching effect
+  useEffect(() => {
+    const prevIndex = canvasIndexRef.current;
+    if (prevIndex === canvasIndex) return;
+
+    // Cancel any in-progress drawing
+    if (isDrawingRef.current) {
+      if (activeModifierRef.current !== "alt") {
+        strokesRef.current.pop();
+        undoStackRef.current.pop();
+      }
+      if (activeModifierRef.current === "alt") {
+        pendingEraseRef.current.clear();
+      }
+      isDrawingRef.current = false;
+      activeModifierRef.current = null;
+    }
+
+    // Save current state to cache + localStorage
+    snapshotCache.set(prevIndex, {
+      strokes: strokesRef.current,
+      undoStack: undoStackRef.current,
+      redoStack: redoStackRef.current,
+      view: { ...viewRef.current },
+    });
+    saveStrokes(strokesRef.current, prevIndex);
+    saveView(viewRef.current, prevIndex);
+
+    // Restore new canvas from cache or localStorage
+    const cached = snapshotCache.get(canvasIndex);
+    if (cached) {
+      strokesRef.current = cached.strokes;
+      undoStackRef.current = cached.undoStack;
+      redoStackRef.current = cached.redoStack;
+      viewRef.current = cached.view;
+    } else {
+      const strokes = loadStrokes(canvasIndex);
+      strokesRef.current = strokes;
+      undoStackRef.current = strokes.map((stroke) => ({
+        type: "draw" as const,
+        stroke,
+      }));
+      redoStackRef.current = [];
+      viewRef.current = loadView(canvasIndex);
+    }
+
+    // Clear transient state
+    eraseTrailRef.current = [];
+    laserTrailRef.current = [];
+    pendingEraseRef.current.clear();
+
+    canvasIndexRef.current = canvasIndex;
+    broadcastZoom();
+    redraw();
+  }, [canvasIndex, redraw, broadcastZoom]);
+
   const resetView = useCallback(() => {
     viewRef.current = { x: 0, y: 0, scale: 1 };
     redraw();
     broadcastZoom();
-  }, [redraw, broadcastZoom]);
+    persistView();
+  }, [redraw, broadcastZoom, persistView]);
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -770,8 +888,9 @@ export default function Canvas({
       view.scale = newScale;
       redraw();
       broadcastZoom();
+      persistView();
     },
-    [redraw, broadcastZoom],
+    [redraw, broadcastZoom, persistView],
   );
 
   const centerView = useCallback(() => {
@@ -815,7 +934,8 @@ export default function Canvas({
     }
     redraw();
     broadcastZoom();
-  }, [redraw, broadcastZoom]);
+    persistView();
+  }, [redraw, broadcastZoom, persistView]);
 
   const exportTransparent = useCallback(() => {
     const strokes = strokesRef.current;
@@ -1015,21 +1135,25 @@ export default function Canvas({
         e.preventDefault();
         viewRef.current.y -= panAmount;
         redraw();
+        persistView();
       }
       if (e.key === "ArrowDown" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         viewRef.current.y += panAmount;
         redraw();
+        persistView();
       }
       if (e.key === "ArrowLeft" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         viewRef.current.x -= panAmount;
         redraw();
+        persistView();
       }
       if (e.key === "ArrowRight" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         viewRef.current.x += panAmount;
         redraw();
+        persistView();
       }
       if (e.key === "." && !cmdKey(e) && !e.altKey) {
         const dot: Stroke = {
@@ -1105,17 +1229,19 @@ export default function Canvas({
         keyShapeRef.current = shapeKeyMap[e.key];
         setShapeActive(true);
       }
-      // Number keys 1-9 for quick color selection
+      // Number keys 1-9 for canvas switching
       if (
         e.key >= "1" &&
         e.key <= "9" &&
         !cmdKey(e) &&
         !e.altKey &&
-        !e.ctrlKey
+        !e.ctrlKey &&
+        !e.shiftKey
       ) {
-        const colorIndex = parseInt(e.key) - 1;
         window.dispatchEvent(
-          new CustomEvent("drawtool:set-color-index", { detail: colorIndex }),
+          new CustomEvent("drawtool:switch-canvas", {
+            detail: parseInt(e.key),
+          }),
         );
       }
       if (e.key === "Escape" && activeModifierRef.current === "alt") {
@@ -1219,6 +1345,7 @@ export default function Canvas({
   }, [
     clearCanvas,
     persistStrokes,
+    persistView,
     redraw,
     confirmErase,
     cancelErase,
@@ -1380,11 +1507,13 @@ export default function Canvas({
           }
           twoFingerTapRef.current = null;
           pinchRef.current = null;
+          persistView();
         }
         if (pointersRef.current.size === 0) {
           if (isPanningRef.current) {
             isPanningRef.current = false;
             tapStartRef.current = null;
+            persistView();
             return;
           }
           // Tap-to-dot: if finger didn't move beyond threshold, place a dot
@@ -1439,6 +1568,7 @@ export default function Canvas({
       if (isPanningRef.current) {
         isPanningRef.current = false;
         setPanning(false);
+        persistView();
         return;
       }
       if (isDrawingRef.current) {
@@ -1453,7 +1583,7 @@ export default function Canvas({
         redraw();
       }
     },
-    [confirmErase, discardTinyShape, persistStrokes, redraw],
+    [confirmErase, discardTinyShape, persistStrokes, persistView, redraw],
   );
 
   const onPointerMove = useCallback(
@@ -1804,11 +1934,12 @@ export default function Canvas({
         view.y -= e.deltaY;
       }
       redraw();
+      persistView();
     };
 
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
-  }, [redraw, broadcastZoom]);
+  }, [redraw, broadcastZoom, persistView]);
 
   const encodedColor = encodeURIComponent(lineColor);
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`;

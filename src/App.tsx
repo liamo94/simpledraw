@@ -6,6 +6,16 @@ import useSettings, { type ShapeKind, type Theme } from "./hooks/useSettings";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 
+// Migrate old single-canvas storage to canvas 1
+(() => {
+  const oldKey = "drawtool-strokes";
+  const newKey = "drawtool-strokes-1";
+  if (localStorage.getItem(oldKey) && !localStorage.getItem(newKey)) {
+    localStorage.setItem(newKey, localStorage.getItem(oldKey)!);
+    localStorage.removeItem(oldKey);
+  }
+})();
+
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight";
 }
@@ -21,6 +31,11 @@ export default function App() {
   const [showOnboarding, setShowOnboarding] = useState(
     () => !localStorage.getItem("drawtool-onboarded"),
   );
+  const [activeCanvas, setActiveCanvas] = useState(() => {
+    const stored = localStorage.getItem("drawtool-active-canvas");
+    const n = stored ? parseInt(stored, 10) : 1;
+    return n >= 1 && n <= 9 ? n : 1;
+  });
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState<
     "draw" | "dashed" | "line" | "highlight" | null
@@ -183,24 +198,12 @@ export default function App() {
       updateSettings({ activeShape: shapes[next] });
       showToast({ type: "shape", shape: shapes[next] });
     };
-    const onSetColorIndex = (e: Event) => {
-      const dark = isDarkTheme(settingsRef.current.theme);
-      const palette = [
-        dark ? "#ffffff" : "#000000",
-        "#ef4444",
-        "#ec4899",
-        "#22c55e",
-        "#84cc16",
-        "#3b82f6",
-        "#eab308",
-        "#f97316",
-        "#8b5cf6",
-        "#06b6d4",
-      ];
-      const idx = (e as CustomEvent).detail as number;
-      if (idx >= 0 && idx < palette.length) {
-        updateSettings({ lineColor: palette[idx] });
-        showToast({ type: "text", message: `Color ${idx + 1}` });
+    const onSwitchCanvas = (e: Event) => {
+      const n = (e as CustomEvent).detail as number;
+      if (n >= 1 && n <= 9) {
+        setActiveCanvas(n);
+        localStorage.setItem("drawtool-active-canvas", String(n));
+        showToast({ type: "text", message: `Canvas ${n}` });
       }
     };
     window.addEventListener("drawtool:zoom", onZoom);
@@ -209,7 +212,7 @@ export default function App() {
     window.addEventListener("drawtool:request-clear", onRequestClear);
     window.addEventListener("drawtool:cycle-shape", onCycleShape);
     window.addEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
-    window.addEventListener("drawtool:set-color-index", onSetColorIndex);
+    window.addEventListener("drawtool:switch-canvas", onSwitchCanvas);
     return () => {
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
@@ -220,7 +223,7 @@ export default function App() {
         "drawtool:cycle-shape-back",
         onCycleShapeBack,
       );
-      window.removeEventListener("drawtool:set-color-index", onSetColorIndex);
+      window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
     };
   }, [updateSettings, requestClear, showToast]);
 
@@ -459,6 +462,12 @@ export default function App() {
         zoom={zoom}
         onResetView={resetView}
         hasTouch={hasTouch}
+        activeCanvas={activeCanvas}
+        onSwitchCanvas={(n) => {
+          setActiveCanvas(n);
+          localStorage.setItem("drawtool-active-canvas", String(n));
+          showToast({ type: "text", message: `Canvas ${n}` });
+        }}
       />
       <Canvas
         lineWidth={settings.lineWidth}
@@ -468,6 +477,7 @@ export default function App() {
         theme={settings.theme}
         touchTool={touchTool}
         activeShape={settings.activeShape}
+        canvasIndex={activeCanvas}
       />
       {hasTouch ? (
         <>
@@ -847,6 +857,14 @@ export default function App() {
           </div>
         )
       )}
+      <div
+        className="fixed top-2 left-2 z-30 text-sm tabular-nums select-none pointer-events-none tracking-wider"
+        style={{
+          color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+        }}
+      >
+        {activeCanvas}
+      </div>
       {confirmingClear && (
         <div
           className="fixed inset-0 flex items-center justify-center"

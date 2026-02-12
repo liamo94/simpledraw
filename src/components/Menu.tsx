@@ -14,6 +14,8 @@ type Props = {
   zoom: number;
   onResetView: () => void;
   hasTouch: boolean;
+  activeCanvas: number;
+  onSwitchCanvas: (n: number) => void;
 };
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -29,6 +31,8 @@ export default function Menu({
   zoom,
   onResetView,
   hasTouch,
+  activeCanvas,
+  onSwitchCanvas,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -105,7 +109,7 @@ export default function Menu({
               return !o;
             })
           }
-          className={`w-8 h-8 flex items-center justify-center rounded border transition-colors ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+          className={`w-8 h-8 flex items-center justify-center rounded border transition-colors outline-none ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
         >
           <svg
             width="16"
@@ -308,6 +312,27 @@ export default function Menu({
                       settings.lineColor === color ? "scale(1.2)" : undefined,
                   }}
                 />
+              ))}
+            </div>
+
+            <div className="mt-3 text-sm">Canvas</div>
+            <div className="flex gap-1 mt-1.5 justify-center">
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
+                <button
+                  key={n}
+                  onClick={() => onSwitchCanvas(n)}
+                  className={`w-7 h-7 flex items-center justify-center rounded text-xs tabular-nums transition-colors ${
+                    activeCanvas === n
+                      ? isDark
+                        ? "bg-white/20 text-white"
+                        : "bg-black/20 text-black"
+                      : isDark
+                        ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
+                        : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"
+                  }`}
+                >
+                  {n}
+                </button>
               ))}
             </div>
 
@@ -625,8 +650,8 @@ export default function Menu({
                         </div>
                         <div className="flex justify-between gap-4">
                           <span className="flex items-center gap-1.5">
-                            <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><circle cx="4" cy="8" r="2" /><circle cx="8" cy="8" r="2" /><circle cx="12" cy="8" r="2" opacity="0.4" /></svg>
-                            Quick color
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"><rect x="2" y="2" width="12" height="12" rx="1.5" /><line x1="6" y1="5" x2="6" y2="11" /><line x1="10" y1="5" x2="10" y2="11" /><line x1="2" y1="8" x2="14" y2="8" /></svg>
+                            Switch canvas
                           </span>
                           <kbd className={isDark ? "text-white/40" : "text-black/40"}>1 – 9</kbd>
                         </div>
