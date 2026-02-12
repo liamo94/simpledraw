@@ -1,6 +1,16 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 
-export type ShapeKind = "line" | "circle" | "rectangle" | "triangle" | "star" | "arrow" | "pentagon" | "hexagon" | "diamond" | "lightning";
+export type ShapeKind =
+  | "line"
+  | "circle"
+  | "rectangle"
+  | "triangle"
+  | "star"
+  | "arrow"
+  | "pentagon"
+  | "hexagon"
+  | "diamond"
+  | "lightning";
 
 export type Theme = "dark" | "midnight" | "white" | "journal";
 
@@ -29,7 +39,7 @@ function getDefaults(): Settings {
     lineColor: "#ffffff",
     dashGap: 5,
     showZoomControls: true,
-    showDotGrid: true,
+    showDotGrid: false,
     theme: getSystemTheme(),
     confirmClear: true,
     activeShape: "rectangle" as const,
@@ -85,7 +95,10 @@ export default function useSettings() {
         timerRef.current = null;
         if (pendingRef.current) {
           try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingRef.current));
+            localStorage.setItem(
+              STORAGE_KEY,
+              JSON.stringify(pendingRef.current),
+            );
           } catch {
             /* ignore */
           }
