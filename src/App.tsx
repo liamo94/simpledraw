@@ -476,7 +476,6 @@ export default function App() {
         onSwitchCanvas={(n) => {
           setActiveCanvas(n);
           localStorage.setItem("drawtool-active-canvas", String(n));
-          showToast({ type: "text", message: `Canvas ${n}` });
         }}
       />
       <Canvas

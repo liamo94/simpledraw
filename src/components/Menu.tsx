@@ -172,45 +172,66 @@ export default function Menu({
                 </span>
               ))}
             </div>
-            <label className="flex items-center justify-between gap-3 text-sm">
+            <div className="flex items-center justify-between text-sm">
               <span>Line thickness</span>
-              <span
-                className={`text-xs tabular-nums w-3 text-right ${isDark ? "text-white/50" : "text-black/50"}`}
-              >
-                {settings.lineWidth}
-              </span>
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              step={1}
-              value={settings.lineWidth}
-              onChange={(e) =>
-                updateSettings({ lineWidth: Number(e.target.value) })
-              }
-              className={`w-full mt-1.5 ${isDark ? "accent-white/70" : "accent-black/70"}`}
-            />
+              <span className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}>{settings.lineWidth}</span>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => updateSettings({ lineWidth: n })}
+                  className="flex-1 flex items-center justify-center py-1 group"
+                >
+                  <div
+                    className={`rounded-full transition-all duration-150 ${settings.lineWidth >= n ? "" : isDark ? "group-hover:!bg-white/30" : "group-hover:!bg-black/25"}`}
+                    style={{
+                      width: `${4 + n * 2}px`,
+                      height: `${4 + n * 2}px`,
+                      background:
+                        settings.lineWidth >= n
+                          ? isDark
+                            ? "rgba(255,255,255,0.85)"
+                            : "rgba(0,0,0,0.8)"
+                          : isDark
+                            ? "rgba(255,255,255,0.15)"
+                            : "rgba(0,0,0,0.12)",
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
 
-            <label className="flex items-center justify-between gap-3 text-sm mt-3">
+            <div className="flex items-center justify-between text-sm mt-3">
               <span>Dash gap</span>
-              <span
-                className={`text-xs tabular-nums w-3 text-right ${isDark ? "text-white/50" : "text-black/50"}`}
-              >
-                {settings.dashGap}
-              </span>
-            </label>
-            <input
-              type="range"
-              min={1}
-              max={10}
-              step={1}
-              value={settings.dashGap}
-              onChange={(e) =>
-                updateSettings({ dashGap: Number(e.target.value) })
-              }
-              className={`w-full mt-1.5 ${isDark ? "accent-white/70" : "accent-black/70"}`}
-            />
+              <span className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}>{settings.dashGap}</span>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+                <button
+                  key={n}
+                  onClick={() => updateSettings({ dashGap: n })}
+                  className="flex-1 flex items-center justify-center py-1 group"
+                >
+                  <div
+                    className={`rounded transition-all duration-150 ${settings.dashGap >= n ? "" : isDark ? "group-hover:!bg-white/30" : "group-hover:!bg-black/25"}`}
+                    style={{
+                      width: `${6 + n * 1.5}px`,
+                      height: 4,
+                      borderRadius: 2,
+                      background:
+                        settings.dashGap >= n
+                          ? isDark
+                            ? "rgba(255,255,255,0.85)"
+                            : "rgba(0,0,0,0.8)"
+                          : isDark
+                            ? "rgba(255,255,255,0.15)"
+                            : "rgba(0,0,0,0.12)",
+                    }}
+                  />
+                </button>
+              ))}
+            </div>
 
             <div className="mt-3 text-sm">Shape</div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
@@ -321,7 +342,7 @@ export default function Menu({
                 <button
                   key={n}
                   onClick={() => onSwitchCanvas(n)}
-                  className={`w-7 h-7 flex items-center justify-center rounded text-xs tabular-nums transition-colors ${
+                  className={`w-8 h-8 flex items-center justify-center rounded text-xs tabular-nums transition-colors ${
                     activeCanvas === n
                       ? isDark
                         ? "bg-white/20 text-white"
@@ -350,7 +371,7 @@ export default function Menu({
                   onClick={onExport}
                   className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
                 >
-                  PNG
+                  With background
                 </button>
                 <button
                   onClick={onExportTransparent}
@@ -364,11 +385,6 @@ export default function Menu({
             <div className="mt-3 flex items-center justify-between text-sm">
               <span>Zoom</span>
               <div className="flex items-center gap-2">
-                <span
-                  className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
-                >
-                  {Math.round(zoom * 100)}%
-                </span>
                 {zoom !== 1 && (
                   <button
                     onClick={onResetView}
@@ -377,6 +393,11 @@ export default function Menu({
                     Reset
                   </button>
                 )}
+                <span
+                  className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
+                >
+                  {Math.round(zoom * 100)}%
+                </span>
               </div>
             </div>
 
