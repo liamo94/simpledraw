@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState } from "react";
+import { useRef, useEffect, useCallback, useState, memo } from "react";
 import type { ShapeKind, Theme } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
@@ -432,7 +432,7 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   }
 }
 
-export default function Canvas({
+function Canvas({
   lineWidth,
   lineColor,
   dashGap,
@@ -506,8 +506,23 @@ export default function Canvas({
     moved: boolean;
   } | null>(null);
 
+  // --- Debounced persistStrokes (item 5) ---
+  const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   const persistStrokes = useCallback(() => {
+    if (persistDebounceRef.current) {
+      clearTimeout(persistDebounceRef.current);
+      persistDebounceRef.current = null;
+    }
     saveStrokes(strokesRef.current, canvasIndexRef.current);
+  }, []);
+
+  const persistStrokesDebounced = useCallback(() => {
+    if (persistDebounceRef.current) clearTimeout(persistDebounceRef.current);
+    persistDebounceRef.current = setTimeout(() => {
+      persistDebounceRef.current = null;
+      saveStrokes(strokesRef.current, canvasIndexRef.current);
+    }, 500);
   }, []);
 
   const persistView = useCallback(() => {
@@ -526,6 +541,18 @@ export default function Canvas({
     }
   }, []);
 
+  // --- Dot grid cache (item 7) ---
+  const gridCacheRef = useRef<{
+    canvas: HTMLCanvasElement;
+    key: string;
+  } | null>(null);
+
+  // --- Completed strokes cache (item 8) ---
+  const strokesCacheRef = useRef<{
+    canvas: HTMLCanvasElement;
+    key: string;
+  } | null>(null);
+
   const redraw = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -540,66 +567,87 @@ export default function Canvas({
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = getBackgroundColor(themeRef.current);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
-    ctx.setTransform(scale, 0, 0, scale, x, y);
 
+    // --- Cached dot grid (item 7) ---
     if (showDotGridRef.current) {
-      const baseDotRadius = 1.1 / scale;
-      const topLeft = screenToWorld(0, 0, { x, y, scale });
-      const bottomRight = screenToWorld(canvas.width, canvas.height, {
-        x,
-        y,
-        scale,
-      });
+      const gridKey = `${x},${y},${scale},${canvas.width},${canvas.height},${themeRef.current}`;
+      let gridCache = gridCacheRef.current;
+      if (!gridCache || gridCache.key !== gridKey) {
+        const offscreen = gridCache?.canvas || document.createElement("canvas");
+        offscreen.width = canvas.width;
+        offscreen.height = canvas.height;
+        const gctx = offscreen.getContext("2d")!;
+        gctx.setTransform(1, 0, 0, 1, 0, 0);
+        gctx.clearRect(0, 0, offscreen.width, offscreen.height);
+        gctx.setTransform(scale, 0, 0, scale, x, y);
 
-      // Multi-level grid: each level fades independently based on screen gap
-      const BASE = 20;
-      const baseAlpha = isDark ? 0.4 : 0.45;
+        const baseDotRadius = 1.1 / scale;
+        const topLeft = screenToWorld(0, 0, { x, y, scale });
+        const bottomRight = screenToWorld(canvas.width, canvas.height, {
+          x,
+          y,
+          scale,
+        });
 
-      // Collect visible levels (fine → coarse)
-      const levels: { spacing: number; opacity: number }[] = [];
-      for (let spacing = BASE; spacing < 500000; spacing *= 5) {
-        const screenGap = spacing * scale;
-        if (screenGap < 4) continue;
-        if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
-        // Smooth fade: 0 at screenGap=6, 1 at screenGap=40
-        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 34));
-        levels.push({ spacing, opacity });
-      }
+        const BASE = 20;
+        const baseAlpha = isDark ? 0.4 : 0.45;
 
-      // Draw from coarsest to finest so finer dots layer on top
-      for (let i = levels.length - 1; i >= 0; i--) {
-        const { spacing, opacity } = levels[i];
-        if (opacity <= 0) continue;
-        const coarser = i < levels.length - 1 ? levels[i + 1].spacing : null;
-
-        const alpha = opacity * baseAlpha;
-        ctx.fillStyle = isDark
-          ? `rgba(255, 255, 255, ${alpha})`
-          : `rgba(0, 0, 0, ${alpha})`;
-
-        ctx.beginPath();
-        const sx = Math.floor(topLeft.x / spacing) * spacing;
-        const sy = Math.floor(topLeft.y / spacing) * spacing;
-        for (let wx = sx; wx <= bottomRight.x; wx += spacing) {
-          for (let wy = sy; wy <= bottomRight.y; wy += spacing) {
-            // Skip positions already drawn by a coarser level
-            if (coarser) {
-              const onCoarserX =
-                Math.abs(((wx % coarser) + coarser) % coarser) < 0.5;
-              const onCoarserY =
-                Math.abs(((wy % coarser) + coarser) % coarser) < 0.5;
-              if (onCoarserX && onCoarserY) continue;
-            }
-            ctx.moveTo(wx + baseDotRadius, wy);
-            ctx.arc(wx, wy, baseDotRadius, 0, Math.PI * 2);
-          }
+        const levels: { spacing: number; opacity: number }[] = [];
+        for (let spacing = BASE; spacing < 500000; spacing *= 5) {
+          const screenGap = spacing * scale;
+          if (screenGap < 4) continue;
+          if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
+          const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 34));
+          levels.push({ spacing, opacity });
         }
-        ctx.fill();
+
+        for (let i = levels.length - 1; i >= 0; i--) {
+          const { spacing, opacity } = levels[i];
+          if (opacity <= 0) continue;
+          const coarser = i < levels.length - 1 ? levels[i + 1].spacing : null;
+
+          const alpha = opacity * baseAlpha;
+          gctx.fillStyle = isDark
+            ? `rgba(255, 255, 255, ${alpha})`
+            : `rgba(0, 0, 0, ${alpha})`;
+
+          gctx.beginPath();
+          const sx = Math.floor(topLeft.x / spacing) * spacing;
+          const sy = Math.floor(topLeft.y / spacing) * spacing;
+          for (let wx = sx; wx <= bottomRight.x; wx += spacing) {
+            for (let wy = sy; wy <= bottomRight.y; wy += spacing) {
+              if (coarser) {
+                const onCoarserX =
+                  Math.abs(((wx % coarser) + coarser) % coarser) < 0.5;
+                const onCoarserY =
+                  Math.abs(((wy % coarser) + coarser) % coarser) < 0.5;
+                if (onCoarserX && onCoarserY) continue;
+              }
+              gctx.moveTo(wx + baseDotRadius, wy);
+              gctx.arc(wx, wy, baseDotRadius, 0, Math.PI * 2);
+            }
+          }
+          gctx.fill();
+        }
+
+        gridCacheRef.current = { canvas: offscreen, key: gridKey };
+        gridCache = gridCacheRef.current;
       }
+      ctx.drawImage(gridCache.canvas, 0, 0);
     }
 
+    ctx.setTransform(scale, 0, 0, scale, x, y);
+
+    // --- Cached completed strokes (item 8) ---
     const pending = pendingEraseRef.current;
-    if (pending.size > 0) {
+    const isErasing = pending.size > 0;
+    const activeStroke = isDrawingRef.current && activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser"
+      ? strokesRef.current[strokesRef.current.length - 1]
+      : null;
+
+    if (isErasing) {
+      // During erase mode, render all strokes directly (need per-stroke opacity)
+      strokesCacheRef.current = null;
       renderStrokesToCtx(
         ctx,
         strokesRef.current.filter((s) => !pending.has(s)),
@@ -611,7 +659,33 @@ export default function Canvas({
       );
       ctx.globalAlpha = 1;
     } else {
-      renderStrokesToCtx(ctx, strokesRef.current);
+      // Use cache for completed strokes
+      const completedStrokes = activeStroke
+        ? strokesRef.current.slice(0, -1)
+        : strokesRef.current;
+      const cacheKey = `${completedStrokes.length},${x},${y},${scale},${canvas.width},${canvas.height}`;
+      let sCache = strokesCacheRef.current;
+      if (!sCache || sCache.key !== cacheKey) {
+        const offscreen = sCache?.canvas || document.createElement("canvas");
+        offscreen.width = canvas.width;
+        offscreen.height = canvas.height;
+        const sctx = offscreen.getContext("2d")!;
+        sctx.setTransform(1, 0, 0, 1, 0, 0);
+        sctx.clearRect(0, 0, offscreen.width, offscreen.height);
+        sctx.setTransform(scale, 0, 0, scale, x, y);
+        renderStrokesToCtx(sctx, completedStrokes);
+        strokesCacheRef.current = { canvas: offscreen, key: cacheKey };
+        sCache = strokesCacheRef.current;
+      }
+      // Blit cached strokes
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(sCache.canvas, 0, 0);
+      ctx.setTransform(scale, 0, 0, scale, x, y);
+
+      // Render only the active stroke on top
+      if (activeStroke) {
+        renderStrokesToCtx(ctx, [activeStroke]);
+      }
     }
 
     // Draw erase trail with fading tail
@@ -669,13 +743,33 @@ export default function Canvas({
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
+  // --- RAF-queue scheduleRedraw (item 1) ---
+  const rafIdRef = useRef<number | null>(null);
+  const scheduleRedraw = useCallback(() => {
+    if (rafIdRef.current !== null) return;
+    rafIdRef.current = requestAnimationFrame(() => {
+      rafIdRef.current = null;
+      redraw();
+    });
+  }, [redraw]);
+
+  // Cancel pending RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (rafIdRef.current !== null) {
+        cancelAnimationFrame(rafIdRef.current);
+        rafIdRef.current = null;
+      }
+    };
+  }, []);
+
   const cancelErase = useCallback(() => {
     eraseTrailRef.current = [];
     pendingEraseRef.current.clear();
     isDrawingRef.current = false;
     activeModifierRef.current = null;
-    redraw();
-  }, [redraw]);
+    scheduleRedraw();
+  }, [scheduleRedraw]);
 
   // Drain erase trail when cursor stops moving
   useEffect(() => {
@@ -739,9 +833,10 @@ export default function Canvas({
     strokesRef.current = [];
     undoStackRef.current = [];
     redoStackRef.current = [];
+    strokesCacheRef.current = null;
     persistStrokes();
-    redraw();
-  }, [redraw, persistStrokes]);
+    scheduleRedraw();
+  }, [scheduleRedraw, persistStrokes]);
 
   // Swap default stroke colors when switching between dark/light themes, then redraw
   const prevThemeRef = useRef(theme);
@@ -788,8 +883,9 @@ export default function Canvas({
       }
       prevThemeRef.current = theme;
     }
-    redraw();
-  }, [showDotGrid, theme, redraw, persistStrokes]);
+    strokesCacheRef.current = null;
+    scheduleRedraw();
+  }, [showDotGrid, theme, scheduleRedraw, persistStrokes]);
 
   // Handle resize
   useEffect(() => {
@@ -799,7 +895,9 @@ export default function Canvas({
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      redraw();
+      gridCacheRef.current = null;
+      strokesCacheRef.current = null;
+      redraw(); // immediate — must paint now
     };
 
     resize();
@@ -863,18 +961,21 @@ export default function Canvas({
     eraseTrailRef.current = [];
     laserTrailRef.current = [];
     pendingEraseRef.current.clear();
+    gridCacheRef.current = null;
+    strokesCacheRef.current = null;
 
     canvasIndexRef.current = canvasIndex;
     broadcastZoom();
-    redraw();
-  }, [canvasIndex, redraw, broadcastZoom]);
+    scheduleRedraw();
+  }, [canvasIndex, scheduleRedraw, broadcastZoom]);
 
   const resetView = useCallback(() => {
     viewRef.current = { x: 0, y: 0, scale: 1 };
-    redraw();
+    strokesCacheRef.current = null;
+    scheduleRedraw();
     broadcastZoom();
     persistView();
-  }, [redraw, broadcastZoom, persistView]);
+  }, [scheduleRedraw, broadcastZoom, persistView]);
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -886,11 +987,12 @@ export default function Canvas({
       view.x = cx - ratio * (cx - view.x);
       view.y = cy - ratio * (cy - view.y);
       view.scale = newScale;
-      redraw();
+      strokesCacheRef.current = null;
+      scheduleRedraw();
       broadcastZoom();
       persistView();
     },
-    [redraw, broadcastZoom, persistView],
+    [scheduleRedraw, broadcastZoom, persistView],
   );
 
   const centerView = useCallback(() => {
@@ -932,10 +1034,11 @@ export default function Canvas({
         scale,
       };
     }
-    redraw();
+    strokesCacheRef.current = null;
+    scheduleRedraw();
     broadcastZoom();
     persistView();
-  }, [redraw, broadcastZoom, persistView]);
+  }, [scheduleRedraw, broadcastZoom, persistView]);
 
   const exportTransparent = useCallback(() => {
     const strokes = strokesRef.current;
@@ -1034,8 +1137,8 @@ export default function Canvas({
     }
     isDrawingRef.current = false;
     activeModifierRef.current = null;
-    redraw();
-  }, [redraw]);
+    scheduleRedraw();
+  }, [scheduleRedraw]);
 
   // Keyboard shortcuts + eraser cursor
   useEffect(() => {
@@ -1056,8 +1159,9 @@ export default function Canvas({
           }
           redoStackRef.current.push(action);
         }
+        strokesCacheRef.current = null;
         persistStrokes();
-        redraw();
+        scheduleRedraw();
       }
       if (cmdKey(e) && e.key === "z" && e.shiftKey) {
         e.preventDefault();
@@ -1073,8 +1177,9 @@ export default function Canvas({
           }
           undoStackRef.current.push(action);
         }
+        strokesCacheRef.current = null;
         persistStrokes();
-        redraw();
+        scheduleRedraw();
       }
       if (
         e.ctrlKey &&
@@ -1134,25 +1239,29 @@ export default function Canvas({
       if (e.key === "ArrowUp" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         viewRef.current.y -= panAmount;
-        redraw();
+        strokesCacheRef.current = null;
+        scheduleRedraw();
         persistView();
       }
       if (e.key === "ArrowDown" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         viewRef.current.y += panAmount;
-        redraw();
+        strokesCacheRef.current = null;
+        scheduleRedraw();
         persistView();
       }
       if (e.key === "ArrowLeft" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         viewRef.current.x -= panAmount;
-        redraw();
+        strokesCacheRef.current = null;
+        scheduleRedraw();
         persistView();
       }
       if (e.key === "ArrowRight" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         viewRef.current.x += panAmount;
-        redraw();
+        strokesCacheRef.current = null;
+        scheduleRedraw();
         persistView();
       }
       if (e.key === "." && !cmdKey(e) && !e.altKey) {
@@ -1165,8 +1274,9 @@ export default function Canvas({
         strokesRef.current.push(dot);
         undoStackRef.current.push({ type: "draw", stroke: dot });
         redoStackRef.current = [];
+        strokesCacheRef.current = null;
         persistStrokes();
-        redraw();
+        scheduleRedraw();
       }
       if (e.key === "Alt" && !e.shiftKey) setErasing(true);
       if (e.key === "Alt" && e.shiftKey && !isMac) setShapeActive(true);
@@ -1263,7 +1373,7 @@ export default function Canvas({
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         setLasering(false);
-        redraw();
+        scheduleRedraw();
       }
     };
 
@@ -1274,8 +1384,9 @@ export default function Canvas({
           confirmErase();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
+          strokesCacheRef.current = null;
           persistStrokes();
-          redraw();
+          scheduleRedraw();
         }
       }
       if (e.key === "q") {
@@ -1292,6 +1403,7 @@ export default function Canvas({
         if (activeModifierRef.current === "highlight") {
           isDrawingRef.current = false;
           activeModifierRef.current = null;
+          strokesCacheRef.current = null;
           persistStrokes();
         }
       }
@@ -1305,8 +1417,9 @@ export default function Canvas({
           discardTinyShape();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
+          strokesCacheRef.current = null;
           persistStrokes();
-          redraw();
+          scheduleRedraw();
         }
       }
     };
@@ -1346,7 +1459,7 @@ export default function Canvas({
     clearCanvas,
     persistStrokes,
     persistView,
-    redraw,
+    scheduleRedraw,
     confirmErase,
     cancelErase,
     cancelCurrentStroke,
@@ -1501,8 +1614,9 @@ export default function Canvas({
                 strokesRef.current.push(...action.strokes);
               }
               redoStackRef.current.push(action);
+              strokesCacheRef.current = null;
               persistStrokes();
-              redraw();
+              scheduleRedraw();
             }
           }
           twoFingerTapRef.current = null;
@@ -1542,8 +1656,9 @@ export default function Canvas({
               strokesRef.current.push(dot);
               undoStackRef.current.push({ type: "draw", stroke: dot });
               redoStackRef.current = [];
+              strokesCacheRef.current = null;
               persistStrokes();
-              redraw();
+              scheduleRedraw();
               tapStartRef.current = null;
               return;
             }
@@ -1553,13 +1668,15 @@ export default function Canvas({
             if (activeModifierRef.current === "alt") {
               setErasing(false);
               confirmErase();
-              redraw();
+              strokesCacheRef.current = null;
+              scheduleRedraw();
             }
             discardTinyShape();
             isDrawingRef.current = false;
             activeModifierRef.current = null;
+            strokesCacheRef.current = null;
             persistStrokes();
-            redraw();
+            scheduleRedraw();
           }
         }
         return;
@@ -1574,16 +1691,18 @@ export default function Canvas({
       if (isDrawingRef.current) {
         if (activeModifierRef.current === "alt") {
           confirmErase();
-          redraw();
+          strokesCacheRef.current = null;
+          scheduleRedraw();
         }
         discardTinyShape();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
+        strokesCacheRef.current = null;
         persistStrokes();
-        redraw();
+        scheduleRedraw();
       }
     },
-    [confirmErase, discardTinyShape, persistStrokes, persistView, redraw],
+    [confirmErase, discardTinyShape, persistStrokes, persistView, scheduleRedraw],
   );
 
   const onPointerMove = useCallback(
@@ -1622,8 +1741,9 @@ export default function Canvas({
           view.y = cy - ratio * (cy - view.y);
           view.scale = newScale;
           pinchRef.current = { dist, cx, cy };
+          strokesCacheRef.current = null;
           broadcastZoom();
-          redraw();
+          scheduleRedraw();
           return;
         }
         if (pointersRef.current.size > 1) return;
@@ -1641,7 +1761,8 @@ export default function Canvas({
         view.x += e.clientX - panLastRef.current.x;
         view.y += e.clientY - panLastRef.current.y;
         panLastRef.current = { x: e.clientX, y: e.clientY };
-        redraw();
+        strokesCacheRef.current = null;
+        scheduleRedraw();
         return;
       }
 
@@ -1712,13 +1833,15 @@ export default function Canvas({
         if (isDrawingRef.current) {
           if (activeModifierRef.current === "alt") {
             confirmErase();
-            redraw();
+            strokesCacheRef.current = null;
+            scheduleRedraw();
           }
           discardTinyShape();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
+          strokesCacheRef.current = null;
           persistStrokes();
-          redraw();
+          scheduleRedraw();
         }
         return;
       }
@@ -1730,6 +1853,7 @@ export default function Canvas({
         confirmErase();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
+        strokesCacheRef.current = null;
         persistStrokes();
       }
 
@@ -1742,7 +1866,7 @@ export default function Canvas({
         isDrawingRef.current = true;
         activeModifierRef.current = "alt";
         eraseAt(point.x, point.y);
-        redraw();
+        scheduleRedraw();
         return;
       }
 
@@ -1784,7 +1908,7 @@ export default function Canvas({
           if (cutIdx > 0) trail.splice(0, cutIdx);
           else if (trail.length > 120) trail.splice(0, trail.length - 120);
         }
-        redraw();
+        scheduleRedraw();
         return;
       }
 
@@ -1805,7 +1929,7 @@ export default function Canvas({
           const current = strokesRef.current[strokesRef.current.length - 1];
           current.points[1] = point;
         }
-        redraw();
+        scheduleRedraw();
         return;
       }
 
@@ -1828,7 +1952,7 @@ export default function Canvas({
           const current = strokesRef.current[strokesRef.current.length - 1];
           current.points[1] = point;
         }
-        redraw();
+        scheduleRedraw();
         return;
       }
 
@@ -1854,7 +1978,7 @@ export default function Canvas({
           const current = strokesRef.current[strokesRef.current.length - 1];
           current.points.push(point);
         }
-        redraw();
+        scheduleRedraw();
         return;
       }
 
@@ -1876,15 +2000,17 @@ export default function Canvas({
         current.points.push(point);
       }
 
-      redraw();
+      persistStrokesDebounced();
+      scheduleRedraw();
     },
     [
-      redraw,
+      scheduleRedraw,
       lineWidth,
       lineColor,
       dashGap,
       eraseAt,
       persistStrokes,
+      persistStrokesDebounced,
       confirmErase,
       discardTinyShape,
       broadcastZoom,
@@ -1933,13 +2059,14 @@ export default function Canvas({
         view.x -= e.deltaX;
         view.y -= e.deltaY;
       }
-      redraw();
+      strokesCacheRef.current = null;
+      scheduleRedraw();
       persistView();
     };
 
     canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => canvas.removeEventListener("wheel", onWheel);
-  }, [redraw, broadcastZoom, persistView]);
+  }, [scheduleRedraw, broadcastZoom, persistView]);
 
   const encodedColor = encodeURIComponent(lineColor);
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E") 12 12, crosshair`;
@@ -1973,6 +2100,8 @@ export default function Canvas({
   return (
     <canvas
       ref={canvasRef}
+      role="img"
+      aria-label="Drawing canvas"
       className="block touch-none select-none"
       style={{ cursor }}
       onPointerDown={onPointerDown}
@@ -1983,3 +2112,5 @@ export default function Canvas({
     />
   );
 }
+
+export default memo(Canvas);

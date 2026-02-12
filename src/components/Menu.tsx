@@ -100,16 +100,19 @@ export default function Menu({
         className="fixed top-4 right-4 z-50 flex flex-col items-end"
       >
         <button
-          onClick={() =>
+          aria-label="Menu"
+          aria-expanded={open}
+          onClick={(e) => {
             setOpen((o) => {
               if (o) {
                 setShowInfo(false);
                 setShowAbout(false);
               }
               return !o;
-            })
-          }
-          className={`w-8 h-8 flex items-center justify-center rounded border transition-colors outline-none ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+            });
+            (e.currentTarget as HTMLElement).blur();
+          }}
+          className={`w-8 h-8 flex items-center justify-center rounded border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
         >
           <svg
             width="16"
@@ -139,7 +142,8 @@ export default function Menu({
         </button>
 
         {open && (
-          <div
+          <nav
+            aria-label="Settings menu"
             className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-5rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
           >
             <div
@@ -181,6 +185,8 @@ export default function Menu({
                 <button
                   key={n}
                   onClick={() => updateSettings({ lineWidth: n })}
+                  aria-label={`Line thickness ${n}`}
+                  aria-pressed={settings.lineWidth === n}
                   className="flex-1 flex items-center justify-center py-1 group"
                 >
                   <div
@@ -211,6 +217,8 @@ export default function Menu({
                 <button
                   key={n}
                   onClick={() => updateSettings({ dashGap: n })}
+                  aria-label={`Dash gap ${n}`}
+                  aria-pressed={settings.dashGap === n}
                   className="flex-1 flex items-center justify-center py-1 group"
                 >
                   <div
@@ -252,7 +260,9 @@ export default function Menu({
                 <button
                   key={s}
                   onClick={() => updateSettings({ activeShape: s })}
-                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors ${
+                  aria-label={s.charAt(0).toUpperCase() + s.slice(1)}
+                  aria-pressed={settings.activeShape === s}
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                     settings.activeShape === s
                       ? isDark
                         ? "bg-white/20"
@@ -320,7 +330,9 @@ export default function Menu({
                 <button
                   key={color}
                   onClick={() => updateSettings({ lineColor: color })}
-                  className="w-5 h-5 rounded-full border-2 transition-transform"
+                  aria-label={`Color ${color}`}
+                  aria-pressed={settings.lineColor === color}
+                  className="w-5 h-5 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
                   style={{
                     backgroundColor: color,
                     borderColor:
@@ -342,7 +354,9 @@ export default function Menu({
                 <button
                   key={n}
                   onClick={() => onSwitchCanvas(n)}
-                  className={`w-8 h-8 flex items-center justify-center rounded text-xs tabular-nums transition-colors ${
+                  aria-label={`Canvas ${n}`}
+                  aria-pressed={activeCanvas === n}
+                  className={`w-8 h-8 flex items-center justify-center rounded text-xs tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                     activeCanvas === n
                       ? isDark
                         ? "bg-white/20 text-white"
@@ -463,7 +477,9 @@ export default function Menu({
                 <button
                   key={t}
                   onClick={() => updateSettings({ theme: t })}
-                  className={`flex-1 py-1 rounded text-xs transition-colors ${
+                  aria-label={`${t.charAt(0).toUpperCase() + t.slice(1)} theme`}
+                  aria-pressed={settings.theme === t}
+                  className={`flex-1 py-1 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                     settings.theme === t
                       ? isDark
                         ? "bg-white/20 text-white"
@@ -766,7 +782,7 @@ export default function Menu({
                 liamo.co
               </a>
             </div>
-          </div>
+          </nav>
         )}
       </div>
     </>

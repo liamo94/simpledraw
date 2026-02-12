@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 
 export type ShapeKind = "line" | "circle" | "rectangle" | "triangle" | "star" | "arrow" | "pentagon" | "hexagon" | "diamond" | "lightning";
 
@@ -58,14 +58,68 @@ function load(): Settings {
 
 export default function useSettings() {
   const [settings, setSettings] = useState<Settings>(load);
+  const pendingRef = useRef<Settings | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flush = useCallback(() => {
+    if (timerRef.current) {
+      clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+    if (pendingRef.current) {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingRef.current));
+      } catch {
+        /* ignore */
+      }
+      pendingRef.current = null;
+    }
+  }, []);
 
   const updateSettings = useCallback((partial: Partial<Settings>) => {
     setSettings((prev) => {
       const next = { ...prev, ...partial };
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+      pendingRef.current = next;
+      if (timerRef.current) clearTimeout(timerRef.current);
+      timerRef.current = setTimeout(() => {
+        timerRef.current = null;
+        if (pendingRef.current) {
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingRef.current));
+          } catch {
+            /* ignore */
+          }
+          pendingRef.current = null;
+        }
+      }, 300);
       return next;
     });
   }, []);
+
+  // Flush on unmount
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        timerRef.current = null;
+      }
+      if (pendingRef.current) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(pendingRef.current));
+        } catch {
+          /* ignore */
+        }
+        pendingRef.current = null;
+      }
+    };
+  }, []);
+
+  // Flush on beforeunload
+  useEffect(() => {
+    const onBeforeUnload = () => flush();
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [flush]);
 
   return [settings, updateSettings] as const;
 }

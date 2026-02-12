@@ -1,8 +1,21 @@
-import { useCallback, useState, useEffect, useRef, ReactNode } from "react";
+import { useCallback, useState, useEffect, useRef, useMemo, ReactNode } from "react";
 import Canvas from "./components/Canvas";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
 import useSettings, { type ShapeKind, type Theme } from "./hooks/useSettings";
+
+const SHAPES: ShapeKind[] = [
+  "line",
+  "rectangle",
+  "circle",
+  "triangle",
+  "diamond",
+  "pentagon",
+  "hexagon",
+  "star",
+  "arrow",
+  "lightning",
+];
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 
@@ -171,42 +184,18 @@ export default function App() {
     };
     const onRequestClear = () => requestClear();
     const onCycleShape = () => {
-      const shapes: ShapeKind[] = [
-        "line",
-        "rectangle",
-        "circle",
-        "triangle",
-        "diamond",
-        "pentagon",
-        "hexagon",
-        "star",
-        "arrow",
-        "lightning",
-      ];
       const cur = settingsRef.current.activeShape;
-      const idx = shapes.indexOf(cur);
-      const next = (idx + 1) % shapes.length;
-      updateSettings({ activeShape: shapes[next] });
-      showToast({ type: "shape", shape: shapes[next] });
+      const idx = SHAPES.indexOf(cur);
+      const next = (idx + 1) % SHAPES.length;
+      updateSettings({ activeShape: SHAPES[next] });
+      showToast({ type: "shape", shape: SHAPES[next] });
     };
     const onCycleShapeBack = () => {
-      const shapes: ShapeKind[] = [
-        "line",
-        "rectangle",
-        "circle",
-        "triangle",
-        "diamond",
-        "pentagon",
-        "hexagon",
-        "star",
-        "arrow",
-        "lightning",
-      ];
       const cur = settingsRef.current.activeShape;
-      const idx = shapes.indexOf(cur);
-      const next = (idx - 1 + shapes.length) % shapes.length;
-      updateSettings({ activeShape: shapes[next] });
-      showToast({ type: "shape", shape: shapes[next] });
+      const idx = SHAPES.indexOf(cur);
+      const next = (idx - 1 + SHAPES.length) % SHAPES.length;
+      updateSettings({ activeShape: SHAPES[next] });
+      showToast({ type: "shape", shape: SHAPES[next] });
     };
     const onSwitchCanvas = (e: Event) => {
       const n = (e as CustomEvent).detail as number;
@@ -313,7 +302,7 @@ export default function App() {
   const mod = isMac ? "\u2318" : "Ctrl";
   const alt = isMac ? "\u2325" : "Alt";
 
-  const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] = [
+  const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] = useMemo(() => [
     {
       id: "hand",
       label: "Move",
@@ -459,7 +448,7 @@ export default function App() {
         </svg>
       ),
     },
-  ];
+  ], [settings.lineColor, settings.activeShape]);
 
   return (
     <>
@@ -499,7 +488,7 @@ export default function App() {
               }}
             />
           )}
-          <div className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2 touch-toolbar">
+          <nav aria-label="Drawing tools" className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2 touch-toolbar">
             <div
               className="relative flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
@@ -530,6 +519,8 @@ export default function App() {
                   <button
                     key={t.id}
                     ref={buttonRef}
+                    aria-label={t.label}
+                    aria-pressed={touchTool === t.id}
                     onClick={() => {
                       if (shapeLongPressRef.current) {
                         clearTimeout(shapeLongPressRef.current);
@@ -602,7 +593,7 @@ export default function App() {
                         thicknessLongPressRef.current = null;
                       }
                     }}
-                    className={`flex items-center gap-1 px-2.5 py-2.5 rounded text-xs transition-colors ${
+                    className={`flex items-center gap-1 px-2.5 py-2.5 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                       touchTool === t.id
                         ? isDark
                           ? "bg-white/20 text-white"
@@ -647,7 +638,9 @@ export default function App() {
                       <button
                         key={color}
                         onClick={() => updateSettings({ lineColor: color })}
-                        className="w-6 h-6 rounded-full border-2 transition-transform"
+                        aria-label={`Color ${color}`}
+                        aria-pressed={settings.lineColor === color}
+                        className="w-6 h-6 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
                         style={{
                           backgroundColor: color,
                           borderColor:
@@ -673,6 +666,7 @@ export default function App() {
                   </div>
                   <input
                     type="range"
+                    aria-label={showThicknessPicker === "dashed" ? "Dash gap" : "Thickness"}
                     min={1}
                     max={10}
                     step={1}
@@ -709,28 +703,17 @@ export default function App() {
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                {(
-                  [
-                    "line",
-                    "rectangle",
-                    "circle",
-                    "triangle",
-                    "diamond",
-                    "pentagon",
-                    "hexagon",
-                    "star",
-                    "arrow",
-                    "lightning",
-                  ] as const
-                ).map((shape) => (
+                {SHAPES.map((shape) => (
                   <button
                     key={shape}
+                    aria-label={shape.charAt(0).toUpperCase() + shape.slice(1)}
+                    aria-pressed={settings.activeShape === shape}
                     onClick={() => {
                       updateSettings({ activeShape: shape });
                       setTouchTool("shape");
                       setShowShapePicker(false);
                     }}
-                    className={`p-2 rounded transition-colors ${
+                    className={`p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                       settings.activeShape === shape
                         ? isDark
                           ? "bg-white/20"
@@ -805,7 +788,8 @@ export default function App() {
               >
                 <button
                   onClick={zoomOut}
-                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                  aria-label="Zoom out"
+                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                 >
                   -
                 </button>
@@ -816,21 +800,23 @@ export default function App() {
                 </span>
                 <button
                   onClick={zoomIn}
-                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                  aria-label="Zoom in"
+                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                 >
                   +
                 </button>
               </div>
             )}
-          </div>
+          </nav>
         </>
       ) : (
         settings.showZoomControls && (
           <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5">
             <button
               onClick={centerView}
+              aria-label="Fit to content"
               title={`Fit to content (${isMac ? "\u2318" : "Ctrl"}+1)`}
-              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
             >
               <svg
                 width="14"
@@ -848,7 +834,8 @@ export default function App() {
             </button>
             <button
               onClick={zoomOut}
-              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+              aria-label="Zoom out"
+              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
             >
               -
             </button>
@@ -859,7 +846,8 @@ export default function App() {
             </span>
             <button
               onClick={zoomIn}
-              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+              aria-label="Zoom in"
+              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
             >
               +
             </button>
@@ -876,6 +864,9 @@ export default function App() {
       </div>
       {confirmingClear && (
         <div
+          role="alertdialog"
+          aria-modal="true"
+          aria-labelledby="clear-dialog-title"
           className="fixed inset-0 flex items-center justify-center"
           onClick={() => setConfirmingClear(false)}
         >
@@ -884,6 +875,7 @@ export default function App() {
             onClick={(e) => e.stopPropagation()}
           >
             <div
+              id="clear-dialog-title"
               className={`text-sm font-medium ${isDark ? "text-white/90" : "text-black/90"}`}
             >
               Clear all strokes?
@@ -912,7 +904,7 @@ export default function App() {
         </div>
       )}
       {showOnboarding && !hasTouch && (
-        <div className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-label="Welcome to drawtool" className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div
             className={`px-8 py-6 rounded-lg border text-center max-w-xs ${isDark ? "bg-[#0a0a1a] border-white/15" : "bg-[#f5f5f0] border-black/15"}`}
           >
@@ -995,6 +987,8 @@ export default function App() {
       )}
       {toast && (
         <div
+          role="status"
+          aria-live="polite"
           className={`fixed top-4 right-14 z-40 px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
             background: isDark ? "rgba(0,0,0,0.65)" : "rgba(255,255,255,0.75)",
