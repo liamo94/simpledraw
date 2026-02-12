@@ -45,7 +45,9 @@ export default function App() {
     | { type: "shape"; shape: ShapeKind }
     | null
   >(null);
+  const [toastFading, setToastFading] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const toastFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
@@ -119,8 +121,16 @@ export default function App() {
         | { type: "shape"; shape: ShapeKind },
     ) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
+      if (toastFadeRef.current) clearTimeout(toastFadeRef.current);
+      setToastFading(false);
       setToast(content);
-      toastTimeoutRef.current = setTimeout(() => setToast(null), 1200);
+      toastTimeoutRef.current = setTimeout(() => {
+        setToastFading(true);
+        toastFadeRef.current = setTimeout(() => {
+          setToast(null);
+          setToastFading(false);
+        }, 250);
+      }, 500);
     },
     [],
   );
@@ -986,11 +996,14 @@ export default function App() {
       )}
       {toast && (
         <div
-          className="fixed top-4 right-14 z-40 px-3 py-2 rounded-lg border backdrop-blur-sm text-sm animate-fade-in"
+          className={`fixed top-4 right-14 z-40 px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
-            background: isDark ? "rgba(0,0,0,0.8)" : "rgba(255,255,255,0.8)",
-            borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
-            color: isDark ? "rgba(255,255,255,0.9)" : "rgba(0,0,0,0.9)",
+            background: isDark ? "rgba(0,0,0,0.65)" : "rgba(255,255,255,0.75)",
+            borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
+            color: isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.8)",
+            boxShadow: isDark
+              ? "0 4px 12px rgba(0,0,0,0.4)"
+              : "0 4px 12px rgba(0,0,0,0.08)",
           }}
         >
           {toast.type === "text" ? (
