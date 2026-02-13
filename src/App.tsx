@@ -148,6 +148,14 @@ export default function App() {
     [],
   );
 
+  const toggleFullscreen = useCallback(() => {
+    if (document.fullscreenElement) {
+      document.exitFullscreen();
+    } else {
+      document.documentElement.requestFullscreen();
+    }
+  }, []);
+
   useEffect(() => {
     const onZoom = (e: Event) => setZoom((e as CustomEvent).detail);
     const onThickness = (e: Event) => {
@@ -212,6 +220,7 @@ export default function App() {
     window.addEventListener("drawtool:cycle-shape", onCycleShape);
     window.addEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
     window.addEventListener("drawtool:switch-canvas", onSwitchCanvas);
+    window.addEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
     return () => {
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
@@ -223,8 +232,9 @@ export default function App() {
         onCycleShapeBack,
       );
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
+      window.removeEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
     };
-  }, [updateSettings, requestClear, showToast]);
+  }, [updateSettings, requestClear, showToast, toggleFullscreen]);
 
   // Confirmation overlay keyboard handler — capture phase to block Canvas
   useEffect(() => {
@@ -269,6 +279,7 @@ export default function App() {
   const exportTransparent = useCallback(() => {
     window.dispatchEvent(new Event("drawtool:export-transparent"));
   }, []);
+
 
   const zoomIn = useCallback(() => {
     window.dispatchEvent(
@@ -466,6 +477,7 @@ export default function App() {
           setActiveCanvas(n);
           localStorage.setItem("drawtool-active-canvas", String(n));
         }}
+        onToggleFullscreen={toggleFullscreen}
       />
       <Canvas
         lineWidth={settings.lineWidth}

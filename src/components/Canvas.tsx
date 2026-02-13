@@ -500,8 +500,12 @@ function Canvas({
   const pinchRef = useRef<{ dist: number; cx: number; cy: number } | null>(
     null,
   );
-  // Two-finger tap tracking for undo
+  // Two-finger tap tracking for undo, three-finger tap for redo
   const twoFingerTapRef = useRef<{
+    startPositions: Map<number, { x: number; y: number }>;
+    moved: boolean;
+  } | null>(null);
+  const threeFingerTapRef = useRef<{
     startPositions: Map<number, { x: number; y: number }>;
     moved: boolean;
   } | null>(null);
@@ -1076,6 +1080,40 @@ function Canvas({
     });
   }, []);
 
+  const undo = useCallback(() => {
+    const action = undoStackRef.current.pop();
+    if (action) {
+      if (action.type === "draw") {
+        const idx = strokesRef.current.lastIndexOf(action.stroke);
+        if (idx !== -1) strokesRef.current.splice(idx, 1);
+      } else {
+        strokesRef.current.push(...action.strokes);
+      }
+      redoStackRef.current.push(action);
+    }
+    strokesCacheRef.current = null;
+    persistStrokes();
+    scheduleRedraw();
+  }, [persistStrokes, scheduleRedraw]);
+
+  const redo = useCallback(() => {
+    const action = redoStackRef.current.pop();
+    if (action) {
+      if (action.type === "draw") {
+        strokesRef.current.push(action.stroke);
+      } else {
+        for (const s of action.strokes) {
+          const idx = strokesRef.current.lastIndexOf(s);
+          if (idx !== -1) strokesRef.current.splice(idx, 1);
+        }
+      }
+      undoStackRef.current.push(action);
+    }
+    strokesCacheRef.current = null;
+    persistStrokes();
+    scheduleRedraw();
+  }, [persistStrokes, scheduleRedraw]);
+
   // Listen for clear / reset-view / center-view / zoom-step / stroke-count-query / export-transparent events
   useEffect(() => {
     const onClear = () => clearCanvas();
@@ -1092,20 +1130,14 @@ function Canvas({
     window.addEventListener("drawtool:center-view", onCenterView);
     window.addEventListener("drawtool:zoom-step", onZoomStep);
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
-    window.addEventListener(
-      "drawtool:export-transparent",
-      onExportTransparent,
-    );
+    window.addEventListener("drawtool:export-transparent", onExportTransparent);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
       window.removeEventListener("drawtool:center-view", onCenterView);
       window.removeEventListener("drawtool:zoom-step", onZoomStep);
       window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
-      window.removeEventListener(
-        "drawtool:export-transparent",
-        onExportTransparent,
-      );
+      window.removeEventListener("drawtool:export-transparent", onExportTransparent);
     };
   }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent]);
 
@@ -1149,37 +1181,11 @@ function Canvas({
       }
       if (cmdKey(e) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
-        const action = undoStackRef.current.pop();
-        if (action) {
-          if (action.type === "draw") {
-            const idx = strokesRef.current.lastIndexOf(action.stroke);
-            if (idx !== -1) strokesRef.current.splice(idx, 1);
-          } else {
-            strokesRef.current.push(...action.strokes);
-          }
-          redoStackRef.current.push(action);
-        }
-        strokesCacheRef.current = null;
-        persistStrokes();
-        scheduleRedraw();
+        undo();
       }
       if (cmdKey(e) && e.key === "z" && e.shiftKey) {
         e.preventDefault();
-        const action = redoStackRef.current.pop();
-        if (action) {
-          if (action.type === "draw") {
-            strokesRef.current.push(action.stroke);
-          } else {
-            for (const s of action.strokes) {
-              const idx = strokesRef.current.lastIndexOf(s);
-              if (idx !== -1) strokesRef.current.splice(idx, 1);
-            }
-          }
-          undoStackRef.current.push(action);
-        }
-        strokesCacheRef.current = null;
-        persistStrokes();
-        scheduleRedraw();
+        redo();
       }
       if (
         e.ctrlKey &&
@@ -1263,6 +1269,9 @@ function Canvas({
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistView();
+      }
+      if (e.key === "f" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        window.dispatchEvent(new Event("drawtool:toggle-fullscreen"));
       }
       if (e.key === "." && !cmdKey(e) && !e.altKey) {
         const dot: Stroke = {
@@ -1556,6 +1565,13 @@ function Canvas({
             startPositions: new Map(pointersRef.current),
             moved: false,
           };
+        } else if (pointersRef.current.size === 3) {
+          // Invalidate two-finger tap, start tracking three-finger tap for redo
+          twoFingerTapRef.current = null;
+          threeFingerTapRef.current = {
+            startPositions: new Map(pointersRef.current),
+            moved: false,
+          };
         } else if (
           pointersRef.current.size === 1 &&
           touchToolRef.current === "hand"
@@ -1597,6 +1613,15 @@ function Canvas({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.pointerType === "touch") {
         pointersRef.current.delete(e.pointerId);
+        // Check for three-finger tap (redo gesture)
+        if (
+          pointersRef.current.size === 2 &&
+          threeFingerTapRef.current &&
+          !threeFingerTapRef.current.moved
+        ) {
+          redo();
+          threeFingerTapRef.current = null;
+        }
         if (pointersRef.current.size < 2) {
           // Check for two-finger tap (undo gesture)
           if (
@@ -1604,22 +1629,10 @@ function Canvas({
             twoFingerTapRef.current &&
             !twoFingerTapRef.current.moved
           ) {
-            // Two fingers were down and neither moved much - trigger undo
-            const action = undoStackRef.current.pop();
-            if (action) {
-              if (action.type === "draw") {
-                const idx = strokesRef.current.lastIndexOf(action.stroke);
-                if (idx !== -1) strokesRef.current.splice(idx, 1);
-              } else {
-                strokesRef.current.push(...action.strokes);
-              }
-              redoStackRef.current.push(action);
-              strokesCacheRef.current = null;
-              persistStrokes();
-              scheduleRedraw();
-            }
+            undo();
           }
           twoFingerTapRef.current = null;
+          threeFingerTapRef.current = null;
           pinchRef.current = null;
           persistView();
         }
@@ -1727,6 +1740,20 @@ function Canvas({
             }
             if (totalMove > 20) {
               twoFingerTapRef.current.moved = true;
+            }
+          }
+          // Check if fingers moved enough to invalidate three-finger tap
+          if (threeFingerTapRef.current && !threeFingerTapRef.current.moved) {
+            const startPts3 = threeFingerTapRef.current.startPositions;
+            let totalMove3 = 0;
+            for (const [id, pos] of pointersRef.current) {
+              const start = startPts3.get(id);
+              if (start) {
+                totalMove3 += Math.hypot(pos.x - start.x, pos.y - start.y);
+              }
+            }
+            if (totalMove3 > 20) {
+              threeFingerTapRef.current.moved = true;
             }
           }
           // Pan
