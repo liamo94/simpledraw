@@ -408,15 +408,17 @@ export default function Menu({
               </div>
             </div>
 
-            <button
-              onClick={() => {
-                onToggleFullscreen();
-                closeMenu();
-              }}
-              className={`mt-3 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
-            >
-              Fullscreen
-            </button>
+            {!hasTouch && (
+              <button
+                onClick={() => {
+                  onToggleFullscreen();
+                  closeMenu();
+                }}
+                className={`mt-3 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+              >
+                Fullscreen
+              </button>
+            )}
 
             <div className="mt-3 flex items-center justify-between text-sm">
               <span>Zoom</span>
