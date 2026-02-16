@@ -38,6 +38,17 @@ html, body, #root {
   animation: toast-out 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
+@keyframes wipe-down-up {
+  0% { transform: scaleY(0); transform-origin: top; }
+  40% { transform: scaleY(1); transform-origin: top; }
+  60% { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+.animate-wipe {
+  animation: wipe-down-up 0.5s ease-in-out forwards;
+}
+
 /* Prevent touch highlighting on mobile toolbar */
 .touch-toolbar {
   -webkit-user-select: none;

@@ -39,6 +39,7 @@ export default function Menu({
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [clearWipe, setClearWipe] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
@@ -51,6 +52,7 @@ export default function Menu({
         if (o) {
           setShowInfo(false);
           setShowAbout(false);
+          setClearWipe(0);
         }
         return !o;
       });
@@ -79,6 +81,7 @@ export default function Menu({
     setOpen(false);
     setShowInfo(false);
     setShowAbout(false);
+    setClearWipe(0);
   };
 
   const palette = [
@@ -111,6 +114,7 @@ export default function Menu({
               if (o) {
                 setShowInfo(false);
                 setShowAbout(false);
+                setClearWipe(0);
               }
               return !o;
             });
@@ -417,10 +421,19 @@ export default function Menu({
             </div>
 
             <button
-              onClick={onClear}
-              className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+              onClick={() => {
+                setClearWipe((n) => n + 1);
+                onClear();
+              }}
+              className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 relative overflow-hidden ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
             >
-              Clear screen
+              {clearWipe > 0 && (
+                <span
+                  key={clearWipe}
+                  className={`absolute inset-0 animate-wipe rounded ${isDark ? "bg-white/15" : "bg-black/10"}`}
+                />
+              )}
+              <span className="relative">Clear screen</span>
             </button>
 
             <div className="mt-4 text-sm">Theme</div>
