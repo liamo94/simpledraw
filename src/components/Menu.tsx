@@ -546,7 +546,7 @@ export default function Menu({
                   updateSettings({ showDotGrid: e.target.checked })
                 }
                 className={
-                  settings.showZoomControls
+                  settings.showDotGrid
                     ? "accent-blue-500"
                     : isDark
                       ? "accent-white/70"
@@ -565,7 +565,7 @@ export default function Menu({
                     updateSettings({ confirmClear: e.target.checked })
                   }
                   className={
-                    settings.showZoomControls
+                    settings.confirmClear
                       ? "accent-blue-500"
                       : isDark
                         ? "accent-white/70"
@@ -912,7 +912,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            V + drag
+                            V/H + drag
                           </kbd>
                         </div>
                       </div>
@@ -1087,7 +1087,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            Q + drag
+                            Q/L + drag
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1112,7 +1112,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            {mod} + Z
+                            U / {mod} + Z
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1137,7 +1137,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            {mod} + Shift + Z
+                            Shift + U / {mod} + Shift + Z
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1214,7 +1214,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            Ctrl + / -
+                            {"{ / }"}
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1306,7 +1306,30 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            {mod} + K
+                            {mod} + X
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M3 13h10M8 3v7M5 7l3 3 3-3" />
+                            </svg>
+                            Export
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            {mod} + E
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1331,7 +1354,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            Ctrl + O
+                            M
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1362,6 +1385,35 @@ export default function Menu({
                             }
                           >
                             F
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="currentColor"
+                              stroke="none"
+                            >
+                              <circle cx="4" cy="4" r="1.5" opacity="0.5" />
+                              <circle cx="8" cy="4" r="1.5" opacity="0.5" />
+                              <circle cx="12" cy="4" r="1.5" opacity="0.5" />
+                              <circle cx="4" cy="8" r="1.5" opacity="0.5" />
+                              <circle cx="8" cy="8" r="1.5" opacity="0.5" />
+                              <circle cx="12" cy="8" r="1.5" opacity="0.5" />
+                              <circle cx="4" cy="12" r="1.5" opacity="0.5" />
+                              <circle cx="8" cy="12" r="1.5" opacity="0.5" />
+                              <circle cx="12" cy="12" r="1.5" opacity="0.5" />
+                            </svg>
+                            Dot grid
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            G
                           </kbd>
                         </div>
                       </div>

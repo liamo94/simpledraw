@@ -1476,7 +1476,7 @@ function Canvas({
           }
           return;
         }
-        // Cmd+A → select all (move caret to end)
+        // Cmd+A → move caret to end
         if ((e.metaKey || e.ctrlKey) && e.key === "a") {
           e.preventDefault();
           caretPosRef.current = text.length;
@@ -1527,7 +1527,7 @@ function Canvas({
         );
         return;
       }
-      if (cmdKey(e) && e.key === "k") {
+      if (cmdKey(e) && e.key === "x") {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:request-clear"));
       }
@@ -1539,29 +1539,37 @@ function Canvas({
         e.preventDefault();
         redo();
       }
-      if (
-        e.ctrlKey &&
-        !e.metaKey &&
-        (e.code === "Equal" || e.code === "NumpadAdd")
-      ) {
+      if (e.key === "u" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      }
+      if (e.key === "U" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        e.preventDefault();
+        redo();
+      }
+      if (e.key === "}" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         window.dispatchEvent(
           new CustomEvent("drawtool:thickness", { detail: 1 }),
         );
       }
-      if (
-        e.ctrlKey &&
-        !e.metaKey &&
-        (e.code === "Minus" || e.code === "NumpadSubtract")
-      ) {
+      if (e.key === "{" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
         window.dispatchEvent(
           new CustomEvent("drawtool:thickness", { detail: -1 }),
         );
       }
-      if (e.ctrlKey && !e.metaKey && e.key === "o") {
+      if (e.key === "m" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:toggle-menu"));
+      }
+      if (e.key === "g" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:toggle-grid"));
+      }
+      if (cmdKey(e) && e.key === "e" && !e.shiftKey) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:export"));
       }
       if (cmdKey(e) && e.key === "0") {
         e.preventDefault();
@@ -1676,11 +1684,11 @@ function Canvas({
           shapeFlashRef.current = null;
         }, 300);
       }
-      if (e.key === "v" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+      if ((e.key === "v" || e.key === "h") && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         highlightKeyRef.current = true;
         setHighlighting(true);
       }
-      if (e.key === "q" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+      if ((e.key === "q" || e.key === "l") && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         laserKeyRef.current = true;
         setLasering(true);
       }
@@ -1749,7 +1757,7 @@ function Canvas({
           scheduleRedraw();
         }
       }
-      if (e.key === "q") {
+      if (e.key === "q" || e.key === "l") {
         laserKeyRef.current = false;
         setLasering(false);
         if (activeModifierRef.current === "laser") {
@@ -1757,7 +1765,7 @@ function Canvas({
           activeModifierRef.current = null;
         }
       }
-      if (e.key === "v") {
+      if (e.key === "v" || e.key === "h") {
         highlightKeyRef.current = false;
         setHighlighting(false);
         if (activeModifierRef.current === "highlight") {

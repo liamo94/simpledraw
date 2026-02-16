@@ -232,7 +232,25 @@ export default function App() {
       const message = (e as CustomEvent).detail as string;
       showToast({ type: "text", message });
     };
+    const onToggleGrid = () => {
+      updateSettings({ showDotGrid: !settingsRef.current.showDotGrid });
+    };
+    const onExportShortcut = () => {
+      const canvas = document.querySelector("canvas");
+      if (!canvas) return;
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "drawtool.png";
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    };
     window.addEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
+    window.addEventListener("drawtool:toggle-grid", onToggleGrid);
+    window.addEventListener("drawtool:export", onExportShortcut);
     window.addEventListener("drawtool:text-size", onTextSize);
     window.addEventListener("drawtool:toast", onToast);
     return () => {
@@ -247,6 +265,8 @@ export default function App() {
       );
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
       window.removeEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
+      window.removeEventListener("drawtool:toggle-grid", onToggleGrid);
+      window.removeEventListener("drawtool:export", onExportShortcut);
       window.removeEventListener("drawtool:text-size", onTextSize);
       window.removeEventListener("drawtool:toast", onToast);
     };
@@ -985,14 +1005,14 @@ export default function App() {
               <div className="flex justify-between gap-6">
                 <span>Clear</span>
                 <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                  {mod} + K
+                  {mod} + X
                 </kbd>
               </div>
             </div>
             <div
               className={`text-[10px] mt-4 ${isDark ? "text-white/30" : "text-black/30"}`}
             >
-              Open the menu (Ctrl+O) for all shortcuts
+              Open the menu (M) for all shortcuts
             </div>
             <div
               className={`text-[10px] mt-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
