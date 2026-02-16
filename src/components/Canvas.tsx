@@ -1094,13 +1094,36 @@ function Canvas({
     scheduleRedraw();
   }, [canvasIndex, scheduleRedraw, broadcastZoom]);
 
+  const animFrameRef = useRef(0);
+  const animateView = useCallback(
+    (target: { x: number; y: number; scale: number }, duration = 300) => {
+      if (animFrameRef.current) cancelAnimationFrame(animFrameRef.current);
+      const start = { ...viewRef.current };
+      const t0 = performance.now();
+      const step = (now: number) => {
+        const t = Math.min((now - t0) / duration, 1);
+        const ease = t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+        viewRef.current.x = start.x + (target.x - start.x) * ease;
+        viewRef.current.y = start.y + (target.y - start.y) * ease;
+        viewRef.current.scale = start.scale + (target.scale - start.scale) * ease;
+        strokesCacheRef.current = null;
+        scheduleRedraw();
+        broadcastZoom();
+        if (t < 1) {
+          animFrameRef.current = requestAnimationFrame(step);
+        } else {
+          animFrameRef.current = 0;
+          persistView();
+        }
+      };
+      animFrameRef.current = requestAnimationFrame(step);
+    },
+    [scheduleRedraw, broadcastZoom, persistView],
+  );
+
   const resetView = useCallback(() => {
-    viewRef.current = { x: 0, y: 0, scale: 1 };
-    strokesCacheRef.current = null;
-    scheduleRedraw();
-    broadcastZoom();
-    persistView();
-  }, [scheduleRedraw, broadcastZoom, persistView]);
+    animateView({ x: 0, y: 0, scale: 1 });
+  }, [animateView]);
 
   const zoomBy = useCallback(
     (factor: number) => {
@@ -1153,8 +1176,9 @@ function Canvas({
     const h = maxY - minY;
     const vw = window.innerWidth - pad * 2;
     const vh = window.innerHeight - pad * 2;
+    let target;
     if (w === 0 && h === 0) {
-      viewRef.current = {
+      target = {
         x: window.innerWidth / 2 - minX,
         y: window.innerHeight / 2 - minY,
         scale: 1,
@@ -1166,17 +1190,14 @@ function Canvas({
       );
       const cx = (minX + maxX) / 2;
       const cy = (minY + maxY) / 2;
-      viewRef.current = {
+      target = {
         x: window.innerWidth / 2 - cx * scale,
         y: window.innerHeight / 2 - cy * scale,
         scale,
       };
     }
-    strokesCacheRef.current = null;
-    scheduleRedraw();
-    broadcastZoom();
-    persistView();
-  }, [scheduleRedraw, broadcastZoom, persistView]);
+    animateView(target);
+  }, [animateView]);
 
   const exportTransparent = useCallback(() => {
     const strokes = strokesRef.current;
