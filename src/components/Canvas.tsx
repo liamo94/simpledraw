@@ -512,6 +512,8 @@ function Canvas({
   const [erasing, setErasing] = useState(false);
   const [shapeActive, setShapeActive] = useState(false);
   const shapeFlashRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isZoomingRef = useRef(false);
+  const zoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [highlighting, setHighlighting] = useState(false);
   const highlightKeyRef = useRef(false);
   const laserKeyRef = useRef(false);
@@ -1621,7 +1623,7 @@ function Canvas({
         setErasing(false);
         setShapeActive(true);
       }
-      if (e.key === "Control" && isMac) setShapeActive(true);
+      if (e.key === "Control" && isMac && !isZoomingRef.current) setShapeActive(true);
       if (
         e.key === "s" &&
         !cmdKey(e) &&
@@ -2197,7 +2199,9 @@ function Canvas({
                         : null;
         }
       } else {
-        modifier = laserKeyRef.current
+        modifier = isZoomingRef.current
+          ? null
+          : laserKeyRef.current
           ? "laser"
           : highlightKeyRef.current
           ? "highlight"
@@ -2437,6 +2441,13 @@ function Canvas({
       const view = viewRef.current;
       if (e.ctrlKey || e.metaKey) {
         // Pinch-to-zoom on trackpad (sets ctrlKey) or Ctrl/Cmd+scroll
+        isZoomingRef.current = true;
+        setShapeActive(false);
+        if (zoomTimeoutRef.current) clearTimeout(zoomTimeoutRef.current);
+        zoomTimeoutRef.current = setTimeout(() => {
+          isZoomingRef.current = false;
+          zoomTimeoutRef.current = null;
+        }, 300);
         const zoom = Math.pow(0.99, e.deltaY);
         const newScale = Math.min(10, Math.max(0.1, view.scale * zoom));
         const ratio = newScale / view.scale;
