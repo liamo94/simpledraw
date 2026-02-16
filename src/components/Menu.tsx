@@ -277,35 +277,39 @@ export default function Menu({
               ))}
             </div>
 
-            <div className="flex items-center justify-between text-sm mt-3">
-              <span>Text size</span>
-              <span
-                className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
-              >
-                {settings.textSize.toUpperCase()}
-              </span>
-            </div>
-            <div className="flex items-center gap-1 mt-2">
-              {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
-                <button
-                  key={size}
-                  onClick={() => updateSettings({ textSize: size })}
-                  aria-label={`Text size ${size.toUpperCase()}`}
-                  aria-pressed={settings.textSize === size}
-                  className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
-                    settings.textSize === size
-                      ? isDark
-                        ? "bg-white/20 text-white"
-                        : "bg-black/15 text-black"
-                      : isDark
-                        ? "text-white/40 hover:text-white/60"
-                        : "text-black/35 hover:text-black/55"
-                  }`}
-                >
-                  {size.toUpperCase()}
-                </button>
-              ))}
-            </div>
+            {!hasTouch && (
+              <>
+                <div className="flex items-center justify-between text-sm mt-3">
+                  <span>Text size</span>
+                  <span
+                    className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
+                  >
+                    {settings.textSize.toUpperCase()}
+                  </span>
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => updateSettings({ textSize: size })}
+                      aria-label={`Text size ${size.toUpperCase()}`}
+                      aria-pressed={settings.textSize === size}
+                      className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
+                        settings.textSize === size
+                          ? isDark
+                            ? "bg-white/20 text-white"
+                            : "bg-black/15 text-black"
+                          : isDark
+                            ? "text-white/40 hover:text-white/60"
+                            : "text-black/35 hover:text-black/55"
+                      }`}
+                    >
+                      {size.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
 
             <div className="mt-3 text-sm">Shape</div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
