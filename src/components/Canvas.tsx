@@ -401,7 +401,7 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
       const p = stroke.points[0];
       ctx.beginPath();
       ctx.fillStyle = color;
-      ctx.arc(p.x, p.y, stroke.lineWidth / 2, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, stroke.lineWidth * 0.6, 0, Math.PI * 2);
       ctx.fill();
       continue;
     }
@@ -783,7 +783,8 @@ function Canvas({
         const tw = ctx.measureText(label).width;
         ctx.fillText(label, (canvas.width - tw) / 2, 12);
       } else {
-        ctx.fillText(label, 12, canvas.height - 24);
+        const tw = ctx.measureText(label).width;
+        ctx.fillText(label, (canvas.width - tw) / 2, canvas.height - 24);
       }
       ctx.setTransform(scale, 0, 0, scale, x, y);
     }

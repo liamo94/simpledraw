@@ -146,8 +146,8 @@ export default function Menu({
         {open && (
           <nav
             aria-label="Settings menu"
-            className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${settings.theme === "midnight" ? "border-white/15" : isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
-            style={settings.theme === "midnight" ? { background: "rgba(15,15,30,0.85)" } : undefined}
+            className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${settings.theme === "midnight" ? "border-white/15" : isDark ? `${hasTouch ? "bg-black/90" : "bg-black/70"} border-white/15` : `${hasTouch ? "bg-white/90" : "bg-white/70"} border-black/15`}`}
+            style={settings.theme === "midnight" ? { background: hasTouch ? "rgba(15,15,30,0.95)" : "rgba(15,15,30,0.85)" } : undefined}
           >
             <div
               className="text-xl mb-3 text-center select-none"
@@ -215,7 +215,7 @@ export default function Menu({
               ))}
             </div>
 
-            <div className="flex items-center justify-between text-sm mt-3">
+            <div className="flex items-center justify-between text-sm mt-4">
               <span>Dash gap</span>
               <span
                 className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
@@ -252,7 +252,7 @@ export default function Menu({
               ))}
             </div>
 
-            <div className="mt-3 text-sm">Color</div>
+            <div className="mt-4 text-sm">Color</div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
               {palette.map((color) => (
                 <button
@@ -278,7 +278,7 @@ export default function Menu({
 
             {!hasTouch && (
               <>
-                <div className="flex items-center justify-between text-sm mt-3">
+                <div className="flex items-center justify-between text-sm mt-4">
                   <span>Text size</span>
                   <span
                     className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
@@ -310,7 +310,7 @@ export default function Menu({
               </>
             )}
 
-            <div className="mt-3 text-sm">Shape</div>
+            <div className="mt-4 text-sm">Shape</div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
               {(
                 [
@@ -393,7 +393,7 @@ export default function Menu({
               ))}
             </div>
 
-            <div className="mt-3 text-sm">Canvas</div>
+            <div className="mt-4 text-sm">Canvas</div>
             <div className="flex gap-1 mt-1.5 justify-center">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                 <button
@@ -418,12 +418,12 @@ export default function Menu({
 
             <button
               onClick={onClear}
-              className={`mt-3 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+              className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
             >
               Clear screen
             </button>
 
-            <div className="mt-3 text-sm">Theme</div>
+            <div className="mt-4 text-sm">Theme</div>
             <div className="grid grid-cols-3 gap-x-1 gap-y-2 mt-1.5">
               {([
                 { id: "dark" as const, label: "Black", bg: "#050510", text: "#ffffff" },
@@ -438,10 +438,10 @@ export default function Menu({
                   onClick={() => updateSettings({ theme: t.id })}
                   aria-label={`${t.label} theme`}
                   aria-pressed={settings.theme === t.id}
-                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-all focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-all outline-none border-2 ${
                     settings.theme === t.id
-                      ? "ring-2 ring-blue-500"
-                      : "opacity-60 hover:opacity-90"
+                      ? "border-blue-500"
+                      : "border-transparent opacity-60 hover:opacity-90"
                   }`}
                   style={{
                     backgroundColor: t.bg,
@@ -453,7 +453,7 @@ export default function Menu({
               ))}
             </div>
 
-            <div className="mt-3 flex items-center gap-3 text-sm">
+            <div className="mt-4 flex items-center gap-3 text-sm">
               <span>Export</span>
               <div className="flex gap-1 flex-1">
                 <button
@@ -477,7 +477,7 @@ export default function Menu({
                   onToggleFullscreen();
                   closeMenu();
                 }}
-                className={`mt-3 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+                className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
               >
                 Fullscreen
               </button>
@@ -485,7 +485,7 @@ export default function Menu({
 
             {!hasTouch && (
               <>
-                <div className="mt-3 flex items-center justify-between text-sm">
+                <div className="mt-4 flex items-center justify-between text-sm">
                   <span>Zoom</span>
                   <div className="flex items-center gap-2">
                     {zoom !== 1 && (
@@ -504,7 +504,7 @@ export default function Menu({
                   </div>
                 </div>
 
-                <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
+                <label className="mt-2.5 flex items-center justify-between text-sm cursor-pointer">
                   <span>Zoom controls</span>
                   <input
                     type="checkbox"
@@ -524,7 +524,7 @@ export default function Menu({
               </>
             )}
 
-            <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
+            <label className="mt-2.5 flex items-center justify-between text-sm cursor-pointer">
               <span>Dot grid</span>
               <input
                 type="checkbox"
@@ -543,7 +543,7 @@ export default function Menu({
             </label>
 
             {!hasTouch && (
-              <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
+              <label className="mt-2.5 flex items-center justify-between text-sm cursor-pointer">
                 <span>Confirm clear</span>
                 <input
                   type="checkbox"
@@ -569,7 +569,7 @@ export default function Menu({
                     if (!v) setTimeout(() => infoRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 0);
                     return !v;
                   })}
-                  className={`mt-3 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
+                  className={`mt-4 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
                 >
                   <svg
                     width="10"
@@ -1363,7 +1363,7 @@ export default function Menu({
                 if (!v) setTimeout(() => aboutRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 0);
                 return !v;
               })}
-              className={`mt-3 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
+              className={`mt-4 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
             >
               <svg
                 width="10"
