@@ -447,24 +447,6 @@ export default function App() {
       ),
     },
     {
-      id: "text",
-      label: "Text",
-      icon: (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke={settings.lineColor}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M3 3h10M8 3v10M5.5 3v1M10.5 3v1" />
-        </svg>
-      ),
-    },
-    {
       id: "erase",
       label: "Erase",
       icon: (
