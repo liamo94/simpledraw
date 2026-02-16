@@ -450,42 +450,46 @@ export default function Menu({
               </button>
             )}
 
-            <div className="mt-3 flex items-center justify-between text-sm">
-              <span>Zoom</span>
-              <div className="flex items-center gap-2">
-                {zoom !== 1 && (
-                  <button
-                    onClick={onResetView}
-                    className={`text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
-                  >
-                    Reset
-                  </button>
-                )}
-                <span
-                  className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
-                >
-                  {Math.round(zoom * 100)}%
-                </span>
-              </div>
-            </div>
+            {!hasTouch && (
+              <>
+                <div className="mt-3 flex items-center justify-between text-sm">
+                  <span>Zoom</span>
+                  <div className="flex items-center gap-2">
+                    {zoom !== 1 && (
+                      <button
+                        onClick={onResetView}
+                        className={`text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
+                      >
+                        Reset
+                      </button>
+                    )}
+                    <span
+                      className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
+                    >
+                      {Math.round(zoom * 100)}%
+                    </span>
+                  </div>
+                </div>
 
-            <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
-              <span>Zoom controls</span>
-              <input
-                type="checkbox"
-                checked={settings.showZoomControls}
-                onChange={(e) =>
-                  updateSettings({ showZoomControls: e.target.checked })
-                }
-                className={
-                  settings.showZoomControls
-                    ? "accent-blue-500"
-                    : isDark
-                      ? "accent-white/70"
-                      : "accent-black/70"
-                }
-              />
-            </label>
+                <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
+                  <span>Zoom controls</span>
+                  <input
+                    type="checkbox"
+                    checked={settings.showZoomControls}
+                    onChange={(e) =>
+                      updateSettings({ showZoomControls: e.target.checked })
+                    }
+                    className={
+                      settings.showZoomControls
+                        ? "accent-blue-500"
+                        : isDark
+                          ? "accent-white/70"
+                          : "accent-black/70"
+                    }
+                  />
+                </label>
+              </>
+            )}
 
             <label className="mt-1.5 flex items-center justify-between text-sm cursor-pointer">
               <span>Dot grid</span>

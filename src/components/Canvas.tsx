@@ -523,6 +523,8 @@ function Canvas({
   const caretVisibleRef = useRef(true);
   const caretTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const caretPosRef = useRef(0); // tracks selectionEnd for caret rendering
+  const hiddenTaRef = useRef<HTMLTextAreaElement | null>(null);
+  const isTouchDevice = useRef("ontouchstart" in window);
   const textSizeRef = useRef(textSize);
   textSizeRef.current = textSize;
 
@@ -2513,6 +2515,11 @@ function Canvas({
     }
     isWritingRef.current = false;
     if (canvasRef.current) canvasRef.current.style.cursor = cursorRef.current;
+    // On touch devices, blur the hidden textarea to dismiss the virtual keyboard
+    if (isTouchDevice.current) {
+      const ta = hiddenTaRef.current;
+      if (ta) { ta.value = ""; ta.blur(); }
+    }
     scheduleRedraw();
   }, [persistStrokes, scheduleRedraw]);
 
@@ -2528,6 +2535,11 @@ function Canvas({
     }, 530);
     isWritingRef.current = true;
     if (canvasRef.current) canvasRef.current.style.cursor = "default";
+    // On touch devices, focus the hidden textarea to bring up the virtual keyboard
+    if (isTouchDevice.current) {
+      const ta = hiddenTaRef.current;
+      if (ta) { ta.value = ""; ta.focus(); }
+    }
     scheduleRedraw();
   }, [scheduleRedraw]);
 
@@ -2571,20 +2583,59 @@ function Canvas({
     [onPointerUp],
   );
 
+  // Sync handler for hidden textarea (mobile virtual keyboard input)
+  const syncTextarea = useCallback(() => {
+    const ta = hiddenTaRef.current;
+    if (!ta || !isWritingRef.current) return;
+    writingTextRef.current = ta.value;
+    caretPosRef.current = ta.selectionEnd ?? ta.value.length;
+    caretVisibleRef.current = true;
+    if (caretTimerRef.current) clearInterval(caretTimerRef.current);
+    caretTimerRef.current = setInterval(() => {
+      caretVisibleRef.current = !caretVisibleRef.current;
+      scheduleRedraw();
+    }, 530);
+    scheduleRedraw();
+  }, [scheduleRedraw]);
+
   return (
-    <canvas
-      ref={canvasRef}
-      role="img"
-      aria-label="Drawing canvas"
-      className="block touch-none select-none outline-none"
-      tabIndex={-1}
-      style={{ cursor }}
-      onPointerDown={handlePointerDownForText}
-      onPointerMove={handlePointerMoveGuarded}
-      onPointerUp={handlePointerUpGuarded}
-      onPointerLeave={onPointerLeave}
-      onContextMenu={(e) => e.preventDefault()}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label="Drawing canvas"
+        className="block touch-none select-none outline-none"
+        tabIndex={-1}
+        style={{ cursor }}
+        onPointerDown={handlePointerDownForText}
+        onPointerMove={handlePointerMoveGuarded}
+        onPointerUp={handlePointerUpGuarded}
+        onPointerLeave={onPointerLeave}
+        onContextMenu={(e) => e.preventDefault()}
+      />
+      <textarea
+        ref={hiddenTaRef}
+        onInput={syncTextarea}
+        onKeyUp={syncTextarea}
+        onSelect={syncTextarea}
+        aria-hidden
+        tabIndex={-1}
+        style={{
+          position: "fixed",
+          left: 0,
+          top: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+          border: "none",
+          outline: "none",
+          resize: "none",
+          overflow: "hidden",
+          padding: 0,
+        }}
+      />
+    </>
   );
 }
 

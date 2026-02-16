@@ -817,39 +817,6 @@ export default function App() {
                 ))}
               </div>
             )}
-            {settings.showZoomControls && (
-              <div
-                className="flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
-                style={{
-                  background: isDark
-                    ? "rgba(0,0,0,0.7)"
-                    : "rgba(255,255,255,0.7)",
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.15)"
-                    : "rgba(0,0,0,0.15)",
-                }}
-              >
-                <button
-                  onClick={zoomOut}
-                  aria-label="Zoom out"
-                  className={`px-1.5 py-2 sm:px-2.5 sm:py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
-                >
-                  <span className="flex items-center justify-center w-[17px] h-[17px]">-</span>
-                </button>
-                <span
-                  className={`text-[11px] tabular-nums text-center min-w-8 flex items-center justify-center h-[17px] ${isDark ? "text-white/50" : "text-black/50"}`}
-                >
-                  {Math.round(zoom * 100)}%
-                </span>
-                <button
-                  onClick={zoomIn}
-                  aria-label="Zoom in"
-                  className={`px-1.5 py-2 sm:px-2.5 sm:py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
-                >
-                  <span className="flex items-center justify-center w-[17px] h-[17px]">+</span>
-                </button>
-              </div>
-            )}
           </nav>
         </>
       ) : (
