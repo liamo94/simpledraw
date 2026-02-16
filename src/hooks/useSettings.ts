@@ -12,7 +12,7 @@ export type ShapeKind =
   | "diamond"
   | "lightning";
 
-export type Theme = "dark" | "midnight" | "white" | "journal";
+export type Theme = "dark" | "midnight" | "lumber" | "white" | "journal" | "sky";
 
 export type TextSize = "xs" | "s" | "m" | "l" | "xl";
 

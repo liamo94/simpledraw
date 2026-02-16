@@ -2,13 +2,15 @@ import { useRef, useEffect, useCallback, useState, memo } from "react";
 import type { ShapeKind, Theme, TextSize } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
-  return theme === "dark" || theme === "midnight";
+  return theme === "dark" || theme === "midnight" || theme === "lumber";
 }
 
 function getBackgroundColor(theme: Theme): string {
   if (theme === "midnight") return "#1a1a2e";
   if (theme === "dark") return "#050510";
-  if (theme === "journal") return "#fde68a";
+  if (theme === "lumber") return "#1a120b";
+  if (theme === "journal") return "#f5e2b8";
+  if (theme === "sky") return "#e0ecf6";
   return "#f5f5f0";
 }
 
@@ -771,7 +773,7 @@ function Canvas({
       const label = "WRITING — esc to accept";
       ctx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
       ctx.textBaseline = "top";
-      ctx.fillStyle = themeRef.current === "white" || themeRef.current === "journal"
+      ctx.fillStyle = themeRef.current === "white" || themeRef.current === "journal" || themeRef.current === "sky"
         ? "rgba(0,0,0,0.3)"
         : "rgba(255,255,255,0.3)";
       const isMobile = canvas.width < 768;

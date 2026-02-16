@@ -2,7 +2,7 @@ import { useState, useRef, useEffect } from "react";
 import type { Settings, Theme, TextSize } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
-  return theme === "dark" || theme === "midnight";
+  return theme === "dark" || theme === "midnight" || theme === "lumber";
 }
 
 type Props = {
@@ -146,7 +146,8 @@ export default function Menu({
         {open && (
           <nav
             aria-label="Settings menu"
-            className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
+            className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${settings.theme === "midnight" ? "border-white/15" : isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
+            style={settings.theme === "midnight" ? { background: "rgba(15,15,30,0.85)" } : undefined}
           >
             <div
               className="text-xl mb-3 text-center select-none"
@@ -422,6 +423,36 @@ export default function Menu({
               Clear screen
             </button>
 
+            <div className="mt-3 text-sm">Theme</div>
+            <div className="grid grid-cols-3 gap-1 mt-1.5">
+              {([
+                { id: "dark" as const, label: "Black", bg: "#050510", text: "#ffffff" },
+                { id: "midnight" as const, label: "Midnight", bg: "#1a1a2e", text: "#ffffff" },
+                { id: "lumber" as const, label: "Lumber", bg: "#1a120b", text: "#e8d5c0" },
+                { id: "journal" as const, label: "Journal", bg: "#f5e2b8", text: "#000000" },
+                { id: "sky" as const, label: "Sky", bg: "#e0ecf6", text: "#1a3a5c" },
+                { id: "white" as const, label: "White", bg: "#f5f5f0", text: "#000000" },
+              ]).map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => updateSettings({ theme: t.id })}
+                  aria-label={`${t.label} theme`}
+                  aria-pressed={settings.theme === t.id}
+                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-all focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    settings.theme === t.id
+                      ? "ring-2 ring-blue-500"
+                      : "opacity-60 hover:opacity-90"
+                  }`}
+                  style={{
+                    backgroundColor: t.bg,
+                    color: t.text,
+                  }}
+                >
+                  {t.label}
+                </button>
+              ))}
+            </div>
+
             <div className="mt-3 flex items-center gap-3 text-sm">
               <span>Export</span>
               <div className="flex gap-1 flex-1">
@@ -530,29 +561,6 @@ export default function Menu({
                 />
               </label>
             )}
-
-            <div className="mt-3 text-sm">Theme</div>
-            <div className="flex gap-1 mt-1.5">
-              {(["dark", "midnight", "journal", "white"] as const).map((t) => (
-                <button
-                  key={t}
-                  onClick={() => updateSettings({ theme: t })}
-                  aria-label={`${t.charAt(0).toUpperCase() + t.slice(1)} theme`}
-                  aria-pressed={settings.theme === t}
-                  className={`flex-1 py-1 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                    settings.theme === t
-                      ? isDark
-                        ? "bg-white/20 text-white"
-                        : "bg-black/20 text-black"
-                      : isDark
-                        ? "bg-white/5 text-white/60 hover:bg-white/10"
-                        : "bg-black/5 text-black/60 hover:bg-black/10"
-                  }`}
-                >
-                  {t.charAt(0).toUpperCase() + t.slice(1)}
-                </button>
-              ))}
-            </div>
 
             {!hasTouch && (
               <>

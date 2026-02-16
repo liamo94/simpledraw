@@ -30,7 +30,7 @@ const isMac = navigator.platform.toUpperCase().includes("MAC");
 })();
 
 function isDarkTheme(theme: Theme): boolean {
-  return theme === "dark" || theme === "midnight";
+  return theme === "dark" || theme === "midnight" || theme === "lumber";
 }
 
 export default function App() {
@@ -80,8 +80,12 @@ export default function App() {
       document.body.style.background = "#1a1a2e";
     } else if (settings.theme === "dark") {
       document.body.style.background = "#050510";
+    } else if (settings.theme === "lumber") {
+      document.body.style.background = "#1a120b";
     } else if (settings.theme === "journal") {
-      document.body.style.background = "#fde68a";
+      document.body.style.background = "#f5e2b8";
+    } else if (settings.theme === "sky") {
+      document.body.style.background = "#e0ecf6";
     } else {
       document.body.style.background = "#f5f5f0";
     }
@@ -913,7 +917,7 @@ export default function App() {
       {showOnboarding && !hasTouch && (
         <div role="dialog" aria-modal="true" aria-label="Welcome to drawtool" className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm">
           <div
-            className={`px-8 py-6 rounded-lg border text-center max-w-xs ${isDark ? "bg-[#0a0a1a] border-white/15" : "bg-[#f5f5f0] border-black/15"}`}
+            className={`px-8 py-6 rounded-lg border backdrop-blur-sm text-center max-w-xs ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
           >
             <div
               className="text-xl mb-4 select-none"
