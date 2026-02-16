@@ -253,7 +253,7 @@ export default function Menu({
             </div>
 
             <div className="mt-3 text-sm">Color</div>
-            <div className="flex gap-1.5 mt-1.5 flex-wrap justify-center">
+            <div className="flex gap-1.5 mt-1.5 justify-center">
               {palette.map((color) => (
                 <button
                   key={color}
@@ -424,7 +424,7 @@ export default function Menu({
             </button>
 
             <div className="mt-3 text-sm">Theme</div>
-            <div className="grid grid-cols-3 gap-1 mt-1.5">
+            <div className="grid grid-cols-3 gap-x-1 gap-y-2 mt-1.5">
               {([
                 { id: "dark" as const, label: "Black", bg: "#050510", text: "#ffffff" },
                 { id: "midnight" as const, label: "Midnight", bg: "#1a1a2e", text: "#ffffff" },
