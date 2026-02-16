@@ -803,46 +803,61 @@ export default function App() {
         </>
       ) : (
         settings.showZoomControls && (
-          <div className="fixed bottom-4 right-4 z-50 flex items-center gap-1.5">
-            <button
-              onClick={centerView}
-              aria-label="Fit to content"
-              title={`Fit to content (${isMac ? "\u2318" : "Ctrl"}+1)`}
-              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
-            >
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
+            <div className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/20" : "border-black/20"}`}>
+              <button
+                onClick={zoomOut}
+                aria-label="Zoom out"
+                className={`w-8 h-full flex items-center justify-center rounded-l-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "bg-white/10 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 text-black/70 hover:text-black hover:bg-black/20"}`}
               >
-                <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                <path d="M5 2.5v3h-3M11 2.5v3h3M5 13.5v-3h-3M11 13.5v-3h3" />
-              </svg>
-            </button>
-            <button
-              onClick={zoomOut}
-              aria-label="Zoom out"
-              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
-            >
-              -
-            </button>
-            <span
-              className={`text-xs tabular-nums w-10 text-center ${isDark ? "text-white/50" : "text-black/50"}`}
-            >
-              {Math.round(zoom * 100)}%
-            </span>
-            <button
-              onClick={zoomIn}
-              aria-label="Zoom in"
-              className={`w-8 h-8 flex items-center justify-center rounded border transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
-            >
-              +
-            </button>
+                -
+              </button>
+              <div className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`} />
+              <div className="relative group/zoom h-full">
+                <div className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover/zoom:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}>
+                  Reset zoom
+                </div>
+                <button
+                  onClick={resetView}
+                  aria-label="Reset zoom to 100%"
+                  className={`min-w-[3.25rem] px-2 h-full flex items-center justify-center transition-colors text-xs tabular-nums focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "bg-white/10 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 text-black/70 hover:text-black hover:bg-black/20"}`}
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+              </div>
+              <div className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`} />
+              <button
+                onClick={zoomIn}
+                aria-label="Zoom in"
+                className={`w-8 h-full flex items-center justify-center rounded-r-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "bg-white/10 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 text-black/70 hover:text-black hover:bg-black/20"}`}
+              >
+                +
+              </button>
+            </div>
+            <div className="relative group">
+              <div className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}>
+                Fit to content
+              </div>
+              <button
+                onClick={centerView}
+                aria-label="Fit to content"
+                className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                  <path d="M5 2.5v3h-3M11 2.5v3h3M5 13.5v-3h-3M11 13.5v-3h3" />
+                </svg>
+              </button>
+            </div>
           </div>
         )
       )}

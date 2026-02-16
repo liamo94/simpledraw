@@ -116,32 +116,30 @@ export default function Menu({
             });
             (e.currentTarget as HTMLElement).blur();
           }}
-          className={`w-8 h-8 flex items-center justify-center rounded border transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${open ? (isDark ? "bg-white/20 border-white/30 text-white" : "bg-black/20 border-black/30 text-black") : isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
         >
           <svg
-            width="16"
-            height="16"
-            viewBox="0 0 16 16"
+            width="14"
+            height="14"
+            viewBox="0 0 14 14"
             fill="none"
             stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
+            className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}
           >
-            <path
-              d="M8 3.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"
-              fill="currentColor"
-              stroke="none"
-            />
-            <path
-              d="M8 9a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"
-              fill="currentColor"
-              stroke="none"
-            />
-            <path
-              d="M8 14.5a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"
-              fill="currentColor"
-              stroke="none"
-            />
+            {open ? (
+              <>
+                <line x1="3" y1="3" x2="11" y2="11" />
+                <line x1="11" y1="3" x2="3" y2="11" />
+              </>
+            ) : (
+              <>
+                <line x1="3" y1="3.5" x2="11" y2="3.5" stroke="#3b82f6" />
+                <line x1="3" y1="7" x2="11" y2="7" stroke="#ef4444" />
+                <line x1="3" y1="10.5" x2="11" y2="10.5" stroke="#22c55e" />
+              </>
+            )}
           </svg>
         </button>
 
