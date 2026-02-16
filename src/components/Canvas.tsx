@@ -40,7 +40,7 @@ export type TouchTool =
   | "highlight"
   | "text";
 
-const TEXT_SIZE_MAP: Record<TextSize, number> = { xs: 16, s: 24, m: 36, l: 56, xl: 80 };
+const TEXT_SIZE_MAP: Record<TextSize, number> = { xs: 14, s: 21, m: 32, l: 49, xl: 70 };
 const TEXT_FONT_FAMILY = "'Caveat', cursive";
 
 function strokesKey(n: number) {
@@ -384,6 +384,7 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
     if (stroke.text) {
       const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
       ctx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+
       ctx.fillStyle = stroke.color;
       ctx.textBaseline = "top";
       const lines = stroke.text.split("\n");
@@ -731,6 +732,7 @@ function Canvas({
     if (isWritingRef.current || writingTextRef.current) {
       const basePx = TEXT_SIZE_MAP[textSizeRef.current];
       ctx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+
       ctx.fillStyle = lineColorRef.current;
       ctx.textBaseline = "top";
       const text = writingTextRef.current;
