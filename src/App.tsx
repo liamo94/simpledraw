@@ -618,7 +618,7 @@ export default function App() {
                         thicknessLongPressRef.current = null;
                       }
                     }}
-                    className={`flex items-center gap-1 px-1.5 py-2 sm:px-2.5 sm:py-2.5 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    className={`flex items-center gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                       touchTool === t.id
                         ? isDark
                           ? "bg-white/20 text-white"
