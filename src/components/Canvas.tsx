@@ -2620,19 +2620,22 @@ function Canvas({
         onSelect={syncTextarea}
         aria-hidden
         tabIndex={-1}
+        autoCapitalize="off"
+        autoCorrect="off"
         style={{
           position: "fixed",
-          left: 0,
-          top: 0,
-          width: 1,
-          height: 1,
-          opacity: 0,
+          left: -9999,
+          top: -9999,
+          width: 100,
+          height: 40,
+          opacity: 0.01,
           pointerEvents: "none",
           border: "none",
           outline: "none",
           resize: "none",
           overflow: "hidden",
           padding: 0,
+          fontSize: 16,
         }}
       />
     </>
