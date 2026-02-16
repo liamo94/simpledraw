@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, memo } from "react";
-import type { ShapeKind, Theme } from "../hooks/useSettings";
+import type { ShapeKind, Theme, TextSize } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight";
@@ -20,6 +20,8 @@ type Stroke = {
   color: string;
   shape?: ShapeKind;
   highlight?: boolean;
+  text?: string;
+  fontSize?: TextSize;
 };
 
 type UndoAction =
@@ -33,7 +35,11 @@ export type TouchTool =
   | "erase"
   | "hand"
   | "shape"
-  | "highlight";
+  | "highlight"
+  | "text";
+
+const TEXT_SIZE_MAP: Record<TextSize, number> = { xs: 16, s: 24, m: 36, l: 56, xl: 80 };
+const TEXT_FONT_FAMILY = "'Caveat', cursive";
 
 function strokesKey(n: number) {
   return `drawtool-strokes-${n}`;
@@ -372,6 +378,20 @@ function hexToRgba(hex: string, alpha: number): string {
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length === 0) continue;
+    // Text stroke rendering
+    if (stroke.text) {
+      const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
+      ctx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+      ctx.fillStyle = stroke.color;
+      ctx.textBaseline = "top";
+      const lines = stroke.text.split("\n");
+      const lineHeight = basePx * 1.2;
+      const anchor = stroke.points[0];
+      for (let i = 0; i < lines.length; i++) {
+        ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);
+      }
+      continue;
+    }
     const color = stroke.highlight
       ? hexToRgba(stroke.color, 0.4)
       : stroke.color;
@@ -432,6 +452,7 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   }
 }
 
+
 function Canvas({
   lineWidth,
   lineColor,
@@ -441,6 +462,7 @@ function Canvas({
   touchTool,
   activeShape,
   canvasIndex,
+  textSize,
 }: {
   lineWidth: number;
   lineColor: string;
@@ -450,6 +472,7 @@ function Canvas({
   touchTool: TouchTool;
   activeShape: ShapeKind;
   canvasIndex: number;
+  textSize: TextSize;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasIndexRef = useRef(canvasIndex);
@@ -494,6 +517,14 @@ function Canvas({
   const keyShapeRef = useRef<ShapeKind | null>(null);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
+  const isWritingRef = useRef(false);
+  const writingPosRef = useRef({ x: 0, y: 0 });
+  const writingTextRef = useRef("");
+  const caretVisibleRef = useRef(true);
+  const caretTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const caretPosRef = useRef(0); // tracks selectionEnd for caret rendering
+  const textSizeRef = useRef(textSize);
+  textSizeRef.current = textSize;
 
   // Multi-touch tracking
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
@@ -690,6 +721,67 @@ function Canvas({
       if (activeStroke) {
         renderStrokesToCtx(ctx, [activeStroke]);
       }
+    }
+
+    // Render live writing text preview + blinking caret
+    if (isWritingRef.current || writingTextRef.current) {
+      const basePx = TEXT_SIZE_MAP[textSizeRef.current];
+      ctx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+      ctx.fillStyle = lineColorRef.current;
+      ctx.textBaseline = "top";
+      const text = writingTextRef.current;
+      const lines = text ? text.split("\n") : [""];
+      const lineHeight = basePx * 1.2;
+      const anchor = writingPosRef.current;
+      for (let i = 0; i < lines.length; i++) {
+        if (lines[i]) {
+          ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);
+        }
+      }
+      // Draw blinking caret at selectionEnd position
+      if (isWritingRef.current && caretVisibleRef.current) {
+        const pos = caretPosRef.current;
+        // Find which line and column the caret is on
+        let charCount = 0;
+        let caretLine = 0;
+        let caretCol = 0;
+        for (let i = 0; i < lines.length; i++) {
+          if (pos <= charCount + lines[i].length) {
+            caretLine = i;
+            caretCol = pos - charCount;
+            break;
+          }
+          charCount += lines[i].length + 1; // +1 for \n
+          if (i === lines.length - 1) {
+            caretLine = i;
+            caretCol = lines[i].length;
+          }
+        }
+        const textBeforeCaret = lines[caretLine].slice(0, caretCol);
+        const caretX = anchor.x + ctx.measureText(textBeforeCaret).width;
+        const caretY = anchor.y + caretLine * lineHeight;
+        ctx.fillStyle = lineColorRef.current;
+        ctx.fillRect(caretX, caretY, 2 / scale, basePx);
+      }
+    }
+
+    // Write mode indicator (screen-space)
+    if (isWritingRef.current) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      const label = "WRITING — esc to accept";
+      ctx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
+      ctx.textBaseline = "top";
+      ctx.fillStyle = themeRef.current === "white" || themeRef.current === "journal"
+        ? "rgba(0,0,0,0.3)"
+        : "rgba(255,255,255,0.3)";
+      const isMobile = canvas.width < 768;
+      if (isMobile) {
+        const tw = ctx.measureText(label).width;
+        ctx.fillText(label, (canvas.width - tw) / 2, 12);
+      } else {
+        ctx.fillText(label, 12, canvas.height - 24);
+      }
+      ctx.setTransform(scale, 0, 0, scale, x, y);
     }
 
     // Draw erase trail with fading tail
@@ -906,8 +998,32 @@ function Canvas({
 
     resize();
     window.addEventListener("resize", resize);
-    return () => window.removeEventListener("resize", resize);
-  }, [redraw]);
+
+    // Redraw after fonts load to ensure text renders correctly
+    document.fonts.ready.then(() => {
+      strokesCacheRef.current = null;
+      scheduleRedraw();
+    });
+
+    // Track cursor position globally so W key always has accurate coords
+    const onMouseMove = (e: MouseEvent) => {
+      cursorWorldRef.current = screenToWorld(
+        e.clientX,
+        e.clientY,
+        viewRef.current,
+      );
+    };
+    window.addEventListener("mousemove", onMouseMove);
+
+    return () => {
+      window.removeEventListener("resize", resize);
+      window.removeEventListener("mousemove", onMouseMove);
+      if (caretTimerRef.current) {
+        clearInterval(caretTimerRef.current);
+        caretTimerRef.current = null;
+      }
+    };
+  }, [redraw, scheduleRedraw]);
 
   const broadcastZoom = useCallback(() => {
     window.dispatchEvent(
@@ -1007,6 +1123,19 @@ function Canvas({
       maxX = -Infinity,
       maxY = -Infinity;
     for (const stroke of strokes) {
+      if (stroke.text) {
+        const anchor = stroke.points[0];
+        const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
+        const lines = stroke.text.split("\n");
+        const maxLineLen = Math.max(...lines.map((l) => l.length));
+        const textW = maxLineLen * basePx * 0.6;
+        const textH = lines.length * basePx * 1.2;
+        if (anchor.x < minX) minX = anchor.x;
+        if (anchor.y < minY) minY = anchor.y;
+        if (anchor.x + textW > maxX) maxX = anchor.x + textW;
+        if (anchor.y + textH > maxY) maxY = anchor.y + textH;
+        continue;
+      }
       for (const p of stroke.points) {
         if (p.x < minX) minX = p.x;
         if (p.y < minY) minY = p.y;
@@ -1052,6 +1181,19 @@ function Canvas({
       maxX = -Infinity,
       maxY = -Infinity;
     for (const stroke of strokes) {
+      if (stroke.text) {
+        const anchor = stroke.points[0];
+        const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
+        const lines = stroke.text.split("\n");
+        const maxLineLen = Math.max(...lines.map((l) => l.length));
+        const textW = maxLineLen * basePx * 0.6;
+        const textH = lines.length * basePx * 1.2;
+        if (anchor.x < minX) minX = anchor.x;
+        if (anchor.y < minY) minY = anchor.y;
+        if (anchor.x + textW > maxX) maxX = anchor.x + textW;
+        if (anchor.y + textH > maxY) maxY = anchor.y + textH;
+        continue;
+      }
       for (const p of stroke.points) {
         if (p.x < minX) minX = p.x;
         if (p.y < minY) minY = p.y;
@@ -1175,6 +1317,190 @@ function Canvas({
   // Keyboard shortcuts + eraser cursor
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Handle text input while in writing mode
+      if (isWritingRef.current) {
+        // Escape / Cmd+Enter → accept text
+        if (e.key === "Escape" || ((e.metaKey || e.ctrlKey) && e.key === "Enter")) {
+          e.preventDefault();
+          finishWritingRef.current();
+          return;
+        }
+        const text = writingTextRef.current;
+        const pos = caretPosRef.current;
+        // Cmd+Backspace → delete to start of line
+        if (e.key === "Backspace" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
+          if (lineStart === pos && pos > 0) {
+            writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
+            caretPosRef.current = pos - 1;
+          } else {
+            writingTextRef.current = text.slice(0, lineStart) + text.slice(pos);
+            caretPosRef.current = lineStart;
+          }
+          scheduleRedraw();
+          return;
+        }
+        // Option+Backspace → delete word before caret
+        if (e.key === "Backspace" && e.altKey) {
+          e.preventDefault();
+          if (pos > 0) {
+            let i = pos - 1;
+            while (i > 0 && text[i - 1] === " ") i--;
+            while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
+            writingTextRef.current = text.slice(0, i) + text.slice(pos);
+            caretPosRef.current = i;
+            scheduleRedraw();
+          }
+          return;
+        }
+        // Backspace → delete char before caret
+        if (e.key === "Backspace") {
+          e.preventDefault();
+          if (pos > 0) {
+            writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
+            caretPosRef.current = pos - 1;
+            scheduleRedraw();
+          }
+          return;
+        }
+        // Delete key → delete char after caret
+        if (e.key === "Delete") {
+          e.preventDefault();
+          if (pos < text.length) {
+            writingTextRef.current = text.slice(0, pos) + text.slice(pos + 1);
+            scheduleRedraw();
+          }
+          return;
+        }
+        // Enter → insert newline
+        if (e.key === "Enter") {
+          e.preventDefault();
+          writingTextRef.current = text.slice(0, pos) + "\n" + text.slice(pos);
+          caretPosRef.current = pos + 1;
+          scheduleRedraw();
+          return;
+        }
+        // Arrow keys → move caret
+        if (e.key === "ArrowLeft") {
+          e.preventDefault();
+          if (pos > 0) {
+            if (e.altKey) {
+              // Option+Left → jump to start of word
+              let i = pos - 1;
+              while (i > 0 && text[i - 1] === " ") i--;
+              while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
+              caretPosRef.current = i;
+            } else if (e.metaKey) {
+              // Cmd+Left → jump to start of line
+              const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
+              caretPosRef.current = lineStart;
+            } else {
+              caretPosRef.current = pos - 1;
+            }
+            caretVisibleRef.current = true;
+            scheduleRedraw();
+          }
+          return;
+        }
+        if (e.key === "ArrowRight") {
+          e.preventDefault();
+          if (pos < text.length) {
+            if (e.altKey) {
+              // Option+Right → jump to end of word
+              let i = pos;
+              while (i < text.length && text[i] === " ") i++;
+              while (i < text.length && text[i] !== " " && text[i] !== "\n") i++;
+              caretPosRef.current = i;
+            } else if (e.metaKey) {
+              // Cmd+Right → jump to end of line
+              let end = text.indexOf("\n", pos);
+              if (end === -1) end = text.length;
+              caretPosRef.current = end;
+            } else {
+              caretPosRef.current = pos + 1;
+            }
+            caretVisibleRef.current = true;
+            scheduleRedraw();
+          }
+          return;
+        }
+        if (e.key === "ArrowUp" || e.key === "ArrowDown") {
+          e.preventDefault();
+          const lines = text.split("\n");
+          let charCount = 0;
+          let curLine = 0;
+          let curCol = 0;
+          for (let i = 0; i < lines.length; i++) {
+            if (pos <= charCount + lines[i].length) {
+              curLine = i;
+              curCol = pos - charCount;
+              break;
+            }
+            charCount += lines[i].length + 1;
+          }
+          const targetLine = e.key === "ArrowUp" ? curLine - 1 : curLine + 1;
+          if (targetLine >= 0 && targetLine < lines.length) {
+            let newPos = 0;
+            for (let i = 0; i < targetLine; i++) newPos += lines[i].length + 1;
+            newPos += Math.min(curCol, lines[targetLine].length);
+            caretPosRef.current = newPos;
+            caretVisibleRef.current = true;
+            scheduleRedraw();
+          }
+          return;
+        }
+        // Cmd+A → select all (move caret to end)
+        if ((e.metaKey || e.ctrlKey) && e.key === "a") {
+          e.preventDefault();
+          caretPosRef.current = text.length;
+          caretVisibleRef.current = true;
+          scheduleRedraw();
+          return;
+        }
+        // Ignore other modifier combos (Cmd+C, Cmd+V handled elsewhere)
+        if (e.metaKey || e.ctrlKey || e.altKey) {
+          return;
+        }
+        // Tab → insert spaces
+        if (e.key === "Tab") {
+          e.preventDefault();
+          writingTextRef.current = text.slice(0, pos) + "  " + text.slice(pos);
+          caretPosRef.current = pos + 2;
+          scheduleRedraw();
+          return;
+        }
+        // Printable character → insert at caret
+        if (e.key.length === 1) {
+          e.preventDefault();
+          writingTextRef.current = text.slice(0, pos) + e.key + text.slice(pos);
+          caretPosRef.current = pos + 1;
+          caretVisibleRef.current = true;
+          scheduleRedraw();
+          return;
+        }
+        // Ignore other keys (Shift, Ctrl, etc.)
+        return;
+      }
+      if (e.key === "t" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        e.preventDefault();
+        startWritingRef.current({ ...cursorWorldRef.current });
+        return;
+      }
+      if (e.key === "T" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        const sizes: TextSize[] = ["xs", "s", "m", "l", "xl"];
+        const labels: Record<TextSize, string> = { xs: "XS", s: "S", m: "M", l: "L", xl: "XL" };
+        const cur = textSizeRef.current;
+        const idx = sizes.indexOf(cur);
+        const next = sizes[(idx + 1) % sizes.length];
+        window.dispatchEvent(
+          new CustomEvent("drawtool:text-size", { detail: next }),
+        );
+        window.dispatchEvent(
+          new CustomEvent("drawtool:toast", { detail: `Text: ${labels[next]}` }),
+        );
+        return;
+      }
       if (cmdKey(e) && e.key === "k") {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:request-clear"));
@@ -1336,7 +1662,6 @@ function Canvas({
       const shapeKeyMap: Record<string, ShapeKind> = {
         a: "arrow",
         r: "rectangle",
-        t: "triangle",
         c: "circle",
       };
       if (
@@ -1456,13 +1781,29 @@ function Canvas({
       }
     };
 
+    const onPaste = (e: ClipboardEvent) => {
+      if (!isWritingRef.current) return;
+      e.preventDefault();
+      const pasted = e.clipboardData?.getData("text/plain");
+      if (pasted) {
+        const text = writingTextRef.current;
+        const pos = caretPosRef.current;
+        writingTextRef.current = text.slice(0, pos) + pasted + text.slice(pos);
+        caretPosRef.current = pos + pasted.length;
+        caretVisibleRef.current = true;
+        scheduleRedraw();
+      }
+    };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
+    window.addEventListener("paste", onPaste);
     return () => {
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
+      window.removeEventListener("paste", onPaste);
     };
   }, [
     clearCanvas,
@@ -1519,6 +1860,25 @@ function Canvas({
     for (const stroke of strokesRef.current) {
       if (pendingEraseRef.current.has(stroke)) continue;
       let hit = false;
+      // For text strokes, test against bounding box
+      if (stroke.text) {
+        const anchor = stroke.points[0];
+        const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
+        const lines = stroke.text.split("\n");
+        const maxLineLen = Math.max(...lines.map((l) => l.length));
+        const textW = maxLineLen * basePx * 0.6;
+        const textH = lines.length * basePx * 1.2;
+        if (
+          x >= anchor.x - radius &&
+          x <= anchor.x + textW + radius &&
+          y >= anchor.y - radius &&
+          y <= anchor.y + textH + radius
+        ) {
+          hit = true;
+        }
+        if (hit) pendingEraseRef.current.add(stroke);
+        continue;
+      }
       // For shape strokes, test against the rendered shape polygon
       const pts =
         stroke.shape && stroke.points.length === 2
@@ -2070,6 +2430,7 @@ function Canvas({
     if (!canvas) return;
 
     const onWheel = (e: WheelEvent) => {
+      if (isWritingRef.current) return;
       e.preventDefault();
       const view = viewRef.current;
       if (e.ctrlKey || e.metaKey) {
@@ -2113,27 +2474,114 @@ function Canvas({
   const highlightCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='6' stroke-linecap='round' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
   const laserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='4' fill='%23ff3030' fill-opacity='0.9'/%3E%3Ccircle cx='12' cy='12' r='7' fill='none' stroke='%23ff3030' stroke-width='1' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
   const cursor = panning
-    ? "grabbing"
-    : lasering
-      ? laserCursor
-      : erasing
-        ? eraserCursor
-        : highlighting
-          ? highlightCursor
-          : shapeActive
-            ? shapeCursors[keyShapeRef.current || activeShape]
-            : crosshairCursor;
+      ? "grabbing"
+      : lasering
+        ? laserCursor
+        : erasing
+          ? eraserCursor
+          : highlighting
+            ? highlightCursor
+            : shapeActive
+              ? shapeCursors[keyShapeRef.current || activeShape]
+              : crosshairCursor;
+
+  const cursorRef = useRef(cursor);
+  cursorRef.current = cursor;
+
+  const finishWriting = useCallback(() => {
+    const raw = writingTextRef.current;
+    if (raw.trim()) {
+      const stroke: Stroke = {
+        points: [{ ...writingPosRef.current }],
+        style: "solid",
+        lineWidth: 1,
+        color: lineColorRef.current,
+        text: raw,
+        fontSize: textSizeRef.current,
+      };
+      strokesRef.current.push(stroke);
+      undoStackRef.current.push({ type: "draw", stroke });
+      redoStackRef.current = [];
+      strokesCacheRef.current = null;
+      persistStrokes();
+    }
+    writingTextRef.current = "";
+    caretPosRef.current = 0;
+    if (caretTimerRef.current) {
+      clearInterval(caretTimerRef.current);
+      caretTimerRef.current = null;
+    }
+    isWritingRef.current = false;
+    if (canvasRef.current) canvasRef.current.style.cursor = cursorRef.current;
+    scheduleRedraw();
+  }, [persistStrokes, scheduleRedraw]);
+
+  const startWriting = useCallback((worldPos: { x: number; y: number }) => {
+    writingPosRef.current = worldPos;
+    writingTextRef.current = "";
+    caretPosRef.current = 0;
+    caretVisibleRef.current = true;
+    if (caretTimerRef.current) clearInterval(caretTimerRef.current);
+    caretTimerRef.current = setInterval(() => {
+      caretVisibleRef.current = !caretVisibleRef.current;
+      scheduleRedraw();
+    }, 530);
+    isWritingRef.current = true;
+    if (canvasRef.current) canvasRef.current.style.cursor = "default";
+    scheduleRedraw();
+  }, [scheduleRedraw]);
+
+  // Stable refs so the keydown useEffect can call these without re-registering
+  const finishWritingRef = useRef(finishWriting);
+  finishWritingRef.current = finishWriting;
+  const startWritingRef = useRef(startWriting);
+  startWritingRef.current = startWriting;
+
+  // Touch: tap canvas to place text when text tool is active
+  const handlePointerDownForText = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (isWritingRef.current) {
+        // Click on canvas while writing → accept text
+        finishWriting();
+        return;
+      }
+      if (touchToolRef.current === "text") {
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        startWriting(wp);
+        return;
+      }
+      onPointerDown(e);
+    },
+    [onPointerDown, finishWriting, startWriting],
+  );
+
+  const handlePointerMoveGuarded = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (isWritingRef.current) return;
+      onPointerMove(e);
+    },
+    [onPointerMove],
+  );
+
+  const handlePointerUpGuarded = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (isWritingRef.current) return;
+      onPointerUp(e);
+    },
+    [onPointerUp],
+  );
 
   return (
     <canvas
       ref={canvasRef}
       role="img"
       aria-label="Drawing canvas"
-      className="block touch-none select-none"
+      className="block touch-none select-none outline-none"
+      tabIndex={-1}
       style={{ cursor }}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onPointerDown={handlePointerDownForText}
+      onPointerMove={handlePointerMoveGuarded}
+      onPointerUp={handlePointerUpGuarded}
       onPointerLeave={onPointerLeave}
       onContextMenu={(e) => e.preventDefault()}
     />

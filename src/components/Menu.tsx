@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Settings, Theme } from "../hooks/useSettings";
+import type { Settings, Theme, TextSize } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight";
@@ -253,6 +253,60 @@ export default function Menu({
               ))}
             </div>
 
+            <div className="mt-3 text-sm">Color</div>
+            <div className="flex gap-1.5 mt-1.5 flex-wrap justify-center">
+              {palette.map((color) => (
+                <button
+                  key={color}
+                  onClick={() => updateSettings({ lineColor: color })}
+                  aria-label={`Color ${color}`}
+                  aria-pressed={settings.lineColor === color}
+                  className="w-5 h-5 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
+                  style={{
+                    backgroundColor: color,
+                    borderColor:
+                      settings.lineColor === color
+                        ? isDark
+                          ? "white"
+                          : "black"
+                        : "transparent",
+                    transform:
+                      settings.lineColor === color ? "scale(1.2)" : undefined,
+                  }}
+                />
+              ))}
+            </div>
+
+            <div className="flex items-center justify-between text-sm mt-3">
+              <span>Text size</span>
+              <span
+                className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
+              >
+                {settings.textSize.toUpperCase()}
+              </span>
+            </div>
+            <div className="flex items-center gap-1 mt-2">
+              {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
+                <button
+                  key={size}
+                  onClick={() => updateSettings({ textSize: size })}
+                  aria-label={`Text size ${size.toUpperCase()}`}
+                  aria-pressed={settings.textSize === size}
+                  className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
+                    settings.textSize === size
+                      ? isDark
+                        ? "bg-white/20 text-white"
+                        : "bg-black/15 text-black"
+                      : isDark
+                        ? "text-white/40 hover:text-white/60"
+                        : "text-black/35 hover:text-black/55"
+                  }`}
+                >
+                  {size.toUpperCase()}
+                </button>
+              ))}
+            </div>
+
             <div className="mt-3 text-sm">Shape</div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
               {(
@@ -333,30 +387,6 @@ export default function Menu({
                     )}
                   </svg>
                 </button>
-              ))}
-            </div>
-
-            <div className="mt-3 text-sm">Color</div>
-            <div className="flex gap-1.5 mt-1.5 flex-wrap justify-center">
-              {palette.map((color) => (
-                <button
-                  key={color}
-                  onClick={() => updateSettings({ lineColor: color })}
-                  aria-label={`Color ${color}`}
-                  aria-pressed={settings.lineColor === color}
-                  className="w-5 h-5 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
-                  style={{
-                    backgroundColor: color,
-                    borderColor:
-                      settings.lineColor === color
-                        ? isDark
-                          ? "white"
-                          : "black"
-                        : "transparent",
-                    transform:
-                      settings.lineColor === color ? "scale(1.2)" : undefined,
-                  }}
-                />
               ))}
             </div>
 
@@ -946,28 +976,6 @@ export default function Menu({
                               stroke="currentColor"
                               strokeWidth="1.5"
                             >
-                              <polygon points="8,2 14,14 2,14" />
-                            </svg>
-                            Triangle
-                          </span>
-                          <kbd
-                            className={
-                              isDark ? "text-white/40" : "text-black/40"
-                            }
-                          >
-                            T + drag
-                          </kbd>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="flex items-center gap-1.5">
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 16 16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                            >
                               <line x1="2" y1="8" x2="12" y2="8" />
                               <polyline
                                 points="9,5 12,8 9,11"
@@ -1201,6 +1209,53 @@ export default function Menu({
                             }
                           >
                             .
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M3 3h6M6 3v8M4.5 3v1M7.5 3v1" />
+                            </svg>
+                            Write text
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            T
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M3 3h6M6 3v8M4.5 3v1M7.5 3v1" />
+                              <path d="M10 6l2 2-2 2" strokeWidth="1.2" />
+                            </svg>
+                            Cycle text size
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            Shift + T
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">

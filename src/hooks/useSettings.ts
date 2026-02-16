@@ -14,6 +14,8 @@ export type ShapeKind =
 
 export type Theme = "dark" | "midnight" | "white" | "journal";
 
+export type TextSize = "xs" | "s" | "m" | "l" | "xl";
+
 export type Settings = {
   lineWidth: number;
   lineColor: string;
@@ -23,6 +25,7 @@ export type Settings = {
   theme: Theme;
   confirmClear: boolean;
   activeShape: ShapeKind;
+  textSize: TextSize;
 };
 
 const STORAGE_KEY = "drawtool-settings";
@@ -43,6 +46,7 @@ function getDefaults(): Settings {
     theme: getSystemTheme(),
     confirmClear: true,
     activeShape: "rectangle" as const,
+    textSize: "m" as const,
   };
 }
 

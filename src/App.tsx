@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef, useMemo, ReactNode } from "re
 import Canvas from "./components/Canvas";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
-import useSettings, { type ShapeKind, type Theme } from "./hooks/useSettings";
+import useSettings, { type ShapeKind, type Theme, type TextSize } from "./hooks/useSettings";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -220,7 +220,17 @@ export default function App() {
     window.addEventListener("drawtool:cycle-shape", onCycleShape);
     window.addEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
     window.addEventListener("drawtool:switch-canvas", onSwitchCanvas);
+    const onTextSize = (e: Event) => {
+      const size = (e as CustomEvent).detail as TextSize;
+      updateSettings({ textSize: size });
+    };
+    const onToast = (e: Event) => {
+      const message = (e as CustomEvent).detail as string;
+      showToast({ type: "text", message });
+    };
     window.addEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
+    window.addEventListener("drawtool:text-size", onTextSize);
+    window.addEventListener("drawtool:toast", onToast);
     return () => {
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
@@ -233,6 +243,8 @@ export default function App() {
       );
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
       window.removeEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
+      window.removeEventListener("drawtool:text-size", onTextSize);
+      window.removeEventListener("drawtool:toast", onToast);
     };
   }, [updateSettings, requestClear, showToast, toggleFullscreen]);
 
@@ -435,6 +447,24 @@ export default function App() {
       ),
     },
     {
+      id: "text",
+      label: "Text",
+      icon: (
+        <svg
+          width="17"
+          height="17"
+          viewBox="0 0 16 16"
+          fill="none"
+          stroke={settings.lineColor}
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <path d="M3 3h10M8 3v10M5.5 3v1M10.5 3v1" />
+        </svg>
+      ),
+    },
+    {
       id: "erase",
       label: "Erase",
       icon: (
@@ -488,6 +518,7 @@ export default function App() {
         touchTool={touchTool}
         activeShape={settings.activeShape}
         canvasIndex={activeCanvas}
+        textSize={settings.textSize}
       />
       {hasTouch ? (
         <>
@@ -500,9 +531,9 @@ export default function App() {
               }}
             />
           )}
-          <nav aria-label="Drawing tools" className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-1.5 px-2 touch-toolbar">
+          <nav aria-label="Drawing tools" className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-2.5 px-1 touch-toolbar">
             <div
-              className="relative flex items-center gap-1 p-1 rounded-lg border backdrop-blur-sm"
+              className="relative flex items-center gap-0.5 sm:gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
                 background: isDark
                   ? "rgba(0,0,0,0.7)"
@@ -605,7 +636,7 @@ export default function App() {
                         thicknessLongPressRef.current = null;
                       }
                     }}
-                    className={`flex items-center gap-1 px-2.5 py-2.5 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    className={`flex items-center gap-1 px-1.5 py-2 sm:px-2.5 sm:py-2.5 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                       touchTool === t.id
                         ? isDark
                           ? "bg-white/20 text-white"
@@ -801,21 +832,21 @@ export default function App() {
                 <button
                   onClick={zoomOut}
                   aria-label="Zoom out"
-                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                  className={`px-1.5 py-2 sm:px-2.5 sm:py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                 >
-                  -
+                  <span className="flex items-center justify-center w-[17px] h-[17px]">-</span>
                 </button>
                 <span
-                  className={`text-[11px] tabular-nums text-center min-w-8 ${isDark ? "text-white/50" : "text-black/50"}`}
+                  className={`text-[11px] tabular-nums text-center min-w-8 flex items-center justify-center h-[17px] ${isDark ? "text-white/50" : "text-black/50"}`}
                 >
                   {Math.round(zoom * 100)}%
                 </span>
                 <button
                   onClick={zoomIn}
                   aria-label="Zoom in"
-                  className={`px-2.5 py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                  className={`px-1.5 py-2 sm:px-2.5 sm:py-2.5 flex items-center justify-center rounded transition-colors text-xs font-mono focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "text-white/70 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                 >
-                  +
+                  <span className="flex items-center justify-center w-[17px] h-[17px]">+</span>
                 </button>
               </div>
             )}
@@ -975,6 +1006,12 @@ export default function App() {
                 <span>Shape</span>
                 <kbd className={isDark ? "text-white/40" : "text-black/40"}>
                   {isMac ? "Ctrl" : `${alt} + Shift`} + drag
+                </kbd>
+              </div>
+              <div className="flex justify-between gap-6">
+                <span>Write text</span>
+                <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                  T
                 </kbd>
               </div>
               <div className="flex justify-between gap-6">
