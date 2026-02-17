@@ -519,6 +519,7 @@ function Canvas({
   const highlightKeyRef = useRef(false);
   const laserKeyRef = useRef(false);
   const [lasering, setLasering] = useState(false);
+  const spaceDownRef = useRef(false);
   const keyShapeRef = useRef<ShapeKind | null>(null);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -1753,9 +1754,26 @@ function Canvas({
         setLasering(false);
         scheduleRedraw();
       }
+      if (e.key === " " && !isWritingRef.current && !e.repeat) {
+        e.preventDefault();
+        spaceDownRef.current = true;
+        if (canvasRef.current) canvasRef.current.style.cursor = "grab";
+      }
+      if (e.key === " " && e.repeat) {
+        e.preventDefault();
+      }
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === " ") {
+        spaceDownRef.current = false;
+        if (isPanningRef.current) {
+          isPanningRef.current = false;
+          setPanning(false);
+          persistView();
+        }
+        if (canvasRef.current) canvasRef.current.style.cursor = cursorRef.current;
+      }
       if (e.key === "Alt") {
         setErasing(false);
         if (activeModifierRef.current === "alt") {
@@ -1803,6 +1821,12 @@ function Canvas({
     };
 
     const onBlur = () => {
+      spaceDownRef.current = false;
+      if (isPanningRef.current) {
+        isPanningRef.current = false;
+        setPanning(false);
+        persistView();
+      }
       setErasing(false);
       setShapeActive(false);
       setHighlighting(false);
@@ -1999,12 +2023,10 @@ function Canvas({
           tapStartRef.current = null;
         }
       } else if (
-        (e.buttons & 1) !== 0 &&
-        !e.altKey &&
-        !cmdKey(e) &&
-        !e.shiftKey
+        e.button === 1 ||
+        (spaceDownRef.current && e.button === 0)
       ) {
-        // Mouse: bare left click = pan
+        // Mouse: middle-click or space+left-click = pan
         isPanningRef.current = true;
         panLastRef.current = { x: e.clientX, y: e.clientY };
         setPanning(true);
@@ -2104,6 +2126,9 @@ function Canvas({
       if (isPanningRef.current) {
         isPanningRef.current = false;
         setPanning(false);
+        if (spaceDownRef.current && canvasRef.current) {
+          canvasRef.current.style.cursor = "grab";
+        }
         persistView();
         return;
       }
@@ -2188,7 +2213,20 @@ function Canvas({
         }
       }
 
-      // --- Panning (mouse bare-click or touch hand tool) ---
+      // --- Panning (mouse space+drag, middle-click, or touch hand tool) ---
+      // Start panning if space is held or middle button is pressed
+      if (
+        !isPanningRef.current &&
+        e.pointerType !== "touch" &&
+        (spaceDownRef.current || (e.buttons & 4) !== 0)
+      ) {
+        if (isDrawingRef.current) {
+          cancelCurrentStroke();
+        }
+        isPanningRef.current = true;
+        panLastRef.current = { x: e.clientX, y: e.clientY };
+        setPanning(true);
+      }
       if (isPanningRef.current) {
         const view = viewRef.current;
         view.x += e.clientX - panLastRef.current.x;
@@ -2243,6 +2281,8 @@ function Canvas({
       } else {
         modifier = isZoomingRef.current
           ? null
+          : spaceDownRef.current
+          ? null
           : laserKeyRef.current
           ? "laser"
           : highlightKeyRef.current
@@ -2261,7 +2301,9 @@ function Canvas({
                       ? "meta"
                       : e.shiftKey
                         ? "shift"
-                        : null;
+                        : (e.buttons & 1) !== 0
+                          ? "meta"
+                          : null;
       }
 
       if (!modifier) {
@@ -2454,6 +2496,7 @@ function Canvas({
       discardTinyShape,
       broadcastZoom,
       notifyColorUsed,
+      cancelCurrentStroke,
     ],
   );
 
