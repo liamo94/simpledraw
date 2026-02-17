@@ -1168,6 +1168,29 @@ export default function Menu({
                               width="12"
                               height="12"
                               viewBox="0 0 16 16"
+                              fill="currentColor"
+                              stroke="none"
+                            >
+                              <circle cx="5" cy="8" r="2.5" />
+                              <path d="M9.5 6.5 L12.5 8 L9.5 9.5" opacity="0.4" />
+                              <path d="M12.5 6.5 L9.5 8 L12.5 9.5" opacity="0.4" />
+                            </svg>
+                            Swap last 2 colors
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            ,
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
                               fill="none"
                               stroke="currentColor"
                               strokeWidth="1.5"

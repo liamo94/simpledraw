@@ -565,6 +565,10 @@ function Canvas({
     }, 500);
   }, []);
 
+  const notifyColorUsed = useCallback((color: string) => {
+    window.dispatchEvent(new CustomEvent("drawtool:color-used", { detail: color }));
+  }, []);
+
   const persistView = useCallback(() => {
     saveView(viewRef.current, canvasIndexRef.current);
   }, []);
@@ -1635,7 +1639,11 @@ function Canvas({
       if (e.key === "f" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         window.dispatchEvent(new Event("drawtool:toggle-fullscreen"));
       }
+      if (e.key === "," && !cmdKey(e) && !e.altKey) {
+        window.dispatchEvent(new Event("drawtool:swap-color"));
+      }
       if (e.key === "." && !cmdKey(e) && !e.altKey) {
+        notifyColorUsed(lineColorRef.current);
         const dot: Stroke = {
           points: [{ ...cursorWorldRef.current }],
           style: "solid",
@@ -1850,6 +1858,7 @@ function Canvas({
     cancelErase,
     cancelCurrentStroke,
     discardTinyShape,
+    notifyColorUsed,
   ]);
 
   const eraseAt = useCallback((x: number, y: number) => {
@@ -2056,6 +2065,7 @@ function Canvas({
                 tapStartRef.current.y,
                 viewRef.current,
               );
+              notifyColorUsed(lineColorRef.current);
               const dot: Stroke = {
                 points: [wp],
                 style: "solid",
@@ -2111,7 +2121,7 @@ function Canvas({
         scheduleRedraw();
       }
     },
-    [confirmErase, discardTinyShape, persistStrokes, persistView, scheduleRedraw],
+    [confirmErase, discardTinyShape, persistStrokes, persistView, scheduleRedraw, notifyColorUsed],
   );
 
   const onPointerMove = useCallback(
@@ -2339,6 +2349,7 @@ function Canvas({
 
       if (modifier === "line") {
         if (!isDrawingRef.current || activeModifierRef.current !== "line") {
+          notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "line";
           const stroke: Stroke = {
@@ -2360,6 +2371,7 @@ function Canvas({
 
       if (modifier === "shape") {
         if (!isDrawingRef.current || activeModifierRef.current !== "shape") {
+          notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
           const stroke: Stroke = {
@@ -2386,6 +2398,7 @@ function Canvas({
           !isDrawingRef.current ||
           activeModifierRef.current !== "highlight"
         ) {
+          notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "highlight";
           const stroke: Stroke = {
@@ -2408,6 +2421,7 @@ function Canvas({
       }
 
       if (!isDrawingRef.current || activeModifierRef.current !== modifier) {
+        notifyColorUsed(lineColor);
         isDrawingRef.current = true;
         activeModifierRef.current = modifier;
         const stroke: Stroke = {
@@ -2439,6 +2453,7 @@ function Canvas({
       confirmErase,
       discardTinyShape,
       broadcastZoom,
+      notifyColorUsed,
     ],
   );
 
@@ -2536,6 +2551,7 @@ function Canvas({
   const finishWriting = useCallback(() => {
     const raw = writingTextRef.current;
     if (raw.trim()) {
+      notifyColorUsed(lineColorRef.current);
       const stroke: Stroke = {
         points: [{ ...writingPosRef.current }],
         style: "solid",
@@ -2559,7 +2575,7 @@ function Canvas({
     isWritingRef.current = false;
     if (canvasRef.current) canvasRef.current.style.cursor = cursorRef.current;
     scheduleRedraw();
-  }, [persistStrokes, scheduleRedraw]);
+  }, [persistStrokes, scheduleRedraw, notifyColorUsed]);
 
   const startWriting = useCallback((worldPos: { x: number; y: number }) => {
     writingPosRef.current = worldPos;

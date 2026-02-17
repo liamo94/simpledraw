@@ -73,6 +73,10 @@ export default function App() {
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
 
+  // Track last 2 used colors for swap (`,` shortcut)
+  const usedColorARef = useRef(settings.lineColor); // most recently used
+  const usedColorBRef = useRef(settings.lineColor); // previously used
+
   // Apply body styles based on theme
   useEffect(() => {
     const isDark = isDarkTheme(settings.theme);
@@ -194,6 +198,22 @@ export default function App() {
         (idx === -1 ? 0 : idx + dir + palette.length) % palette.length;
       updateSettings({ lineColor: palette[next] });
     };
+    const onColorUsed = (e: Event) => {
+      const color = (e as CustomEvent).detail as string;
+      if (color !== usedColorARef.current) {
+        usedColorBRef.current = usedColorARef.current;
+        usedColorARef.current = color;
+      }
+    };
+    const onSwapColor = () => {
+      const a = usedColorARef.current;
+      const b = usedColorBRef.current;
+      if (a !== b) {
+        usedColorARef.current = b;
+        usedColorBRef.current = a;
+        updateSettings({ lineColor: b });
+      }
+    };
     const onRequestClear = () => requestClear();
     const onCycleShape = () => {
       const cur = settingsRef.current.activeShape;
@@ -220,6 +240,8 @@ export default function App() {
     window.addEventListener("drawtool:zoom", onZoom);
     window.addEventListener("drawtool:thickness", onThickness);
     window.addEventListener("drawtool:color-cycle", onColorCycle);
+    window.addEventListener("drawtool:color-used", onColorUsed);
+    window.addEventListener("drawtool:swap-color", onSwapColor);
     window.addEventListener("drawtool:request-clear", onRequestClear);
     window.addEventListener("drawtool:cycle-shape", onCycleShape);
     window.addEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
@@ -257,6 +279,8 @@ export default function App() {
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
       window.removeEventListener("drawtool:color-cycle", onColorCycle);
+      window.removeEventListener("drawtool:color-used", onColorUsed);
+      window.removeEventListener("drawtool:swap-color", onSwapColor);
       window.removeEventListener("drawtool:request-clear", onRequestClear);
       window.removeEventListener("drawtool:cycle-shape", onCycleShape);
       window.removeEventListener(
@@ -278,7 +302,7 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       e.stopPropagation();
       e.preventDefault();
-      if (e.key === "Enter" || ((e.metaKey || e.ctrlKey) && e.key === "k")) {
+      if (e.key === "Enter" || ((e.metaKey || e.ctrlKey) && e.key === "x")) {
         doClear();
       } else if (e.key === "Escape") {
         setConfirmingClear(false);
@@ -902,7 +926,7 @@ export default function App() {
           onClick={() => setConfirmingClear(false)}
         >
           <div
-            className={`px-6 py-4 rounded-lg border backdrop-blur-sm text-center ${isDark ? "bg-black/80 border-white/15" : "bg-white/80 border-black/15"}`}
+            className={`px-8 py-4 rounded-lg border backdrop-blur-sm text-center ${isDark ? "bg-black/80 border-white/15" : "bg-white/80 border-black/15"}`}
             onClick={(e) => e.stopPropagation()}
           >
             <div
@@ -911,24 +935,18 @@ export default function App() {
             >
               Clear all strokes?
             </div>
-            <div
-              className={`text-xs mt-2 ${isDark ? "text-white/50" : "text-black/50"}`}
-            >
-              Enter or {isMac ? "\u2318" : "Ctrl"}+K to confirm &middot; Esc to
-              cancel
-            </div>
             <div className="flex gap-2 mt-3">
               <button
                 onClick={() => setConfirmingClear(false)}
-                className={`flex-1 py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+                className={`flex-1 px-8 py-1.5 rounded text-xs transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
               >
                 Cancel
               </button>
               <button
                 onClick={doClear}
-                className={`flex-1 py-1.5 rounded text-xs transition-colors ${isDark ? "text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20" : "text-red-600 hover:text-red-700 bg-red-500/10 hover:bg-red-500/20"}`}
+                className={`flex-1 px-8 py-1.5 rounded text-xs transition-colors ${isDark ? "text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20" : "text-red-600 hover:text-red-700 bg-red-500/10 hover:bg-red-500/20"}`}
               >
-                Clear ({isMac ? "\u2318" : "Ctrl"}+K)
+                <span className="whitespace-nowrap">Clear ({isMac ? "\u2318" : "Ctrl"}+X)</span>
               </button>
             </div>
           </div>
