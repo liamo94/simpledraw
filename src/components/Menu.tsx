@@ -83,16 +83,16 @@ export default function Menu({
   const palette = [
     isDark ? "#ffffff" : "#000000",
     "#ef4444",
-    "#ec4899",
-    "#22c55e",
-    "#84cc16",
-    "#3b82f6",
-    "#eab308",
+    "#fa8072",
     "#f97316",
-    "#8b5cf6",
+    "#eab308",
+    "#84cc16",
+    "#22c55e",
     "#06b6d4",
-    "#92400e",
-    "#4b5563",
+    "#3b82f6",
+    "#8b5cf6",
+    "#b096f8",
+    "#ec4899",
   ];
 
   return (
