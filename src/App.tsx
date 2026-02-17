@@ -84,9 +84,9 @@ export default function App() {
     if (settings.theme === "midnight") {
       document.body.style.background = "#1a1a2e";
     } else if (settings.theme === "dark") {
-      document.body.style.background = "#050510";
+      document.body.style.background = "#06060e";
     } else if (settings.theme === "lumber") {
-      document.body.style.background = "#1a120b";
+      document.body.style.background = "#110e0a";
     } else if (settings.theme === "journal") {
       document.body.style.background = "#f5e2b8";
     } else if (settings.theme === "sky") {
@@ -285,11 +285,25 @@ export default function App() {
         URL.revokeObjectURL(url);
       });
     };
+    const THEMES: Theme[] = ["dark", "midnight", "lumber", "journal", "sky", "white"];
+    const THEME_LABELS: Record<Theme, string> = {
+      dark: "Black", midnight: "Midnight", lumber: "Lumber",
+      journal: "Journal", sky: "Sky", white: "White",
+    };
+    const onCycleTheme = (e: Event) => {
+      const dir = (e as CustomEvent).detail === -1 ? -1 : 1;
+      const cur = settingsRef.current.theme;
+      const idx = THEMES.indexOf(cur);
+      const next = (idx + dir + THEMES.length) % THEMES.length;
+      updateSettings({ theme: THEMES[next] });
+      showToast({ type: "text", message: THEME_LABELS[THEMES[next]] });
+    };
     window.addEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
     window.addEventListener("drawtool:toggle-grid", onToggleGrid);
     window.addEventListener("drawtool:export", onExportShortcut);
     window.addEventListener("drawtool:text-size", onTextSize);
     window.addEventListener("drawtool:toast", onToast);
+    window.addEventListener("drawtool:cycle-theme", onCycleTheme);
     return () => {
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
@@ -308,6 +322,7 @@ export default function App() {
       window.removeEventListener("drawtool:export", onExportShortcut);
       window.removeEventListener("drawtool:text-size", onTextSize);
       window.removeEventListener("drawtool:toast", onToast);
+      window.removeEventListener("drawtool:cycle-theme", onCycleTheme);
     };
   }, [updateSettings, requestClear, showToast, toggleFullscreen]);
 

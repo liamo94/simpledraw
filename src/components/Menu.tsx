@@ -428,9 +428,9 @@ export default function Menu({
             <div className="mt-4 text-sm">Theme</div>
             <div className="grid grid-cols-3 gap-x-1 gap-y-2 mt-1.5">
               {([
-                { id: "dark" as const, label: "Black", bg: "#050510", text: "#ffffff" },
+                { id: "dark" as const, label: "Black", bg: "#06060e", text: "#ffffff" },
                 { id: "midnight" as const, label: "Midnight", bg: "#1a1a2e", text: "#ffffff" },
-                { id: "lumber" as const, label: "Lumber", bg: "#1a120b", text: "#e8d5c0" },
+                { id: "lumber" as const, label: "Lumber", bg: "#110e0a", text: "#e8d5c0" },
                 { id: "journal" as const, label: "Journal", bg: "#f5e2b8", text: "#000000" },
                 { id: "sky" as const, label: "Sky", bg: "#e0ecf6", text: "#1a3a5c" },
                 { id: "white" as const, label: "White", bg: "#f5f5f0", text: "#000000" },
@@ -1407,6 +1407,16 @@ export default function Menu({
                             }
                           >
                             G
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span>Cycle theme</span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            D D
                           </kbd>
                         </div>
                       </div>

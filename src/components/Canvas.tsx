@@ -7,8 +7,8 @@ function isDarkTheme(theme: Theme): boolean {
 
 function getBackgroundColor(theme: Theme): string {
   if (theme === "midnight") return "#1a1a2e";
-  if (theme === "dark") return "#050510";
-  if (theme === "lumber") return "#1a120b";
+  if (theme === "dark") return "#06060e";
+  if (theme === "lumber") return "#110e0a";
   if (theme === "journal") return "#f5e2b8";
   if (theme === "sky") return "#e0ecf6";
   return "#f5f5f0";
@@ -524,6 +524,7 @@ function Canvas({
   const spaceDownRef = useRef(false);
   const keyShapeRef = useRef<ShapeKind | null>(null);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
+  const lastDPressRef = useRef(0);
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
   const isWritingRef = useRef(false);
   const writingPosRef = useRef({ x: 0, y: 0 });
@@ -1705,6 +1706,24 @@ function Canvas({
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistView();
+      }
+      if (e.key === "d" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        const now = performance.now();
+        if (now - lastDPressRef.current < 400) {
+          lastDPressRef.current = 0;
+          window.dispatchEvent(new Event("drawtool:cycle-theme"));
+        } else {
+          lastDPressRef.current = now;
+        }
+      }
+      if (e.key === "D" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        const now = performance.now();
+        if (now - lastDPressRef.current < 400) {
+          lastDPressRef.current = 0;
+          window.dispatchEvent(new CustomEvent("drawtool:cycle-theme", { detail: -1 }));
+        } else {
+          lastDPressRef.current = now;
+        }
       }
       if (e.key === "f" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         window.dispatchEvent(new Event("drawtool:toggle-fullscreen"));
