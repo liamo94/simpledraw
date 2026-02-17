@@ -49,6 +49,7 @@ export default function App() {
     const n = stored ? parseInt(stored, 10) : 1;
     return n >= 1 && n <= 9 ? n : 1;
   });
+  const [contentOffScreen, setContentOffScreen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState<
     "draw" | "dashed" | "line" | "highlight" | null
@@ -561,6 +562,7 @@ export default function App() {
         activeShape={settings.activeShape}
         canvasIndex={activeCanvas}
         textSize={settings.textSize}
+        onContentOffScreen={setContentOffScreen}
       />
       {hasTouch ? (
         <>
@@ -920,6 +922,33 @@ export default function App() {
             </div>
           </div>
         )
+      )}
+      {contentOffScreen && (
+        <button
+          onClick={centerView}
+          aria-label="Scroll back to content"
+          className={`fixed z-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium backdrop-blur-sm transition-colors duration-200 animate-fade-in-up ${isDark ? "bg-white/10 border-white/20 text-white/80 hover:bg-white/20 hover:text-white" : "bg-black/10 border-black/20 text-black/80 hover:bg-black/20 hover:text-black"}`}
+          style={{
+            bottom: hasTouch ? "4.5rem" : "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+          }}
+        >
+          <svg
+            width="14"
+            height="14"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <rect x="2" y="2" width="12" height="12" rx="1.5" />
+            <path d="M5 2.5v3h-3M11 2.5v3h3M5 13.5v-3h-3M11 13.5v-3h3" />
+          </svg>
+          Scroll back to content
+        </button>
       )}
       <div
         className="fixed top-2 left-2 z-30 text-sm tabular-nums select-none pointer-events-none tracking-wider"

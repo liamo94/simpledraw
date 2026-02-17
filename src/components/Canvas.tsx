@@ -466,6 +466,7 @@ function Canvas({
   activeShape,
   canvasIndex,
   textSize,
+  onContentOffScreen,
 }: {
   lineWidth: number;
   lineColor: string;
@@ -476,6 +477,7 @@ function Canvas({
   activeShape: ShapeKind;
   canvasIndex: number;
   textSize: TextSize;
+  onContentOffScreen?: (offScreen: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasIndexRef = useRef(canvasIndex);
@@ -531,6 +533,8 @@ function Canvas({
   const caretPosRef = useRef(0); // tracks selectionEnd for caret rendering
   const textSizeRef = useRef(textSize);
   textSizeRef.current = textSize;
+  const onContentOffScreenRef = useRef(onContentOffScreen);
+  onContentOffScreenRef.current = onContentOffScreen;
 
   // Multi-touch tracking
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
@@ -851,6 +855,56 @@ function Canvas({
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
+  // --- Content off-screen detection ---
+  const contentOffScreenRef = useRef(false);
+  const checkContentOffScreen = useCallback(() => {
+    const cb = onContentOffScreenRef.current;
+    if (!cb) return;
+    const strokes = strokesRef.current;
+    if (strokes.length === 0) {
+      if (contentOffScreenRef.current) {
+        contentOffScreenRef.current = false;
+        cb(false);
+      }
+      return;
+    }
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const stroke of strokes) {
+      if (stroke.text) {
+        const anchor = stroke.points[0];
+        const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
+        const lines = stroke.text.split("\n");
+        const maxLineLen = Math.max(...lines.map((l) => l.length));
+        const textW = maxLineLen * basePx * 0.6;
+        const textH = lines.length * basePx * 1.2;
+        if (anchor.x < minX) minX = anchor.x;
+        if (anchor.y < minY) minY = anchor.y;
+        if (anchor.x + textW > maxX) maxX = anchor.x + textW;
+        if (anchor.y + textH > maxY) maxY = anchor.y + textH;
+        continue;
+      }
+      for (const p of stroke.points) {
+        if (p.x < minX) minX = p.x;
+        if (p.y < minY) minY = p.y;
+        if (p.x > maxX) maxX = p.x;
+        if (p.y > maxY) maxY = p.y;
+      }
+    }
+    const { x, y, scale } = viewRef.current;
+    const screenMinX = minX * scale + x;
+    const screenMinY = minY * scale + y;
+    const screenMaxX = maxX * scale + x;
+    const screenMaxY = maxY * scale + y;
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    const offScreen =
+      screenMaxX < 0 || screenMinX > vw || screenMaxY < 0 || screenMinY > vh;
+    if (offScreen !== contentOffScreenRef.current) {
+      contentOffScreenRef.current = offScreen;
+      cb(offScreen);
+    }
+  }, []);
+
   // --- RAF-queue scheduleRedraw (item 1) ---
   const rafIdRef = useRef<number | null>(null);
   const scheduleRedraw = useCallback(() => {
@@ -858,8 +912,9 @@ function Canvas({
     rafIdRef.current = requestAnimationFrame(() => {
       rafIdRef.current = null;
       redraw();
+      checkContentOffScreen();
     });
-  }, [redraw]);
+  }, [redraw, checkContentOffScreen]);
 
   // Cancel pending RAF on unmount
   useEffect(() => {
