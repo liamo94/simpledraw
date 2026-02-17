@@ -780,23 +780,37 @@ function Canvas({
       }
     }
 
-    // Write mode indicator (screen-space)
+    // Write mode indicator (screen-space) — pill badge bottom-right
     if (isWritingRef.current) {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const label = "WRITING — esc to accept";
-      ctx.font = "11px -apple-system, BlinkMacSystemFont, sans-serif";
-      ctx.textBaseline = "top";
-      ctx.fillStyle = themeRef.current === "white" || themeRef.current === "journal" || themeRef.current === "sky"
-        ? "rgba(0,0,0,0.3)"
-        : "rgba(255,255,255,0.3)";
-      const isMobile = canvas.width < 768;
-      if (isMobile) {
-        const tw = ctx.measureText(label).width;
-        ctx.fillText(label, (canvas.width - tw) / 2, 12);
-      } else {
-        const tw = ctx.measureText(label).width;
-        ctx.fillText(label, (canvas.width - tw) / 2, canvas.height - 24);
-      }
+      const isDark = isDarkTheme(themeRef.current);
+      const label = "Text mode — esc to finish";
+      ctx.font = "500 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+      ctx.textBaseline = "middle";
+      const tw = ctx.measureText(label).width;
+      const ph = 8, pv = 5;
+      const pillW = tw + ph * 2;
+      const pillH = 11 + pv * 2;
+      const margin = 12;
+      const px = canvas.width - pillW - margin;
+      const py = canvas.height - pillH - margin;
+      const r = pillH / 2;
+      ctx.beginPath();
+      ctx.moveTo(px + r, py);
+      ctx.lineTo(px + pillW - r, py);
+      ctx.arcTo(px + pillW, py, px + pillW, py + r, r);
+      ctx.arcTo(px + pillW, py + pillH, px + pillW - r, py + pillH, r);
+      ctx.lineTo(px + r, py + pillH);
+      ctx.arcTo(px, py + pillH, px, py + pillH - r, r);
+      ctx.arcTo(px, py, px + r, py, r);
+      ctx.closePath();
+      ctx.fillStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
+      ctx.fill();
+      ctx.strokeStyle = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)";
+      ctx.lineWidth = 1;
+      ctx.stroke();
+      ctx.fillStyle = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)";
+      ctx.fillText(label, px + ph, py + pillH / 2);
       ctx.setTransform(scale, 0, 0, scale, x, y);
     }
 
