@@ -2495,7 +2495,7 @@ function Canvas({
           isZoomingRef.current = false;
           zoomTimeoutRef.current = null;
         }, 300);
-        const zoom = Math.pow(0.99, e.deltaY);
+        const zoom = Math.pow(0.997, e.deltaY);
         const newScale = Math.min(10, Math.max(0.1, view.scale * zoom));
         const ratio = newScale / view.scale;
         view.x = e.clientX - ratio * (e.clientX - view.x);

@@ -192,7 +192,7 @@ export default function Menu({
               </span>
             </div>
             <div className="flex items-center gap-1 mt-2">
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              {[1, 2, 4, 6, 8, 10].map((n) => (
                 <button
                   key={n}
                   onClick={() => updateSettings({ lineWidth: n })}
@@ -228,7 +228,7 @@ export default function Menu({
               </span>
             </div>
             <div className="flex items-center gap-1 mt-2">
-              {Array.from({ length: 10 }, (_, i) => i + 1).map((n) => (
+              {[1, 2, 4, 6, 8, 10].map((n) => (
                 <button
                   key={n}
                   onClick={() => updateSettings({ dashGap: n })}
@@ -239,7 +239,7 @@ export default function Menu({
                   <div
                     className={`rounded transition-all duration-150 ${settings.dashGap >= n ? "" : isDark ? "group-hover:!bg-white/30" : "group-hover:!bg-black/25"}`}
                     style={{
-                      width: `${6 + n * 1.5}px`,
+                      width: `${4 + n * 2.8}px`,
                       height: 4,
                       borderRadius: 2,
                       background:

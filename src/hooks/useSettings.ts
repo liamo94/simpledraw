@@ -38,9 +38,9 @@ function getSystemTheme(): Theme {
 
 function getDefaults(): Settings {
   return {
-    lineWidth: 5,
+    lineWidth: 4,
     lineColor: "#ffffff",
-    dashGap: 5,
+    dashGap: 4,
     showZoomControls: true,
     showDotGrid: false,
     theme: getSystemTheme(),

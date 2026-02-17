@@ -168,11 +168,25 @@ export default function App() {
     const onZoom = (e: Event) => setZoom((e as CustomEvent).detail);
     const onThickness = (e: Event) => {
       const delta = (e as CustomEvent).detail as number;
+      const steps = [1, 2, 4, 6, 8, 10];
       const cur = settingsRef.current.lineWidth;
-      const next = Math.min(10, Math.max(1, cur + delta));
-      if (next !== cur) {
-        updateSettings({ lineWidth: next });
-        showToast({ type: "text", message: `Thickness: ${next}` });
+      const idx = steps.indexOf(cur);
+      let nextIdx: number;
+      if (idx === -1) {
+        if (delta > 0) {
+          nextIdx = steps.findIndex((s) => s > cur);
+        } else {
+          nextIdx = -1;
+          for (let i = steps.length - 1; i >= 0; i--) {
+            if (steps[i] < cur) { nextIdx = i; break; }
+          }
+        }
+      } else {
+        nextIdx = Math.min(steps.length - 1, Math.max(0, idx + delta));
+      }
+      if (nextIdx !== -1 && steps[nextIdx] !== cur) {
+        updateSettings({ lineWidth: steps[nextIdx] });
+        showToast({ type: "text", message: `Thickness: ${steps[nextIdx]}` });
       }
     };
     const onColorCycle = (e: Event) => {
