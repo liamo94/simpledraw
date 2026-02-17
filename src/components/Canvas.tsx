@@ -2192,7 +2192,8 @@ function Canvas({
           view.x += cx - pinchRef.current.cx;
           view.y += cy - pinchRef.current.cy;
           // Zoom
-          const factor = dist / pinchRef.current.dist;
+          const rawFactor = dist / pinchRef.current.dist;
+          const factor = Math.pow(rawFactor, 5);
           const newScale = Math.min(10, Math.max(0.1, view.scale * factor));
           const ratio = newScale / view.scale;
           view.x = cx - ratio * (cx - view.x);
@@ -2538,7 +2539,8 @@ function Canvas({
           isZoomingRef.current = false;
           zoomTimeoutRef.current = null;
         }, 300);
-        const zoom = Math.pow(0.997, e.deltaY);
+        const clampedDelta = Math.max(-25, Math.min(25, e.deltaY));
+        const zoom = Math.pow(0.99, clampedDelta);
         const newScale = Math.min(10, Math.max(0.1, view.scale * zoom));
         const ratio = newScale / view.scale;
         view.x = e.clientX - ratio * (e.clientX - view.x);

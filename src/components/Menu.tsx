@@ -282,14 +282,7 @@ export default function Menu({
 
             {!hasTouch && (
               <>
-                <div className="flex items-center justify-between text-sm mt-4">
-                  <span>Text size</span>
-                  <span
-                    className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
-                  >
-                    {settings.textSize.toUpperCase()}
-                  </span>
-                </div>
+                <div className="text-sm mt-4">Text size</div>
                 <div className="flex items-center gap-1 mt-2">
                   {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
                     <button
@@ -339,10 +332,10 @@ export default function Menu({
                     settings.activeShape === s
                       ? isDark
                         ? "bg-white/20"
-                        : "bg-black/20"
+                        : "bg-black/15"
                       : isDark
-                        ? "bg-white/5 hover:bg-white/10"
-                        : "bg-black/5 hover:bg-black/10"
+                        ? "hover:bg-white/10"
+                        : "hover:bg-black/10"
                   }`}
                   title={s.charAt(0).toUpperCase() + s.slice(1)}
                 >
@@ -405,14 +398,14 @@ export default function Menu({
                   onClick={() => onSwitchCanvas(n)}
                   aria-label={`Canvas ${n}`}
                   aria-pressed={activeCanvas === n}
-                  className={`w-8 h-8 flex items-center justify-center rounded text-xs tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  className={`w-8 h-8 flex items-center justify-center rounded text-sm tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                     activeCanvas === n
                       ? isDark
                         ? "bg-white/20 text-white"
-                        : "bg-black/20 text-black"
+                        : "bg-black/15 text-black"
                       : isDark
-                        ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white"
-                        : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"
+                        ? "text-white/40 hover:text-white/60 hover:bg-white/10"
+                        : "text-black/35 hover:text-black/55 hover:bg-black/10"
                   }`}
                 >
                   {n}
@@ -498,26 +491,7 @@ export default function Menu({
 
             {!hasTouch && (
               <>
-                <div className="mt-4 flex items-center justify-between text-sm">
-                  <span>Zoom</span>
-                  <div className="flex items-center gap-2">
-                    {zoom !== 1 && (
-                      <button
-                        onClick={onResetView}
-                        className={`text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
-                      >
-                        Reset
-                      </button>
-                    )}
-                    <span
-                      className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
-                    >
-                      {Math.round(zoom * 100)}%
-                    </span>
-                  </div>
-                </div>
-
-                <label className="mt-2.5 flex items-center justify-between text-sm cursor-pointer">
+                <label className="mt-4 flex items-center justify-between text-sm cursor-pointer">
                   <span>Zoom controls</span>
                   <input
                     type="checkbox"
