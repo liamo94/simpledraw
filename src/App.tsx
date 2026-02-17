@@ -543,8 +543,6 @@ export default function App() {
         onExport={exportPng}
         onExportTransparent={exportTransparent}
         onClear={requestClear}
-        zoom={zoom}
-        onResetView={resetView}
         hasTouch={hasTouch}
         activeCanvas={activeCanvas}
         onSwitchCanvas={(n) => {

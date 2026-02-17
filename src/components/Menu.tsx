@@ -11,8 +11,6 @@ type Props = {
   onExport: () => void;
   onExportTransparent: () => void;
   onClear: () => void;
-  zoom: number;
-  onResetView: () => void;
   hasTouch: boolean;
   activeCanvas: number;
   onSwitchCanvas: (n: number) => void;
@@ -29,8 +27,6 @@ export default function Menu({
   onExport,
   onExportTransparent,
   onClear,
-  zoom,
-  onResetView,
   hasTouch,
   activeCanvas,
   onSwitchCanvas,
