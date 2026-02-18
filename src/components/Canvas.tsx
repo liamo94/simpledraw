@@ -523,6 +523,7 @@ function Canvas({
   const [lasering, setLasering] = useState(false);
   const spaceDownRef = useRef(false);
   const keyShapeRef = useRef<ShapeKind | null>(null);
+  const keyShapeDashedRef = useRef(false);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const lastDPressRef = useRef(0);
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -1791,11 +1792,11 @@ function Canvas({
         laserKeyRef.current = true;
         setLasering(true);
       }
-      // Letter-key shape shortcuts
+      // Letter-key shape shortcuts (lowercase = solid, uppercase/shift = dashed)
       const shapeKeyMap: Record<string, ShapeKind> = {
-        a: "arrow",
-        r: "rectangle",
-        c: "circle",
+        a: "arrow", A: "arrow",
+        r: "rectangle", R: "rectangle",
+        c: "circle", C: "circle",
       };
       if (
         shapeKeyMap[e.key] &&
@@ -1804,6 +1805,7 @@ function Canvas({
         !e.ctrlKey
       ) {
         keyShapeRef.current = shapeKeyMap[e.key];
+        keyShapeDashedRef.current = e.shiftKey;
         setShapeActive(true);
       }
       // Number keys 1-9 for canvas switching
@@ -1894,8 +1896,9 @@ function Canvas({
       if (e.key === "Control" && isMac) setShapeActive(false);
       if ((e.key === "Alt" || e.key === "Shift") && !isMac)
         setShapeActive(false);
-      if (["a", "r", "t", "c"].includes(e.key)) {
+      if (["a", "r", "t", "c", "A", "R", "T", "C"].includes(e.key)) {
         keyShapeRef.current = null;
+        keyShapeDashedRef.current = false;
         setShapeActive(false);
         if (activeModifierRef.current === "shape") {
           discardTinyShape();
@@ -1922,6 +1925,7 @@ function Canvas({
       highlightKeyRef.current = false;
       laserKeyRef.current = false;
       keyShapeRef.current = null;
+      keyShapeDashedRef.current = false;
       if (activeModifierRef.current === "alt") {
         cancelErase();
       }
@@ -2505,10 +2509,11 @@ function Canvas({
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
+          const dashed = keyShapeDashedRef.current || e.shiftKey;
           const stroke: Stroke = {
             points: [point, { ...point }],
-            style: e.shiftKey ? "dashed" : "solid",
-            dashGap: e.shiftKey ? dashGap : undefined,
+            style: dashed ? "dashed" : "solid",
+            dashGap: dashed ? dashGap : undefined,
             lineWidth,
             color: lineColor,
             shape: keyShapeRef.current || activeShapeRef.current,
