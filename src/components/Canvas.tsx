@@ -642,11 +642,12 @@ function Canvas({
     }
   }, []);
 
-  // --- Dot grid cache (item 7) ---
-  const gridCacheRef = useRef<{
-    canvas: HTMLCanvasElement;
-    key: string;
-  } | null>(null);
+  // --- Dot grid pattern tile cache (item 7) ---
+  // Key: `${Math.ceil(screenGap)},${isDark}` → tiny tile canvas pattern.
+  // Using createPattern lets the GPU tile it — panning is free (just update
+  // the pattern transform offset) and zooming only creates a new tile when
+  // the screen gap changes by ≥1px, instead of redrawing N² arcs each frame.
+  const gridPatternCacheRef = useRef<Map<string, CanvasPattern>>(new Map());
 
   // --- Completed strokes cache (item 8) ---
   const strokesCacheRef = useRef<{
@@ -669,72 +670,61 @@ function Canvas({
     ctx.fillStyle = getBackgroundColor(themeRef.current);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // --- Cached dot grid (item 7) ---
+    // --- Dot grid via tiled patterns (item 7) ---
+    // Each zoom level gets a tiny tile canvas (one dot centered) turned into a
+    // repeating CanvasPattern. Drawing is a single fillRect per level — the GPU
+    // handles the tiling. The pattern transform offset aligns dots to world
+    // grid positions so panning never requires a redraw.
     if (showDotGridRef.current) {
-      const gridKey = `${x},${y},${scale},${canvas.width},${canvas.height},${themeRef.current}`;
-      let gridCache = gridCacheRef.current;
-      if (!gridCache || gridCache.key !== gridKey) {
-        const offscreen = gridCache?.canvas || document.createElement("canvas");
-        offscreen.width = canvas.width;
-        offscreen.height = canvas.height;
-        const gctx = offscreen.getContext("2d")!;
-        gctx.setTransform(1, 0, 0, 1, 0, 0);
-        gctx.clearRect(0, 0, offscreen.width, offscreen.height);
-        gctx.setTransform(scale, 0, 0, scale, x, y);
+      const BASE = 20;
+      const DOT_RADIUS = 1.5;
+      const baseAlpha = isDark ? 0.6 : 0.65;
+      const isDarkKey = isDark ? "1" : "0";
+      const dotColor = isDark ? "white" : "black";
 
-        const baseDotRadius = 1.1 / scale;
-        const topLeft = screenToWorld(0, 0, { x, y, scale });
-        const bottomRight = screenToWorld(canvas.width, canvas.height, {
-          x,
-          y,
-          scale,
-        });
+      for (let spacing = BASE; spacing < 500000; spacing *= 5) {
+        const screenGap = spacing * scale;
+        if (screenGap < 4) continue;
+        if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
+        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 34));
+        if (opacity <= 0) continue;
 
-        const BASE = 20;
-        const baseAlpha = isDark ? 0.4 : 0.45;
-
-        const levels: { spacing: number; opacity: number }[] = [];
-        for (let spacing = BASE; spacing < 500000; spacing *= 5) {
-          const screenGap = spacing * scale;
-          if (screenGap < 4) continue;
-          if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
-          const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 34));
-          levels.push({ spacing, opacity });
+        // Round to nearest integer for the tile canvas dimension.
+        // patternScale then corrects the repeating interval to the exact float
+        // screenGap so dots don't drift/jitter as zoom changes continuously.
+        const tileSize = Math.max(Math.round(screenGap), 1);
+        const patternScale = screenGap / tileSize;
+        const tileKey = `${tileSize},${isDarkKey}`;
+        let pattern = gridPatternCacheRef.current.get(tileKey);
+        if (!pattern) {
+          const tile = document.createElement("canvas");
+          tile.width = tileSize;
+          tile.height = tileSize;
+          const tctx = tile.getContext("2d")!;
+          const half = tileSize / 2;
+          tctx.fillStyle = dotColor;
+          tctx.beginPath();
+          tctx.arc(half, half, DOT_RADIUS, 0, Math.PI * 2);
+          tctx.fill();
+          pattern = ctx.createPattern(tile, "repeat")!;
+          gridPatternCacheRef.current.set(tileKey, pattern);
         }
 
-        for (let i = levels.length - 1; i >= 0; i--) {
-          const { spacing, opacity } = levels[i];
-          if (opacity <= 0) continue;
-          const coarser = i < levels.length - 1 ? levels[i + 1].spacing : null;
+        // Translate so the dot at tile-center lands on the world-origin's
+        // screen position, then scale so the tile repeats at exactly screenGap.
+        const ox = ((x % screenGap) + screenGap) % screenGap;
+        const oy = ((y % screenGap) + screenGap) % screenGap;
+        pattern.setTransform(
+          new DOMMatrix()
+            .translate(ox - screenGap / 2, oy - screenGap / 2)
+            .scale(patternScale),
+        );
 
-          const alpha = opacity * baseAlpha;
-          gctx.fillStyle = isDark
-            ? `rgba(255, 255, 255, ${alpha})`
-            : `rgba(0, 0, 0, ${alpha})`;
-
-          gctx.beginPath();
-          const sx = Math.floor(topLeft.x / spacing) * spacing;
-          const sy = Math.floor(topLeft.y / spacing) * spacing;
-          for (let wx = sx; wx <= bottomRight.x; wx += spacing) {
-            for (let wy = sy; wy <= bottomRight.y; wy += spacing) {
-              if (coarser) {
-                const onCoarserX =
-                  Math.abs(((wx % coarser) + coarser) % coarser) < 0.5;
-                const onCoarserY =
-                  Math.abs(((wy % coarser) + coarser) % coarser) < 0.5;
-                if (onCoarserX && onCoarserY) continue;
-              }
-              gctx.moveTo(wx + baseDotRadius, wy);
-              gctx.arc(wx, wy, baseDotRadius, 0, Math.PI * 2);
-            }
-          }
-          gctx.fill();
-        }
-
-        gridCacheRef.current = { canvas: offscreen, key: gridKey };
-        gridCache = gridCacheRef.current;
+        ctx.globalAlpha = opacity * baseAlpha;
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
       }
-      ctx.drawImage(gridCache.canvas, 0, 0);
+      ctx.globalAlpha = 1;
     }
 
     ctx.setTransform(scale, 0, 0, scale, x, y);
@@ -1124,7 +1114,7 @@ function Canvas({
     const resize = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
-      gridCacheRef.current = null;
+      gridPatternCacheRef.current.clear();
       strokesCacheRef.current = null;
       redraw(); // immediate — must paint now
     };
@@ -1214,7 +1204,7 @@ function Canvas({
     eraseTrailRef.current = [];
     laserTrailRef.current = [];
     pendingEraseRef.current.clear();
-    gridCacheRef.current = null;
+    gridPatternCacheRef.current.clear();
     strokesCacheRef.current = null;
 
     canvasIndexRef.current = canvasIndex;
