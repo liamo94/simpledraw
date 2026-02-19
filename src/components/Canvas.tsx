@@ -1,4 +1,5 @@
 import { useRef, useEffect, useCallback, useState, memo } from "react";
+import { getStroke } from "perfect-freehand";
 import type { ShapeKind, Theme, TextSize } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
@@ -388,6 +389,7 @@ function smoothWidths(raw: number[]) {
   return out;
 }
 
+
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length === 0) continue;
@@ -452,75 +454,29 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
     const pts = smoothPoints(stroke.points);
     if (stroke.widths && stroke.widths.length >= pts.length) {
       const sw = smoothWidths(stroke.widths);
-      const n = pts.length;
-      if (n < 2) continue;
+      if (pts.length < 2) continue;
 
-      // Per-point half-widths
-      const hw: number[] = [];
-      for (let i = 0; i < n; i++) hw[i] = (baseWidth * sw[i]) / 2;
+      // Use perfect-freehand (same library as excalidraw/tldraw) to generate
+      // a clean variable-width outline polygon. It handles self-intersections,
+      // smooth joins, and tapered caps correctly.
+      const pfPts = pts.map((p, i) => [p.x, p.y, sw[i] / 2] as [number, number, number]);
+      const outline = getStroke(pfPts, {
+        size: baseWidth,
+        thinning: 1,
+        smoothing: 0.5,
+        streamline: 0,
+        simulatePressure: false,
+        last: true,
+      });
 
-      // Per-point unit normals (perpendicular to averaged tangent)
-      const normX: number[] = [];
-      const normY: number[] = [];
-      for (let i = 0; i < n; i++) {
-        let tx: number, ty: number;
-        if (i === 0) {
-          tx = pts[1].x - pts[0].x;
-          ty = pts[1].y - pts[0].y;
-        } else if (i === n - 1) {
-          tx = pts[n - 1].x - pts[n - 2].x;
-          ty = pts[n - 1].y - pts[n - 2].y;
-        } else {
-          const ax = pts[i].x - pts[i - 1].x;
-          const ay = pts[i].y - pts[i - 1].y;
-          const bx = pts[i + 1].x - pts[i].x;
-          const by = pts[i + 1].y - pts[i].y;
-          const al = Math.hypot(ax, ay) || 1;
-          const bl = Math.hypot(bx, by) || 1;
-          tx = ax / al + bx / bl;
-          ty = ay / al + by / bl;
-          if (Math.hypot(tx, ty) < 0.1) {
-            tx = ax;
-            ty = ay;
-          }
-        }
-        const len = Math.hypot(tx, ty) || 1;
-        normX[i] = -ty / len;
-        normY[i] = tx / len;
-      }
+      if (outline.length < 2) continue;
 
-      // Build outline polygon with semicircle end caps, single fill
       ctx.beginPath();
       ctx.setLineDash([]);
-
-      // Left edge (forward)
-      ctx.moveTo(
-        pts[0].x + normX[0] * hw[0],
-        pts[0].y + normY[0] * hw[0],
-      );
-      for (let i = 1; i < n; i++) {
-        ctx.lineTo(
-          pts[i].x + normX[i] * hw[i],
-          pts[i].y + normY[i] * hw[i],
-        );
+      ctx.moveTo(outline[0][0], outline[0][1]);
+      for (let i = 1; i < outline.length; i++) {
+        ctx.lineTo(outline[i][0], outline[i][1]);
       }
-
-      // End cap (semicircle around last point)
-      const ea = Math.atan2(normY[n - 1], normX[n - 1]);
-      ctx.arc(pts[n - 1].x, pts[n - 1].y, hw[n - 1], ea, ea - Math.PI, true);
-
-      // Right edge (backward)
-      for (let i = n - 2; i >= 0; i--) {
-        ctx.lineTo(
-          pts[i].x - normX[i] * hw[i],
-          pts[i].y - normY[i] * hw[i],
-        );
-      }
-
-      // Start cap (semicircle around first point)
-      const sa = Math.atan2(-normY[0], -normX[0]);
-      ctx.arc(pts[0].x, pts[0].y, hw[0], sa, sa - Math.PI, true);
-
       ctx.closePath();
       ctx.fillStyle = color;
       ctx.fill();

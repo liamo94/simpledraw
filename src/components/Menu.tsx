@@ -485,7 +485,7 @@ export default function Menu({
               </button>
             )}
 
-            <div className="mt-4 space-y-1.5">
+            <div className="mt-4 space-y-3">
               {[
                 ...(!hasTouch ? [{ label: "Zoom controls", key: "showZoomControls" as const, value: settings.showZoomControls }] : []),
                 { label: "Dot grid", key: "showDotGrid" as const, value: settings.showDotGrid },
@@ -501,7 +501,7 @@ export default function Menu({
                 >
                   <span>{opt.label}</span>
                   <span
-                    className={`relative w-7 h-4 rounded-full transition-colors duration-200 ${
+                    className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
                       opt.value
                         ? "bg-blue-500"
                         : isDark
@@ -510,9 +510,9 @@ export default function Menu({
                     }`}
                   >
                     <span
-                      className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full shadow-sm transition-transform duration-200 ${
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
                         opt.value
-                          ? "translate-x-[12px] bg-white"
+                          ? "translate-x-[16px] bg-white"
                           : isDark
                             ? "bg-white/70"
                             : "bg-white"
