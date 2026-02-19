@@ -36,7 +36,15 @@ function isDarkTheme(theme: Theme): boolean {
 export default function App() {
   const [settings, updateSettings] = useSettings();
 
-  const [zoom, setZoom] = useState(1);
+  const [zoom, setZoom] = useState(() => {
+    try {
+      const stored = localStorage.getItem("drawtool-active-canvas");
+      const canvasIndex = stored ? parseInt(stored, 10) : 1;
+      const raw = localStorage.getItem(`drawtool-view-${canvasIndex}`);
+      if (raw) return (JSON.parse(raw) as { scale?: number }).scale ?? 1;
+    } catch {}
+    return 1;
+  });
   const [touchTool, setTouchTool] = useState<TouchTool>("draw");
   const [hasTouch] = useState(
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
