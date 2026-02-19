@@ -676,9 +676,9 @@ function Canvas({
     // handles the tiling. The pattern transform offset aligns dots to world
     // grid positions so panning never requires a redraw.
     if (showDotGridRef.current) {
-      const BASE = 20;
-      const DOT_RADIUS = 1.5;
-      const baseAlpha = isDark ? 0.6 : 0.65;
+      const BASE = 12;
+      const DOT_RADIUS = 0.75;
+      const baseAlpha = isDark ? 0.7 : 1.0;
       const isDarkKey = isDark ? "1" : "0";
       const dotColor = isDark ? "white" : "black";
 
@@ -686,7 +686,7 @@ function Canvas({
         const screenGap = spacing * scale;
         if (screenGap < 4) continue;
         if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
-        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 34));
+        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 20));
         if (opacity <= 0) continue;
 
         // Round to nearest integer for the tile canvas dimension.
