@@ -769,33 +769,46 @@ export default function App() {
                       />
                     ))}
                   </div>
-                  <div
-                    className={`text-xs mb-2 ${isDark ? "text-white/70" : "text-black/70"}`}
-                  >
-                    {showThicknessPicker === "dashed"
-                      ? `Dash gap: ${settings.dashGap}`
-                      : `Thickness: ${settings.lineWidth}`}
+                  <div className="flex items-center justify-between text-xs mb-2">
+                    <span className={isDark ? "text-white/70" : "text-black/70"}>
+                      {showThicknessPicker === "dashed" ? "Dash gap" : "Thickness"}
+                    </span>
+                    <span className={`tabular-nums ${isDark ? "text-white/40" : "text-black/40"}`}>
+                      {showThicknessPicker === "dashed" ? settings.dashGap : settings.lineWidth}
+                    </span>
                   </div>
-                  <input
-                    type="range"
-                    aria-label={showThicknessPicker === "dashed" ? "Dash gap" : "Thickness"}
-                    min={1}
-                    max={10}
-                    step={1}
-                    value={
-                      showThicknessPicker === "dashed"
-                        ? settings.dashGap
-                        : settings.lineWidth
-                    }
-                    onChange={(e) =>
-                      updateSettings(
-                        showThicknessPicker === "dashed"
-                          ? { dashGap: Number(e.target.value) }
-                          : { lineWidth: Number(e.target.value) },
-                      )
-                    }
-                    className={`w-full ${isDark ? "accent-white/70" : "accent-black/70"}`}
-                  />
+                  <div className="flex items-center gap-1">
+                    {[1, 2, 4, 6, 8, 10].map((n) => {
+                      const isDashed = showThicknessPicker === "dashed";
+                      const current = isDashed ? settings.dashGap : settings.lineWidth;
+                      return (
+                        <button
+                          key={n}
+                          onClick={() => updateSettings(isDashed ? { dashGap: n } : { lineWidth: n })}
+                          aria-label={`${isDashed ? "Dash gap" : "Thickness"} ${n}`}
+                          aria-pressed={current === n}
+                          className="flex-1 flex items-center justify-center py-1.5 group"
+                        >
+                          <div
+                            className={`transition-all duration-150 ${current >= n ? "" : isDark ? "group-hover:!bg-white/30" : "group-hover:!bg-black/25"}`}
+                            style={{
+                              width: isDashed ? `${4 + n * 2.8}px` : `${4 + n * 2}px`,
+                              height: isDashed ? 4 : `${4 + n * 2}px`,
+                              borderRadius: isDashed ? 2 : 9999,
+                              background:
+                                current >= n
+                                  ? isDark
+                                    ? "rgba(255,255,255,0.85)"
+                                    : "rgba(0,0,0,0.8)"
+                                  : isDark
+                                    ? "rgba(255,255,255,0.15)"
+                                    : "rgba(0,0,0,0.12)",
+                            }}
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

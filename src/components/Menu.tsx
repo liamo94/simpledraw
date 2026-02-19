@@ -499,7 +499,7 @@ export default function Menu({
                   onClick={() => updateSettings({ [opt.key]: !opt.value })}
                   className="flex items-center justify-between w-full text-sm cursor-pointer group"
                 >
-                  <span className={opt.value ? "" : isDark ? "opacity-50" : "opacity-40"}>{opt.label}</span>
+                  <span>{opt.label}</span>
                   <span
                     className={`relative w-7 h-4 rounded-full transition-colors duration-200 ${
                       opt.value
