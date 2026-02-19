@@ -57,6 +57,7 @@ export default function App() {
   const [toast, setToast] = useState<
     | { type: "text"; message: string }
     | { type: "shape"; shape: ShapeKind }
+    | { type: "toggle"; label: string; on: boolean }
     | null
   >(null);
   const [toastFading, setToastFading] = useState(false);
@@ -140,7 +141,8 @@ export default function App() {
     (
       content:
         | { type: "text"; message: string }
-        | { type: "shape"; shape: ShapeKind },
+        | { type: "shape"; shape: ShapeKind }
+        | { type: "toggle"; label: string; on: boolean },
     ) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (toastFadeRef.current) clearTimeout(toastFadeRef.current);
@@ -272,6 +274,11 @@ export default function App() {
     const onToggleGrid = () => {
       updateSettings({ showDotGrid: !settingsRef.current.showDotGrid });
     };
+    const onTogglePressure = () => {
+      const next = !settingsRef.current.pressureSensitivity;
+      updateSettings({ pressureSensitivity: next });
+      showToast({ type: "toggle", label: "Dynamic stroke", on: next });
+    };
     const onExportShortcut = () => {
       const canvas = document.querySelector("canvas");
       if (!canvas) return;
@@ -300,6 +307,7 @@ export default function App() {
     };
     window.addEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
     window.addEventListener("drawtool:toggle-grid", onToggleGrid);
+    window.addEventListener("drawtool:toggle-pressure", onTogglePressure);
     window.addEventListener("drawtool:export", onExportShortcut);
     window.addEventListener("drawtool:text-size", onTextSize);
     window.addEventListener("drawtool:toast", onToast);
@@ -319,6 +327,7 @@ export default function App() {
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
       window.removeEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
       window.removeEventListener("drawtool:toggle-grid", onToggleGrid);
+      window.removeEventListener("drawtool:toggle-pressure", onTogglePressure);
       window.removeEventListener("drawtool:export", onExportShortcut);
       window.removeEventListener("drawtool:text-size", onTextSize);
       window.removeEventListener("drawtool:toast", onToast);
@@ -577,6 +586,7 @@ export default function App() {
         activeShape={settings.activeShape}
         canvasIndex={activeCanvas}
         textSize={settings.textSize}
+        pressureSensitivity={settings.pressureSensitivity}
         onContentOffScreen={setContentOffScreen}
       />
       {hasTouch ? (
@@ -1110,7 +1120,21 @@ export default function App() {
               : "0 4px 12px rgba(0,0,0,0.08)",
           }}
         >
-          {toast.type === "text" ? (
+          {toast.type === "toggle" ? (
+            <>
+              <span
+                style={{
+                  width: 6,
+                  height: 6,
+                  borderRadius: "50%",
+                  background: toast.on ? "#22c55e" : isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)",
+                  boxShadow: toast.on ? "0 0 6px #22c55e88" : "none",
+                  flexShrink: 0,
+                }}
+              />
+              {toast.label}
+            </>
+          ) : toast.type === "text" ? (
             toast.message
           ) : (
             <svg

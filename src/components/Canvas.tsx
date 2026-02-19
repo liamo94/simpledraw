@@ -24,6 +24,7 @@ type Stroke = {
   highlight?: boolean;
   text?: string;
   fontSize?: TextSize;
+  widths?: number[];
 };
 
 type UndoAction =
@@ -377,6 +378,16 @@ function hexToRgba(hex: string, alpha: number): string {
   return `rgba(${r},${g},${b},${alpha})`;
 }
 
+function smoothWidths(raw: number[]) {
+  if (raw.length < 3) return raw;
+  const out = [raw[0]];
+  for (let i = 1; i < raw.length - 1; i++) {
+    out.push(raw[i - 1] * 0.25 + raw[i] * 0.5 + raw[i + 1] * 0.25);
+  }
+  out.push(raw[raw.length - 1]);
+  return out;
+}
+
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length === 0) continue;
@@ -426,11 +437,10 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
       );
       continue;
     }
-    ctx.beginPath();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = stroke.highlight
+    const baseWidth = stroke.highlight
       ? stroke.lineWidth * 2.5
       : stroke.lineWidth;
+    ctx.strokeStyle = color;
     ctx.lineCap = "round";
     ctx.lineJoin = "round";
     const dashScale = stroke.lineWidth / 4;
@@ -440,18 +450,96 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
         : [],
     );
     const pts = smoothPoints(stroke.points);
-    ctx.moveTo(pts[0].x, pts[0].y);
-    if (pts.length === 2) {
-      ctx.lineTo(pts[1].x, pts[1].y);
-    } else {
-      for (let i = 1; i < pts.length - 1; i++) {
-        const mx = (pts[i].x + pts[i + 1].x) / 2;
-        const my = (pts[i].y + pts[i + 1].y) / 2;
-        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+    if (stroke.widths && stroke.widths.length >= pts.length) {
+      const sw = smoothWidths(stroke.widths);
+      const n = pts.length;
+      if (n < 2) continue;
+
+      // Per-point half-widths
+      const hw: number[] = [];
+      for (let i = 0; i < n; i++) hw[i] = (baseWidth * sw[i]) / 2;
+
+      // Per-point unit normals (perpendicular to averaged tangent)
+      const normX: number[] = [];
+      const normY: number[] = [];
+      for (let i = 0; i < n; i++) {
+        let tx: number, ty: number;
+        if (i === 0) {
+          tx = pts[1].x - pts[0].x;
+          ty = pts[1].y - pts[0].y;
+        } else if (i === n - 1) {
+          tx = pts[n - 1].x - pts[n - 2].x;
+          ty = pts[n - 1].y - pts[n - 2].y;
+        } else {
+          const ax = pts[i].x - pts[i - 1].x;
+          const ay = pts[i].y - pts[i - 1].y;
+          const bx = pts[i + 1].x - pts[i].x;
+          const by = pts[i + 1].y - pts[i].y;
+          const al = Math.hypot(ax, ay) || 1;
+          const bl = Math.hypot(bx, by) || 1;
+          tx = ax / al + bx / bl;
+          ty = ay / al + by / bl;
+          if (Math.hypot(tx, ty) < 0.1) {
+            tx = ax;
+            ty = ay;
+          }
+        }
+        const len = Math.hypot(tx, ty) || 1;
+        normX[i] = -ty / len;
+        normY[i] = tx / len;
       }
-      ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+
+      // Build outline polygon with semicircle end caps, single fill
+      ctx.beginPath();
+      ctx.setLineDash([]);
+
+      // Left edge (forward)
+      ctx.moveTo(
+        pts[0].x + normX[0] * hw[0],
+        pts[0].y + normY[0] * hw[0],
+      );
+      for (let i = 1; i < n; i++) {
+        ctx.lineTo(
+          pts[i].x + normX[i] * hw[i],
+          pts[i].y + normY[i] * hw[i],
+        );
+      }
+
+      // End cap (semicircle around last point)
+      const ea = Math.atan2(normY[n - 1], normX[n - 1]);
+      ctx.arc(pts[n - 1].x, pts[n - 1].y, hw[n - 1], ea, ea - Math.PI, true);
+
+      // Right edge (backward)
+      for (let i = n - 2; i >= 0; i--) {
+        ctx.lineTo(
+          pts[i].x - normX[i] * hw[i],
+          pts[i].y - normY[i] * hw[i],
+        );
+      }
+
+      // Start cap (semicircle around first point)
+      const sa = Math.atan2(-normY[0], -normX[0]);
+      ctx.arc(pts[0].x, pts[0].y, hw[0], sa, sa - Math.PI, true);
+
+      ctx.closePath();
+      ctx.fillStyle = color;
+      ctx.fill();
+    } else {
+      ctx.beginPath();
+      ctx.lineWidth = baseWidth;
+      ctx.moveTo(pts[0].x, pts[0].y);
+      if (pts.length === 2) {
+        ctx.lineTo(pts[1].x, pts[1].y);
+      } else {
+        for (let i = 1; i < pts.length - 1; i++) {
+          const mx = (pts[i].x + pts[i + 1].x) / 2;
+          const my = (pts[i].y + pts[i + 1].y) / 2;
+          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
+        }
+        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+      }
+      ctx.stroke();
     }
-    ctx.stroke();
   }
 }
 
@@ -466,6 +554,7 @@ function Canvas({
   activeShape,
   canvasIndex,
   textSize,
+  pressureSensitivity,
   onContentOffScreen,
 }: {
   lineWidth: number;
@@ -477,6 +566,7 @@ function Canvas({
   activeShape: ShapeKind;
   canvasIndex: number;
   textSize: TextSize;
+  pressureSensitivity: boolean;
   onContentOffScreen?: (offScreen: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -509,6 +599,10 @@ function Canvas({
   lineColorRef.current = lineColor;
   const activeShapeRef = useRef(activeShape);
   activeShapeRef.current = activeShape;
+  const pressureSensitivityRef = useRef(pressureSensitivity);
+  pressureSensitivityRef.current = pressureSensitivity;
+  const lastDrawPointRef = useRef<{ x: number; y: number; t: number } | null>(null);
+  const prevWidthRef = useRef(1);
   const isPanningRef = useRef(false);
   const panLastRef = useRef({ x: 0, y: 0 });
   const [panning, setPanning] = useState(false);
@@ -1729,6 +1823,9 @@ function Canvas({
       if (e.key === "f" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         window.dispatchEvent(new Event("drawtool:toggle-fullscreen"));
       }
+      if (e.key === "p" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        window.dispatchEvent(new Event("drawtool:toggle-pressure"));
+      }
       if (e.key === "," && !cmdKey(e) && !e.altKey) {
         window.dispatchEvent(new Event("drawtool:swap-color"));
       }
@@ -2557,15 +2654,19 @@ function Canvas({
       }
 
       if (!isDrawingRef.current || activeModifierRef.current !== modifier) {
+        const usePressure = pressureSensitivityRef.current;
         notifyColorUsed(lineColor);
         isDrawingRef.current = true;
         activeModifierRef.current = modifier;
+        lastDrawPointRef.current = { x: e.clientX, y: e.clientY, t: performance.now() };
+        prevWidthRef.current = 1;
         const stroke: Stroke = {
           points: [point],
           style: modifier === "shift" ? "dashed" : "solid",
           lineWidth,
           dashGap,
           color: lineColor,
+          ...(usePressure && modifier !== "shift" ? { widths: [1] } : {}),
         };
         strokesRef.current.push(stroke);
         undoStackRef.current.push({ type: "draw", stroke });
@@ -2573,6 +2674,21 @@ function Canvas({
       } else {
         const current = strokesRef.current[strokesRef.current.length - 1];
         current.points.push(point);
+        if (current.widths) {
+          const now = performance.now();
+          const last = lastDrawPointRef.current!;
+          const dx = e.clientX - last.x;
+          const dy = e.clientY - last.y;
+          const dt = Math.max(now - last.t, 1);
+          const speed = Math.sqrt(dx * dx + dy * dy) / dt;
+          const speedFactor = Math.min(2, Math.max(0.5, 2 - speed / 3));
+          const pressure = e.pressure > 0 ? e.pressure : 0.5;
+          const raw = speedFactor * (0.5 + pressure);
+          const w = prevWidthRef.current * 0.6 + raw * 0.4;
+          prevWidthRef.current = w;
+          current.widths.push(w);
+          lastDrawPointRef.current = { x: e.clientX, y: e.clientY, t: now };
+        }
       }
 
       persistStrokesDebounced();

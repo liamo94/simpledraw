@@ -26,6 +26,7 @@ export type Settings = {
   confirmClear: boolean;
   activeShape: ShapeKind;
   textSize: TextSize;
+  pressureSensitivity: boolean;
 };
 
 const STORAGE_KEY = "drawtool-settings";
@@ -47,6 +48,7 @@ function getDefaults(): Settings {
     confirmClear: true,
     activeShape: "rectangle" as const,
     textSize: "m" as const,
+    pressureSensitivity: false,
   };
 }
 

@@ -485,65 +485,43 @@ export default function Menu({
               </button>
             )}
 
-            {!hasTouch && (
-              <>
-                <label className="mt-4 flex items-center justify-between text-sm cursor-pointer">
-                  <span>Zoom controls</span>
-                  <input
-                    type="checkbox"
-                    checked={settings.showZoomControls}
-                    onChange={(e) =>
-                      updateSettings({ showZoomControls: e.target.checked })
-                    }
-                    className={
-                      settings.showZoomControls
-                        ? "accent-blue-500"
+            <div className="mt-4 space-y-1.5">
+              {[
+                ...(!hasTouch ? [{ label: "Zoom controls", key: "showZoomControls" as const, value: settings.showZoomControls }] : []),
+                { label: "Dot grid", key: "showDotGrid" as const, value: settings.showDotGrid },
+                ...(!hasTouch ? [{ label: "Confirm clear", key: "confirmClear" as const, value: settings.confirmClear }] : []),
+                { label: "Dynamic stroke", key: "pressureSensitivity" as const, value: settings.pressureSensitivity },
+              ].map((opt) => (
+                <button
+                  key={opt.key}
+                  role="switch"
+                  aria-checked={opt.value}
+                  onClick={() => updateSettings({ [opt.key]: !opt.value })}
+                  className="flex items-center justify-between w-full text-sm cursor-pointer group"
+                >
+                  <span className={opt.value ? "" : isDark ? "opacity-50" : "opacity-40"}>{opt.label}</span>
+                  <span
+                    className={`relative w-7 h-4 rounded-full transition-colors duration-200 ${
+                      opt.value
+                        ? "bg-blue-500"
                         : isDark
-                          ? "accent-white/70"
-                          : "accent-black/70"
-                    }
-                  />
-                </label>
-              </>
-            )}
-
-            <label className="mt-2.5 flex items-center justify-between text-sm cursor-pointer">
-              <span>Dot grid</span>
-              <input
-                type="checkbox"
-                checked={settings.showDotGrid}
-                onChange={(e) =>
-                  updateSettings({ showDotGrid: e.target.checked })
-                }
-                className={
-                  settings.showDotGrid
-                    ? "accent-blue-500"
-                    : isDark
-                      ? "accent-white/70"
-                      : "accent-black/70"
-                }
-              />
-            </label>
-
-            {!hasTouch && (
-              <label className="mt-2.5 flex items-center justify-between text-sm cursor-pointer">
-                <span>Confirm clear</span>
-                <input
-                  type="checkbox"
-                  checked={settings.confirmClear}
-                  onChange={(e) =>
-                    updateSettings({ confirmClear: e.target.checked })
-                  }
-                  className={
-                    settings.confirmClear
-                      ? "accent-blue-500"
-                      : isDark
-                        ? "accent-white/70"
-                        : "accent-black/70"
-                  }
-                />
-              </label>
-            )}
+                          ? "bg-white/15 group-hover:bg-white/25"
+                          : "bg-black/12 group-hover:bg-black/20"
+                    }`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-3 h-3 rounded-full shadow-sm transition-transform duration-200 ${
+                        opt.value
+                          ? "translate-x-[12px] bg-white"
+                          : isDark
+                            ? "bg-white/70"
+                            : "bg-white"
+                      }`}
+                    />
+                  </span>
+                </button>
+              ))}
+            </div>
 
             {!hasTouch && (
               <>
@@ -1417,6 +1395,27 @@ export default function Menu({
                             }
                           >
                             D D
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="currentColor"
+                              stroke="none"
+                            >
+                              <path d="M2,8 L14,5 L14,11 Z" opacity="0.7" />
+                            </svg>
+                            Dynamic stroke
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            P
                           </kbd>
                         </div>
                       </div>
