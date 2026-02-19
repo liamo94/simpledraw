@@ -440,14 +440,13 @@ export default function Menu({
                   onClick={() => updateSettings({ theme: t.id })}
                   aria-label={`${t.label} theme`}
                   aria-pressed={settings.theme === t.id}
-                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-all outline-none border-2 ${
-                    settings.theme === t.id
-                      ? "border-blue-500"
-                      : "border-transparent opacity-60 hover:opacity-90"
+                  className={`flex-1 py-1.5 rounded text-xs font-medium transition-all outline-none ${
+                    settings.theme === t.id ? "" : "opacity-60 hover:opacity-90"
                   }`}
                   style={{
                     backgroundColor: t.bg,
                     color: t.text,
+                    boxShadow: settings.theme === t.id ? `inset 0 0 0 2px ${t.text}40` : undefined,
                   }}
                 >
                   {t.label}
