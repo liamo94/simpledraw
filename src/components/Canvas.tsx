@@ -340,7 +340,7 @@ function renderRoughShape(
     seed,
     stroke: color,
     strokeWidth: lineWidth,
-    disableMultiStroke: false,
+    disableMultiStroke: style === "dashed", // prevent phase-offset double-dashes on dashed shapes
     ...(style === "dashed"
       ? { strokeLineDash: [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] }
       : {}),
@@ -612,6 +612,8 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
       continue;
     }
     if (stroke.shape && stroke.points.length === 2) {
+      if (Math.abs(stroke.points[1].x - stroke.points[0].x) < 0.5 &&
+          Math.abs(stroke.points[1].y - stroke.points[0].y) < 0.5) continue;
       if (stroke.seed !== undefined) {
         renderRoughShape(
           ctx,
@@ -781,6 +783,7 @@ function Canvas({
   const spaceDownRef = useRef(false);
   const keyShapeRef = useRef<ShapeKind | null>(null);
   const keyShapeDashedRef = useRef(false);
+  const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const lastDPressRef = useRef(0);
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -2174,6 +2177,7 @@ function Canvas({
       ) {
         keyShapeRef.current = shapeKeyMap[e.key];
         keyShapeDashedRef.current = e.shiftKey;
+        shapeJustCommittedRef.current = false;
         setShapeActive(true);
       }
       // Number keys 1-9 for canvas switching
@@ -2291,6 +2295,9 @@ function Canvas({
           persistStrokes();
         }
       }
+      if (e.key === "Shift" && keyShapeRef.current) {
+        keyShapeDashedRef.current = false;
+      }
       if (e.key === "Control" && isMac) setShapeActive(false);
       if ((e.key === "Alt" || e.key === "Shift") && !isMac)
         setShapeActive(false);
@@ -2299,6 +2306,7 @@ function Canvas({
         keyShapeDashedRef.current = false;
         setShapeActive(false);
         if (activeModifierRef.current === "shape") {
+          shapeJustCommittedRef.current = true;
           discardTinyShape();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
@@ -2629,6 +2637,7 @@ function Canvas({
           strokesCacheRef.current = null;
           scheduleRedraw();
         }
+        if (activeModifierRef.current === "shape") shapeJustCommittedRef.current = true;
         discardTinyShape();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
@@ -2908,10 +2917,12 @@ function Canvas({
 
       if (modifier === "shape") {
         if (!isDrawingRef.current || activeModifierRef.current !== "shape") {
+          if (shapeJustCommittedRef.current && keyShapeRef.current && !e.buttons) return;
+          shapeJustCommittedRef.current = false;
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
-          const dashed = keyShapeDashedRef.current || e.shiftKey;
+          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : e.shiftKey;
           const stroke: Stroke = {
             points: [point, { ...point }],
             style: dashed ? "dashed" : "solid",
@@ -2962,6 +2973,8 @@ function Canvas({
       }
 
       if (!isDrawingRef.current || activeModifierRef.current !== modifier) {
+        if (modifier === "shift" && shapeJustCommittedRef.current && !e.buttons) return;
+        shapeJustCommittedRef.current = false;
         const usePressure = pressureSensitivityRef.current;
         notifyColorUsed(lineColor);
         isDrawingRef.current = true;
@@ -3030,12 +3043,14 @@ function Canvas({
           cancelErase();
           return;
         }
+        if (activeModifierRef.current === "shape") shapeJustCommittedRef.current = true;
+        discardTinyShape();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         persistStrokes();
       }
     },
-    [persistStrokes, cancelErase],
+    [persistStrokes, cancelErase, discardTinyShape],
   );
 
   // Wheel: pan (scroll) and zoom (Ctrl/Cmd + scroll)
@@ -3169,9 +3184,9 @@ function Canvas({
       scheduleRedraw();
     }, 530);
     isWritingRef.current = true;
-    if (canvasRef.current) canvasRef.current.style.cursor = "default";
+    setZCursor("default");
     scheduleRedraw();
-  }, [scheduleRedraw]);
+  }, [scheduleRedraw, setZCursor]);
 
   const startEditingStroke = useCallback((stroke: Stroke, clickWorldPos?: { x: number; y: number }) => {
     const text = stroke.text ?? "";
