@@ -1266,6 +1266,30 @@ export default function Menu({
                               strokeWidth="1.5"
                               strokeLinecap="round"
                             >
+                              <rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" />
+                              <path d="M8 5v6M5 8h6" strokeWidth="1.2" />
+                            </svg>
+                            Select / move / resize
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            Z + hold
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
                               <line x1="4" y1="4" x2="12" y2="12" />
                               <line x1="4" y1="12" x2="12" y2="4" />
                             </svg>

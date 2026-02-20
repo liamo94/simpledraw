@@ -32,8 +32,8 @@ type Stroke = {
 type UndoAction =
   | { type: "draw"; stroke: Stroke }
   | { type: "erase"; strokes: Stroke[] }
-  | { type: "move"; stroke: Stroke; from: { x: number; y: number }; to: { x: number; y: number } }
-  | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPos: { x: number; y: number }; toPos: { x: number; y: number } }
+  | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
+  | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[] }
   | { type: "edit"; stroke: Stroke; oldText: string; newText: string };
 
 export type TouchTool =
@@ -434,6 +434,25 @@ function textBBox(stroke: Stroke): { x: number; y: number; w: number; h: number 
   return { x: anchor.x, y: anchor.y + yOff, w, h };
 }
 
+type BBox = { x: number; y: number; w: number; h: number };
+
+function shapeBBox(stroke: Stroke): BBox {
+  const p0 = stroke.points[0];
+  const p1 = stroke.points[1];
+  return {
+    x: Math.min(p0.x, p1.x),
+    y: Math.min(p0.y, p1.y),
+    w: Math.abs(p1.x - p0.x),
+    h: Math.abs(p1.y - p0.y),
+  };
+}
+
+function selectBBox(stroke: Stroke): BBox | null {
+  if (stroke.text) return textBBox(stroke);
+  if (stroke.shape && stroke.points.length === 2) return shapeBBox(stroke);
+  return null;
+}
+
 function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length === 0) continue;
@@ -644,9 +663,9 @@ function Canvas({
     mode: "move" | "corner";
     corner?: 0 | 1 | 2 | 3;
     startPtr: { x: number; y: number };
-    startAnchor: { x: number; y: number };
+    startPoints: { x: number; y: number }[];
     startScale: number;
-    bbox: { x: number; y: number; w: number; h: number };
+    bbox: BBox;
   } | null>(null);
 
   // Multi-touch tracking
@@ -979,7 +998,8 @@ function Canvas({
     // Draw text select hover/selection overlay (world space)
     const overlayStroke = selectedTextRef.current || hoverTextRef.current;
     if (overlayStroke) {
-      const bb = textBBox(overlayStroke);
+      const bb = selectBBox(overlayStroke);
+      if (!bb) { /* shouldn't happen */ return; }
       const isSelected = !!selectedTextRef.current;
       const pad = 3 / scale;
       const r = 3 / scale; // rounded corner radius
@@ -1495,10 +1515,10 @@ function Canvas({
       } else if (action.type === "erase") {
         strokesRef.current.push(...action.strokes);
       } else if (action.type === "move") {
-        action.stroke.points[0] = { ...action.from };
+        action.from.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.fromScale;
-        action.stroke.points[0] = { ...action.fromPos };
+        action.fromPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.oldText;
       }
@@ -1532,10 +1552,10 @@ function Canvas({
           if (idx !== -1) strokesRef.current.splice(idx, 1);
         }
       } else if (action.type === "move") {
-        action.stroke.points[0] = { ...action.to };
+        action.to.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.toScale;
-        action.stroke.points[0] = { ...action.toPos };
+        action.toPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.newText;
       }
@@ -3096,7 +3116,7 @@ function Canvas({
         const hs = 7 / scale;
 
         if (selectedTextRef.current) {
-          const bb = textBBox(selectedTextRef.current);
+          const bb = selectBBox(selectedTextRef.current)!;
           // Check corner handles first
           const cornerCenters = [
             { x: bb.x - pad,        y: bb.y - pad },
@@ -3111,7 +3131,7 @@ function Canvas({
                 mode: "corner",
                 corner: ci as 0 | 1 | 2 | 3,
                 startPtr: { ...wp },
-                startAnchor: { ...selectedTextRef.current.points[0] },
+                startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
                 startScale: selectedTextRef.current.fontScale ?? 1,
                 bbox: bb,
               };
@@ -3125,7 +3145,7 @@ function Canvas({
             selectDragRef.current = {
               mode: "move",
               startPtr: { ...wp },
-              startAnchor: { ...selectedTextRef.current.points[0] },
+              startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
               startScale: selectedTextRef.current.fontScale ?? 1,
               bbox: bb,
             };
@@ -3140,12 +3160,12 @@ function Canvas({
           return;
         }
 
-        // z held, no selection — check if clicking on any text stroke
+        // z held, no selection — check text and shapes
         if (zKeyRef.current) {
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
-            if (!stroke.text) continue;
-            const bb = textBBox(stroke);
+            const bb = selectBBox(stroke);
+            if (!bb) continue;
             if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
                 wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
               selectedTextRef.current = stroke;
@@ -3154,7 +3174,7 @@ function Canvas({
               selectDragRef.current = {
                 mode: "move",
                 startPtr: { ...wp },
-                startAnchor: { ...stroke.points[0] },
+                startPoints: stroke.points.map(p => ({ ...p })),
                 startScale: stroke.fontScale ?? 1,
                 bbox: bb,
               };
@@ -3177,7 +3197,7 @@ function Canvas({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (isWritingRef.current) return;
 
-      // Handle active text select drag
+      // Handle active select drag (text and shapes)
       if (selectDragRef.current && selectedTextRef.current) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const drag = selectDragRef.current;
@@ -3186,7 +3206,9 @@ function Canvas({
         if (drag.mode === "move") {
           const dx = wp.x - drag.startPtr.x;
           const dy = wp.y - drag.startPtr.y;
-          stroke.points[0] = { x: drag.startAnchor.x + dx, y: drag.startAnchor.y + dy };
+          for (let i = 0; i < drag.startPoints.length; i++) {
+            stroke.points[i] = { x: drag.startPoints[i].x + dx, y: drag.startPoints[i].y + dy };
+          }
         } else {
           // Corner resize — keep opposite corner fixed
           const ci = drag.corner!;
@@ -3198,17 +3220,37 @@ function Canvas({
             { x: bb.x + bb.w, y: bb.y },         // BL drag → TR fixed
           ];
           const opp = oppCorners[ci];
-          const startDist = Math.hypot(drag.startPtr.x - opp.x, drag.startPtr.y - opp.y);
-          const currDist  = Math.hypot(wp.x - opp.x, wp.y - opp.y);
-          if (startDist > 1e-6) {
-            const ratio = currDist / startDist;
-            const newScale = Math.min(5, Math.max(0.3, drag.startScale * ratio));
-            const actualRatio = newScale / drag.startScale;
-            stroke.fontScale = newScale;
-            // Move anchor so opposite corner stays put
-            const relX = bb.x - opp.x;
-            const relY = bb.y - opp.y;
-            stroke.points[0] = { x: opp.x + relX * actualRatio, y: opp.y + relY * actualRatio };
+
+          if (stroke.text) {
+            // Text resize: scale fontScale, keep opposite corner anchored
+            const startDist = Math.hypot(drag.startPtr.x - opp.x, drag.startPtr.y - opp.y);
+            const currDist  = Math.hypot(wp.x - opp.x, wp.y - opp.y);
+            if (startDist > 1e-6) {
+              const ratio = currDist / startDist;
+              const newScale = Math.min(5, Math.max(0.3, drag.startScale * ratio));
+              const actualRatio = newScale / drag.startScale;
+              stroke.fontScale = newScale;
+              const relX = bb.x - opp.x;
+              const relY = bb.y - opp.y;
+              stroke.points[0] = { x: opp.x + relX * actualRatio, y: opp.y + relY * actualRatio };
+            }
+          } else {
+            // Shape resize: move both defining points to new bbox corners
+            const p0IsLeft = drag.startPoints[0].x <= drag.startPoints[1].x;
+            const p0IsTop  = drag.startPoints[0].y <= drag.startPoints[1].y;
+            const minSize = 10 / viewRef.current.scale;
+            const newLeft   = Math.min(opp.x, wp.x);
+            const newTop    = Math.min(opp.y, wp.y);
+            const newRight  = Math.max(opp.x, wp.x, newLeft + minSize);
+            const newBottom = Math.max(opp.y, wp.y, newTop  + minSize);
+            stroke.points[0] = {
+              x: p0IsLeft ? newLeft  : newRight,
+              y: p0IsTop  ? newTop   : newBottom,
+            };
+            stroke.points[1] = {
+              x: p0IsLeft ? newRight  : newLeft,
+              y: p0IsTop  ? newBottom : newTop,
+            };
           }
         }
 
@@ -3217,12 +3259,13 @@ function Canvas({
         return;
       }
 
-      // Cursor updates for text select mode (non-drag, mouse/stylus only)
+      // Cursor updates for select mode (non-drag, mouse/stylus only)
       if (e.pointerType !== "touch") {
         if (selectedTextRef.current) {
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
           const { scale } = viewRef.current;
-          const bb = textBBox(selectedTextRef.current);
+          const bb = selectBBox(selectedTextRef.current);
+          if (!bb) { onPointerMove(e); return; }
           const pad = 3 / scale;
           const hs = 7 / scale;
           const cornerCenters = [
@@ -3247,15 +3290,15 @@ function Canvas({
           }
           setZCursor(cur);
         } else if (zKeyRef.current) {
-          // Z-key hover detection
+          // Z-key hover detection (text + shapes)
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
           const { scale } = viewRef.current;
           const pad = 3 / scale;
           let hit: Stroke | null = null;
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
-            if (!stroke.text) continue;
-            const bb = textBBox(stroke);
+            const bb = selectBBox(stroke);
+            if (!bb) continue;
             if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
                 wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
               hit = stroke;
@@ -3279,24 +3322,26 @@ function Canvas({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (isWritingRef.current) return;
 
-      // Commit text select drag
+      // Commit select drag (text and shapes)
       if (selectDragRef.current && selectedTextRef.current) {
         const drag = selectDragRef.current;
         const stroke = selectedTextRef.current;
 
         if (drag.mode === "move") {
-          const newPos = stroke.points[0];
-          if (newPos.x !== drag.startAnchor.x || newPos.y !== drag.startAnchor.y) {
+          const anyMoved = drag.startPoints.some((p, i) =>
+            p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
+          if (anyMoved) {
             undoStackRef.current.push({
               type: "move",
               stroke,
-              from: { ...drag.startAnchor },
-              to: { ...newPos },
+              from: drag.startPoints.map(p => ({ ...p })),
+              to: stroke.points.slice(0, drag.startPoints.length).map(p => ({ ...p })),
             });
             redoStackRef.current = [];
             persistStrokes();
           }
-        } else {
+        } else if (stroke.text) {
+          // Text resize — fontScale + anchor changed
           const newScale = stroke.fontScale ?? 1;
           if (newScale !== drag.startScale) {
             undoStackRef.current.push({
@@ -3304,8 +3349,22 @@ function Canvas({
               stroke,
               fromScale: drag.startScale,
               toScale: newScale,
-              fromPos: { ...drag.startAnchor },
-              toPos: { ...stroke.points[0] },
+              fromPoints: drag.startPoints.map(p => ({ ...p })),
+              toPoints: [{ ...stroke.points[0] }],
+            });
+            redoStackRef.current = [];
+            persistStrokes();
+          }
+        } else {
+          // Shape resize — only point positions changed, use "move" undo
+          const anyChanged = drag.startPoints.some((p, i) =>
+            p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
+          if (anyChanged) {
+            undoStackRef.current.push({
+              type: "move",
+              stroke,
+              from: drag.startPoints.map(p => ({ ...p })),
+              to: stroke.points.slice(0, drag.startPoints.length).map(p => ({ ...p })),
             });
             redoStackRef.current = [];
             persistStrokes();
