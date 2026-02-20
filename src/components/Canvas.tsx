@@ -1,5 +1,6 @@
 import { useRef, useEffect, useCallback, useState, memo } from "react";
 import { getStroke } from "perfect-freehand";
+import rough from "roughjs";
 import type { ShapeKind, Theme, TextSize } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
@@ -27,6 +28,7 @@ type Stroke = {
   fontSize?: TextSize;
   fontScale?: number;
   widths?: number[];
+  seed?: number;
 };
 
 type UndoAction =
@@ -185,6 +187,29 @@ function regularPolygonPoints(
   return pts;
 }
 
+function roundedPoly(
+  ctx: CanvasRenderingContext2D,
+  pts: { x: number; y: number }[],
+  r: number,
+) {
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const d1x = prev.x - curr.x, d1y = prev.y - curr.y;
+    const l1 = Math.hypot(d1x, d1y);
+    const d2x = next.x - curr.x, d2y = next.y - curr.y;
+    const l2 = Math.hypot(d2x, d2y);
+    const cr = Math.min(r, l1 / 2, l2 / 2);
+    const t1x = curr.x + (d1x / l1) * cr, t1y = curr.y + (d1y / l1) * cr;
+    const t2x = curr.x + (d2x / l2) * cr, t2y = curr.y + (d2y / l2) * cr;
+    if (i === 0) ctx.moveTo(t1x, t1y); else ctx.lineTo(t1x, t1y);
+    ctx.quadraticCurveTo(curr.x, curr.y, t2x, t2y);
+  }
+  ctx.closePath();
+}
+
 function renderShape(
   ctx: CanvasRenderingContext2D,
   p0: { x: number; y: number },
@@ -198,6 +223,7 @@ function renderShape(
   const h = Math.abs(p1.y - p0.y);
   const cx = x + w / 2;
   const cy = y + h / 2;
+  const r = Math.min(w, h) * 0.12;
 
   ctx.beginPath();
   switch (shape) {
@@ -206,16 +232,13 @@ function renderShape(
       ctx.lineTo(p1.x, p1.y);
       break;
     case "rectangle":
-      ctx.rect(x, y, w, h);
+      ctx.roundRect(x, y, w, h, r);
       break;
     case "circle":
       ctx.ellipse(cx, cy, w / 2, h / 2, 0, 0, Math.PI * 2);
       break;
     case "triangle":
-      ctx.moveTo(cx, y);
-      ctx.lineTo(x + w, y + h);
-      ctx.lineTo(x, y + h);
-      ctx.closePath();
+      roundedPoly(ctx, [{ x: cx, y }, { x: x + w, y: y + h }, { x, y: y + h }], r);
       break;
     case "star": {
       const pts = starPoints(cx, cy, w / 2, h / 2, w / 5, h / 5);
@@ -248,26 +271,17 @@ function renderShape(
     }
     case "pentagon": {
       const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 5);
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.closePath();
+      roundedPoly(ctx, pts, r);
       break;
     }
     case "hexagon": {
       const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 6);
-      ctx.moveTo(pts[0].x, pts[0].y);
-      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-      ctx.closePath();
+      roundedPoly(ctx, pts, r);
       break;
     }
-    case "diamond": {
-      ctx.moveTo(cx, y);
-      ctx.lineTo(x + w, cy);
-      ctx.lineTo(cx, y + h);
-      ctx.lineTo(x, cy);
-      ctx.closePath();
+    case "diamond":
+      roundedPoly(ctx, [{ x: cx, y }, { x: x + w, y: cy }, { x: cx, y: y + h }, { x, y: cy }], r);
       break;
-    }
     case "lightning": {
       ctx.moveTo(x + w * 0.55, y);
       ctx.lineTo(x + w * 0.15, y + h * 0.5);
@@ -280,6 +294,121 @@ function renderShape(
     }
   }
   ctx.stroke();
+}
+
+function roughPolyPath(pts: { x: number; y: number }[], r: number): string {
+  const n = pts.length;
+  let d = "";
+  for (let i = 0; i < n; i++) {
+    const prev = pts[(i - 1 + n) % n];
+    const curr = pts[i];
+    const next = pts[(i + 1) % n];
+    const d1x = prev.x - curr.x, d1y = prev.y - curr.y;
+    const l1 = Math.hypot(d1x, d1y);
+    const d2x = next.x - curr.x, d2y = next.y - curr.y;
+    const l2 = Math.hypot(d2x, d2y);
+    const cr = Math.min(r, l1 / 2, l2 / 2);
+    const t1x = curr.x + (d1x / l1) * cr, t1y = curr.y + (d1y / l1) * cr;
+    const t2x = curr.x + (d2x / l2) * cr, t2y = curr.y + (d2y / l2) * cr;
+    d += i === 0 ? `M ${t1x} ${t1y} ` : `L ${t1x} ${t1y} `;
+    d += `Q ${curr.x} ${curr.y} ${t2x} ${t2y} `;
+  }
+  return d + "Z";
+}
+
+function renderRoughShape(
+  ctx: CanvasRenderingContext2D,
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  shape: ShapeKind,
+  lineWidth: number,
+  style: "solid" | "dashed",
+  dashGap: number | undefined,
+  seed: number,
+  color: string,
+) {
+  const x = Math.min(p0.x, p1.x);
+  const y = Math.min(p0.y, p1.y);
+  const w = Math.abs(p1.x - p0.x);
+  const h = Math.abs(p1.y - p0.y);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const dashScale = lineWidth / 4;
+  const opts = {
+    roughness: 1.2,
+    bowing: 1,
+    seed,
+    stroke: color,
+    strokeWidth: lineWidth,
+    disableMultiStroke: false,
+    ...(style === "dashed"
+      ? { strokeLineDash: [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] }
+      : {}),
+  };
+  const r = Math.min(w, h) * 0.1;
+  // preserveVertices keeps bezier transition points fixed across both strokes,
+  // preventing gap artifacts at the corner/edge junctions
+  const roundedOpts = { ...opts, preserveVertices: true };
+  const rc = rough.canvas(ctx.canvas as HTMLCanvasElement);
+  switch (shape) {
+    case "line":
+      rc.line(p0.x, p0.y, p1.x, p1.y, opts);
+      break;
+    case "rectangle":
+      rc.path(roughPolyPath([{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }], r), roundedOpts);
+      break;
+    case "circle":
+      rc.ellipse(cx, cy, w, h, opts);
+      break;
+    case "triangle":
+      rc.path(roughPolyPath([{ x: cx, y }, { x: x + w, y: y + h }, { x, y: y + h }], r), roundedOpts);
+      break;
+    case "diamond":
+      rc.path(roughPolyPath([{ x: cx, y }, { x: x + w, y: cy }, { x: cx, y: y + h }, { x, y: cy }], r), roundedOpts);
+      break;
+    case "pentagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 5);
+      rc.path(roughPolyPath(pts, r), roundedOpts);
+      break;
+    }
+    case "hexagon": {
+      const pts = regularPolygonPoints(cx, cy, w / 2, h / 2, 6);
+      rc.path(roughPolyPath(pts, r), roundedOpts);
+      break;
+    }
+    case "star": {
+      const pts = starPoints(cx, cy, w / 2, h / 2, w / 5, h / 5);
+      rc.polygon(pts.map((p) => [p.x, p.y] as [number, number]), opts);
+      break;
+    }
+    case "lightning":
+      rc.polygon([
+        [x + w * 0.55, y],
+        [x + w * 0.15, y + h * 0.5],
+        [x + w * 0.45, y + h * 0.5],
+        [x + w * 0.35, y + h],
+        [x + w * 0.85, y + h * 0.4],
+        [x + w * 0.55, y + h * 0.4],
+      ], opts);
+      break;
+    case "arrow": {
+      rc.line(p0.x, p0.y, p1.x, p1.y, opts);
+      const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+      const headLen = Math.max(15, lineWidth * 3);
+      const headAngle = Math.PI / 6;
+      ctx.beginPath();
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = "round";
+      ctx.setLineDash([]);
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p1.x - headLen * Math.cos(angle - headAngle), p1.y - headLen * Math.sin(angle - headAngle));
+      ctx.moveTo(p1.x, p1.y);
+      ctx.lineTo(p1.x - headLen * Math.cos(angle + headAngle), p1.y - headLen * Math.sin(angle + headAngle));
+      ctx.stroke();
+      break;
+    }
+  }
 }
 
 function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
@@ -483,23 +612,37 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
       continue;
     }
     if (stroke.shape && stroke.points.length === 2) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = stroke.lineWidth;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      const dashScale = stroke.lineWidth / 4;
-      ctx.setLineDash(
-        stroke.style === "dashed"
-          ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
-          : [],
-      );
-      renderShape(
-        ctx,
-        stroke.points[0],
-        stroke.points[1],
-        stroke.shape,
-        stroke.lineWidth,
-      );
+      if (stroke.seed !== undefined) {
+        renderRoughShape(
+          ctx,
+          stroke.points[0],
+          stroke.points[1],
+          stroke.shape,
+          stroke.lineWidth,
+          stroke.style,
+          stroke.dashGap,
+          stroke.seed,
+          color,
+        );
+      } else {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = stroke.lineWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        const dashScale = stroke.lineWidth / 4;
+        ctx.setLineDash(
+          stroke.style === "dashed"
+            ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
+            : [],
+        );
+        renderShape(
+          ctx,
+          stroke.points[0],
+          stroke.points[1],
+          stroke.shape,
+          stroke.lineWidth,
+        );
+      }
       continue;
     }
     const baseWidth = stroke.highlight
@@ -2056,6 +2199,20 @@ function Canvas({
         scheduleRedraw();
         return;
       }
+      if (e.key === "Backspace" && selectedTextRef.current && !isWritingRef.current) {
+        e.preventDefault();
+        const stroke = selectedTextRef.current;
+        strokesRef.current = strokesRef.current.filter((s) => s !== stroke);
+        undoStackRef.current.push({ type: "erase", strokes: [stroke] });
+        redoStackRef.current = [];
+        selectedTextRef.current = null;
+        selectDragRef.current = null;
+        strokesCacheRef.current = null;
+        setZCursor(zKeyRef.current ? "default" : null);
+        persistStrokes();
+        scheduleRedraw();
+        return;
+      }
       if (e.key === "Escape" && activeModifierRef.current === "alt") {
         e.preventDefault();
         setErasing(false);
@@ -2762,6 +2919,9 @@ function Canvas({
             lineWidth,
             color: lineColor,
             shape: keyShapeRef.current || activeShapeRef.current,
+            ...(pressureSensitivityRef.current
+              ? { seed: Math.floor(Math.random() * 2 ** 31) }
+              : {}),
           };
           strokesRef.current.push(stroke);
           undoStackRef.current.push({ type: "draw", stroke });
@@ -3139,14 +3299,25 @@ function Canvas({
               return;
             }
           }
-          // Check body — start move drag immediately
+          // Check body — double-click edits text, single click starts move
           if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
               wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+            const stroke = selectedTextRef.current;
+            if (stroke.text) {
+              const now = performance.now();
+              const last = lastTextTapRef.current;
+              if (last && last.stroke === stroke && now - last.time < 300) {
+                lastTextTapRef.current = null;
+                startEditingStroke(stroke, wp);
+                return;
+              }
+              lastTextTapRef.current = { time: now, stroke };
+            }
             selectDragRef.current = {
               mode: "move",
               startPtr: { ...wp },
-              startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
-              startScale: selectedTextRef.current.fontScale ?? 1,
+              startPoints: stroke.points.map(p => ({ ...p })),
+              startScale: stroke.fontScale ?? 1,
               bbox: bb,
             };
             (e.target as Element).setPointerCapture(e.pointerId);
