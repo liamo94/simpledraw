@@ -596,6 +596,7 @@ export default function App() {
           localStorage.setItem("drawtool-active-canvas", String(n));
         }}
         onToggleFullscreen={toggleFullscreen}
+        onResetView={resetView}
       />
       <Canvas
         lineWidth={settings.lineWidth}
@@ -621,7 +622,7 @@ export default function App() {
               }}
             />
           )}
-          <nav aria-label="Drawing tools" className="fixed bottom-4 left-0 right-0 z-50 flex items-center justify-center gap-2.5 px-1 touch-toolbar">
+          <nav aria-label="Drawing tools" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-1 touch-toolbar">
             <div
               className="relative flex items-center gap-0.5 sm:gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{

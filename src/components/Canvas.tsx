@@ -3115,6 +3115,22 @@ function Canvas({
     ],
   );
 
+  const onPointerCancel = useCallback(
+    (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.pointerType !== "touch") return;
+      pointersRef.current.delete(e.pointerId);
+      if (pointersRef.current.size === 0) {
+        isPanningRef.current = false;
+        pinchRef.current = null;
+        twoFingerTapRef.current = null;
+        threeFingerTapRef.current = null;
+        tapStartRef.current = null;
+        if (isDrawingRef.current) cancelCurrentStroke();
+      }
+    },
+    [cancelCurrentStroke],
+  );
+
   const onPointerLeave = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.pointerType === "touch") return; // handled by pointerUp with capture
@@ -3710,6 +3726,7 @@ function Canvas({
       onPointerDown={handlePointerDownForText}
       onPointerMove={handlePointerMoveGuarded}
       onPointerUp={handlePointerUpGuarded}
+      onPointerCancel={onPointerCancel}
       onPointerLeave={onPointerLeave}
       onContextMenu={(e) => e.preventDefault()}
     />

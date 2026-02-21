@@ -15,6 +15,7 @@ type Props = {
   activeCanvas: number;
   onSwitchCanvas: (n: number) => void;
   onToggleFullscreen: () => void;
+  onResetView: () => void;
 };
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -31,6 +32,7 @@ export default function Menu({
   activeCanvas,
   onSwitchCanvas,
   onToggleFullscreen,
+  onResetView,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -474,7 +476,7 @@ export default function Menu({
                       onClick={() => updateSettings({ gridType: g })}
                       aria-pressed={settings.gridType === g}
                       style={bgPattern}
-                      className={`px-3.5 py-1.5 text-xs transition-colors ${
+                      className={`px-5 py-1.5 text-xs transition-colors ${
                         settings.gridType === g
                           ? isDark
                             ? "bg-white/20 text-white"
@@ -490,6 +492,18 @@ export default function Menu({
                 })}
               </div>
             </div>
+
+            {hasTouch && (
+              <button
+                onClick={() => {
+                  onResetView();
+                  closeMenu();
+                }}
+                className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+              >
+                Reset zoom
+              </button>
+            )}
 
             {!hasTouch && (
               <button
