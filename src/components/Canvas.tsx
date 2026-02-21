@@ -1217,20 +1217,17 @@ function Canvas({
     }
 
     // Draw text select hover/selection overlay (world space)
-    const overlayStroke = selectedTextRef.current || hoverTextRef.current;
-    if (overlayStroke) {
-      const bb = selectBBox(overlayStroke);
-      if (!bb) { /* shouldn't happen */ return; }
-      const isSelected = !!selectedTextRef.current;
-      const pad = 3 / scale;
-      const r = 3 / scale; // rounded corner radius
+    const drawOverlayStroke = (stroke: Stroke, isSelected: boolean) => {
+      const bb = selectBBox(stroke);
+      if (!bb) return;
+      const pad = (stroke.shape === "rectangle" ? 6 : 3) / scale;
       const lw = 1.5 / scale;
       const rx = bb.x - pad, ry = bb.y - pad;
       const rw = bb.w + pad * 2, rh = bb.h + pad * 2;
 
       ctx.save();
       ctx.beginPath();
-      ctx.roundRect(rx, ry, rw, rh, r);
+      ctx.rect(rx, ry, rw, rh);
 
       if (isSelected) {
         ctx.fillStyle = "rgba(72,149,239,0.07)";
@@ -1240,7 +1237,7 @@ function Canvas({
         ctx.setLineDash([]);
         ctx.stroke();
 
-        // Circular corner handles
+        // Square corner handles
         const hr = 4.5 / scale;
         const corners = [
           { x: rx,      y: ry },
@@ -1251,22 +1248,30 @@ function Canvas({
         ctx.lineWidth = 1.5 / scale;
         for (const c of corners) {
           ctx.beginPath();
-          ctx.arc(c.x, c.y, hr, 0, Math.PI * 2);
+          ctx.rect(c.x - hr, c.y - hr, hr * 2, hr * 2);
           ctx.fillStyle = "#ffffff";
           ctx.fill();
           ctx.strokeStyle = "#4895ef";
           ctx.stroke();
         }
       } else {
-        // Hover — subtle dashed outline
-        const hoverColor = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.3)";
-        ctx.strokeStyle = hoverColor;
-        ctx.lineWidth = 1 / scale;
-        ctx.setLineDash([4 / scale, 3 / scale]);
-        ctx.stroke();
+        // Hover — solid outline with subtle fill
+        ctx.fillStyle = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)";
+        ctx.fill();
+        ctx.strokeStyle = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.45)";
+        ctx.lineWidth = 1.5 / scale;
         ctx.setLineDash([]);
+        ctx.stroke();
       }
       ctx.restore();
+    };
+
+    // Draw hover first (underneath selected)
+    if (hoverTextRef.current && hoverTextRef.current !== selectedTextRef.current) {
+      drawOverlayStroke(hoverTextRef.current, false);
+    }
+    if (selectedTextRef.current) {
+      drawOverlayStroke(selectedTextRef.current, true);
     }
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -2030,7 +2035,7 @@ function Canvas({
         startWritingRef.current({ ...cursorWorldRef.current });
         return;
       }
-      if (e.key === "z" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+      if (e.key === "v" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         zKeyRef.current = true;
         setZCursor("default");
       }
@@ -2234,7 +2239,7 @@ function Canvas({
           shapeFlashRef.current = null;
         }, 300);
       }
-      if ((e.key === "v" || e.key === "h") && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+      if ((e.key === "w" || e.key === "h") && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         highlightKeyRef.current = true;
         setHighlighting(true);
       }
@@ -2328,7 +2333,7 @@ function Canvas({
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "z") {
+      if (e.key === "v") {
         zKeyRef.current = false;
         if (hoverTextRef.current) {
           hoverTextRef.current = null;
@@ -2364,7 +2369,7 @@ function Canvas({
           activeModifierRef.current = null;
         }
       }
-      if (e.key === "v" || e.key === "h") {
+      if (e.key === "w" || e.key === "h") {
         highlightKeyRef.current = false;
         setHighlighting(false);
         if (activeModifierRef.current === "highlight") {
@@ -3417,7 +3422,34 @@ function Canvas({
             (e.target as Element).setPointerCapture(e.pointerId);
             return;
           }
-          // Clicked elsewhere — deselect and stop
+          // Clicked elsewhere — check if a different stroke was hit
+          let newSel: Stroke | null = null;
+          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+            const stroke = strokesRef.current[i];
+            if (stroke === selectedTextRef.current) continue;
+            const hbb = selectBBox(stroke);
+            if (!hbb) continue;
+            if (wp.x >= hbb.x - pad && wp.x <= hbb.x + hbb.w + pad &&
+                wp.y >= hbb.y - pad && wp.y <= hbb.y + hbb.h + pad) {
+              newSel = stroke;
+              break;
+            }
+          }
+          if (newSel) {
+            selectedTextRef.current = newSel;
+            hoverTextRef.current = null;
+            selectDragRef.current = {
+              mode: "move",
+              startPtr: { ...wp },
+              startPoints: newSel.points.map(p => ({ ...p })),
+              startScale: newSel.fontScale ?? 1,
+              bbox: selectBBox(newSel)!,
+            };
+            (e.target as Element).setPointerCapture(e.pointerId);
+            scheduleRedraw();
+            return;
+          }
+          // Nothing hit — deselect
           selectedTextRef.current = null;
           selectDragRef.current = null;
           setZCursor(zKeyRef.current ? "default" : null);
@@ -3554,6 +3586,25 @@ function Canvas({
             cur = "move";
           }
           setZCursor(cur);
+          // Hover detection on other strokes while something is selected
+          let hoverHit: Stroke | null = null;
+          if (cur === "default") {
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              const stroke = strokesRef.current[i];
+              if (stroke === selectedTextRef.current) continue;
+              const hbb = selectBBox(stroke);
+              if (!hbb) continue;
+              if (wp.x >= hbb.x - pad && wp.x <= hbb.x + hbb.w + pad &&
+                  wp.y >= hbb.y - pad && wp.y <= hbb.y + hbb.h + pad) {
+                hoverHit = stroke;
+                break;
+              }
+            }
+          }
+          if (hoverHit !== hoverTextRef.current) {
+            hoverTextRef.current = hoverHit;
+            scheduleRedraw();
+          }
         } else if (zKeyRef.current) {
           // Z-key hover detection (text + shapes)
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);

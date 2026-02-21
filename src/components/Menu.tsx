@@ -894,7 +894,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            V/H + drag
+                            W/H + drag
                           </kbd>
                         </div>
                       </div>
@@ -1311,7 +1311,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            Z + hold
+                            V + hold
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
