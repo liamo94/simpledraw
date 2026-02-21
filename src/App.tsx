@@ -2,7 +2,7 @@ import { useCallback, useState, useEffect, useRef, useMemo, ReactNode } from "re
 import Canvas from "./components/Canvas";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
-import useSettings, { type ShapeKind, type Theme, type TextSize } from "./hooks/useSettings";
+import useSettings, { type ShapeKind, type Theme, type TextSize, type GridType } from "./hooks/useSettings";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -280,7 +280,18 @@ export default function App() {
       showToast({ type: "text", message });
     };
     const onToggleGrid = () => {
-      updateSettings({ showDotGrid: !settingsRef.current.showDotGrid });
+      const cycle: GridType[] = ["off", "dot", "square"];
+      const cur = settingsRef.current.gridType;
+      const next = cycle[(cycle.indexOf(cur) + 1) % cycle.length];
+      updateSettings({ gridType: next });
+      showToast({ type: "text", message: `Grid: ${next}` });
+    };
+    const onToggleGridBack = () => {
+      const cycle: GridType[] = ["off", "dot", "square"];
+      const cur = settingsRef.current.gridType;
+      const next = cycle[(cycle.indexOf(cur) - 1 + cycle.length) % cycle.length];
+      updateSettings({ gridType: next });
+      showToast({ type: "text", message: `Grid: ${next}` });
     };
     const onTogglePressure = () => {
       const next = !settingsRef.current.pressureSensitivity;
@@ -315,6 +326,7 @@ export default function App() {
     };
     window.addEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
     window.addEventListener("drawtool:toggle-grid", onToggleGrid);
+    window.addEventListener("drawtool:toggle-grid-back", onToggleGridBack);
     window.addEventListener("drawtool:toggle-pressure", onTogglePressure);
     window.addEventListener("drawtool:export", onExportShortcut);
     window.addEventListener("drawtool:text-size", onTextSize);
@@ -335,6 +347,7 @@ export default function App() {
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
       window.removeEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
       window.removeEventListener("drawtool:toggle-grid", onToggleGrid);
+      window.removeEventListener("drawtool:toggle-grid-back", onToggleGridBack);
       window.removeEventListener("drawtool:toggle-pressure", onTogglePressure);
       window.removeEventListener("drawtool:export", onExportShortcut);
       window.removeEventListener("drawtool:text-size", onTextSize);
@@ -588,7 +601,7 @@ export default function App() {
         lineWidth={settings.lineWidth}
         lineColor={settings.lineColor}
         dashGap={settings.dashGap}
-        showDotGrid={settings.showDotGrid}
+        gridType={settings.gridType}
         theme={settings.theme}
         touchTool={touchTool}
         activeShape={settings.activeShape}

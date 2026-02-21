@@ -16,12 +16,14 @@ export type Theme = "dark" | "midnight" | "lumber" | "white" | "journal" | "sky"
 
 export type TextSize = "xs" | "s" | "m" | "l" | "xl";
 
+export type GridType = "off" | "dot" | "square";
+
 export type Settings = {
   lineWidth: number;
   lineColor: string;
   dashGap: number;
   showZoomControls: boolean;
-  showDotGrid: boolean;
+  gridType: GridType;
   theme: Theme;
   confirmClear: boolean;
   activeShape: ShapeKind;
@@ -43,7 +45,7 @@ function getDefaults(): Settings {
     lineColor: "#ffffff",
     dashGap: 4,
     showZoomControls: true,
-    showDotGrid: false,
+    gridType: "off" as GridType,
     theme: getSystemTheme(),
     confirmClear: true,
     activeShape: "rectangle" as const,
@@ -63,6 +65,11 @@ function load(): Settings {
         parsed.theme = getSystemTheme();
       } else if (parsed.theme === "light") {
         parsed.theme = "white";
+      }
+      // Migrate old boolean showDotGrid to gridType
+      if ("showDotGrid" in parsed && !("gridType" in parsed)) {
+        parsed.gridType = parsed.showDotGrid ? "dot" : "off";
+        delete parsed.showDotGrid;
       }
       return { ...defaults, ...parsed };
     }

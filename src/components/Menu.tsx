@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Settings, Theme, TextSize } from "../hooks/useSettings";
+import type { Settings, Theme, TextSize, GridType } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight" || theme === "lumber";
@@ -487,7 +487,6 @@ export default function Menu({
             <div className="mt-4 space-y-3">
               {[
                 ...(!hasTouch ? [{ label: "Zoom controls", key: "showZoomControls" as const, value: settings.showZoomControls }] : []),
-                { label: "Dot grid", key: "showDotGrid" as const, value: settings.showDotGrid },
                 ...(!hasTouch ? [{ label: "Confirm clear", key: "confirmClear" as const, value: settings.confirmClear }] : []),
                 { label: "Dynamic stroke", key: "pressureSensitivity" as const, value: settings.pressureSensitivity },
               ].map((opt) => (
@@ -520,6 +519,31 @@ export default function Menu({
                   </span>
                 </button>
               ))}
+              <div className="flex items-center justify-between w-full text-sm">
+                <span>Grid</span>
+                <div
+                  className={`flex rounded overflow-hidden border ${isDark ? "border-white/15" : "border-black/15"}`}
+                >
+                  {(["off", "dot", "square"] as GridType[]).map((g) => (
+                    <button
+                      key={g}
+                      onClick={() => updateSettings({ gridType: g })}
+                      aria-pressed={settings.gridType === g}
+                      className={`px-2.5 py-1 text-xs transition-colors ${
+                        settings.gridType === g
+                          ? isDark
+                            ? "bg-white/20 text-white"
+                            : "bg-black/15 text-black"
+                          : isDark
+                            ? "text-white/50 hover:bg-white/10"
+                            : "text-black/50 hover:bg-black/8"
+                      }`}
+                    >
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
 
             {!hasTouch && (
@@ -1387,20 +1411,19 @@ export default function Menu({
                               width="12"
                               height="12"
                               viewBox="0 0 16 16"
-                              fill="currentColor"
-                              stroke="none"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
                             >
-                              <circle cx="4" cy="4" r="1.5" opacity="0.5" />
-                              <circle cx="8" cy="4" r="1.5" opacity="0.5" />
-                              <circle cx="12" cy="4" r="1.5" opacity="0.5" />
-                              <circle cx="4" cy="8" r="1.5" opacity="0.5" />
-                              <circle cx="8" cy="8" r="1.5" opacity="0.5" />
-                              <circle cx="12" cy="8" r="1.5" opacity="0.5" />
-                              <circle cx="4" cy="12" r="1.5" opacity="0.5" />
-                              <circle cx="8" cy="12" r="1.5" opacity="0.5" />
-                              <circle cx="12" cy="12" r="1.5" opacity="0.5" />
+                              <line x1="4" y1="2" x2="4" y2="14" strokeOpacity="0.5" />
+                              <line x1="8" y1="2" x2="8" y2="14" strokeOpacity="0.5" />
+                              <line x1="12" y1="2" x2="12" y2="14" strokeOpacity="0.5" />
+                              <line x1="2" y1="4" x2="14" y2="4" strokeOpacity="0.5" />
+                              <line x1="2" y1="8" x2="14" y2="8" strokeOpacity="0.5" />
+                              <line x1="2" y1="12" x2="14" y2="12" strokeOpacity="0.5" />
                             </svg>
-                            Dot grid
+                            Cycle grid
                           </span>
                           <kbd
                             className={

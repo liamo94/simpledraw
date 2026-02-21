@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState, memo } from "react";
 import { getStroke } from "perfect-freehand";
 import rough from "roughjs";
-import type { ShapeKind, Theme, TextSize } from "../hooks/useSettings";
+import type { ShapeKind, Theme, TextSize, GridType } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight" || theme === "lumber";
@@ -78,6 +78,10 @@ function saveStrokes(strokes: Stroke[], canvasIndex: number) {
   }
 }
 
+function defaultView() {
+  return { x: window.innerWidth / 2 - 150, y: window.innerHeight / 2 - 150, scale: 1 };
+}
+
 function loadView(canvasIndex: number): { x: number; y: number; scale: number } {
   try {
     const raw = localStorage.getItem(viewKey(canvasIndex));
@@ -85,7 +89,7 @@ function loadView(canvasIndex: number): { x: number; y: number; scale: number } 
   } catch {
     /* ignore */
   }
-  return { x: 0, y: 0, scale: 1 };
+  return defaultView();
 }
 
 function saveView(view: { x: number; y: number; scale: number }, canvasIndex: number) {
@@ -712,7 +716,7 @@ function Canvas({
   lineWidth,
   lineColor,
   dashGap,
-  showDotGrid,
+  gridType,
   theme,
   touchTool,
   activeShape,
@@ -724,7 +728,7 @@ function Canvas({
   lineWidth: number;
   lineColor: string;
   dashGap: number;
-  showDotGrid: boolean;
+  gridType: GridType;
   theme: Theme;
   touchTool: TouchTool;
   activeShape: ShapeKind;
@@ -751,8 +755,8 @@ function Canvas({
   const laserTrailRef = useRef<{ x: number; y: number }[]>([]);
   const laserMovingRef = useRef(false);
   const viewRef = useRef(loadView(canvasIndex));
-  const showDotGridRef = useRef(showDotGrid);
-  showDotGridRef.current = showDotGrid;
+  const gridTypeRef = useRef(gridType);
+  gridTypeRef.current = gridType;
   const themeRef = useRef(theme);
   themeRef.current = theme;
   const touchToolRef = useRef(touchTool);
@@ -896,16 +900,12 @@ function Canvas({
     ctx.fillStyle = getBackgroundColor(themeRef.current);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // --- Dot grid via tiled patterns (item 7) ---
-    // Each zoom level gets a tiny tile canvas (one dot centered) turned into a
-    // repeating CanvasPattern. Drawing is a single fillRect per level — the GPU
-    // handles the tiling. The pattern transform offset aligns dots to world
-    // grid positions so panning never requires a redraw.
-    if (showDotGridRef.current) {
+    // --- Grid via tiled patterns ---
+    const isDarkKey = isDark ? "1" : "0";
+    if (gridTypeRef.current === "dot") {
       const BASE = 12;
       const DOT_RADIUS = 0.75;
-      const baseAlpha = isDark ? 0.7 : 1.0;
-      const isDarkKey = isDark ? "1" : "0";
+      const baseAlpha = isDark ? 0.4 : 0.55;
       const dotColor = isDark ? "white" : "black";
 
       for (let spacing = BASE; spacing < 500000; spacing *= 5) {
@@ -915,9 +915,6 @@ function Canvas({
         const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 20));
         if (opacity <= 0) continue;
 
-        // Round to nearest integer for the tile canvas dimension.
-        // patternScale then corrects the repeating interval to the exact float
-        // screenGap so dots don't drift/jitter as zoom changes continuously.
         const tileSize = Math.max(Math.round(screenGap), 1);
         const patternScale = screenGap / tileSize;
         const tileKey = `${tileSize},${isDarkKey}`;
@@ -936,8 +933,6 @@ function Canvas({
           gridPatternCacheRef.current.set(tileKey, pattern);
         }
 
-        // Translate so the dot at tile-center lands on the world-origin's
-        // screen position, then scale so the tile repeats at exactly screenGap.
         const ox = ((x % screenGap) + screenGap) % screenGap;
         const oy = ((y % screenGap) + screenGap) % screenGap;
         pattern.setTransform(
@@ -949,6 +944,86 @@ function Canvas({
         ctx.globalAlpha = opacity * baseAlpha;
         ctx.fillStyle = pattern;
         ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.globalAlpha = 1;
+    } else if (gridTypeRef.current === "square") {
+      // Adaptive multi-level grid. Each spacing level independently crossfades
+      // between two roles based on its current screen size:
+      //   Minor (dashed):  screenGap ~10–120 px  — inner subdivisions
+      //   Major (solid):   screenGap ~60–600 px  — outer grid lines
+      // The 60–120 px overlap is the crossfade zone where a level transitions
+      // from dashed inner to solid outer as you zoom in, giving seamless adaption.
+      const lineColor = isDark ? "white" : "black";
+      const canvasMax = Math.max(canvas.width, canvas.height);
+
+      const drawSqLevel = (sg: number, dashed: boolean, alpha: number) => {
+        if (alpha < 0.005) return;
+        const tileSize = Math.max(Math.round(sg), 1);
+        const patternScale = sg / tileSize;
+        const tileKey = `sq-${tileSize},${isDarkKey},${dashed ? "d" : "s"}`;
+        let pat = gridPatternCacheRef.current.get(tileKey);
+        if (!pat) {
+          const tile = document.createElement("canvas");
+          tile.width = tileSize; tile.height = tileSize;
+          const tc = tile.getContext("2d")!;
+          tc.strokeStyle = lineColor; tc.lineWidth = 1;
+          if (dashed) {
+            const du = Math.max(2, tileSize / 16); // 8 cycles/tile → seamless
+            tc.setLineDash([du, du]);
+          }
+          tc.beginPath(); tc.moveTo(tileSize - 0.5, 0); tc.lineTo(tileSize - 0.5, tileSize); tc.stroke();
+          tc.beginPath(); tc.moveTo(0, tileSize - 0.5); tc.lineTo(tileSize, tileSize - 0.5); tc.stroke();
+          pat = ctx.createPattern(tile, "repeat")!;
+          gridPatternCacheRef.current.set(tileKey, pat);
+        }
+        const ox = ((x % sg) + sg) % sg;
+        const oy = ((y % sg) + sg) % sg;
+        pat.setTransform(new DOMMatrix().translate(ox - sg, oy - sg).scale(patternScale));
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = pat;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      };
+
+      // Zoom-responsive global multiplier:
+      //   scale < 0.2  → dims to ~15% ("very far away")
+      //   scale 0.2–3  → normal
+      //   scale > 3    → brightens to 1.5× ("zoomed in close")
+      const zoomAlpha =
+        scale < 0.2  ? Math.max(0.15, scale / 0.2)
+        : scale > 3  ? Math.min(1.5, 1 + (scale - 3) / 6)
+        : 1.0;
+
+      if (scale >= 0.5) {
+        // ≥ 50%: adaptive — grid coarsens automatically to stay comfortable
+        for (let spacing = 12; spacing < 500000; spacing *= 5) {
+          const sg = spacing * scale;
+          if (sg < 4) continue;
+          if (sg > canvasMax * 2) break;
+
+          const minorOp =
+            Math.max(0, Math.min(1, (sg - 10) / 20)) *
+            Math.max(0, Math.min(1, (50 - sg) / 20));
+          const majorOp =
+            Math.max(0, Math.min(1, (sg - 30) / 30)) *
+            Math.max(0, Math.min(1, (600 - sg) / 200));
+
+          const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
+          drawSqLevel(sg, true,  minorOp * zoomAlpha * (isDark ? 0.04 * darkAlphaScale : 0.08));
+          drawSqLevel(sg, false, majorOp * zoomAlpha * (isDark ? 0.07 * darkAlphaScale : 0.12));
+        }
+      } else {
+        // < 50%: fixed world-space levels so squares shrink with zoom,
+        // giving clear visual feedback that you're far out.
+        // At scale=0.5 both branches produce identical output (30px/150px) — seamless.
+        const drawFixed = (spacing: number, dashed: boolean, baseAlpha: number) => {
+          const sg = spacing * scale;
+          if (sg < 2) return;
+          const op = Math.max(0, Math.min(1, (sg - 4) / 16));
+          drawSqLevel(sg, dashed, op * zoomAlpha * baseAlpha);
+        };
+        const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
+        drawFixed(60,  true,  isDark ? 0.04 * darkAlphaScale : 0.08); // dashed inner, shrinks with zoom
+        drawFixed(300, false, isDark ? 0.07 * darkAlphaScale : 0.12); // solid outer, shrinks with zoom
       }
       ctx.globalAlpha = 1;
     }
@@ -1390,7 +1465,7 @@ function Canvas({
     }
     strokesCacheRef.current = null;
     scheduleRedraw();
-  }, [showDotGrid, theme, scheduleRedraw, persistStrokes]);
+  }, [gridType, theme, scheduleRedraw, persistStrokes]);
 
   // Handle resize
   useEffect(() => {
@@ -2012,6 +2087,10 @@ function Canvas({
       if (e.key === "g" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:toggle-grid"));
+      }
+      if (e.key === "G" && !cmdKey(e) && !e.altKey && !e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:toggle-grid-back"));
       }
       if (cmdKey(e) && e.key === "e" && !e.shiftKey) {
         e.preventDefault();
