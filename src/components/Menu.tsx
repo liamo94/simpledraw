@@ -454,21 +454,40 @@ export default function Menu({
               ))}
             </div>
 
-            <div className="mt-4 flex items-center gap-3 text-sm">
-              <span>Export</span>
-              <div className="flex gap-1 flex-1">
-                <button
-                  onClick={onExport}
-                  className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
-                >
-                  With background
-                </button>
-                <button
-                  onClick={onExportTransparent}
-                  className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
-                >
-                  Transparent
-                </button>
+            <div className="mt-4 flex items-center justify-between text-sm">
+              <span>Grid</span>
+              <div
+                className={`flex rounded overflow-hidden border ${isDark ? "border-white/15" : "border-black/15"}`}
+              >
+                {(["off", "dot", "square"] as GridType[]).map((g) => {
+                  const dotColor = isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.18)";
+                  const sqColor  = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
+                  const bgPattern =
+                    g === "dot"
+                      ? { backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`, backgroundSize: "7px 7px" }
+                      : g === "square"
+                      ? { backgroundImage: `linear-gradient(to right, ${sqColor} 1px, transparent 1px), linear-gradient(to bottom, ${sqColor} 1px, transparent 1px)`, backgroundSize: "7px 7px" }
+                      : {};
+                  return (
+                    <button
+                      key={g}
+                      onClick={() => updateSettings({ gridType: g })}
+                      aria-pressed={settings.gridType === g}
+                      style={bgPattern}
+                      className={`px-3.5 py-1.5 text-xs transition-colors ${
+                        settings.gridType === g
+                          ? isDark
+                            ? "bg-white/20 text-white"
+                            : "bg-black/15 text-black"
+                          : isDark
+                            ? "text-white/50 hover:bg-white/10"
+                            : "text-black/50 hover:bg-black/8"
+                      }`}
+                    >
+                      {g.charAt(0).toUpperCase() + g.slice(1)}
+                    </button>
+                  );
+                })}
               </div>
             </div>
 
@@ -519,29 +538,21 @@ export default function Menu({
                   </span>
                 </button>
               ))}
-              <div className="flex items-center justify-between w-full text-sm">
-                <span>Grid</span>
-                <div
-                  className={`flex rounded overflow-hidden border ${isDark ? "border-white/15" : "border-black/15"}`}
-                >
-                  {(["off", "dot", "square"] as GridType[]).map((g) => (
-                    <button
-                      key={g}
-                      onClick={() => updateSettings({ gridType: g })}
-                      aria-pressed={settings.gridType === g}
-                      className={`px-2.5 py-1 text-xs transition-colors ${
-                        settings.gridType === g
-                          ? isDark
-                            ? "bg-white/20 text-white"
-                            : "bg-black/15 text-black"
-                          : isDark
-                            ? "text-white/50 hover:bg-white/10"
-                            : "text-black/50 hover:bg-black/8"
-                      }`}
-                    >
-                      {g.charAt(0).toUpperCase() + g.slice(1)}
-                    </button>
-                  ))}
+              <div className="flex items-center gap-3 text-sm">
+                <span>Export</span>
+                <div className="flex gap-1 flex-1">
+                  <button
+                    onClick={onExport}
+                    className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
+                  >
+                    With background
+                  </button>
+                  <button
+                    onClick={onExportTransparent}
+                    className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
+                  >
+                    Transparent
+                  </button>
                 </div>
               </div>
             </div>
