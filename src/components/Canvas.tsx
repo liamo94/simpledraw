@@ -2772,7 +2772,7 @@ function Canvas({
           view.y += cy - pinchRef.current.cy;
           // Zoom
           const rawFactor = dist / pinchRef.current.dist;
-          const factor = Math.pow(rawFactor, 5);
+          const factor = Math.pow(rawFactor, 2);
           const newScale = Math.min(10, Math.max(0.1, view.scale * factor));
           const ratio = newScale / view.scale;
           view.x = cx - ratio * (cx - view.x);
