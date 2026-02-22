@@ -99,7 +99,6 @@ export default function Menu({
 
   return (
     <>
-      {open && <div className="fixed inset-0 z-40" onPointerDown={closeMenu} />}
       <div
         ref={menuRef}
         className="fixed top-4 right-4 z-50 flex flex-col items-end"

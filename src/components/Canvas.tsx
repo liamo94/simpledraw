@@ -619,6 +619,10 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
       if (Math.abs(stroke.points[1].x - stroke.points[0].x) < 0.5 &&
           Math.abs(stroke.points[1].y - stroke.points[0].y) < 0.5) continue;
       if (stroke.seed !== undefined) {
+        // rough.js uses ctx.save()/restore() per path but only sets lineDash when strokeLineDash
+        // is provided (i.e. for dashed shapes). For solid shapes it inherits whatever lineDash is
+        // currently on the canvas — so reset it here to prevent contamination from previous strokes.
+        ctx.setLineDash([]);
         renderRoughShape(
           ctx,
           stroke.points[0],
@@ -787,6 +791,7 @@ function Canvas({
   const spaceDownRef = useRef(false);
   const keyShapeRef = useRef<ShapeKind | null>(null);
   const keyShapeDashedRef = useRef(false);
+  const shiftHeldRef = useRef(false); // own shift tracking — e.shiftKey can get stuck on Mac
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const lastDPressRef = useRef(0);
@@ -2202,6 +2207,7 @@ function Canvas({
         persistStrokes();
         scheduleRedraw();
       }
+      if (e.key === "Shift") shiftHeldRef.current = true;
       if (e.key === "Alt" && !e.shiftKey) setErasing(true);
       if (e.key === "Alt" && e.shiftKey && !isMac) setShapeActive(true);
       if (e.key === "Shift" && e.altKey && !isMac) {
@@ -2260,7 +2266,7 @@ function Canvas({
         !e.ctrlKey
       ) {
         keyShapeRef.current = shapeKeyMap[e.key];
-        keyShapeDashedRef.current = e.shiftKey;
+        keyShapeDashedRef.current = shiftHeldRef.current;
         shapeJustCommittedRef.current = false;
         setShapeActive(true);
       }
@@ -2379,8 +2385,21 @@ function Canvas({
           persistStrokes();
         }
       }
-      if (e.key === "Shift" && keyShapeRef.current) {
-        keyShapeDashedRef.current = false;
+      if (e.key === "Shift") {
+        shiftHeldRef.current = false;
+        if (keyShapeRef.current) {
+          keyShapeDashedRef.current = false;
+          // Shift was released while a key-shape is active — update the live hover shape
+          // (style is captured at creation time in onPointerMove and never re-read otherwise)
+          if (isDrawingRef.current && activeModifierRef.current === "shape") {
+            const stroke = strokesRef.current[strokesRef.current.length - 1];
+            if (stroke?.shape) {
+              stroke.style = "solid";
+              stroke.dashGap = undefined;
+              scheduleRedraw();
+            }
+          }
+        }
       }
       if (e.key === "Control" && isMac) setShapeActive(false);
       if ((e.key === "Alt" || e.key === "Shift") && !isMac)
@@ -2420,6 +2439,7 @@ function Canvas({
       setLasering(false);
       highlightKeyRef.current = false;
       laserKeyRef.current = false;
+      shiftHeldRef.current = false;
       keyShapeRef.current = null;
       keyShapeDashedRef.current = false;
       if (activeModifierRef.current === "alt") {
@@ -2613,6 +2633,17 @@ function Canvas({
         isPanningRef.current = true;
         panLastRef.current = { x: e.clientX, y: e.clientY };
         setPanning(true);
+      }
+      shapeJustCommittedRef.current = false;
+      // Re-evaluate dashed state for any in-progress hover shape at actual button press time.
+      // Style is locked at hover creation and may be stale if shift state changed after hover started.
+      if (e.button === 0 && isDrawingRef.current && activeModifierRef.current === "shape") {
+        const stroke = strokesRef.current[strokesRef.current.length - 1];
+        if (stroke?.shape) {
+          const dashed = keyShapeDashedRef.current;
+          stroke.style = dashed ? "dashed" : "solid";
+          if (!dashed) stroke.dashGap = undefined;
+        }
       }
       (e.target as Element).setPointerCapture(e.pointerId);
     },
@@ -3001,12 +3032,15 @@ function Canvas({
 
       if (modifier === "shape") {
         if (!isDrawingRef.current || activeModifierRef.current !== "shape") {
-          if (shapeJustCommittedRef.current && keyShapeRef.current && !e.buttons) return;
+          if (shapeJustCommittedRef.current && keyShapeRef.current && !e.buttons) {
+            shapeJustCommittedRef.current = false;
+            return;
+          }
           shapeJustCommittedRef.current = false;
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
-          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : e.shiftKey;
+          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : shiftHeldRef.current;
           const stroke: Stroke = {
             points: [point, { ...point }],
             style: dashed ? "dashed" : "solid",
@@ -3057,7 +3091,10 @@ function Canvas({
       }
 
       if (!isDrawingRef.current || activeModifierRef.current !== modifier) {
-        if (modifier === "shift" && shapeJustCommittedRef.current && !e.buttons) return;
+        if (modifier === "shift" && shapeJustCommittedRef.current && !e.buttons) {
+          shapeJustCommittedRef.current = false;
+          return;
+        }
         shapeJustCommittedRef.current = false;
         const usePressure = pressureSensitivityRef.current;
         notifyColorUsed(lineColor);
