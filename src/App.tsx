@@ -1,8 +1,20 @@
-import { useCallback, useState, useEffect, useRef, useMemo, ReactNode } from "react";
+import {
+  useCallback,
+  useState,
+  useEffect,
+  useRef,
+  useMemo,
+  ReactNode,
+} from "react";
 import Canvas from "./components/Canvas";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
-import useSettings, { type ShapeKind, type Theme, type TextSize, type GridType } from "./hooks/useSettings";
+import useSettings, {
+  type ShapeKind,
+  type Theme,
+  type TextSize,
+  type GridType,
+} from "./hooks/useSettings";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -57,6 +69,12 @@ export default function App() {
     const n = stored ? parseInt(stored, 10) : 1;
     return n >= 1 && n <= 9 ? n : 1;
   });
+  const [canvasName, setCanvasName] = useState(() => {
+    const stored = localStorage.getItem("drawtool-active-canvas");
+    const n = stored ? parseInt(stored, 10) : 1;
+    return localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "";
+  });
+  const canvasNameInputRef = useRef<HTMLInputElement>(null);
   const [contentOffScreen, setContentOffScreen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState<
@@ -137,7 +155,7 @@ export default function App() {
       window.dispatchEvent(
         new CustomEvent("drawtool:query-stroke-count", { detail }),
       );
-      if (detail.count > 16) {
+      if (detail.count > 10) {
         setConfirmingClear(true);
         return;
       }
@@ -189,7 +207,10 @@ export default function App() {
         } else {
           nextIdx = -1;
           for (let i = steps.length - 1; i >= 0; i--) {
-            if (steps[i] < cur) { nextIdx = i; break; }
+            if (steps[i] < cur) {
+              nextIdx = i;
+              break;
+            }
           }
         }
       } else {
@@ -259,8 +280,13 @@ export default function App() {
       if (n >= 1 && n <= 9) {
         setActiveCanvas(n);
         localStorage.setItem("drawtool-active-canvas", String(n));
+        setCanvasName(localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "");
         showToast({ type: "text", message: `Canvas ${n}` });
       }
+    };
+    const onFocusCanvasName = () => {
+      canvasNameInputRef.current?.focus();
+      canvasNameInputRef.current?.select();
     };
     window.addEventListener("drawtool:zoom", onZoom);
     window.addEventListener("drawtool:thickness", onThickness);
@@ -271,6 +297,7 @@ export default function App() {
     window.addEventListener("drawtool:cycle-shape", onCycleShape);
     window.addEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
     window.addEventListener("drawtool:switch-canvas", onSwitchCanvas);
+    window.addEventListener("drawtool:focus-canvas-name", onFocusCanvasName);
     const onTextSize = (e: Event) => {
       const size = (e as CustomEvent).detail as TextSize;
       updateSettings({ textSize: size });
@@ -289,7 +316,8 @@ export default function App() {
     const onToggleGridBack = () => {
       const cycle: GridType[] = ["off", "dot", "square"];
       const cur = settingsRef.current.gridType;
-      const next = cycle[(cycle.indexOf(cur) - 1 + cycle.length) % cycle.length];
+      const next =
+        cycle[(cycle.indexOf(cur) - 1 + cycle.length) % cycle.length];
       updateSettings({ gridType: next });
       showToast({ type: "text", message: `Grid: ${next}` });
     };
@@ -311,10 +339,21 @@ export default function App() {
         URL.revokeObjectURL(url);
       });
     };
-    const THEMES: Theme[] = ["dark", "midnight", "lumber", "journal", "sky", "white"];
+    const THEMES: Theme[] = [
+      "dark",
+      "midnight",
+      "lumber",
+      "journal",
+      "sky",
+      "white",
+    ];
     const THEME_LABELS: Record<Theme, string> = {
-      dark: "Black", midnight: "Midnight", lumber: "Lumber",
-      journal: "Journal", sky: "Sky", white: "White",
+      dark: "Black",
+      midnight: "Midnight",
+      lumber: "Lumber",
+      journal: "Journal",
+      sky: "Sky",
+      white: "White",
     };
     const onCycleTheme = (e: Event) => {
       const dir = (e as CustomEvent).detail === -1 ? -1 : 1;
@@ -340,12 +379,16 @@ export default function App() {
       window.removeEventListener("drawtool:swap-color", onSwapColor);
       window.removeEventListener("drawtool:request-clear", onRequestClear);
       window.removeEventListener("drawtool:cycle-shape", onCycleShape);
-      window.removeEventListener(
-        "drawtool:cycle-shape-back",
-        onCycleShapeBack,
-      );
+      window.removeEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
-      window.removeEventListener("drawtool:toggle-fullscreen", toggleFullscreen);
+      window.removeEventListener(
+        "drawtool:focus-canvas-name",
+        onFocusCanvasName,
+      );
+      window.removeEventListener(
+        "drawtool:toggle-fullscreen",
+        toggleFullscreen,
+      );
       window.removeEventListener("drawtool:toggle-grid", onToggleGrid);
       window.removeEventListener("drawtool:toggle-grid-back", onToggleGridBack);
       window.removeEventListener("drawtool:toggle-pressure", onTogglePressure);
@@ -400,7 +443,6 @@ export default function App() {
     window.dispatchEvent(new Event("drawtool:export-transparent"));
   }, []);
 
-
   const zoomIn = useCallback(() => {
     window.dispatchEvent(
       new CustomEvent("drawtool:zoom-step", { detail: 1.25 }),
@@ -433,153 +475,159 @@ export default function App() {
   const mod = isMac ? "\u2318" : "Ctrl";
   const alt = isMac ? "\u2325" : "Alt";
 
-  const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] = useMemo(() => [
-    {
-      id: "hand",
-      label: "Move",
-      icon: (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M8 1.5v13M1.5 8h13M3 4.5L1.5 8 3 11.5M13 4.5L14.5 8 13 11.5M4.5 3L8 1.5 11.5 3M4.5 13L8 14.5 11.5 13" />
-        </svg>
-      ),
-    },
-    {
-      id: "draw",
-      label: "Draw",
-      icon: (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke={settings.lineColor}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <path d="M2 14l3-1L13.5 4.5a1.4 1.4 0 0 0-2-2L3 11z" />
-          <path d="M10.5 3.5l2 2" />
-        </svg>
-      ),
-    },
-    {
-      id: "dashed",
-      label: "Dash",
-      icon: (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke={settings.lineColor}
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeDasharray="3 3"
-        >
-          <line x1="2" y1="8" x2="14" y2="8" />
-        </svg>
-      ),
-    },
-    {
-      id: "shape",
-      label: "Shape",
-      icon: (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke={settings.lineColor}
-          strokeWidth="1.5"
-          strokeLinejoin="round"
-        >
-          {settings.activeShape === "line" && (
-            <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
-          )}
-          {settings.activeShape === "rectangle" && (
-            <rect x="2" y="3" width="12" height="10" rx="1" />
-          )}
-          {settings.activeShape === "circle" && <circle cx="8" cy="8" r="6" />}
-          {settings.activeShape === "triangle" && (
-            <polygon points="8,2 14,14 2,14" />
-          )}
-          {settings.activeShape === "diamond" && (
-            <polygon points="8,1 15,8 8,15 1,8" />
-          )}
-          {settings.activeShape === "pentagon" && (
-            <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-          )}
-          {settings.activeShape === "hexagon" && (
-            <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-          )}
-          {settings.activeShape === "star" && (
-            <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-          )}
-          {settings.activeShape === "arrow" && (
-            <>
-              <line x1="2" y1="8" x2="12" y2="8" />
-              <polyline points="9,5 12,8 9,11" />
-            </>
-          )}
-          {settings.activeShape === "lightning" && (
-            <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
-          )}
-        </svg>
-      ),
-    },
-    {
-      id: "highlight",
-      label: "Mark",
-      icon: (
-        <svg
-          width="17"
-          height="17"
-          viewBox="0 0 16 16"
-          fill="none"
-          stroke={settings.lineColor}
-          strokeWidth="3"
-          strokeLinecap="round"
-          strokeOpacity="0.4"
-        >
-          <line x1="2" y1="8" x2="14" y2="8" />
-        </svg>
-      ),
-    },
-    {
-      id: "erase",
-      label: "Erase",
-      icon: (
-        <svg width="18" height="18" viewBox="0 0 16 16">
-          <defs>
-            <linearGradient id="eraser-grad" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="50%" stopColor="#89CFF0" />
-              <stop offset="50%" stopColor="#FA8072" />
-            </linearGradient>
-          </defs>
-          <rect
-            x="2"
-            y="4.5"
-            width="12"
-            height="7"
-            rx="1.5"
-            transform="rotate(-25 8 8)"
-            fill="url(#eraser-grad)"
-            stroke="#666"
-            strokeWidth="1"
-          />
-        </svg>
-      ),
-    },
-  ], [settings.lineColor, settings.activeShape]);
+  const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] =
+    useMemo(
+      () => [
+        {
+          id: "hand",
+          label: "Move",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M8 1.5v13M1.5 8h13M3 4.5L1.5 8 3 11.5M13 4.5L14.5 8 13 11.5M4.5 3L8 1.5 11.5 3M4.5 13L8 14.5 11.5 13" />
+            </svg>
+          ),
+        },
+        {
+          id: "draw",
+          label: "Draw",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke={settings.lineColor}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M2 14l3-1L13.5 4.5a1.4 1.4 0 0 0-2-2L3 11z" />
+              <path d="M10.5 3.5l2 2" />
+            </svg>
+          ),
+        },
+        {
+          id: "dashed",
+          label: "Dash",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke={settings.lineColor}
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeDasharray="3 3"
+            >
+              <line x1="2" y1="8" x2="14" y2="8" />
+            </svg>
+          ),
+        },
+        {
+          id: "shape",
+          label: "Shape",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke={settings.lineColor}
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            >
+              {settings.activeShape === "line" && (
+                <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
+              )}
+              {settings.activeShape === "rectangle" && (
+                <rect x="2" y="3" width="12" height="10" rx="1" />
+              )}
+              {settings.activeShape === "circle" && (
+                <circle cx="8" cy="8" r="6" />
+              )}
+              {settings.activeShape === "triangle" && (
+                <polygon points="8,2 14,14 2,14" />
+              )}
+              {settings.activeShape === "diamond" && (
+                <polygon points="8,1 15,8 8,15 1,8" />
+              )}
+              {settings.activeShape === "pentagon" && (
+                <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
+              )}
+              {settings.activeShape === "hexagon" && (
+                <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
+              )}
+              {settings.activeShape === "star" && (
+                <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+              )}
+              {settings.activeShape === "arrow" && (
+                <>
+                  <line x1="2" y1="8" x2="12" y2="8" />
+                  <polyline points="9,5 12,8 9,11" />
+                </>
+              )}
+              {settings.activeShape === "lightning" && (
+                <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
+              )}
+            </svg>
+          ),
+        },
+        {
+          id: "highlight",
+          label: "Mark",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke={settings.lineColor}
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeOpacity="0.4"
+            >
+              <line x1="2" y1="8" x2="14" y2="8" />
+            </svg>
+          ),
+        },
+        {
+          id: "erase",
+          label: "Erase",
+          icon: (
+            <svg width="18" height="18" viewBox="0 0 16 16">
+              <defs>
+                <linearGradient id="eraser-grad" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="50%" stopColor="#89CFF0" />
+                  <stop offset="50%" stopColor="#FA8072" />
+                </linearGradient>
+              </defs>
+              <rect
+                x="2"
+                y="4.5"
+                width="12"
+                height="7"
+                rx="1.5"
+                transform="rotate(-25 8 8)"
+                fill="url(#eraser-grad)"
+                stroke="#666"
+                strokeWidth="1"
+              />
+            </svg>
+          ),
+        },
+      ],
+      [settings.lineColor, settings.activeShape],
+    );
 
   return (
     <>
@@ -622,7 +670,10 @@ export default function App() {
               }}
             />
           )}
-          <nav aria-label="Drawing tools" className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-1 touch-toolbar">
+          <nav
+            aria-label="Drawing tools"
+            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-1 touch-toolbar"
+          >
             <div
               className="relative flex items-center gap-0.5 sm:gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
@@ -792,21 +843,35 @@ export default function App() {
                     ))}
                   </div>
                   <div className="flex items-center justify-between text-xs mb-2">
-                    <span className={isDark ? "text-white/70" : "text-black/70"}>
-                      {showThicknessPicker === "dashed" ? "Dash gap" : "Thickness"}
+                    <span
+                      className={isDark ? "text-white/70" : "text-black/70"}
+                    >
+                      {showThicknessPicker === "dashed"
+                        ? "Dash gap"
+                        : "Thickness"}
                     </span>
-                    <span className={`tabular-nums ${isDark ? "text-white/40" : "text-black/40"}`}>
-                      {showThicknessPicker === "dashed" ? settings.dashGap : settings.lineWidth}
+                    <span
+                      className={`tabular-nums ${isDark ? "text-white/40" : "text-black/40"}`}
+                    >
+                      {showThicknessPicker === "dashed"
+                        ? settings.dashGap
+                        : settings.lineWidth}
                     </span>
                   </div>
                   <div className="flex items-center gap-1">
                     {[1, 2, 4, 6, 8, 10].map((n) => {
                       const isDashed = showThicknessPicker === "dashed";
-                      const current = isDashed ? settings.dashGap : settings.lineWidth;
+                      const current = isDashed
+                        ? settings.dashGap
+                        : settings.lineWidth;
                       return (
                         <button
                           key={n}
-                          onClick={() => updateSettings(isDashed ? { dashGap: n } : { lineWidth: n })}
+                          onClick={() =>
+                            updateSettings(
+                              isDashed ? { dashGap: n } : { lineWidth: n },
+                            )
+                          }
                           aria-label={`${isDashed ? "Dash gap" : "Thickness"} ${n}`}
                           aria-pressed={current === n}
                           className="flex-1 flex items-center justify-center py-1.5 group"
@@ -814,7 +879,9 @@ export default function App() {
                           <div
                             className={`transition-all duration-150 ${current >= n ? "" : isDark ? "group-hover:!bg-white/30" : "group-hover:!bg-black/25"}`}
                             style={{
-                              width: isDashed ? `${4 + n * 2.8}px` : `${4 + n * 2}px`,
+                              width: isDashed
+                                ? `${4 + n * 2.8}px`
+                                : `${4 + n * 2}px`,
                               height: isDashed ? 4 : `${4 + n * 2}px`,
                               borderRadius: isDashed ? 2 : 9999,
                               background:
@@ -926,7 +993,9 @@ export default function App() {
       ) : (
         settings.showZoomControls && (
           <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
-            <div className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/20" : "border-black/20"}`}>
+            <div
+              className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/20" : "border-black/20"}`}
+            >
               <button
                 onClick={zoomOut}
                 aria-label="Zoom out"
@@ -934,9 +1003,13 @@ export default function App() {
               >
                 -
               </button>
-              <div className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`} />
+              <div
+                className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`}
+              />
               <div className="relative group/zoom h-full">
-                <div className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover/zoom:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}>
+                <div
+                  className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover/zoom:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
+                >
                   Reset zoom
                 </div>
                 <button
@@ -947,7 +1020,9 @@ export default function App() {
                   {Math.round(zoom * 100)}%
                 </button>
               </div>
-              <div className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`} />
+              <div
+                className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`}
+              />
               <button
                 onClick={zoomIn}
                 aria-label="Zoom in"
@@ -957,7 +1032,9 @@ export default function App() {
               </button>
             </div>
             <div className="relative group">
-              <div className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}>
+              <div
+                className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
+              >
                 Fit to content
               </div>
               <button
@@ -1011,12 +1088,40 @@ export default function App() {
         </button>
       )}
       <div
-        className="fixed top-2 left-2 z-30 text-sm tabular-nums select-none pointer-events-none tracking-wider"
-        style={{
-          color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
-        }}
+        className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5"
+        style={{ pointerEvents: "auto" }}
       >
-        {activeCanvas}
+        <div
+          className="text-2xl tabular-nums tracking-wider pointer-events-none"
+          style={{
+            color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+            fontFamily: "'Caveat', cursive",
+          }}
+        >
+          {activeCanvas}
+        </div>
+        <input
+          ref={canvasNameInputRef}
+          value={canvasName}
+          placeholder=""
+          onChange={(e) => {
+            setCanvasName(e.target.value);
+            localStorage.setItem(
+              `drawtool-canvas-name-${activeCanvas}`,
+              e.target.value,
+            );
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
+            e.stopPropagation();
+          }}
+          className="w-auto bg-transparent border-none outline-none text-[19px]"
+          style={{
+            width: `${canvasName.length + 2 || 1}ch`,
+            color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+            fontFamily: "'Caveat', cursive",
+          }}
+        />
       </div>
       {confirmingClear && (
         <div
@@ -1047,14 +1152,21 @@ export default function App() {
                 onClick={doClear}
                 className={`flex-1 px-8 py-1.5 rounded text-xs transition-colors ${isDark ? "text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20" : "text-red-600 hover:text-red-700 bg-red-500/10 hover:bg-red-500/20"}`}
               >
-                <span className="whitespace-nowrap">Clear ({isMac ? "\u2318" : "Ctrl"}+X)</span>
+                <span className="whitespace-nowrap">
+                  Clear ({isMac ? "\u2318" : "Ctrl"}+X)
+                </span>
               </button>
             </div>
           </div>
         </div>
       )}
       {showOnboarding && !hasTouch && (
-        <div role="dialog" aria-modal="true" aria-label="Welcome to drawtool" className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Welcome to drawtool"
+          className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+        >
           <div
             className={`px-8 py-6 rounded-lg border backdrop-blur-sm text-center max-w-xs ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
           >
@@ -1162,7 +1274,11 @@ export default function App() {
                   width: 6,
                   height: 6,
                   borderRadius: "50%",
-                  background: toast.on ? "#22c55e" : isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)",
+                  background: toast.on
+                    ? "#22c55e"
+                    : isDark
+                      ? "rgba(255,255,255,0.25)"
+                      : "rgba(0,0,0,0.2)",
                   boxShadow: toast.on ? "0 0 6px #22c55e88" : "none",
                   flexShrink: 0,
                 }}
