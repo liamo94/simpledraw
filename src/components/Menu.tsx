@@ -148,7 +148,15 @@ export default function Menu({
           <nav
             aria-label="Settings menu"
             className={`mt-2 p-3 rounded-lg border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${settings.theme === "midnight" ? "border-white/15" : isDark ? `${hasTouch ? "bg-black/90" : "bg-black/70"} border-white/15` : `${hasTouch ? "bg-white/90" : "bg-white/70"} border-black/15`}`}
-            style={settings.theme === "midnight" ? { background: hasTouch ? "rgba(15,15,30,0.95)" : "rgba(15,15,30,0.85)" } : undefined}
+            style={
+              settings.theme === "midnight"
+                ? {
+                    background: hasTouch
+                      ? "rgba(15,15,30,0.95)"
+                      : "rgba(15,15,30,0.85)",
+                  }
+                : undefined
+            }
           >
             <div
               className="text-xl mb-3 text-center select-none"
@@ -428,14 +436,44 @@ export default function Menu({
 
             <div className="mt-4 text-sm">Theme</div>
             <div className="grid grid-cols-3 gap-x-1 gap-y-2 mt-1.5">
-              {([
-                { id: "dark" as const, label: "Black", bg: "#06060e", text: "#ffffff" },
-                { id: "midnight" as const, label: "Midnight", bg: "#1a1a2e", text: "#ffffff" },
-                { id: "lumber" as const, label: "Lumber", bg: "#110e0a", text: "#e8d5c0" },
-                { id: "journal" as const, label: "Journal", bg: "#f5e2b8", text: "#000000" },
-                { id: "sky" as const, label: "Sky", bg: "#e0ecf6", text: "#1a3a5c" },
-                { id: "white" as const, label: "White", bg: "#f5f5f0", text: "#000000" },
-              ]).map((t) => (
+              {[
+                {
+                  id: "dark" as const,
+                  label: "Black",
+                  bg: "#06060e",
+                  text: "#ffffff",
+                },
+                {
+                  id: "midnight" as const,
+                  label: "Midnight",
+                  bg: "#1a1a2e",
+                  text: "#ffffff",
+                },
+                {
+                  id: "lumber" as const,
+                  label: "Lumber",
+                  bg: "#110e0a",
+                  text: "#e8d5c0",
+                },
+                {
+                  id: "journal" as const,
+                  label: "Journal",
+                  bg: "#f5e2b8",
+                  text: "#000000",
+                },
+                {
+                  id: "sky" as const,
+                  label: "Sky",
+                  bg: "#e0ecf6",
+                  text: "#1a3a5c",
+                },
+                {
+                  id: "white" as const,
+                  label: "White",
+                  bg: "#f5f5f0",
+                  text: "#000000",
+                },
+              ].map((t) => (
                 <button
                   key={t.id}
                   onClick={() => updateSettings({ theme: t.id })}
@@ -447,7 +485,10 @@ export default function Menu({
                   style={{
                     backgroundColor: t.bg,
                     color: t.text,
-                    boxShadow: settings.theme === t.id ? `inset 0 0 0 2px ${t.text}40` : undefined,
+                    boxShadow:
+                      settings.theme === t.id
+                        ? `inset 0 0 0 2px ${t.text}40`
+                        : undefined,
                   }}
                 >
                   {t.label}
@@ -461,14 +502,24 @@ export default function Menu({
                 className={`flex rounded overflow-hidden border ${isDark ? "border-white/15" : "border-black/15"}`}
               >
                 {(["off", "dot", "square"] as GridType[]).map((g) => {
-                  const dotColor = isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.18)";
-                  const sqColor  = isDark ? "rgba(255,255,255,0.10)" : "rgba(0,0,0,0.08)";
+                  const dotColor = isDark
+                    ? "rgba(255,255,255,0.25)"
+                    : "rgba(0,0,0,0.18)";
+                  const sqColor = isDark
+                    ? "rgba(255,255,255,0.10)"
+                    : "rgba(0,0,0,0.08)";
                   const bgPattern =
                     g === "dot"
-                      ? { backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`, backgroundSize: "7px 7px" }
+                      ? {
+                          backgroundImage: `radial-gradient(circle, ${dotColor} 1px, transparent 1px)`,
+                          backgroundSize: "7px 7px",
+                        }
                       : g === "square"
-                      ? { backgroundImage: `linear-gradient(to right, ${sqColor} 1px, transparent 1px), linear-gradient(to bottom, ${sqColor} 1px, transparent 1px)`, backgroundSize: "7px 7px" }
-                      : {};
+                        ? {
+                            backgroundImage: `linear-gradient(to right, ${sqColor} 1px, transparent 1px), linear-gradient(to bottom, ${sqColor} 1px, transparent 1px)`,
+                            backgroundSize: "7px 7px",
+                          }
+                        : {};
                   return (
                     <button
                       key={g}
@@ -518,9 +569,29 @@ export default function Menu({
 
             <div className="mt-4 space-y-3">
               {[
-                ...(!hasTouch ? [{ label: "Zoom controls", key: "showZoomControls" as const, value: settings.showZoomControls }] : []),
-                ...(!hasTouch ? [{ label: "Confirm clear", key: "confirmClear" as const, value: settings.confirmClear }] : []),
-                { label: "Dynamic stroke", key: "pressureSensitivity" as const, value: settings.pressureSensitivity },
+                ...(!hasTouch
+                  ? [
+                      {
+                        label: "Zoom controls",
+                        key: "showZoomControls" as const,
+                        value: settings.showZoomControls,
+                      },
+                    ]
+                  : []),
+                ...(!hasTouch
+                  ? [
+                      {
+                        label: "Confirm clear",
+                        key: "confirmClear" as const,
+                        value: settings.confirmClear,
+                      },
+                    ]
+                  : []),
+                {
+                  label: "Dynamic stroke",
+                  key: "pressureSensitivity" as const,
+                  value: settings.pressureSensitivity,
+                },
               ].map((opt) => (
                 <button
                   key={opt.key}
@@ -573,10 +644,20 @@ export default function Menu({
             {!hasTouch && (
               <>
                 <button
-                  onClick={() => setShowInfo((v) => {
-                    if (!v) setTimeout(() => infoRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 0);
-                    return !v;
-                  })}
+                  onClick={() =>
+                    setShowInfo((v) => {
+                      if (!v)
+                        setTimeout(
+                          () =>
+                            infoRef.current?.scrollIntoView({
+                              behavior: "smooth",
+                              block: "nearest",
+                            }),
+                          0,
+                        );
+                      return !v;
+                    })
+                  }
                   className={`mt-4 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
                 >
                   <svg
@@ -1043,6 +1124,31 @@ export default function Menu({
                             {isMac ? "Shift + Ctrl" : `Shift + ${alt}`} + drag
                           </kbd>
                         </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg width="12" height="12" viewBox="0 0 16 16">
+                              <rect
+                                x="2"
+                                y="3"
+                                width="12"
+                                height="10"
+                                rx="0.5"
+                                fill="currentColor"
+                                fillOpacity="0.4"
+                                stroke="currentColor"
+                                strokeWidth="1.5"
+                              />
+                            </svg>
+                            Filled shape
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            {isMac ? "F + Ctrl" : `F + ${alt}`} + drag
+                          </kbd>
+                        </div>
                       </div>
 
                       <div
@@ -1167,8 +1273,14 @@ export default function Menu({
                               stroke="none"
                             >
                               <circle cx="5" cy="8" r="2.5" />
-                              <path d="M9.5 6.5 L12.5 8 L9.5 9.5" opacity="0.4" />
-                              <path d="M12.5 6.5 L9.5 8 L12.5 9.5" opacity="0.4" />
+                              <path
+                                d="M9.5 6.5 L12.5 8 L9.5 9.5"
+                                opacity="0.4"
+                              />
+                              <path
+                                d="M12.5 6.5 L9.5 8 L12.5 9.5"
+                                opacity="0.4"
+                              />
                             </svg>
                             Swap last 2 colors
                           </span>
@@ -1210,6 +1322,49 @@ export default function Menu({
                             }
                           >
                             1 – 9
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.2"
+                              strokeLinecap="round"
+                            >
+                              <rect
+                                x="2"
+                                y="2"
+                                width="12"
+                                height="12"
+                                rx="1.5"
+                              />
+
+                              <text
+                                x="8"
+                                y="8.5"
+                                textAnchor="middle"
+                                dominantBaseline="middle"
+                                fill="currentColor"
+                                stroke="none"
+                                fontSize="6.5"
+                                fontWeight="600"
+                                fontFamily="system-ui, -apple-system, sans-serif"
+                              >
+                                Aa
+                              </text>
+                            </svg>
+                            Rename canvas
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            {mod} + ,
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1314,7 +1469,14 @@ export default function Menu({
                               strokeWidth="1.5"
                               strokeLinecap="round"
                             >
-                              <rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" />
+                              <rect
+                                x="2"
+                                y="2"
+                                width="12"
+                                height="12"
+                                rx="1"
+                                strokeDasharray="2.5 2"
+                              />
                               <path d="M8 5v6M5 8h6" strokeWidth="1.2" />
                             </svg>
                             Select / move / resize
@@ -1426,7 +1588,7 @@ export default function Menu({
                               isDark ? "text-white/40" : "text-black/40"
                             }
                           >
-                            F
+                            {mod} + F
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">
@@ -1440,12 +1602,48 @@ export default function Menu({
                               strokeWidth="1.5"
                               strokeLinecap="round"
                             >
-                              <line x1="4" y1="2" x2="4" y2="14" strokeOpacity="0.5" />
-                              <line x1="8" y1="2" x2="8" y2="14" strokeOpacity="0.5" />
-                              <line x1="12" y1="2" x2="12" y2="14" strokeOpacity="0.5" />
-                              <line x1="2" y1="4" x2="14" y2="4" strokeOpacity="0.5" />
-                              <line x1="2" y1="8" x2="14" y2="8" strokeOpacity="0.5" />
-                              <line x1="2" y1="12" x2="14" y2="12" strokeOpacity="0.5" />
+                              <line
+                                x1="4"
+                                y1="2"
+                                x2="4"
+                                y2="14"
+                                strokeOpacity="0.5"
+                              />
+                              <line
+                                x1="8"
+                                y1="2"
+                                x2="8"
+                                y2="14"
+                                strokeOpacity="0.5"
+                              />
+                              <line
+                                x1="12"
+                                y1="2"
+                                x2="12"
+                                y2="14"
+                                strokeOpacity="0.5"
+                              />
+                              <line
+                                x1="2"
+                                y1="4"
+                                x2="14"
+                                y2="4"
+                                strokeOpacity="0.5"
+                              />
+                              <line
+                                x1="2"
+                                y1="8"
+                                x2="14"
+                                y2="8"
+                                strokeOpacity="0.5"
+                              />
+                              <line
+                                x1="2"
+                                y1="12"
+                                x2="14"
+                                y2="12"
+                                strokeOpacity="0.5"
+                              />
                             </svg>
                             Cycle grid
                           </span>
@@ -1496,10 +1694,20 @@ export default function Menu({
             )}
 
             <button
-              onClick={() => setShowAbout((v) => {
-                if (!v) setTimeout(() => aboutRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }), 0);
-                return !v;
-              })}
+              onClick={() =>
+                setShowAbout((v) => {
+                  if (!v)
+                    setTimeout(
+                      () =>
+                        aboutRef.current?.scrollIntoView({
+                          behavior: "smooth",
+                          block: "nearest",
+                        }),
+                      0,
+                    );
+                  return !v;
+                })
+              }
               className={`mt-4 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
             >
               <svg

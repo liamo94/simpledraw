@@ -1117,7 +1117,7 @@ export default function App() {
           }}
           className="w-auto bg-transparent border-none outline-none text-[19px]"
           style={{
-            width: `${canvasName.length + 2 || 1}ch`,
+            width: `${canvasName?.length ? canvasName.length + 2 : 1}ch`,
             color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
             fontFamily: "'Caveat', cursive",
           }}
