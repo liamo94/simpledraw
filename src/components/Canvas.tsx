@@ -37,7 +37,8 @@ type UndoAction =
   | { type: "erase"; strokes: Stroke[] }
   | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
   | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[] }
-  | { type: "edit"; stroke: Stroke; oldText: string; newText: string };
+  | { type: "edit"; stroke: Stroke; oldText: string; newText: string }
+  | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] };
 
 export type TouchTool =
   | "draw"
@@ -851,6 +852,12 @@ function Canvas({
     startScale: number;
     bbox: BBox;
   } | null>(null);
+  const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+  const selectedGroupRef = useRef<Stroke[]>([]);
+  const groupDragRef = useRef<{
+    startPtr: { x: number; y: number };
+    startPoints: { x: number; y: number }[][];
+  } | null>(null);
 
   // Multi-touch tracking
   const pointersRef = useRef(new Map<number, { x: number; y: number }>());
@@ -1310,6 +1317,42 @@ function Canvas({
       drawOverlayStroke(selectedTextRef.current, true);
     }
 
+    // Draw box selection rectangle while dragging
+    if (boxSelectRef.current) {
+      const { start, end } = boxSelectRef.current;
+      ctx.save();
+      ctx.strokeStyle = "#4895ef";
+      ctx.fillStyle = "rgba(72,149,239,0.07)";
+      ctx.lineWidth = 1.5 / scale;
+      ctx.setLineDash([6 / scale, 3 / scale]);
+      const rx = Math.min(start.x, end.x), ry = Math.min(start.y, end.y);
+      const rw = Math.abs(end.x - start.x), rh = Math.abs(end.y - start.y);
+      ctx.beginPath(); ctx.rect(rx, ry, rw, rh);
+      ctx.fill(); ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw group selection: individual outlines (no handles) + combined bbox
+    if (selectedGroupRef.current.length > 0) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const stroke of selectedGroupRef.current) {
+        drawOverlayStroke(stroke, false);
+        const bb = anyStrokeBBox(stroke);
+        minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+        maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+      }
+      // Combined selection box
+      const pad = 6 / scale;
+      ctx.save();
+      ctx.strokeStyle = "#4895ef";
+      ctx.lineWidth = 1.5 / scale;
+      ctx.setLineDash([6 / scale, 3 / scale]);
+      ctx.beginPath();
+      ctx.rect(minX - pad, minY - pad, (maxX - minX) + pad * 2, (maxY - minY) + pad * 2);
+      ctx.stroke();
+      ctx.restore();
+    }
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
@@ -1474,7 +1517,7 @@ function Canvas({
           }
         };
         const swapAction = (a: UndoAction) => {
-          const list = a.type === "erase" ? a.strokes : [a.stroke];
+          const list = a.type === "erase" ? a.strokes : a.type === "group-move" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" ? [a.stroke] : [];
           for (const s of list) {
             if (s.color === from) s.color = to;
           }
@@ -1783,6 +1826,11 @@ function Canvas({
         action.fromPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.oldText;
+      } else if (action.type === "group-move") {
+        for (let i = 0; i < action.strokes.length; i++) {
+          action.strokes[i].points = action.from[i].map(p => ({ ...p }));
+        }
+        selectedGroupRef.current = action.strokes;
       }
       redoStackRef.current.push(action);
     }
@@ -1796,6 +1844,9 @@ function Canvas({
     }
     selectedTextRef.current = null;
     selectDragRef.current = null;
+    groupDragRef.current = null;
+    // Clear group selection unless we just re-selected it for a group-move undo
+    if (!action || action.type !== "group-move") selectedGroupRef.current = [];
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
     strokesCacheRef.current = null;
@@ -1820,6 +1871,11 @@ function Canvas({
         action.toPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.newText;
+      } else if (action.type === "group-move") {
+        for (let i = 0; i < action.strokes.length; i++) {
+          action.strokes[i].points = action.to[i].map(p => ({ ...p }));
+        }
+        selectedGroupRef.current = action.strokes;
       }
       undoStackRef.current.push(action);
     }
@@ -1833,6 +1889,9 @@ function Canvas({
     }
     selectedTextRef.current = null;
     selectDragRef.current = null;
+    groupDragRef.current = null;
+    // Clear group selection unless we just re-selected it for a group-move redo
+    if (!action || action.type !== "group-move") selectedGroupRef.current = [];
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
     strokesCacheRef.current = null;
@@ -2071,7 +2130,7 @@ function Canvas({
         startWritingRef.current({ ...cursorWorldRef.current });
         return;
       }
-      if (e.key === "v" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+      if (e.key === "v" && !e.repeat && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         zKeyRef.current = true;
         setZCursor("default");
       }
@@ -2357,13 +2416,29 @@ function Canvas({
           }),
         );
       }
-      if (e.key === "Escape" && selectedTextRef.current) {
+      if (e.key === "Escape" && (selectedTextRef.current || selectedGroupRef.current.length > 0)) {
         e.preventDefault();
         selectedTextRef.current = null;
         hoverTextRef.current = null;
         selectDragRef.current = null;
+        selectedGroupRef.current = [];
+        groupDragRef.current = null;
+        boxSelectRef.current = null;
         zKeyRef.current = false;
         setZCursor(null);
+        scheduleRedraw();
+        return;
+      }
+      if (e.key === "Backspace" && selectedGroupRef.current.length > 0 && !isWritingRef.current) {
+        e.preventDefault();
+        const toDelete = selectedGroupRef.current;
+        strokesRef.current = strokesRef.current.filter(s => !toDelete.includes(s));
+        undoStackRef.current.push({ type: "erase", strokes: toDelete });
+        redoStackRef.current = [];
+        selectedGroupRef.current = [];
+        groupDragRef.current = null;
+        strokesCacheRef.current = null;
+        persistStrokes();
         scheduleRedraw();
         return;
       }
@@ -3502,6 +3577,35 @@ function Canvas({
         lastTextTapRef.current = null;
       }
 
+      // Group move: if a group is selected, check if pointer is inside combined bbox
+      if (selectedGroupRef.current.length > 0 && e.pointerType !== "touch") {
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        const { scale } = viewRef.current;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const s of selectedGroupRef.current) {
+          const bb = anyStrokeBBox(s);
+          minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+          maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+        }
+        const pad = 8 / scale;
+        if (wp.x >= minX - pad && wp.x <= maxX + pad && wp.y >= minY - pad && wp.y <= maxY + pad) {
+          groupDragRef.current = {
+            startPtr: { ...wp },
+            startPoints: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+          };
+          (e.target as Element).setPointerCapture(e.pointerId);
+          scheduleRedraw();
+          return;
+        } else {
+          // Click outside group — clear group selection, fall through
+          selectedGroupRef.current = [];
+          groupDragRef.current = null;
+          strokesCacheRef.current = null;
+          setZCursor(zKeyRef.current ? "default" : null);
+          scheduleRedraw();
+        }
+      }
+
       // Text select / move / resize mode (mouse/stylus, z held or already selected)
       if ((selectedTextRef.current || zKeyRef.current) && e.pointerType !== "touch") {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
@@ -3535,28 +3639,48 @@ function Canvas({
               }
             }
           }
-          // Check body — double-click edits text, single click starts move
+          // Check body — click-to-cycle through overlapping strokes, double-click edits text
           if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
               wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
-            const stroke = selectedTextRef.current;
-            if (stroke.text) {
+            const curStroke = selectedTextRef.current;
+            // Collect all hits to support cycling
+            const allHits: Stroke[] = [];
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              const s = strokesRef.current[i];
+              if (s.points.length === 0) continue;
+              const hbb = anyStrokeBBox(s);
+              if (wp.x >= hbb.x - pad && wp.x <= hbb.x + hbb.w + pad &&
+                  wp.y >= hbb.y - pad && wp.y <= hbb.y + hbb.h + pad) {
+                allHits.push(s);
+              }
+            }
+            // Cycle: if top hit is currently selected and there's something beneath, dig deeper
+            const targetStroke = (allHits.length > 1 && allHits[0] === curStroke)
+              ? allHits[1]
+              : curStroke;
+            selectedTextRef.current = targetStroke;
+            selectedGroupRef.current = [];
+            hoverTextRef.current = null;
+            // Double-click edits text (only when not cycling)
+            if (targetStroke === curStroke && curStroke.text) {
               const now = performance.now();
               const last = lastTextTapRef.current;
-              if (last && last.stroke === stroke && now - last.time < 300) {
+              if (last && last.stroke === curStroke && now - last.time < 300) {
                 lastTextTapRef.current = null;
-                startEditingStroke(stroke, wp);
+                startEditingStroke(curStroke, wp);
                 return;
               }
-              lastTextTapRef.current = { time: now, stroke };
+              lastTextTapRef.current = { time: now, stroke: curStroke };
             }
             selectDragRef.current = {
               mode: "move",
               startPtr: { ...wp },
-              startPoints: stroke.points.map(p => ({ ...p })),
-              startScale: stroke.fontScale ?? 1,
-              bbox: bb,
+              startPoints: targetStroke.points.map(p => ({ ...p })),
+              startScale: targetStroke.fontScale ?? 1,
+              bbox: anyStrokeBBox(targetStroke),
             };
             (e.target as Element).setPointerCapture(e.pointerId);
+            scheduleRedraw();
             return;
           }
           // Clicked elsewhere — check if a different stroke was hit
@@ -3574,6 +3698,7 @@ function Canvas({
           }
           if (newSel) {
             selectedTextRef.current = newSel;
+            selectedGroupRef.current = [];
             hoverTextRef.current = null;
             selectDragRef.current = {
               mode: "move",
@@ -3586,38 +3711,57 @@ function Canvas({
             scheduleRedraw();
             return;
           }
-          // Nothing hit — deselect
+          // Nothing hit — start box select (or deselect if z not held)
           selectedTextRef.current = null;
           selectDragRef.current = null;
-          setZCursor(zKeyRef.current ? "default" : null);
-          scheduleRedraw();
+          selectedGroupRef.current = [];
+          if (zKeyRef.current) {
+            boxSelectRef.current = { start: { ...wp }, end: { ...wp } };
+            (e.target as Element).setPointerCapture(e.pointerId);
+            scheduleRedraw();
+          } else {
+            setZCursor(null);
+            scheduleRedraw();
+          }
           return;
         }
 
-        // z held, no selection — check text, shapes, and freehand
+        // z held, no selection — collect all hits and cycle / start box select
         if (zKeyRef.current) {
+          const hits: Stroke[] = [];
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
             if (stroke.points.length === 0) continue;
             const bb = anyStrokeBBox(stroke);
             if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
                 wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
-              selectedTextRef.current = stroke;
-              hoverTextRef.current = null;
-              setZCursor("default");
-              selectDragRef.current = {
-                mode: "move",
-                startPtr: { ...wp },
-                startPoints: stroke.points.map(p => ({ ...p })),
-                startScale: stroke.fontScale ?? 1,
-                bbox: bb,
-              };
-              (e.target as Element).setPointerCapture(e.pointerId);
-              scheduleRedraw();
-              return;
+              hits.push(stroke);
             }
           }
-          // z held, clicked empty space — don't draw
+          if (hits.length === 0) {
+            // z held, clicked empty space — start box select
+            selectedTextRef.current = null;
+            selectDragRef.current = null;
+            boxSelectRef.current = { start: { ...wp }, end: { ...wp } };
+            (e.target as Element).setPointerCapture(e.pointerId);
+            scheduleRedraw();
+            return;
+          }
+          // Select topmost hit (cycling handled in the selectedTextRef branch on subsequent clicks)
+          const stroke = hits[0];
+          selectedTextRef.current = stroke;
+          selectedGroupRef.current = [];
+          hoverTextRef.current = null;
+          setZCursor("default");
+          selectDragRef.current = {
+            mode: "move",
+            startPtr: { ...wp },
+            startPoints: stroke.points.map(p => ({ ...p })),
+            startScale: stroke.fontScale ?? 1,
+            bbox: anyStrokeBBox(stroke),
+          };
+          (e.target as Element).setPointerCapture(e.pointerId);
+          scheduleRedraw();
           return;
         }
       }
@@ -3630,6 +3774,31 @@ function Canvas({
   const handlePointerMoveGuarded = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (isWritingRef.current) return;
+
+      // Handle box selection drag
+      if (boxSelectRef.current) {
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        boxSelectRef.current.end = { ...wp };
+        scheduleRedraw();
+        return;
+      }
+
+      // Handle group drag
+      if (groupDragRef.current) {
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        const { startPtr, startPoints } = groupDragRef.current;
+        const dx = wp.x - startPtr.x;
+        const dy = wp.y - startPtr.y;
+        for (let i = 0; i < selectedGroupRef.current.length; i++) {
+          const stroke = selectedGroupRef.current[i];
+          for (let j = 0; j < startPoints[i].length; j++) {
+            stroke.points[j] = { x: startPoints[i][j].x + dx, y: startPoints[i][j].y + dy };
+          }
+        }
+        strokesCacheRef.current = null;
+        scheduleRedraw();
+        return;
+      }
 
       // Handle active select drag (text and shapes)
       if (selectDragRef.current && selectedTextRef.current) {
@@ -3744,6 +3913,20 @@ function Canvas({
             hoverTextRef.current = hoverHit;
             scheduleRedraw();
           }
+        } else if (selectedGroupRef.current.length > 0) {
+          // Group hover: show move cursor when inside combined bbox
+          const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+          const { scale } = viewRef.current;
+          const pad = 8 / scale;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const s of selectedGroupRef.current) {
+            const bb = anyStrokeBBox(s);
+            minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+            maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+          }
+          const inside = wp.x >= minX - pad && wp.x <= maxX + pad &&
+                         wp.y >= minY - pad && wp.y <= maxY + pad;
+          setZCursor(inside ? "move" : "default");
         } else if (zKeyRef.current) {
           // Z-key hover detection (text + shapes + freehand)
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
@@ -3776,6 +3959,58 @@ function Canvas({
   const handlePointerUpGuarded = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (isWritingRef.current) return;
+
+      // Commit box selection
+      if (boxSelectRef.current) {
+        const { scale } = viewRef.current;
+        const { start, end } = boxSelectRef.current;
+        const selX = Math.min(start.x, end.x);
+        const selY = Math.min(start.y, end.y);
+        const selW = Math.abs(end.x - start.x);
+        const selH = Math.abs(end.y - start.y);
+        if (selW > 2 / scale && selH > 2 / scale) {
+          const hits = strokesRef.current.filter(stroke => {
+            const bb = anyStrokeBBox(stroke);
+            return bb.x < selX + selW && bb.x + bb.w > selX &&
+                   bb.y < selY + selH && bb.y + bb.h > selY;
+          });
+          if (hits.length === 1) {
+            selectedTextRef.current = hits[0];
+            selectedGroupRef.current = [];
+            setZCursor("default");
+          } else if (hits.length > 1) {
+            selectedGroupRef.current = hits;
+            selectedTextRef.current = null;
+            setZCursor("default");
+          }
+        }
+        boxSelectRef.current = null;
+        strokesCacheRef.current = null;
+        scheduleRedraw();
+        return;
+      }
+
+      // Commit group drag
+      if (groupDragRef.current) {
+        const { startPoints } = groupDragRef.current;
+        const anyMoved = selectedGroupRef.current.some((stroke, i) =>
+          startPoints[i].some((p, j) => p.x !== stroke.points[j].x || p.y !== stroke.points[j].y)
+        );
+        if (anyMoved) {
+          undoStackRef.current.push({
+            type: "group-move",
+            strokes: selectedGroupRef.current,
+            from: startPoints,
+            to: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+          });
+          redoStackRef.current = [];
+          persistStrokes();
+        }
+        groupDragRef.current = null;
+        setZCursor("default");
+        scheduleRedraw();
+        return;
+      }
 
       // Commit select drag (text and shapes)
       if (selectDragRef.current && selectedTextRef.current) {
