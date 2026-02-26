@@ -1490,41 +1490,10 @@ export default function Menu({
                               strokeWidth="1.5"
                               strokeLinecap="round"
                             >
-                              <rect
-                                x="2"
-                                y="2"
-                                width="12"
-                                height="12"
-                                rx="1"
-                                strokeDasharray="2.5 2"
-                              />
-                              <path d="M8 5v6M5 8h6" strokeWidth="1.2" />
-                            </svg>
-                            Select / move / resize
-                          </span>
-                          <kbd
-                            className={
-                              isDark ? "text-white/40" : "text-black/40"
-                            }
-                          >
-                            V + hold
-                          </kbd>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="flex items-center gap-1.5">
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 16 16"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.5"
-                              strokeLinecap="round"
-                            >
                               <line x1="4" y1="4" x2="12" y2="12" />
                               <line x1="4" y1="12" x2="12" y2="4" />
                             </svg>
-                            Clear
+                            Clear canvas
                           </span>
                           <kbd
                             className={
@@ -1684,6 +1653,232 @@ export default function Menu({
                             }
                           >
                             D D
+                          </kbd>
+                        </div>
+                      </div>
+                      <div
+                        className={`text-[10px] font-medium uppercase tracking-wider mt-2.5 mb-1 ${isDark ? "text-white/30" : "text-black/30"}`}
+                      >
+                        Selection
+                      </div>
+                      <div className="space-y-1">
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" />
+                              <path d="M8 5v6M5 8h6" strokeWidth="1.2" />
+                            </svg>
+                            Select / move / resize
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            V + hold
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" />
+                            </svg>
+                            Box select
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            V + drag
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <circle cx="8" cy="8" r="5" />
+                              <circle cx="8" cy="8" r="2" strokeOpacity="0.5" />
+                            </svg>
+                            Cycle overlapping
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            Click again
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <rect x="2" y="2" width="12" height="12" rx="1" />
+                              <path d="M5 8h6" strokeWidth="1.2" />
+                            </svg>
+                            Select all
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + A
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <rect x="2" y="4" width="8" height="10" rx="1" />
+                              <path d="M6 4V2.5A.5.5 0 016.5 2h7a.5.5 0 01.5.5v9a.5.5 0 01-.5.5H12" strokeOpacity="0.5" />
+                            </svg>
+                            Copy
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + C
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <rect x="2" y="4" width="8" height="10" rx="1" />
+                              <path d="M10 2h2.5a.5.5 0 01.5.5v9a.5.5 0 01-.5.5H10" strokeOpacity="0.5" />
+                              <path d="M5 9l2 2 4-4" strokeWidth="1.2" />
+                            </svg>
+                            Paste
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + V
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M4 4l8 8M4 12l8-8" strokeWidth="1.2" />
+                              <rect x="2" y="2" width="12" height="12" rx="1" strokeOpacity="0.3" />
+                            </svg>
+                            Cut
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + X
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <rect x="1.5" y="3.5" width="8" height="10" rx="1" />
+                              <rect x="6.5" y="1.5" width="8" height="10" rx="1" strokeOpacity="0.5" />
+                            </svg>
+                            Duplicate
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + D
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <line x1="4" y1="4" x2="12" y2="12" />
+                              <line x1="4" y1="12" x2="12" y2="4" />
+                            </svg>
+                            Delete
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            Backspace
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M8 3v10M3 8h10" />
+                            </svg>
+                            Nudge
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            ↑ ↓ ← →
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M3 8h10M8 3v10" strokeOpacity="0.4" />
+                              <circle cx="8" cy="8" r="3" />
+                            </svg>
+                            Deselect
+                          </span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            Escape
                           </kbd>
                         </div>
                       </div>
