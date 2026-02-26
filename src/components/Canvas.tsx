@@ -832,6 +832,7 @@ function Canvas({
   const caretVisibleRef = useRef(true);
   const caretTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const caretPosRef = useRef(0); // tracks selectionEnd for caret rendering
+  const selectionAnchorRef = useRef<number | null>(null); // non-null = selection active
   const textSizeRef = useRef(textSize);
   textSizeRef.current = textSize;
   const onContentOffScreenRef = useRef(onContentOffScreen);
@@ -1144,8 +1145,26 @@ function Canvas({
           ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);
         }
       }
-      // Draw blinking caret at selectionEnd position
-      if (isWritingRef.current && caretVisibleRef.current) {
+      // Draw selection highlight
+      if (isWritingRef.current && selectionAnchorRef.current !== null) {
+        const selStart = Math.min(selectionAnchorRef.current, caretPosRef.current);
+        const selEnd = Math.max(selectionAnchorRef.current, caretPosRef.current);
+        ctx.fillStyle = "rgba(72,149,239,0.35)";
+        let lineStart = 0;
+        for (let i = 0; i < lines.length; i++) {
+          const lineEnd = lineStart + lines[i].length;
+          if (selStart <= lineEnd && selEnd > lineStart) {
+            const colStart = Math.max(0, selStart - lineStart);
+            const colEnd = Math.min(lines[i].length, selEnd - lineStart);
+            const x1 = anchor.x + ctx.measureText(lines[i].slice(0, colStart)).width;
+            const x2 = anchor.x + ctx.measureText(lines[i].slice(0, colEnd)).width;
+            ctx.fillRect(x1, anchor.y + i * lineHeight, Math.max(x2 - x1, 2 / scale), basePx);
+          }
+          lineStart += lines[i].length + 1;
+        }
+      }
+      // Draw blinking caret at selectionEnd position (hidden when selection active)
+      if (isWritingRef.current && caretVisibleRef.current && selectionAnchorRef.current === null) {
         const pos = caretPosRef.current;
         // Find which line and column the caret is on
         let charCount = 0;
@@ -1970,24 +1989,49 @@ function Canvas({
         }
         const text = writingTextRef.current;
         const pos = caretPosRef.current;
-        // Cmd+Backspace → delete to start of line
-        if (e.key === "Backspace" && (e.metaKey || e.ctrlKey)) {
+        const hasSel = selectionAnchorRef.current !== null;
+        const selStart = hasSel ? Math.min(selectionAnchorRef.current!, pos) : pos;
+        const selEnd   = hasSel ? Math.max(selectionAnchorRef.current!, pos) : pos;
+        // Helper: replace selection (or nothing) with a string, clear selection
+        const replaceSelection = (insert: string) => {
+          writingTextRef.current = text.slice(0, selStart) + insert + text.slice(selEnd);
+          caretPosRef.current = selStart + insert.length;
+          selectionAnchorRef.current = null;
+          caretVisibleRef.current = true;
+          scheduleRedraw();
+        };
+        // Cmd+A → select all
+        if ((e.metaKey || e.ctrlKey) && e.key === "a") {
           e.preventDefault();
-          const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
-          if (lineStart === pos && pos > 0) {
-            writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
-            caretPosRef.current = pos - 1;
-          } else {
-            writingTextRef.current = text.slice(0, lineStart) + text.slice(pos);
-            caretPosRef.current = lineStart;
-          }
+          selectionAnchorRef.current = 0;
+          caretPosRef.current = text.length;
           scheduleRedraw();
           return;
         }
-        // Option+Backspace → delete word before caret
+        // Cmd+Backspace → delete selection or to start of line
+        if (e.key === "Backspace" && (e.metaKey || e.ctrlKey)) {
+          e.preventDefault();
+          if (hasSel) {
+            replaceSelection("");
+          } else {
+            const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
+            if (lineStart === pos && pos > 0) {
+              writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
+              caretPosRef.current = pos - 1;
+            } else {
+              writingTextRef.current = text.slice(0, lineStart) + text.slice(pos);
+              caretPosRef.current = lineStart;
+            }
+            scheduleRedraw();
+          }
+          return;
+        }
+        // Option+Backspace → delete selection or word before caret
         if (e.key === "Backspace" && e.altKey) {
           e.preventDefault();
-          if (pos > 0) {
+          if (hasSel) {
+            replaceSelection("");
+          } else if (pos > 0) {
             let i = pos - 1;
             while (i > 0 && text[i - 1] === " ") i--;
             while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
@@ -1997,79 +2041,85 @@ function Canvas({
           }
           return;
         }
-        // Backspace → delete char before caret
+        // Backspace → delete selection or char before caret
         if (e.key === "Backspace") {
           e.preventDefault();
-          if (pos > 0) {
+          if (hasSel) {
+            replaceSelection("");
+          } else if (pos > 0) {
             writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
             caretPosRef.current = pos - 1;
             scheduleRedraw();
           }
           return;
         }
-        // Delete key → delete char after caret
+        // Delete → delete selection or char after caret
         if (e.key === "Delete") {
           e.preventDefault();
-          if (pos < text.length) {
+          if (hasSel) {
+            replaceSelection("");
+          } else if (pos < text.length) {
             writingTextRef.current = text.slice(0, pos) + text.slice(pos + 1);
             scheduleRedraw();
           }
           return;
         }
-        // Enter → insert newline
+        // Enter → replace selection or insert newline
         if (e.key === "Enter") {
           e.preventDefault();
-          writingTextRef.current = text.slice(0, pos) + "\n" + text.slice(pos);
-          caretPosRef.current = pos + 1;
-          scheduleRedraw();
+          replaceSelection("\n");
           return;
         }
-        // Arrow keys → move caret
+        // Arrow keys → collapse selection or move caret
         if (e.key === "ArrowLeft") {
           e.preventDefault();
-          if (pos > 0) {
+          if (hasSel && !e.shiftKey) {
+            caretPosRef.current = selStart;
+            selectionAnchorRef.current = null;
+          } else if (pos > 0) {
             if (e.altKey) {
-              // Option+Left → jump to start of word
               let i = pos - 1;
               while (i > 0 && text[i - 1] === " ") i--;
               while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
               caretPosRef.current = i;
             } else if (e.metaKey) {
-              // Cmd+Left → jump to start of line
-              const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
-              caretPosRef.current = lineStart;
+              caretPosRef.current = text.lastIndexOf("\n", pos - 1) + 1;
             } else {
               caretPosRef.current = pos - 1;
             }
-            caretVisibleRef.current = true;
-            scheduleRedraw();
+            selectionAnchorRef.current = null;
           }
+          caretVisibleRef.current = true;
+          scheduleRedraw();
           return;
         }
         if (e.key === "ArrowRight") {
           e.preventDefault();
-          if (pos < text.length) {
+          if (hasSel && !e.shiftKey) {
+            caretPosRef.current = selEnd;
+            selectionAnchorRef.current = null;
+          } else if (pos < text.length) {
             if (e.altKey) {
-              // Option+Right → jump to end of word
               let i = pos;
               while (i < text.length && text[i] === " ") i++;
               while (i < text.length && text[i] !== " " && text[i] !== "\n") i++;
               caretPosRef.current = i;
             } else if (e.metaKey) {
-              // Cmd+Right → jump to end of line
               let end = text.indexOf("\n", pos);
               if (end === -1) end = text.length;
               caretPosRef.current = end;
             } else {
               caretPosRef.current = pos + 1;
             }
-            caretVisibleRef.current = true;
-            scheduleRedraw();
+            selectionAnchorRef.current = null;
           }
+          caretVisibleRef.current = true;
+          scheduleRedraw();
           return;
         }
         if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           e.preventDefault();
+          selectionAnchorRef.current = null;
           const lines = text.split("\n");
           let charCount = 0;
           let curLine = 0;
@@ -2093,33 +2143,20 @@ function Canvas({
           }
           return;
         }
-        // Cmd+A → move caret to end
-        if ((e.metaKey || e.ctrlKey) && e.key === "a") {
-          e.preventDefault();
-          caretPosRef.current = text.length;
-          caretVisibleRef.current = true;
-          scheduleRedraw();
-          return;
-        }
         // Ignore other modifier combos (Cmd+C, Cmd+V handled elsewhere)
         if (e.metaKey || e.ctrlKey || e.altKey) {
           return;
         }
-        // Tab → insert spaces
+        // Tab → replace selection or insert spaces
         if (e.key === "Tab") {
           e.preventDefault();
-          writingTextRef.current = text.slice(0, pos) + "  " + text.slice(pos);
-          caretPosRef.current = pos + 2;
-          scheduleRedraw();
+          replaceSelection("  ");
           return;
         }
-        // Printable character → insert at caret
+        // Printable character → replace selection or insert at caret
         if (e.key.length === 1) {
           e.preventDefault();
-          writingTextRef.current = text.slice(0, pos) + e.key + text.slice(pos);
-          caretPosRef.current = pos + 1;
-          caretVisibleRef.current = true;
-          scheduleRedraw();
+          replaceSelection(e.key);
           return;
         }
         // Ignore other keys (Shift, Ctrl, etc.)
@@ -3437,7 +3474,10 @@ function Canvas({
       editingStrokeRef.current = null;
       editingOldTextRef.current = "";
       strokesCacheRef.current = null;
-      setZCursor(zKeyRef.current ? "default" : null);
+      // Re-select the stroke after editing
+      selectedTextRef.current = stroke;
+      selectedGroupRef.current = [];
+      setZCursor("default");
     } else if (raw.trim()) {
       notifyColorUsed(lineColorRef.current);
       const stroke: Stroke = {
@@ -3453,12 +3493,16 @@ function Canvas({
       redoStackRef.current = [];
       strokesCacheRef.current = null;
       persistStrokes();
-      setZCursor(zKeyRef.current ? "default" : null);
+      // Auto-select the new text stroke
+      selectedTextRef.current = stroke;
+      selectedGroupRef.current = [];
+      setZCursor("default");
     } else {
       setZCursor(zKeyRef.current ? "default" : null);
     }
     writingTextRef.current = "";
     caretPosRef.current = 0;
+    selectionAnchorRef.current = null;
     if (caretTimerRef.current) {
       clearInterval(caretTimerRef.current);
       caretTimerRef.current = null;
@@ -3471,6 +3515,7 @@ function Canvas({
     writingPosRef.current = worldPos;
     writingTextRef.current = "";
     caretPosRef.current = 0;
+    selectionAnchorRef.current = null;
     caretVisibleRef.current = true;
     if (caretTimerRef.current) clearInterval(caretTimerRef.current);
     caretTimerRef.current = setInterval(() => {
@@ -3518,6 +3563,7 @@ function Canvas({
     writingPosRef.current = { ...anchor };
     writingTextRef.current = text;
     caretPosRef.current = caretPos;
+    selectionAnchorRef.current = null;
     caretVisibleRef.current = true;
     if (caretTimerRef.current) clearInterval(caretTimerRef.current);
     caretTimerRef.current = setInterval(() => {
