@@ -29,6 +29,8 @@ export type Settings = {
   theme: Theme;
   confirmClear: boolean;
   activeShape: ShapeKind;
+  shapeFill: boolean;
+  shapeDashed: boolean;
   textSize: TextSize;
   fontFamily: FontFamily;
   pressureSensitivity: boolean;
@@ -52,6 +54,8 @@ function getDefaults(): Settings {
     theme: getSystemTheme(),
     confirmClear: true,
     activeShape: "rectangle" as const,
+    shapeFill: false,
+    shapeDashed: false,
     textSize: "m" as const,
     fontFamily: "caveat" as FontFamily,
     pressureSensitivity: false,

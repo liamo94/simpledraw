@@ -766,6 +766,8 @@ function Canvas({
   theme,
   touchTool,
   activeShape,
+  shapeFill,
+  shapeDashed,
   canvasIndex,
   textSize,
   fontFamily,
@@ -779,6 +781,8 @@ function Canvas({
   theme: Theme;
   touchTool: TouchTool;
   activeShape: ShapeKind;
+  shapeFill: boolean;
+  shapeDashed: boolean;
   canvasIndex: number;
   textSize: TextSize;
   fontFamily: FontFamily;
@@ -815,6 +819,10 @@ function Canvas({
   lineColorRef.current = lineColor;
   const activeShapeRef = useRef(activeShape);
   activeShapeRef.current = activeShape;
+  const shapeFillRef = useRef(shapeFill);
+  shapeFillRef.current = shapeFill;
+  const shapeDashedRef = useRef(shapeDashed);
+  shapeDashedRef.current = shapeDashed;
   const pressureSensitivityRef = useRef(pressureSensitivity);
   pressureSensitivityRef.current = pressureSensitivity;
   const lastDrawPointRef = useRef<{ x: number; y: number; t: number } | null>(null);
@@ -3472,7 +3480,9 @@ function Canvas({
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
-          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : shiftHeldRef.current;
+          const isTouch = e.pointerType === "touch";
+          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (isTouch ? shapeDashedRef.current : shiftHeldRef.current);
+          const fill = isTouch ? shapeFillRef.current : fKeyHeldRef.current;
           const stroke: Stroke = {
             points: [point, { ...point }],
             style: dashed ? "dashed" : "solid",
@@ -3480,7 +3490,7 @@ function Canvas({
             lineWidth,
             color: lineColor,
             shape: keyShapeRef.current || activeShapeRef.current,
-            ...(fKeyHeldRef.current ? { fill: true } : {}),
+            ...(fill ? { fill: true } : {}),
             ...(pressureSensitivityRef.current
               ? { seed: Math.floor(Math.random() * 2 ** 31) }
               : {}),

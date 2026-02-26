@@ -667,6 +667,8 @@ export default function App() {
         theme={settings.theme}
         touchTool={touchTool}
         activeShape={settings.activeShape}
+        shapeFill={settings.shapeFill}
+        shapeDashed={settings.shapeDashed}
         canvasIndex={activeCanvas}
         textSize={settings.textSize}
         fontFamily={settings.fontFamily}
@@ -931,6 +933,37 @@ export default function App() {
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
+                <div className="flex w-full gap-1 pb-1 mb-0.5" style={{ borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}` }}>
+                  <button
+                    aria-label="Fill shape"
+                    aria-pressed={settings.shapeFill}
+                    onClick={() => updateSettings({ shapeFill: !settings.shapeFill })}
+                    className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
+                      settings.shapeFill
+                        ? isDark ? "bg-white/20" : "bg-black/20"
+                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    }`}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFill ? 1 : 0.35}>
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.lineColor} />
+                    </svg>
+                  </button>
+                  <button
+                    aria-label="Dashed shape"
+                    aria-pressed={settings.shapeDashed}
+                    onClick={() => updateSettings({ shapeDashed: !settings.shapeDashed })}
+                    className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
+                      settings.shapeDashed
+                        ? isDark ? "bg-white/20" : "bg-black/20"
+                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    }`}
+                  >
+                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="3.5 2.5" opacity={settings.shapeDashed ? 1 : 0.35}>
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="grid grid-cols-2 gap-1 w-full">
                 {SHAPES.map((shape) => (
                   <button
                     key={shape}
@@ -941,7 +974,7 @@ export default function App() {
                       setTouchTool("shape");
                       setShowShapePicker(false);
                     }}
-                    className={`p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                    className={`flex items-center justify-center p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
                       settings.activeShape === shape
                         ? isDark
                           ? "bg-white/20"
@@ -1000,6 +1033,7 @@ export default function App() {
                     </svg>
                   </button>
                 ))}
+                </div>
               </div>
             )}
           </nav>
