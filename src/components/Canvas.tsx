@@ -1954,6 +1954,7 @@ function Canvas({
   }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent]);
 
   const MIN_SHAPE_SIZE = 8;
+  const MIN_DASH_LENGTH = 10; // world units — discard dashed strokes shorter than this
 
   const discardTinyShape = useCallback(() => {
     if (
@@ -2195,7 +2196,48 @@ function Canvas({
       }
       if (cmdKey(e) && e.key === "x") {
         e.preventDefault();
-        window.dispatchEvent(new Event("drawtool:request-clear"));
+        if (selectedGroupRef.current.length > 0 && !isWritingRef.current) {
+          // Cut group
+          const toDelete = selectedGroupRef.current;
+          clipboardRef.current = toDelete.map(s => ({ ...s, points: s.points.map(p => ({ ...p })), widths: s.widths ? [...s.widths] : undefined }));
+          strokesRef.current = strokesRef.current.filter(s => !toDelete.includes(s));
+          undoStackRef.current.push({ type: "erase", strokes: toDelete });
+          redoStackRef.current = [];
+          selectedGroupRef.current = [];
+          groupDragRef.current = null;
+          strokesCacheRef.current = null;
+          setZCursor(zKeyRef.current ? "default" : null);
+          persistStrokes();
+          scheduleRedraw();
+        } else if (selectedTextRef.current && !isWritingRef.current) {
+          // Cut single stroke
+          const stroke = selectedTextRef.current;
+          clipboardRef.current = [stroke];
+          strokesRef.current = strokesRef.current.filter(s => s !== stroke);
+          undoStackRef.current.push({ type: "erase", strokes: [stroke] });
+          redoStackRef.current = [];
+          selectedTextRef.current = null;
+          selectDragRef.current = null;
+          strokesCacheRef.current = null;
+          setZCursor(zKeyRef.current ? "default" : null);
+          persistStrokes();
+          scheduleRedraw();
+        } else {
+          window.dispatchEvent(new Event("drawtool:request-clear"));
+        }
+      }
+      if (cmdKey(e) && e.key === "a" && !isWritingRef.current) {
+        e.preventDefault();
+        const all = strokesRef.current.filter(s => s.points.length > 0);
+        if (all.length === 1) {
+          selectedTextRef.current = all[0];
+          selectedGroupRef.current = [];
+        } else if (all.length > 1) {
+          selectedGroupRef.current = all;
+          selectedTextRef.current = null;
+        }
+        if (all.length > 0) setZCursor("default");
+        scheduleRedraw();
       }
       if (cmdKey(e) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
@@ -2318,6 +2360,38 @@ function Canvas({
           new CustomEvent("drawtool:zoom-step", { detail: 0.8 }),
         );
       }
+      const hasSelection = !!(selectedTextRef.current || selectedGroupRef.current.length > 0);
+      if (hasSelection && !isWritingRef.current && !cmdKey(e) && !e.altKey &&
+          (e.key === "ArrowUp" || e.key === "ArrowDown" || e.key === "ArrowLeft" || e.key === "ArrowRight")) {
+        e.preventDefault();
+        const nudge = e.shiftKey ? 10 : 1;
+        const dx = e.key === "ArrowLeft" ? -nudge : e.key === "ArrowRight" ? nudge : 0;
+        const dy = e.key === "ArrowUp" ? -nudge : e.key === "ArrowDown" ? nudge : 0;
+        if (selectedGroupRef.current.length > 0) {
+          const from = selectedGroupRef.current.map(s => s.points.map(p => ({ ...p })));
+          for (const s of selectedGroupRef.current) {
+            for (const p of s.points) { p.x += dx; p.y += dy; }
+          }
+          const to = selectedGroupRef.current.map(s => s.points.map(p => ({ ...p })));
+          if (!e.repeat) {
+            undoStackRef.current.push({ type: "group-move", strokes: selectedGroupRef.current, from, to });
+            redoStackRef.current = [];
+          }
+        } else if (selectedTextRef.current) {
+          const stroke = selectedTextRef.current;
+          const from = stroke.points.map(p => ({ ...p }));
+          for (const p of stroke.points) { p.x += dx; p.y += dy; }
+          const to = stroke.points.map(p => ({ ...p }));
+          if (!e.repeat) {
+            undoStackRef.current.push({ type: "move", stroke, from, to });
+            redoStackRef.current = [];
+          }
+        }
+        strokesCacheRef.current = null;
+        scheduleRedraw();
+        if (!e.repeat) persistStrokes();
+        return;
+      }
       const panAmount = e.shiftKey ? 200 : 50;
       if (e.key === "ArrowUp" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
@@ -2346,6 +2420,35 @@ function Canvas({
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistView();
+      }
+      if (cmdKey(e) && e.key === "d" && !isWritingRef.current) {
+        e.preventDefault();
+        const offset = 16;
+        const srcs = selectedGroupRef.current.length > 0
+          ? selectedGroupRef.current
+          : selectedTextRef.current ? [selectedTextRef.current] : [];
+        if (srcs.length > 0) {
+          const newStrokes: Stroke[] = srcs.map(src => ({
+            ...src,
+            points: src.points.map(p => ({ x: p.x + offset, y: p.y + offset })),
+            widths: src.widths ? [...src.widths] : undefined,
+          }));
+          strokesRef.current.push(...newStrokes);
+          if (newStrokes.length === 1) {
+            undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });
+            selectedTextRef.current = newStrokes[0];
+            selectedGroupRef.current = [];
+          } else {
+            undoStackRef.current.push({ type: "multi-draw", strokes: newStrokes });
+            selectedGroupRef.current = newStrokes;
+            selectedTextRef.current = null;
+          }
+          redoStackRef.current = [];
+          setZCursor("default");
+          strokesCacheRef.current = null;
+          scheduleRedraw();
+          persistStrokes();
+        }
       }
       if (e.key === "d" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         const now = performance.now();
@@ -2479,7 +2582,7 @@ function Canvas({
           }),
         );
       }
-      if (e.key === "Escape" && (selectedTextRef.current || selectedGroupRef.current.length > 0)) {
+      if (e.key === "Escape" && (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current)) {
         e.preventDefault();
         selectedTextRef.current = null;
         hoverTextRef.current = null;
@@ -2973,6 +3076,21 @@ function Canvas({
         }
         if (activeModifierRef.current === "shape") shapeJustCommittedRef.current = true;
         discardTinyShape();
+        // Discard dashed freehand strokes that are too short to show a dash
+        if (activeModifierRef.current === "shift") {
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke && stroke.style === "dashed" && !stroke.shape) {
+            let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+            for (const p of stroke.points) {
+              if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+              if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
+            }
+            if (maxX - minX < MIN_DASH_LENGTH && maxY - minY < MIN_DASH_LENGTH) {
+              strokesRef.current.pop();
+              undoStackRef.current.pop();
+            }
+          }
+        }
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         strokesCacheRef.current = null;
