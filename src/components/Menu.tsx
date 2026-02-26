@@ -991,6 +991,27 @@ export default function Menu({
                             W/H + drag
                           </kbd>
                         </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="currentColor"
+                              stroke="none"
+                            >
+                              <path d="M2,8 L14,5 L14,11 Z" opacity="0.7" />
+                            </svg>
+                            Dynamic stroke
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            P
+                          </kbd>
+                        </div>
                       </div>
 
                       <div
@@ -1663,27 +1684,6 @@ export default function Menu({
                             }
                           >
                             D D
-                          </kbd>
-                        </div>
-                        <div className="flex justify-between gap-4">
-                          <span className="flex items-center gap-1.5">
-                            <svg
-                              width="12"
-                              height="12"
-                              viewBox="0 0 16 16"
-                              fill="currentColor"
-                              stroke="none"
-                            >
-                              <path d="M2,8 L14,5 L14,11 Z" opacity="0.7" />
-                            </svg>
-                            Dynamic stroke
-                          </span>
-                          <kbd
-                            className={
-                              isDark ? "text-white/40" : "text-black/40"
-                            }
-                          >
-                            P
                           </kbd>
                         </div>
                       </div>

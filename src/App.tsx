@@ -75,6 +75,7 @@ export default function App() {
     return localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "";
   });
   const canvasNameInputRef = useRef<HTMLInputElement>(null);
+  const [isEditingName, setIsEditingName] = useState(false);
   const [contentOffScreen, setContentOffScreen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [showThicknessPicker, setShowThicknessPicker] = useState<
@@ -285,8 +286,7 @@ export default function App() {
       }
     };
     const onFocusCanvasName = () => {
-      canvasNameInputRef.current?.focus();
-      canvasNameInputRef.current?.select();
+      setIsEditingName(true);
     };
     window.addEventListener("drawtool:zoom", onZoom);
     window.addEventListener("drawtool:thickness", onThickness);
@@ -1100,28 +1100,46 @@ export default function App() {
         >
           {activeCanvas}
         </div>
-        <input
-          ref={canvasNameInputRef}
-          value={canvasName}
-          placeholder=""
-          onChange={(e) => {
-            setCanvasName(e.target.value);
-            localStorage.setItem(
-              `drawtool-canvas-name-${activeCanvas}`,
-              e.target.value,
-            );
-          }}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === "Escape") e.currentTarget.blur();
-            e.stopPropagation();
-          }}
-          className="w-auto bg-transparent border-none outline-none text-[19px]"
-          style={{
-            width: `${canvasName?.length ? canvasName.length + 2 : 1}ch`,
-            color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
-            fontFamily: "'Caveat', cursive",
-          }}
-        />
+        {!hasTouch && (
+          isEditingName ? (
+            <input
+              ref={canvasNameInputRef}
+              value={canvasName}
+              autoFocus
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => {
+                setCanvasName(e.target.value);
+                localStorage.setItem(
+                  `drawtool-canvas-name-${activeCanvas}`,
+                  e.target.value,
+                );
+              }}
+              onBlur={() => setIsEditingName(false)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === "Escape")
+                  e.currentTarget.blur();
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+              }}
+              className="w-auto bg-transparent border-none outline-none text-[19px]"
+              style={{
+                width: `${canvasName?.length ? canvasName.length + 2 : 2}ch`,
+                color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+                fontFamily: "'Caveat', cursive",
+              }}
+            />
+          ) : (
+            <span
+              className="text-[19px] pointer-events-none select-none"
+              style={{
+                color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+                fontFamily: "'Caveat', cursive",
+              }}
+            >
+              {canvasName}
+            </span>
+          )
+        )}
       </div>
       {confirmingClear && (
         <div

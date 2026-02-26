@@ -2104,18 +2104,27 @@ function Canvas({
       if (cmdKey(e) && e.key === "c" && selectedTextRef.current) {
         clipboardRef.current = selectedTextRef.current;
       }
-      if (cmdKey(e) && e.key === "v" && !e.shiftKey && clipboardRef.current && zKeyRef.current) {
+      if (cmdKey(e) && e.key === "v" && !e.shiftKey && clipboardRef.current) {
         e.preventDefault();
         const src = clipboardRef.current;
-        const offset = 20 / viewRef.current.scale;
+        // Place pasted stroke centred on cursor
+        const bb = anyStrokeBBox(src);
+        const cx = bb.x + bb.w / 2;
+        const cy = bb.y + bb.h / 2;
+        const cursor = cursorWorldRef.current;
+        const dx = cursor.x - cx;
+        const dy = cursor.y - cy;
         const newStroke: Stroke = {
           ...src,
-          points: src.points.map(p => ({ x: p.x + offset, y: p.y + offset })),
+          points: src.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
           widths: src.widths ? [...src.widths] : undefined,
         };
         strokesRef.current.push(newStroke);
         undoStackRef.current.push({ type: "draw", stroke: newStroke });
         redoStackRef.current = [];
+        // Auto-select and activate V mode so the selection is immediately visible
+        zKeyRef.current = true;
+        setZCursor("default");
         selectedTextRef.current = newStroke;
         strokesCacheRef.current = null;
         scheduleRedraw();
@@ -2351,8 +2360,10 @@ function Canvas({
       if (e.key === "Escape" && selectedTextRef.current) {
         e.preventDefault();
         selectedTextRef.current = null;
+        hoverTextRef.current = null;
         selectDragRef.current = null;
-        setZCursor(zKeyRef.current ? "default" : null);
+        zKeyRef.current = false;
+        setZCursor(null);
         scheduleRedraw();
         return;
       }
