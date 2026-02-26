@@ -38,7 +38,8 @@ type UndoAction =
   | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
   | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[] }
   | { type: "edit"; stroke: Stroke; oldText: string; newText: string }
-  | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] };
+  | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] }
+  | { type: "multi-draw"; strokes: Stroke[] };
 
 export type TouchTool =
   | "draw"
@@ -822,7 +823,7 @@ function Canvas({
   const pointerButtonDownRef = useRef(false);
   const shiftHeldRef = useRef(false); // own shift tracking — e.shiftKey can get stuck on Mac
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
-  const clipboardRef = useRef<Stroke | null>(null);
+  const clipboardRef = useRef<Stroke[] | null>(null);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const lastDPressRef = useRef(0);
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -1536,7 +1537,7 @@ function Canvas({
           }
         };
         const swapAction = (a: UndoAction) => {
-          const list = a.type === "erase" ? a.strokes : a.type === "group-move" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" ? [a.stroke] : [];
+          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" ? [a.stroke] : [];
           for (const s of list) {
             if (s.color === from) s.color = to;
           }
@@ -1850,6 +1851,11 @@ function Canvas({
           action.strokes[i].points = action.from[i].map(p => ({ ...p }));
         }
         selectedGroupRef.current = action.strokes;
+      } else if (action.type === "multi-draw") {
+        for (const s of action.strokes) {
+          const idx = strokesRef.current.lastIndexOf(s);
+          if (idx !== -1) strokesRef.current.splice(idx, 1);
+        }
       }
       redoStackRef.current.push(action);
     }
@@ -1895,6 +1901,8 @@ function Canvas({
           action.strokes[i].points = action.to[i].map(p => ({ ...p }));
         }
         selectedGroupRef.current = action.strokes;
+      } else if (action.type === "multi-draw") {
+        strokesRef.current.push(...action.strokes);
       }
       undoStackRef.current.push(action);
     }
@@ -2197,31 +2205,49 @@ function Canvas({
         e.preventDefault();
         redo();
       }
-      if (cmdKey(e) && e.key === "c" && selectedTextRef.current) {
-        clipboardRef.current = selectedTextRef.current;
+      if (cmdKey(e) && e.key === "c") {
+        if (selectedGroupRef.current.length > 0) {
+          clipboardRef.current = selectedGroupRef.current.map(s => ({ ...s, points: s.points.map(p => ({ ...p })), widths: s.widths ? [...s.widths] : undefined }));
+        } else if (selectedTextRef.current) {
+          clipboardRef.current = [selectedTextRef.current];
+        }
       }
       if (cmdKey(e) && e.key === "v" && !e.shiftKey && clipboardRef.current) {
         e.preventDefault();
-        const src = clipboardRef.current;
-        // Place pasted stroke centred on cursor
-        const bb = anyStrokeBBox(src);
-        const cx = bb.x + bb.w / 2;
-        const cy = bb.y + bb.h / 2;
+        const srcs = clipboardRef.current;
+        // Compute combined bbox to centre the paste on cursor
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const s of srcs) {
+          const bb = anyStrokeBBox(s);
+          minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+          maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+        }
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
         const cursor = cursorWorldRef.current;
         const dx = cursor.x - cx;
         const dy = cursor.y - cy;
-        const newStroke: Stroke = {
+        const newStrokes: Stroke[] = srcs.map(src => ({
           ...src,
           points: src.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
           widths: src.widths ? [...src.widths] : undefined,
-        };
-        strokesRef.current.push(newStroke);
-        undoStackRef.current.push({ type: "draw", stroke: newStroke });
+        }));
+        strokesRef.current.push(...newStrokes);
+        if (newStrokes.length === 1) {
+          undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });
+        } else {
+          undoStackRef.current.push({ type: "multi-draw", strokes: newStrokes });
+        }
         redoStackRef.current = [];
-        // Auto-select and activate V mode so the selection is immediately visible
-        zKeyRef.current = true;
+        // Auto-select pasted strokes
+        if (newStrokes.length === 1) {
+          selectedTextRef.current = newStrokes[0];
+          selectedGroupRef.current = [];
+        } else {
+          selectedGroupRef.current = newStrokes;
+          selectedTextRef.current = null;
+        }
         setZCursor("default");
-        selectedTextRef.current = newStroke;
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistStrokes();
