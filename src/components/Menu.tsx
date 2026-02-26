@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Settings, Theme, TextSize, GridType } from "../hooks/useSettings";
+import type { Settings, Theme, TextSize, GridType, FontFamily } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight" || theme === "lumber";
@@ -266,7 +266,7 @@ export default function Menu({
               {palette.map((color) => (
                 <button
                   key={color}
-                  onClick={() => updateSettings({ lineColor: color })}
+                  onClick={() => window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: color }))}
                   aria-label={`Color ${color}`}
                   aria-pressed={settings.lineColor === color}
                   className="w-5 h-5 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
@@ -306,6 +306,38 @@ export default function Menu({
                       }`}
                     >
                       {size.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <div className="text-sm mt-4">Font</div>
+                <div className="flex items-center gap-1 mt-2">
+                  {(
+                    [
+                      { key: "caveat",   label: "Abc", css: "'Caveat', cursive" },
+                      { key: "comic",    label: "Abc", css: "'Bangers', cursive" },
+                      { key: "cartoon",  label: "Abc", css: "'Boogaloo', cursive" },
+                      { key: "sans",     label: "Abc", css: "system-ui, -apple-system, sans-serif" },
+                      { key: "serif",    label: "Abc", css: "Georgia, serif" },
+                      { key: "mono",     label: "Abc", css: "ui-monospace, 'Courier New', monospace" },
+                    ] as { key: FontFamily; label: string; css: string }[]
+                  ).map(({ key, label, css }) => (
+                    <button
+                      key={key}
+                      onClick={() => window.dispatchEvent(new CustomEvent("drawtool:font-family", { detail: key }))}
+                      aria-label={`Font ${key}`}
+                      aria-pressed={settings.fontFamily === key}
+                      style={{ fontFamily: css }}
+                      className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 ${
+                        settings.fontFamily === key
+                          ? isDark
+                            ? "bg-white/20 text-white"
+                            : "bg-black/15 text-black"
+                          : isDark
+                            ? "text-white/40 hover:text-white/60"
+                            : "text-black/35 hover:text-black/55"
+                      }`}
+                    >
+                      {label}
                     </button>
                   ))}
                 </div>
@@ -1477,6 +1509,29 @@ export default function Menu({
                             }
                           >
                             Shift + T
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="flex items-center gap-1.5">
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 16 16"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.5"
+                              strokeLinecap="round"
+                            >
+                              <path d="M3 5h4M5 3v10M10 4l3 8M10 4l-3 8" strokeWidth="1.3" />
+                            </svg>
+                            Cycle font
+                          </span>
+                          <kbd
+                            className={
+                              isDark ? "text-white/40" : "text-black/40"
+                            }
+                          >
+                            Shift + F
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">

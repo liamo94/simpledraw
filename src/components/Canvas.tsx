@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState, memo } from "react";
 import { getStroke } from "perfect-freehand";
 import rough from "roughjs";
-import type { ShapeKind, Theme, TextSize, GridType } from "../hooks/useSettings";
+import type { ShapeKind, Theme, TextSize, GridType, FontFamily } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight" || theme === "lumber";
@@ -26,6 +26,7 @@ type Stroke = {
   highlight?: boolean;
   text?: string;
   fontSize?: TextSize;
+  fontFamily?: FontFamily;
   fontScale?: number;
   widths?: number[];
   seed?: number;
@@ -38,6 +39,9 @@ type UndoAction =
   | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
   | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[] }
   | { type: "edit"; stroke: Stroke; oldText: string; newText: string }
+  | { type: "font-change"; stroke: Stroke; from: FontFamily | undefined; to: FontFamily }
+  | { type: "color-change"; stroke: Stroke; from: string; to: string }
+  | { type: "group-color-change"; strokes: Stroke[]; from: string[]; to: string }
   | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] }
   | { type: "multi-draw"; strokes: Stroke[] };
 
@@ -52,7 +56,17 @@ export type TouchTool =
   | "text";
 
 const TEXT_SIZE_MAP: Record<TextSize, number> = { xs: 14, s: 21, m: 32, l: 49, xl: 70 };
-const TEXT_FONT_FAMILY = "'Caveat', cursive";
+const FONT_FAMILIES: { key: FontFamily; label: string; css: string }[] = [
+  { key: "caveat",   label: "Handwritten", css: "'Caveat', cursive" },
+  { key: "comic",    label: "Comic",       css: "'Bangers', cursive" },
+  { key: "cartoon",  label: "Cartoon",     css: "'Boogaloo', cursive" },
+  { key: "sans",     label: "Sans-serif",  css: "system-ui, -apple-system, sans-serif" },
+  { key: "serif",    label: "Serif",       css: "Georgia, serif" },
+  { key: "mono",     label: "Mono",        css: "ui-monospace, 'Courier New', monospace" },
+];
+function getFontCss(key?: FontFamily): string {
+  return FONT_FAMILIES.find(f => f.key === key)?.css ?? FONT_FAMILIES[0].css;
+}
 
 function strokesKey(n: number) {
   return `drawtool-strokes-${n}`;
@@ -561,7 +575,7 @@ function textBBox(stroke: Stroke): { x: number; y: number; w: number; h: number 
   let lineH = basePx;
 
   if (mCtx) {
-    mCtx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+    mCtx.font = `400 ${basePx}px ${getFontCss(stroke.fontFamily)}`;
     mCtx.textBaseline = "top";
     w = Math.max(...lines.map((l) => mCtx.measureText(l || " ").width)) * 1.05;
     // Measure actual glyph extents (caps + descenders) relative to the "top" baseline
@@ -617,7 +631,7 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
     // Text stroke rendering
     if (stroke.text) {
       const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
-      ctx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+      ctx.font = `400 ${basePx}px ${getFontCss(stroke.fontFamily)}`;
 
       ctx.fillStyle = stroke.color;
       ctx.textBaseline = "top";
@@ -754,6 +768,7 @@ function Canvas({
   activeShape,
   canvasIndex,
   textSize,
+  fontFamily,
   pressureSensitivity,
   onContentOffScreen,
 }: {
@@ -766,6 +781,7 @@ function Canvas({
   activeShape: ShapeKind;
   canvasIndex: number;
   textSize: TextSize;
+  fontFamily: FontFamily;
   pressureSensitivity: boolean;
   onContentOffScreen?: (offScreen: boolean) => void;
 }) {
@@ -836,6 +852,8 @@ function Canvas({
   const selectionAnchorRef = useRef<number | null>(null); // non-null = selection active
   const textSizeRef = useRef(textSize);
   textSizeRef.current = textSize;
+  const fontFamilyRef = useRef(fontFamily);
+  fontFamilyRef.current = fontFamily;
   const onContentOffScreenRef = useRef(onContentOffScreen);
   onContentOffScreenRef.current = onContentOffScreen;
 
@@ -853,6 +871,7 @@ function Canvas({
     startPoints: { x: number; y: number }[];
     startScale: number;
     bbox: BBox;
+    cycleHits?: Stroke[]; // strokes under pointer for deferred click-to-cycle
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
@@ -1133,7 +1152,7 @@ function Canvas({
         ? TEXT_SIZE_MAP[editStroke.fontSize || "m"] * (editStroke.fontScale ?? 1)
         : TEXT_SIZE_MAP[textSizeRef.current];
       const textColor = editStroke ? editStroke.color : lineColorRef.current;
-      ctx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+      ctx.font = `400 ${basePx}px ${getFontCss(editStroke ? editStroke.fontFamily : fontFamilyRef.current)}`;
 
       ctx.fillStyle = textColor;
       ctx.textBaseline = "top";
@@ -1537,7 +1556,7 @@ function Canvas({
           }
         };
         const swapAction = (a: UndoAction) => {
-          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" ? [a.stroke] : [];
+          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" ? [a.stroke] : [];
           for (const s of list) {
             if (s.color === from) s.color = to;
           }
@@ -1846,6 +1865,12 @@ function Canvas({
         action.fromPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.oldText;
+      } else if (action.type === "font-change") {
+        action.stroke.fontFamily = action.from;
+      } else if (action.type === "color-change") {
+        action.stroke.color = action.from;
+      } else if (action.type === "group-color-change") {
+        action.strokes.forEach((s, i) => { s.color = action.from[i]; });
       } else if (action.type === "group-move") {
         for (let i = 0; i < action.strokes.length; i++) {
           action.strokes[i].points = action.from[i].map(p => ({ ...p }));
@@ -1896,6 +1921,12 @@ function Canvas({
         action.toPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.newText;
+      } else if (action.type === "font-change") {
+        action.stroke.fontFamily = action.to;
+      } else if (action.type === "color-change") {
+        action.stroke.color = action.to;
+      } else if (action.type === "group-color-change") {
+        action.strokes.forEach(s => { s.color = action.to; });
       } else if (action.type === "group-move") {
         for (let i = 0; i < action.strokes.length; i++) {
           action.strokes[i].points = action.to[i].map(p => ({ ...p }));
@@ -1937,12 +1968,47 @@ function Canvas({
       (e as CustomEvent).detail.count = strokesRef.current.length;
     };
     const onExportTransparent = () => exportTransparent();
+    const onFontFamily = (e: Event) => {
+      const key = (e as CustomEvent).detail as FontFamily;
+      const sel = selectedTextRef.current;
+      if (sel && sel.text && !isWritingRef.current) {
+        undoStackRef.current.push({ type: "font-change", stroke: sel, from: sel.fontFamily, to: key });
+        redoStackRef.current = [];
+        sel.fontFamily = key;
+        strokesCacheRef.current = null;
+        persistStrokes();
+        scheduleRedraw();
+      }
+    };
+    const onSetColor = (e: Event) => {
+      const color = (e as CustomEvent).detail as string;
+      const group = selectedGroupRef.current;
+      const single = selectedTextRef.current;
+      if (isWritingRef.current) return;
+      if (group.length > 0) {
+        undoStackRef.current.push({ type: "group-color-change", strokes: group, from: group.map(s => s.color), to: color });
+        redoStackRef.current = [];
+        group.forEach(s => { s.color = color; });
+        strokesCacheRef.current = null;
+        persistStrokes();
+        scheduleRedraw();
+      } else if (single) {
+        undoStackRef.current.push({ type: "color-change", stroke: single, from: single.color, to: color });
+        redoStackRef.current = [];
+        single.color = color;
+        strokesCacheRef.current = null;
+        persistStrokes();
+        scheduleRedraw();
+      }
+    };
     window.addEventListener("drawtool:clear", onClear);
     window.addEventListener("drawtool:reset-view", onResetView);
     window.addEventListener("drawtool:center-view", onCenterView);
     window.addEventListener("drawtool:zoom-step", onZoomStep);
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
     window.addEventListener("drawtool:export-transparent", onExportTransparent);
+    window.addEventListener("drawtool:font-family", onFontFamily);
+    window.addEventListener("drawtool:set-color", onSetColor);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
@@ -1950,6 +2016,8 @@ function Canvas({
       window.removeEventListener("drawtool:zoom-step", onZoomStep);
       window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
       window.removeEventListener("drawtool:export-transparent", onExportTransparent);
+      window.removeEventListener("drawtool:font-family", onFontFamily);
+      window.removeEventListener("drawtool:set-color", onSetColor);
     };
   }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent]);
 
@@ -2079,24 +2147,28 @@ function Canvas({
           replaceSelection("\n");
           return;
         }
-        // Arrow keys → collapse selection or move caret
+        // Arrow keys → collapse selection or move caret (Shift extends selection)
         if (e.key === "ArrowLeft") {
           e.preventDefault();
           if (hasSel && !e.shiftKey) {
+            // Collapse to left end of selection
             caretPosRef.current = selStart;
             selectionAnchorRef.current = null;
-          } else if (pos > 0) {
-            if (e.altKey) {
-              let i = pos - 1;
-              while (i > 0 && text[i - 1] === " ") i--;
-              while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
-              caretPosRef.current = i;
-            } else if (e.metaKey) {
-              caretPosRef.current = text.lastIndexOf("\n", pos - 1) + 1;
-            } else {
-              caretPosRef.current = pos - 1;
+          } else {
+            if (e.shiftKey && selectionAnchorRef.current === null) selectionAnchorRef.current = pos;
+            if (pos > 0) {
+              if (e.metaKey) {
+                caretPosRef.current = text.lastIndexOf("\n", pos - 1) + 1;
+              } else if (e.altKey) {
+                let i = pos - 1;
+                while (i > 0 && text[i - 1] === " ") i--;
+                while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
+                caretPosRef.current = i;
+              } else {
+                caretPosRef.current = pos - 1;
+              }
             }
-            selectionAnchorRef.current = null;
+            if (!e.shiftKey) selectionAnchorRef.current = null;
           }
           caretVisibleRef.current = true;
           scheduleRedraw();
@@ -2105,22 +2177,26 @@ function Canvas({
         if (e.key === "ArrowRight") {
           e.preventDefault();
           if (hasSel && !e.shiftKey) {
+            // Collapse to right end of selection
             caretPosRef.current = selEnd;
             selectionAnchorRef.current = null;
-          } else if (pos < text.length) {
-            if (e.altKey) {
-              let i = pos;
-              while (i < text.length && text[i] === " ") i++;
-              while (i < text.length && text[i] !== " " && text[i] !== "\n") i++;
-              caretPosRef.current = i;
-            } else if (e.metaKey) {
-              let end = text.indexOf("\n", pos);
-              if (end === -1) end = text.length;
-              caretPosRef.current = end;
-            } else {
-              caretPosRef.current = pos + 1;
+          } else {
+            if (e.shiftKey && selectionAnchorRef.current === null) selectionAnchorRef.current = pos;
+            if (pos < text.length) {
+              if (e.metaKey) {
+                let end = text.indexOf("\n", pos);
+                if (end === -1) end = text.length;
+                caretPosRef.current = end;
+              } else if (e.altKey) {
+                let i = pos;
+                while (i < text.length && text[i] === " ") i++;
+                while (i < text.length && text[i] !== " " && text[i] !== "\n") i++;
+                caretPosRef.current = i;
+              } else {
+                caretPosRef.current = pos + 1;
+              }
             }
-            selectionAnchorRef.current = null;
+            if (!e.shiftKey) selectionAnchorRef.current = null;
           }
           caretVisibleRef.current = true;
           scheduleRedraw();
@@ -2128,7 +2204,7 @@ function Canvas({
         }
         if (e.key === "ArrowUp" || e.key === "ArrowDown") {
           e.preventDefault();
-          selectionAnchorRef.current = null;
+          if (e.shiftKey && selectionAnchorRef.current === null) selectionAnchorRef.current = pos;
           const lines = text.split("\n");
           let charCount = 0;
           let curLine = 0;
@@ -2150,6 +2226,7 @@ function Canvas({
             caretVisibleRef.current = true;
             scheduleRedraw();
           }
+          if (!e.shiftKey) selectionAnchorRef.current = null;
           return;
         }
         // Ignore other modifier combos (Cmd+C, Cmd+V handled elsewhere)
@@ -2192,6 +2269,24 @@ function Canvas({
         window.dispatchEvent(
           new CustomEvent("drawtool:toast", { detail: `Text: ${labels[next]}` }),
         );
+        return;
+      }
+      if (e.key === "F" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current) {
+        const cur = fontFamilyRef.current;
+        const idx = FONT_FAMILIES.findIndex(f => f.key === cur);
+        const next = FONT_FAMILIES[(idx + 1) % FONT_FAMILIES.length];
+        window.dispatchEvent(new CustomEvent("drawtool:font-family", { detail: next.key }));
+        window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: `Font: ${next.label}` }));
+        // Apply to currently selected text stroke
+        const sel = selectedTextRef.current;
+        if (sel && sel.text) {
+          undoStackRef.current.push({ type: "font-change", stroke: sel, from: sel.fontFamily, to: next.key });
+          redoStackRef.current = [];
+          sel.fontFamily = next.key;
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+        }
         return;
       }
       if (cmdKey(e) && e.key === "x") {
@@ -3631,6 +3726,7 @@ function Canvas({
         color: lineColorRef.current,
         text: raw,
         fontSize: textSizeRef.current,
+        fontFamily: fontFamilyRef.current,
       };
       strokesRef.current.push(stroke);
       undoStackRef.current.push({ type: "draw", stroke });
@@ -3687,7 +3783,7 @@ function Canvas({
       const bboxCtx = getBBoxMeasureCtx();
       let col = line.length;
       if (bboxCtx) {
-        bboxCtx.font = `400 ${basePx}px ${TEXT_FONT_FAMILY}`;
+        bboxCtx.font = `400 ${basePx}px ${getFontCss(stroke.fontFamily)}`;
         const xInLine = clickWorldPos.x - anchor.x;
         col = line.length;
         for (let i = 1; i <= line.length; i++) {
@@ -3829,11 +3925,11 @@ function Canvas({
               }
             }
           }
-          // Check body — click-to-cycle through overlapping strokes, double-click edits text
+          // Check body — drag current stroke; defer click-to-cycle to pointer up
           if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
               wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
             const curStroke = selectedTextRef.current;
-            // Collect all hits to support cycling
+            // Collect all hits under pointer (for deferred cycling on pointer up)
             const allHits: Stroke[] = [];
             for (let i = strokesRef.current.length - 1; i >= 0; i--) {
               const s = strokesRef.current[i];
@@ -3844,15 +3940,10 @@ function Canvas({
                 allHits.push(s);
               }
             }
-            // Cycle: if top hit is currently selected and there's something beneath, dig deeper
-            const targetStroke = (allHits.length > 1 && allHits[0] === curStroke)
-              ? allHits[1]
-              : curStroke;
-            selectedTextRef.current = targetStroke;
             selectedGroupRef.current = [];
             hoverTextRef.current = null;
-            // Double-click edits text (only when not cycling)
-            if (targetStroke === curStroke && curStroke.text) {
+            // Double-click edits text
+            if (curStroke.text) {
               const now = performance.now();
               const last = lastTextTapRef.current;
               if (last && last.stroke === curStroke && now - last.time < 300) {
@@ -3862,12 +3953,14 @@ function Canvas({
               }
               lastTextTapRef.current = { time: now, stroke: curStroke };
             }
+            // Always drag the currently selected stroke; cycling happens on pointer up if no drag
             selectDragRef.current = {
               mode: "move",
               startPtr: { ...wp },
-              startPoints: targetStroke.points.map(p => ({ ...p })),
-              startScale: targetStroke.fontScale ?? 1,
-              bbox: anyStrokeBBox(targetStroke),
+              startPoints: curStroke.points.map(p => ({ ...p })),
+              startScale: curStroke.fontScale ?? 1,
+              bbox: anyStrokeBBox(curStroke),
+              cycleHits: allHits,
             };
             (e.target as Element).setPointerCapture(e.pointerId);
             scheduleRedraw();
@@ -4219,6 +4312,12 @@ function Canvas({
             });
             redoStackRef.current = [];
             persistStrokes();
+          } else if (drag.cycleHits && drag.cycleHits.length > 1) {
+            // No drag occurred — cycle to the next overlapping stroke
+            const hits = drag.cycleHits;
+            const curIdx = hits.indexOf(stroke);
+            const nextStroke = hits[(curIdx + 1) % hits.length];
+            selectedTextRef.current = nextStroke;
           }
         } else if (stroke.text) {
           // Text resize — fontScale + anchor changed

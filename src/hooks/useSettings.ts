@@ -16,6 +16,8 @@ export type Theme = "dark" | "midnight" | "lumber" | "white" | "journal" | "sky"
 
 export type TextSize = "xs" | "s" | "m" | "l" | "xl";
 
+export type FontFamily = "caveat" | "sans" | "serif" | "mono" | "comic" | "cartoon";
+
 export type GridType = "off" | "dot" | "square";
 
 export type Settings = {
@@ -28,6 +30,7 @@ export type Settings = {
   confirmClear: boolean;
   activeShape: ShapeKind;
   textSize: TextSize;
+  fontFamily: FontFamily;
   pressureSensitivity: boolean;
 };
 
@@ -50,6 +53,7 @@ function getDefaults(): Settings {
     confirmClear: true,
     activeShape: "rectangle" as const,
     textSize: "m" as const,
+    fontFamily: "caveat" as FontFamily,
     pressureSensitivity: false,
   };
 }

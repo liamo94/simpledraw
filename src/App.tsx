@@ -14,6 +14,7 @@ import useSettings, {
   type Theme,
   type TextSize,
   type GridType,
+  type FontFamily,
 } from "./hooks/useSettings";
 
 const SHAPES: ShapeKind[] = [
@@ -302,6 +303,14 @@ export default function App() {
       const size = (e as CustomEvent).detail as TextSize;
       updateSettings({ textSize: size });
     };
+    const onFontFamily = (e: Event) => {
+      const family = (e as CustomEvent).detail as FontFamily;
+      updateSettings({ fontFamily: family });
+    };
+    const onSetColor = (e: Event) => {
+      const color = (e as CustomEvent).detail as string;
+      updateSettings({ lineColor: color });
+    };
     const onToast = (e: Event) => {
       const message = (e as CustomEvent).detail as string;
       showToast({ type: "text", message });
@@ -369,6 +378,8 @@ export default function App() {
     window.addEventListener("drawtool:toggle-pressure", onTogglePressure);
     window.addEventListener("drawtool:export", onExportShortcut);
     window.addEventListener("drawtool:text-size", onTextSize);
+    window.addEventListener("drawtool:font-family", onFontFamily);
+    window.addEventListener("drawtool:set-color", onSetColor);
     window.addEventListener("drawtool:toast", onToast);
     window.addEventListener("drawtool:cycle-theme", onCycleTheme);
     return () => {
@@ -394,6 +405,8 @@ export default function App() {
       window.removeEventListener("drawtool:toggle-pressure", onTogglePressure);
       window.removeEventListener("drawtool:export", onExportShortcut);
       window.removeEventListener("drawtool:text-size", onTextSize);
+      window.removeEventListener("drawtool:font-family", onFontFamily);
+      window.removeEventListener("drawtool:set-color", onSetColor);
       window.removeEventListener("drawtool:toast", onToast);
       window.removeEventListener("drawtool:cycle-theme", onCycleTheme);
     };
@@ -656,6 +669,7 @@ export default function App() {
         activeShape={settings.activeShape}
         canvasIndex={activeCanvas}
         textSize={settings.textSize}
+        fontFamily={settings.fontFamily}
         pressureSensitivity={settings.pressureSensitivity}
         onContentOffScreen={setContentOffScreen}
       />
