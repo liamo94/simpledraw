@@ -1998,9 +1998,10 @@ function Canvas({
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
     strokesCacheRef.current = null;
+    setZCursor(zKeyRef.current ? "default" : null);
     persistStrokes();
     scheduleRedraw();
-  }, [persistStrokes, scheduleRedraw]);
+  }, [persistStrokes, scheduleRedraw, setZCursor]);
 
   const redo = useCallback(() => {
     const action = redoStackRef.current.pop();
@@ -2060,9 +2061,10 @@ function Canvas({
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
     strokesCacheRef.current = null;
+    setZCursor(zKeyRef.current ? "default" : null);
     persistStrokes();
     scheduleRedraw();
-  }, [persistStrokes, scheduleRedraw]);
+  }, [persistStrokes, scheduleRedraw, setZCursor]);
 
   // Listen for clear / reset-view / center-view / zoom-step / stroke-count-query / export-transparent events
   useEffect(() => {
@@ -3651,8 +3653,8 @@ function Canvas({
         );
       }
 
-      // Block all drawing/erasing while a text stroke is selected (panning handled above)
-      if (selectedTextRef.current) return;
+      // Block all drawing/erasing while a stroke or group is selected (panning handled above)
+      if (selectedTextRef.current || selectedGroupRef.current.length > 0) return;
 
       // --- Determine modifier ---
       let modifier:
@@ -4254,11 +4256,35 @@ function Canvas({
           scheduleRedraw();
           return;
         } else {
-          // Click outside group — clear group selection, fall through
+          // Click outside group — clear group selection
+          const hitOnClear = hoverTextRef.current; // non-group stroke being hovered (if any)
           selectedGroupRef.current = [];
           groupDragRef.current = null;
+          hoverTextRef.current = null;
           strokesCacheRef.current = null;
-          setZCursor(zKeyRef.current ? "default" : null);
+          if (!zKeyRef.current) {
+            // Not in V-mode: stay in selection context — select hovered item or just deselect.
+            // Never fall through to drawing.
+            if (hitOnClear) {
+              selectedTextRef.current = hitOnClear;
+              selectDragRef.current = {
+                mode: "move",
+                startPtr: { ...wp },
+                startPoints: hitOnClear.points.map(p => ({ ...p })),
+                startScale: hitOnClear.fontScale ?? 1,
+                bbox: anyStrokeBBox(hitOnClear),
+              };
+              dispatchTextStyleSync(hitOnClear.bold ?? false, hitOnClear.italic ?? false, hitOnClear.textAlign ?? "left");
+              setZCursor("default");
+              (e.target as Element).setPointerCapture(e.pointerId);
+            } else {
+              setZCursor(null);
+            }
+            scheduleRedraw();
+            return;
+          }
+          // V held: fall through to Z-mode logic below
+          setZCursor("default");
           scheduleRedraw();
         }
       }
@@ -4570,7 +4596,6 @@ function Canvas({
             scheduleRedraw();
           }
         } else if (selectedGroupRef.current.length > 0) {
-          // Group hover: show move cursor when inside combined bbox
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
           const { scale } = viewRef.current;
           const pad = 8 / scale;
@@ -4580,9 +4605,28 @@ function Canvas({
             minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
             maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
           }
-          const inside = wp.x >= minX - pad && wp.x <= maxX + pad &&
-                         wp.y >= minY - pad && wp.y <= maxY + pad;
-          setZCursor(inside ? "move" : "default");
+          const insideGroup = wp.x >= minX - pad && wp.x <= maxX + pad &&
+                              wp.y >= minY - pad && wp.y <= maxY + pad;
+          if (insideGroup) {
+            if (hoverTextRef.current !== null) { hoverTextRef.current = null; scheduleRedraw(); }
+            setZCursor("move");
+          } else {
+            // Outside group — show hover on any non-group stroke under cursor
+            const hoverPad = 3 / scale;
+            let hoverHit: Stroke | null = null;
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              const stroke = strokesRef.current[i];
+              if (selectedGroupRef.current.includes(stroke) || stroke.points.length === 0) continue;
+              const bb = anyStrokeBBox(stroke);
+              if (wp.x >= bb.x - hoverPad && wp.x <= bb.x + bb.w + hoverPad &&
+                  wp.y >= bb.y - hoverPad && wp.y <= bb.y + bb.h + hoverPad) {
+                hoverHit = stroke;
+                break;
+              }
+            }
+            if (hoverHit !== hoverTextRef.current) { hoverTextRef.current = hoverHit; scheduleRedraw(); }
+            setZCursor(hoverHit ? "move" : "default");
+          }
         } else if (zKeyRef.current) {
           // Z-key hover detection (text + shapes + freehand)
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
