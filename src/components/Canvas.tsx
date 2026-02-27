@@ -1,7 +1,7 @@
 import { useRef, useEffect, useCallback, useState, memo } from "react";
 import { getStroke } from "perfect-freehand";
 import rough from "roughjs";
-import type { ShapeKind, Theme, TextSize, GridType, FontFamily } from "../hooks/useSettings";
+import type { ShapeKind, Theme, TextSize, GridType, FontFamily, TextAlign } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight" || theme === "lumber";
@@ -27,6 +27,9 @@ type Stroke = {
   text?: string;
   fontSize?: TextSize;
   fontFamily?: FontFamily;
+  bold?: boolean;
+  italic?: boolean;
+  textAlign?: TextAlign;
   fontScale?: number;
   widths?: number[];
   seed?: number;
@@ -40,6 +43,9 @@ type UndoAction =
   | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[] }
   | { type: "edit"; stroke: Stroke; oldText: string; newText: string }
   | { type: "font-change"; stroke: Stroke; from: FontFamily | undefined; to: FontFamily }
+  | { type: "bold-change"; stroke: Stroke; from: boolean | undefined; to: boolean; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }
+  | { type: "italic-change"; stroke: Stroke; from: boolean | undefined; to: boolean; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }
+  | { type: "align-change"; stroke: Stroke; from: TextAlign; to: TextAlign; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }
   | { type: "color-change"; stroke: Stroke; from: string; to: string }
   | { type: "group-color-change"; strokes: Stroke[]; from: string[]; to: string }
   | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] }
@@ -66,6 +72,16 @@ const FONT_FAMILIES: { key: FontFamily; label: string; css: string }[] = [
 ];
 function getFontCss(key?: FontFamily): string {
   return FONT_FAMILIES.find(f => f.key === key)?.css ?? FONT_FAMILIES[0].css;
+}
+function buildFont(basePx: number, bold?: boolean, italic?: boolean, fontFamily?: FontFamily): string {
+  const style = italic ? "italic " : "";
+  const weight = bold ? "700 " : "400 ";
+  return `${style}${weight}${basePx}px ${getFontCss(fontFamily)}`;
+}
+function dispatchTextStyleSync(bold: boolean, italic: boolean, align: TextAlign) {
+  window.dispatchEvent(new CustomEvent("drawtool:text-style-sync", {
+    detail: { textBold: bold, textItalic: italic, textAlign: align },
+  }));
 }
 
 function strokesKey(n: number) {
@@ -575,7 +591,7 @@ function textBBox(stroke: Stroke): { x: number; y: number; w: number; h: number 
   let lineH = basePx;
 
   if (mCtx) {
-    mCtx.font = `400 ${basePx}px ${getFontCss(stroke.fontFamily)}`;
+    mCtx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
     mCtx.textBaseline = "top";
     w = Math.max(...lines.map((l) => mCtx.measureText(l || " ").width)) * 1.05;
     // Measure actual glyph extents (caps + descenders) relative to the "top" baseline
@@ -591,7 +607,41 @@ function textBBox(stroke: Stroke): { x: number; y: number; w: number; h: number 
   }
 
   const h = lineHeight * (lines.length - 1) + lineH;
-  return { x: anchor.x, y: anchor.y + yOff, w, h };
+  // x depends on textAlign: anchor is the reference point for each alignment
+  let x = anchor.x;
+  if (stroke.textAlign === "center") x = anchor.x - w / 2;
+  else if (stroke.textAlign === "right") x = anchor.x - w;
+  return { x, y: anchor.y + yOff, w, h };
+}
+
+function computeCaretPosFromClick(stroke: Stroke, wp: { x: number; y: number }): number {
+  const text = stroke.text ?? "";
+  const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
+  const lines = text.split("\n");
+  const anchor = stroke.points[0];
+  const lineHeight = basePx * 1.2;
+  const lineIndex = Math.max(0, Math.min(lines.length - 1, Math.floor((wp.y - anchor.y) / lineHeight)));
+  const line = lines[lineIndex];
+  const bboxCtx = getBBoxMeasureCtx();
+  let col = line.length;
+  if (bboxCtx) {
+    bboxCtx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
+    const lineWidth = bboxCtx.measureText(line).width;
+    const strokeAlign = stroke.textAlign ?? "left";
+    let lineStartX = anchor.x;
+    if (strokeAlign === "center") lineStartX = anchor.x - lineWidth / 2;
+    else if (strokeAlign === "right") lineStartX = anchor.x - lineWidth;
+    const xInLine = wp.x - lineStartX;
+    for (let i = 1; i <= line.length; i++) {
+      if (bboxCtx.measureText(line.slice(0, i)).width > xInLine) {
+        const wBefore = bboxCtx.measureText(line.slice(0, i - 1)).width;
+        const wAt = bboxCtx.measureText(line.slice(0, i)).width;
+        col = (xInLine - wBefore) < (wAt - xInLine) ? i - 1 : i;
+        break;
+      }
+    }
+  }
+  return lines.slice(0, lineIndex).reduce((acc, l) => acc + l.length + 1, 0) + col;
 }
 
 type BBox = { x: number; y: number; w: number; h: number };
@@ -631,16 +681,17 @@ function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
     // Text stroke rendering
     if (stroke.text) {
       const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
-      ctx.font = `400 ${basePx}px ${getFontCss(stroke.fontFamily)}`;
-
+      ctx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
       ctx.fillStyle = stroke.color;
       ctx.textBaseline = "top";
+      ctx.textAlign = stroke.textAlign ?? "left";
       const lines = stroke.text.split("\n");
       const lineHeight = basePx * 1.2;
       const anchor = stroke.points[0];
       for (let i = 0; i < lines.length; i++) {
         ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);
       }
+      ctx.textAlign = "left";
       continue;
     }
     const color = stroke.highlight
@@ -771,6 +822,9 @@ function Canvas({
   canvasIndex,
   textSize,
   fontFamily,
+  textBold,
+  textItalic,
+  textAlign,
   pressureSensitivity,
   onContentOffScreen,
 }: {
@@ -786,6 +840,9 @@ function Canvas({
   canvasIndex: number;
   textSize: TextSize;
   fontFamily: FontFamily;
+  textBold: boolean;
+  textItalic: boolean;
+  textAlign: TextAlign;
   pressureSensitivity: boolean;
   onContentOffScreen?: (offScreen: boolean) => void;
 }) {
@@ -858,10 +915,21 @@ function Canvas({
   const caretTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const caretPosRef = useRef(0); // tracks selectionEnd for caret rendering
   const selectionAnchorRef = useRef<number | null>(null); // non-null = selection active
+  const writingBoldRef = useRef(false);
+  const writingItalicRef = useRef(false);
+  const writingAlignRef = useRef<TextAlign>("left");
+  const textUndoRef = useRef<string[]>([]);
+  const textRedoRef = useRef<string[]>([]);
   const textSizeRef = useRef(textSize);
   textSizeRef.current = textSize;
   const fontFamilyRef = useRef(fontFamily);
   fontFamilyRef.current = fontFamily;
+  const textBoldRef = useRef(textBold);
+  textBoldRef.current = textBold;
+  const textItalicRef = useRef(textItalic);
+  textItalicRef.current = textItalic;
+  const textAlignRef = useRef(textAlign);
+  textAlignRef.current = textAlign;
   const onContentOffScreenRef = useRef(onContentOffScreen);
   onContentOffScreenRef.current = onContentOffScreen;
 
@@ -1160,10 +1228,13 @@ function Canvas({
         ? TEXT_SIZE_MAP[editStroke.fontSize || "m"] * (editStroke.fontScale ?? 1)
         : TEXT_SIZE_MAP[textSizeRef.current];
       const textColor = editStroke ? editStroke.color : lineColorRef.current;
-      ctx.font = `400 ${basePx}px ${getFontCss(editStroke ? editStroke.fontFamily : fontFamilyRef.current)}`;
-
+      const bold = editStroke ? (editStroke.bold ?? false) : writingBoldRef.current;
+      const italic = editStroke ? (editStroke.italic ?? false) : writingItalicRef.current;
+      const align: TextAlign = editStroke ? (editStroke.textAlign ?? "left") : writingAlignRef.current;
+      ctx.font = buildFont(basePx, bold, italic, editStroke ? editStroke.fontFamily : fontFamilyRef.current);
       ctx.fillStyle = textColor;
       ctx.textBaseline = "top";
+      ctx.textAlign = align;
       const text = writingTextRef.current;
       const lines = text ? text.split("\n") : [""];
       const lineHeight = basePx * 1.2;
@@ -1173,6 +1244,14 @@ function Canvas({
           ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);
         }
       }
+      ctx.textAlign = "left";
+      // Helper: compute left edge of a line for cursor/selection, based on alignment
+      const lineStartX = (lineStr: string) => {
+        const lw = ctx.measureText(lineStr).width;
+        if (align === "center") return anchor.x - lw / 2;
+        if (align === "right") return anchor.x - lw;
+        return anchor.x;
+      };
       // Draw selection highlight
       if (isWritingRef.current && selectionAnchorRef.current !== null) {
         const selStart = Math.min(selectionAnchorRef.current, caretPosRef.current);
@@ -1184,8 +1263,9 @@ function Canvas({
           if (selStart <= lineEnd && selEnd > lineStart) {
             const colStart = Math.max(0, selStart - lineStart);
             const colEnd = Math.min(lines[i].length, selEnd - lineStart);
-            const x1 = anchor.x + ctx.measureText(lines[i].slice(0, colStart)).width;
-            const x2 = anchor.x + ctx.measureText(lines[i].slice(0, colEnd)).width;
+            const lx = lineStartX(lines[i]);
+            const x1 = lx + ctx.measureText(lines[i].slice(0, colStart)).width;
+            const x2 = lx + ctx.measureText(lines[i].slice(0, colEnd)).width;
             ctx.fillRect(x1, anchor.y + i * lineHeight, Math.max(x2 - x1, 2 / scale), basePx);
           }
           lineStart += lines[i].length + 1;
@@ -1211,7 +1291,8 @@ function Canvas({
           }
         }
         const textBeforeCaret = lines[caretLine].slice(0, caretCol);
-        const caretX = anchor.x + ctx.measureText(textBeforeCaret).width;
+        const lx = lineStartX(lines[caretLine]);
+        const caretX = lx + ctx.measureText(textBeforeCaret).width;
         const caretY = anchor.y + caretLine * lineHeight;
         ctx.fillStyle = textColor;
         ctx.fillRect(caretX, caretY, 2 / scale, basePx);
@@ -1875,6 +1956,15 @@ function Canvas({
         action.stroke.text = action.oldText;
       } else if (action.type === "font-change") {
         action.stroke.fontFamily = action.from;
+      } else if (action.type === "bold-change") {
+        action.stroke.bold = action.from;
+        if (action.fromAnchor) action.stroke.points[0] = { ...action.fromAnchor };
+      } else if (action.type === "italic-change") {
+        action.stroke.italic = action.from;
+        if (action.fromAnchor) action.stroke.points[0] = { ...action.fromAnchor };
+      } else if (action.type === "align-change") {
+        action.stroke.textAlign = action.from !== "left" ? action.from : undefined;
+        if (action.fromAnchor) action.stroke.points[0] = { ...action.fromAnchor };
       } else if (action.type === "color-change") {
         action.stroke.color = action.from;
       } else if (action.type === "group-color-change") {
@@ -1931,6 +2021,15 @@ function Canvas({
         action.stroke.text = action.newText;
       } else if (action.type === "font-change") {
         action.stroke.fontFamily = action.to;
+      } else if (action.type === "bold-change") {
+        action.stroke.bold = action.to || undefined;
+        if (action.toAnchor) action.stroke.points[0] = { ...action.toAnchor };
+      } else if (action.type === "italic-change") {
+        action.stroke.italic = action.to || undefined;
+        if (action.toAnchor) action.stroke.points[0] = { ...action.toAnchor };
+      } else if (action.type === "align-change") {
+        action.stroke.textAlign = action.to !== "left" ? action.to : undefined;
+        if (action.toAnchor) action.stroke.points[0] = { ...action.toAnchor };
       } else if (action.type === "color-change") {
         action.stroke.color = action.to;
       } else if (action.type === "group-color-change") {
@@ -2015,8 +2114,118 @@ function Canvas({
     window.addEventListener("drawtool:zoom-step", onZoomStep);
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
     window.addEventListener("drawtool:export-transparent", onExportTransparent);
+    const onTextBold = () => {
+      const editStroke = editingStrokeRef.current;
+      const sel = selectedTextRef.current;
+      if (isWritingRef.current) {
+        if (editStroke) {
+          const newBold = !(editStroke.bold ?? false);
+          undoStackRef.current.push({ type: "bold-change", stroke: editStroke, from: editStroke.bold, to: newBold });
+          redoStackRef.current = [];
+          editStroke.bold = newBold || undefined;
+          writingBoldRef.current = newBold;
+          strokesCacheRef.current = null;
+        } else {
+          writingBoldRef.current = !writingBoldRef.current;
+        }
+        dispatchTextStyleSync(writingBoldRef.current, writingItalicRef.current, writingAlignRef.current);
+        scheduleRedraw();
+      } else if (sel && sel.text) {
+        const newBold = !(sel.bold ?? false);
+        const fromBold = sel.bold;
+        const fromAnchor = { ...sel.points[0] };
+        const oldBbox = textBBox(sel);
+        sel.bold = newBold || undefined;
+        const newBbox = textBBox(sel);
+        sel.points[0] = { x: fromAnchor.x + (oldBbox.x - newBbox.x), y: fromAnchor.y + (oldBbox.y - newBbox.y) };
+        const toAnchor = { ...sel.points[0] };
+        undoStackRef.current.push({ type: "bold-change", stroke: sel, from: fromBold, to: newBold, fromAnchor, toAnchor });
+        redoStackRef.current = [];
+        strokesCacheRef.current = null;
+        persistStrokes();
+        scheduleRedraw();
+        dispatchTextStyleSync(newBold, sel.italic ?? false, sel.textAlign ?? "left");
+      } else {
+        dispatchTextStyleSync(!textBoldRef.current, textItalicRef.current, textAlignRef.current);
+      }
+    };
+    const onTextItalic = () => {
+      const editStroke = editingStrokeRef.current;
+      const sel = selectedTextRef.current;
+      if (isWritingRef.current) {
+        if (editStroke) {
+          const newItalic = !(editStroke.italic ?? false);
+          undoStackRef.current.push({ type: "italic-change", stroke: editStroke, from: editStroke.italic, to: newItalic });
+          redoStackRef.current = [];
+          editStroke.italic = newItalic || undefined;
+          writingItalicRef.current = newItalic;
+          strokesCacheRef.current = null;
+        } else {
+          writingItalicRef.current = !writingItalicRef.current;
+        }
+        dispatchTextStyleSync(writingBoldRef.current, writingItalicRef.current, writingAlignRef.current);
+        scheduleRedraw();
+      } else if (sel && sel.text) {
+        const newItalic = !(sel.italic ?? false);
+        const fromItalic = sel.italic;
+        const fromAnchor = { ...sel.points[0] };
+        const oldBbox = textBBox(sel);
+        sel.italic = newItalic || undefined;
+        const newBbox = textBBox(sel);
+        sel.points[0] = { x: fromAnchor.x + (oldBbox.x - newBbox.x), y: fromAnchor.y + (oldBbox.y - newBbox.y) };
+        const toAnchor = { ...sel.points[0] };
+        undoStackRef.current.push({ type: "italic-change", stroke: sel, from: fromItalic, to: newItalic, fromAnchor, toAnchor });
+        redoStackRef.current = [];
+        strokesCacheRef.current = null;
+        persistStrokes();
+        scheduleRedraw();
+        dispatchTextStyleSync(sel.bold ?? false, newItalic, sel.textAlign ?? "left");
+      } else {
+        dispatchTextStyleSync(textBoldRef.current, !textItalicRef.current, textAlignRef.current);
+      }
+    };
+    const onTextAlign = (e: Event) => {
+      const newAlign = (e as CustomEvent).detail as TextAlign;
+      const editStroke = editingStrokeRef.current;
+      const sel = selectedTextRef.current;
+      if (isWritingRef.current) {
+        if (editStroke) {
+          const oldAlign: TextAlign = editStroke.textAlign ?? "left";
+          if (oldAlign !== newAlign) {
+            undoStackRef.current.push({ type: "align-change", stroke: editStroke, from: oldAlign, to: newAlign });
+            redoStackRef.current = [];
+            editStroke.textAlign = newAlign !== "left" ? newAlign : undefined;
+            strokesCacheRef.current = null;
+          }
+        }
+        writingAlignRef.current = newAlign;
+        dispatchTextStyleSync(writingBoldRef.current, writingItalicRef.current, newAlign);
+        scheduleRedraw();
+      } else if (sel && sel.text) {
+        const oldAlign: TextAlign = sel.textAlign ?? "left";
+        if (oldAlign !== newAlign) {
+          const fromAnchor = { ...sel.points[0] };
+          const oldBbox = textBBox(sel);
+          sel.textAlign = newAlign !== "left" ? newAlign : undefined;
+          const newBbox = textBBox(sel);
+          sel.points[0] = { x: fromAnchor.x + (oldBbox.x - newBbox.x), y: fromAnchor.y + (oldBbox.y - newBbox.y) };
+          const toAnchor = { ...sel.points[0] };
+          undoStackRef.current.push({ type: "align-change", stroke: sel, from: oldAlign, to: newAlign, fromAnchor, toAnchor });
+          redoStackRef.current = [];
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+        }
+        dispatchTextStyleSync(sel.bold ?? false, sel.italic ?? false, newAlign);
+      } else {
+        dispatchTextStyleSync(textBoldRef.current, textItalicRef.current, newAlign);
+      }
+    };
     window.addEventListener("drawtool:font-family", onFontFamily);
     window.addEventListener("drawtool:set-color", onSetColor);
+    window.addEventListener("drawtool:text-bold", onTextBold);
+    window.addEventListener("drawtool:text-italic", onTextItalic);
+    window.addEventListener("drawtool:text-align", onTextAlign);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
@@ -2026,6 +2235,9 @@ function Canvas({
       window.removeEventListener("drawtool:export-transparent", onExportTransparent);
       window.removeEventListener("drawtool:font-family", onFontFamily);
       window.removeEventListener("drawtool:set-color", onSetColor);
+      window.removeEventListener("drawtool:text-bold", onTextBold);
+      window.removeEventListener("drawtool:text-italic", onTextItalic);
+      window.removeEventListener("drawtool:text-align", onTextAlign);
     };
   }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent]);
 
@@ -2079,12 +2291,90 @@ function Canvas({
         const selEnd   = hasSel ? Math.max(selectionAnchorRef.current!, pos) : pos;
         // Helper: replace selection (or nothing) with a string, clear selection
         const replaceSelection = (insert: string) => {
+          textUndoRef.current.push(text);
+          textRedoRef.current = [];
           writingTextRef.current = text.slice(0, selStart) + insert + text.slice(selEnd);
           caretPosRef.current = selStart + insert.length;
           selectionAnchorRef.current = null;
           caretVisibleRef.current = true;
           scheduleRedraw();
         };
+        // Cmd+Z → text undo
+        if (cmdKey(e) && e.key === "z" && !e.shiftKey) {
+          e.preventDefault();
+          if (textUndoRef.current.length > 0) {
+            textRedoRef.current.push(writingTextRef.current);
+            writingTextRef.current = textUndoRef.current.pop()!;
+            caretPosRef.current = writingTextRef.current.length;
+            selectionAnchorRef.current = null;
+            scheduleRedraw();
+          }
+          return;
+        }
+        // Cmd+Shift+Z → text redo
+        if (cmdKey(e) && e.key === "z" && e.shiftKey) {
+          e.preventDefault();
+          if (textRedoRef.current.length > 0) {
+            textUndoRef.current.push(writingTextRef.current);
+            writingTextRef.current = textRedoRef.current.pop()!;
+            caretPosRef.current = writingTextRef.current.length;
+            selectionAnchorRef.current = null;
+            scheduleRedraw();
+          }
+          return;
+        }
+        // Cmd+B → toggle bold
+        if (cmdKey(e) && e.key === "b" && !e.shiftKey) {
+          e.preventDefault();
+          const editStroke = editingStrokeRef.current;
+          if (editStroke) {
+            const newBold = !(editStroke.bold ?? false);
+            undoStackRef.current.push({ type: "bold-change", stroke: editStroke, from: editStroke.bold, to: newBold });
+            redoStackRef.current = [];
+            editStroke.bold = newBold || undefined;
+            writingBoldRef.current = newBold;
+            strokesCacheRef.current = null;
+          } else {
+            writingBoldRef.current = !writingBoldRef.current;
+          }
+          scheduleRedraw();
+          return;
+        }
+        // Cmd+I → toggle italic
+        if (cmdKey(e) && e.key === "i" && !e.shiftKey) {
+          e.preventDefault();
+          const editStroke = editingStrokeRef.current;
+          if (editStroke) {
+            const newItalic = !(editStroke.italic ?? false);
+            undoStackRef.current.push({ type: "italic-change", stroke: editStroke, from: editStroke.italic, to: newItalic });
+            redoStackRef.current = [];
+            editStroke.italic = newItalic || undefined;
+            writingItalicRef.current = newItalic;
+            strokesCacheRef.current = null;
+          } else {
+            writingItalicRef.current = !writingItalicRef.current;
+          }
+          scheduleRedraw();
+          return;
+        }
+        // Cmd+Shift+L/E/R → text alignment
+        if (cmdKey(e) && e.shiftKey && (e.key === "l" || e.key === "e" || e.key === "r")) {
+          e.preventDefault();
+          const newAlign: TextAlign = e.key === "l" ? "left" : e.key === "e" ? "center" : "right";
+          const editStroke = editingStrokeRef.current;
+          if (editStroke) {
+            const oldAlign: TextAlign = editStroke.textAlign ?? "left";
+            if (oldAlign !== newAlign) {
+              undoStackRef.current.push({ type: "align-change", stroke: editStroke, from: oldAlign, to: newAlign });
+              redoStackRef.current = [];
+              editStroke.textAlign = newAlign !== "left" ? newAlign : undefined;
+              strokesCacheRef.current = null;
+            }
+          }
+          writingAlignRef.current = newAlign;
+          scheduleRedraw();
+          return;
+        }
         // Cmd+A → select all
         if ((e.metaKey || e.ctrlKey) && e.key === "a") {
           e.preventDefault();
@@ -2099,6 +2389,8 @@ function Canvas({
           if (hasSel) {
             replaceSelection("");
           } else {
+            textUndoRef.current.push(text);
+            textRedoRef.current = [];
             const lineStart = text.lastIndexOf("\n", pos - 1) + 1;
             if (lineStart === pos && pos > 0) {
               writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
@@ -2117,6 +2409,8 @@ function Canvas({
           if (hasSel) {
             replaceSelection("");
           } else if (pos > 0) {
+            textUndoRef.current.push(text);
+            textRedoRef.current = [];
             let i = pos - 1;
             while (i > 0 && text[i - 1] === " ") i--;
             while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
@@ -2132,6 +2426,8 @@ function Canvas({
           if (hasSel) {
             replaceSelection("");
           } else if (pos > 0) {
+            textUndoRef.current.push(text);
+            textRedoRef.current = [];
             writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
             caretPosRef.current = pos - 1;
             scheduleRedraw();
@@ -2144,6 +2440,8 @@ function Canvas({
           if (hasSel) {
             replaceSelection("");
           } else if (pos < text.length) {
+            textUndoRef.current.push(text);
+            textRedoRef.current = [];
             writingTextRef.current = text.slice(0, pos) + text.slice(pos + 1);
             scheduleRedraw();
           }
@@ -2296,6 +2594,57 @@ function Canvas({
           scheduleRedraw();
         }
         return;
+      }
+      // Cmd+B → bold, Cmd+I → italic for selected text stroke (outside writing mode)
+      if (cmdKey(e) && !e.shiftKey && !e.altKey && (e.key === "b" || e.key === "i") && !isWritingRef.current) {
+        const sel = selectedTextRef.current;
+        if (sel && sel.text) {
+          e.preventDefault();
+          const fromAnchor = { ...sel.points[0] };
+          const oldBbox = textBBox(sel);
+          if (e.key === "b") {
+            const newBold = !(sel.bold ?? false);
+            const fromBold = sel.bold;
+            sel.bold = newBold || undefined;
+            const newBbox = textBBox(sel);
+            sel.points[0] = { x: fromAnchor.x + (oldBbox.x - newBbox.x), y: fromAnchor.y + (oldBbox.y - newBbox.y) };
+            undoStackRef.current.push({ type: "bold-change", stroke: sel, from: fromBold, to: newBold, fromAnchor, toAnchor: { ...sel.points[0] } });
+          } else {
+            const newItalic = !(sel.italic ?? false);
+            const fromItalic = sel.italic;
+            sel.italic = newItalic || undefined;
+            const newBbox = textBBox(sel);
+            sel.points[0] = { x: fromAnchor.x + (oldBbox.x - newBbox.x), y: fromAnchor.y + (oldBbox.y - newBbox.y) };
+            undoStackRef.current.push({ type: "italic-change", stroke: sel, from: fromItalic, to: newItalic, fromAnchor, toAnchor: { ...sel.points[0] } });
+          }
+          redoStackRef.current = [];
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+          return;
+        }
+      }
+      // Cmd+Shift+L/E/R → alignment for selected text stroke (outside writing mode)
+      if (cmdKey(e) && e.shiftKey && !e.altKey && (e.key === "l" || e.key === "e" || e.key === "r") && !isWritingRef.current) {
+        const sel = selectedTextRef.current;
+        if (sel && sel.text) {
+          e.preventDefault();
+          const newAlign: TextAlign = e.key === "l" ? "left" : e.key === "e" ? "center" : "right";
+          const oldAlign: TextAlign = sel.textAlign ?? "left";
+          if (oldAlign !== newAlign) {
+            const fromAnchor = { ...sel.points[0] };
+            const oldBbox = textBBox(sel);
+            sel.textAlign = newAlign !== "left" ? newAlign : undefined;
+            const newBbox = textBBox(sel);
+            sel.points[0] = { x: fromAnchor.x + (oldBbox.x - newBbox.x), y: fromAnchor.y + (oldBbox.y - newBbox.y) };
+            undoStackRef.current.push({ type: "align-change", stroke: sel, from: oldAlign, to: newAlign, fromAnchor, toAnchor: { ...sel.points[0] } });
+            redoStackRef.current = [];
+            strokesCacheRef.current = null;
+            persistStrokes();
+            scheduleRedraw();
+          }
+          return;
+        }
       }
       if (cmdKey(e) && e.key === "x") {
         e.preventDefault();
@@ -3727,6 +4076,7 @@ function Canvas({
       selectedTextRef.current = stroke;
       selectedGroupRef.current = [];
       setZCursor("default");
+      dispatchTextStyleSync(stroke.bold ?? false, stroke.italic ?? false, stroke.textAlign ?? "left");
     } else if (raw.trim()) {
       notifyColorUsed(lineColorRef.current);
       const stroke: Stroke = {
@@ -3737,6 +4087,9 @@ function Canvas({
         text: raw,
         fontSize: textSizeRef.current,
         fontFamily: fontFamilyRef.current,
+        bold: writingBoldRef.current || undefined,
+        italic: writingItalicRef.current || undefined,
+        textAlign: writingAlignRef.current !== "left" ? writingAlignRef.current : undefined,
       };
       strokesRef.current.push(stroke);
       undoStackRef.current.push({ type: "draw", stroke });
@@ -3747,6 +4100,7 @@ function Canvas({
       selectedTextRef.current = stroke;
       selectedGroupRef.current = [];
       setZCursor("default");
+      dispatchTextStyleSync(stroke.bold ?? false, stroke.italic ?? false, stroke.textAlign ?? "left");
     } else {
       setZCursor(zKeyRef.current ? "default" : null);
     }
@@ -3766,6 +4120,11 @@ function Canvas({
     writingTextRef.current = "";
     caretPosRef.current = 0;
     selectionAnchorRef.current = null;
+    writingBoldRef.current = textBoldRef.current;
+    writingItalicRef.current = textItalicRef.current;
+    writingAlignRef.current = textAlignRef.current;
+    textUndoRef.current = [];
+    textRedoRef.current = [];
     caretVisibleRef.current = true;
     if (caretTimerRef.current) clearInterval(caretTimerRef.current);
     caretTimerRef.current = setInterval(() => {
@@ -3777,43 +4136,31 @@ function Canvas({
     scheduleRedraw();
   }, [scheduleRedraw, setZCursor]);
 
-  const startEditingStroke = useCallback((stroke: Stroke, clickWorldPos?: { x: number; y: number }) => {
+  const startEditingStroke = useCallback((stroke: Stroke, clickWorldPos?: { x: number; y: number }, selectAll?: boolean) => {
     const text = stroke.text ?? "";
-    const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
-    const lines = text.split("\n");
     const anchor = stroke.points[0];
 
-    // Find caret position from click, or default to end of text
+    // Find caret position: select-all, click position, or end of text
     let caretPos = text.length;
-    if (clickWorldPos) {
-      const lineHeight = basePx * 1.2;
-      const lineIndex = Math.max(0, Math.min(lines.length - 1,
-        Math.floor((clickWorldPos.y - anchor.y) / lineHeight)));
-      const line = lines[lineIndex];
-      const bboxCtx = getBBoxMeasureCtx();
-      let col = line.length;
-      if (bboxCtx) {
-        bboxCtx.font = `400 ${basePx}px ${getFontCss(stroke.fontFamily)}`;
-        const xInLine = clickWorldPos.x - anchor.x;
-        col = line.length;
-        for (let i = 1; i <= line.length; i++) {
-          if (bboxCtx.measureText(line.slice(0, i)).width > xInLine) {
-            const wBefore = bboxCtx.measureText(line.slice(0, i - 1)).width;
-            const wAt    = bboxCtx.measureText(line.slice(0, i)).width;
-            col = (xInLine - wBefore) < (wAt - xInLine) ? i - 1 : i;
-            break;
-          }
-        }
-      }
-      caretPos = lines.slice(0, lineIndex).reduce((acc, l) => acc + l.length + 1, 0) + col;
+    let selAnchor: number | null = null;
+    if (selectAll) {
+      caretPos = text.length;
+      selAnchor = 0;
+    } else if (clickWorldPos) {
+      caretPos = computeCaretPosFromClick(stroke, clickWorldPos);
     }
 
     editingStrokeRef.current = stroke;
     editingOldTextRef.current = text;
+    writingBoldRef.current = stroke.bold ?? false;
+    writingItalicRef.current = stroke.italic ?? false;
+    writingAlignRef.current = stroke.textAlign ?? "left";
+    textUndoRef.current = [];
+    textRedoRef.current = [];
     writingPosRef.current = { ...anchor };
     writingTextRef.current = text;
     caretPosRef.current = caretPos;
-    selectionAnchorRef.current = null;
+    selectionAnchorRef.current = selAnchor;
     caretVisibleRef.current = true;
     if (caretTimerRef.current) clearInterval(caretTimerRef.current);
     caretTimerRef.current = setInterval(() => {
@@ -3838,7 +4185,21 @@ function Canvas({
   const handlePointerDownForText = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (isWritingRef.current) {
-        // Click on canvas while writing → accept text
+        const editStroke = editingStrokeRef.current;
+        if (editStroke) {
+          const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+          const bb = textBBox(editStroke);
+          const pad = 8 / viewRef.current.scale;
+          if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
+              wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+            // Click inside editing stroke → reposition cursor
+            caretPosRef.current = computeCaretPosFromClick(editStroke, wp);
+            selectionAnchorRef.current = null;
+            caretVisibleRef.current = true;
+            scheduleRedraw();
+            return;
+          }
+        }
         finishWriting();
         return;
       }
@@ -3863,7 +4224,7 @@ function Canvas({
             const last = lastTextTapRef.current;
             if (last && last.stroke === stroke && now - last.time < 300) {
               lastTextTapRef.current = null;
-              startEditingStroke(stroke, wp);
+              startEditingStroke(stroke, undefined, true);
               return;
             }
             lastTextTapRef.current = { time: now, stroke };
@@ -3958,7 +4319,7 @@ function Canvas({
               const last = lastTextTapRef.current;
               if (last && last.stroke === curStroke && now - last.time < 300) {
                 lastTextTapRef.current = null;
-                startEditingStroke(curStroke, wp);
+                startEditingStroke(curStroke, undefined, true);
                 return;
               }
               lastTextTapRef.current = { time: now, stroke: curStroke };
@@ -4000,6 +4361,7 @@ function Canvas({
               startScale: newSel.fontScale ?? 1,
               bbox: anyStrokeBBox(newSel),
             };
+            dispatchTextStyleSync(newSel.bold ?? false, newSel.italic ?? false, newSel.textAlign ?? "left");
             (e.target as Element).setPointerCapture(e.pointerId);
             scheduleRedraw();
             return;
@@ -4053,6 +4415,7 @@ function Canvas({
             startScale: stroke.fontScale ?? 1,
             bbox: anyStrokeBBox(stroke),
           };
+          dispatchTextStyleSync(stroke.bold ?? false, stroke.italic ?? false, stroke.textAlign ?? "left");
           (e.target as Element).setPointerCapture(e.pointerId);
           scheduleRedraw();
           return;
@@ -4271,6 +4634,7 @@ function Canvas({
             selectedTextRef.current = hits[0];
             selectedGroupRef.current = [];
             setZCursor("default");
+            dispatchTextStyleSync(hits[0].bold ?? false, hits[0].italic ?? false, hits[0].textAlign ?? "left");
           } else if (hits.length > 1) {
             selectedGroupRef.current = hits;
             selectedTextRef.current = null;
@@ -4328,6 +4692,7 @@ function Canvas({
             const curIdx = hits.indexOf(stroke);
             const nextStroke = hits[(curIdx + 1) % hits.length];
             selectedTextRef.current = nextStroke;
+            dispatchTextStyleSync(nextStroke.bold ?? false, nextStroke.italic ?? false, nextStroke.textAlign ?? "left");
           }
         } else if (stroke.text) {
           // Text resize — fontScale + anchor changed

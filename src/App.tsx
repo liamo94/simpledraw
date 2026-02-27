@@ -15,6 +15,7 @@ import useSettings, {
   type TextSize,
   type GridType,
   type FontFamily,
+  type TextAlign,
 } from "./hooks/useSettings";
 
 const SHAPES: ShapeKind[] = [
@@ -311,6 +312,9 @@ export default function App() {
       const color = (e as CustomEvent).detail as string;
       updateSettings({ lineColor: color });
     };
+    const onTextStyleSync = (e: Event) => {
+      updateSettings((e as CustomEvent).detail as { textBold: boolean; textItalic: boolean; textAlign: TextAlign });
+    };
     const onToast = (e: Event) => {
       const message = (e as CustomEvent).detail as string;
       showToast({ type: "text", message });
@@ -380,6 +384,7 @@ export default function App() {
     window.addEventListener("drawtool:text-size", onTextSize);
     window.addEventListener("drawtool:font-family", onFontFamily);
     window.addEventListener("drawtool:set-color", onSetColor);
+    window.addEventListener("drawtool:text-style-sync", onTextStyleSync);
     window.addEventListener("drawtool:toast", onToast);
     window.addEventListener("drawtool:cycle-theme", onCycleTheme);
     return () => {
@@ -407,6 +412,7 @@ export default function App() {
       window.removeEventListener("drawtool:text-size", onTextSize);
       window.removeEventListener("drawtool:font-family", onFontFamily);
       window.removeEventListener("drawtool:set-color", onSetColor);
+      window.removeEventListener("drawtool:text-style-sync", onTextStyleSync);
       window.removeEventListener("drawtool:toast", onToast);
       window.removeEventListener("drawtool:cycle-theme", onCycleTheme);
     };
@@ -672,6 +678,9 @@ export default function App() {
         canvasIndex={activeCanvas}
         textSize={settings.textSize}
         fontFamily={settings.fontFamily}
+        textBold={settings.textBold}
+        textItalic={settings.textItalic}
+        textAlign={settings.textAlign}
         pressureSensitivity={settings.pressureSensitivity}
         onContentOffScreen={setContentOffScreen}
       />

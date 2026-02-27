@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import type { Settings, Theme, TextSize, GridType, FontFamily } from "../hooks/useSettings";
+import type { Settings, Theme, TextSize, GridType, FontFamily, TextAlign } from "../hooks/useSettings";
 
 function isDarkTheme(theme: Theme): boolean {
   return theme === "dark" || theme === "midnight" || theme === "lumber";
@@ -340,6 +340,85 @@ export default function Menu({
                       {label}
                     </button>
                   ))}
+                </div>
+                <div className="flex items-center gap-1 mt-2">
+                  {/* Bold */}
+                  <button
+                    onClick={() => window.dispatchEvent(new Event("drawtool:text-bold"))}
+                    aria-label="Bold"
+                    aria-pressed={settings.textBold}
+                    className={`flex-1 flex items-center justify-center py-1 rounded text-sm font-bold transition-all duration-150 ${
+                      settings.textBold
+                        ? isDark ? "bg-white/20 text-white" : "bg-black/15 text-black"
+                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                    }`}
+                  >
+                    B
+                  </button>
+                  {/* Italic */}
+                  <button
+                    onClick={() => window.dispatchEvent(new Event("drawtool:text-italic"))}
+                    aria-label="Italic"
+                    aria-pressed={settings.textItalic}
+                    className={`flex-1 flex items-center justify-center py-1 rounded text-sm italic transition-all duration-150 ${
+                      settings.textItalic
+                        ? isDark ? "bg-white/20 text-white" : "bg-black/15 text-black"
+                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                    }`}
+                  >
+                    I
+                  </button>
+                  {/* Align Left */}
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: "left" as TextAlign }))}
+                    aria-label="Align left"
+                    aria-pressed={settings.textAlign === "left"}
+                    className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
+                      settings.textAlign === "left"
+                        ? isDark ? "bg-white/20 text-white" : "bg-black/15 text-black"
+                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
+                      <rect x="1" y="5.5" width="8" height="1.5" rx="0.75" />
+                      <rect x="1" y="9" width="10" height="1.5" rx="0.75" />
+                    </svg>
+                  </button>
+                  {/* Align Center */}
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: "center" as TextAlign }))}
+                    aria-label="Align center"
+                    aria-pressed={settings.textAlign === "center"}
+                    className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
+                      settings.textAlign === "center"
+                        ? isDark ? "bg-white/20 text-white" : "bg-black/15 text-black"
+                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
+                      <rect x="3" y="5.5" width="8" height="1.5" rx="0.75" />
+                      <rect x="2" y="9" width="10" height="1.5" rx="0.75" />
+                    </svg>
+                  </button>
+                  {/* Align Right */}
+                  <button
+                    onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: "right" as TextAlign }))}
+                    aria-label="Align right"
+                    aria-pressed={settings.textAlign === "right"}
+                    className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
+                      settings.textAlign === "right"
+                        ? isDark ? "bg-white/20 text-white" : "bg-black/15 text-black"
+                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                    }`}
+                  >
+                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
+                      <rect x="5" y="5.5" width="8" height="1.5" rx="0.75" />
+                      <rect x="3" y="9" width="10" height="1.5" rx="0.75" />
+                    </svg>
+                  </button>
                 </div>
               </>
             )}
@@ -1532,6 +1611,24 @@ export default function Menu({
                             }
                           >
                             Shift + F
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span>Bold / Italic (in text mode)</span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + B / I
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span>Alignment (in text mode)</span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + ⇧ + L / E / R
+                          </kbd>
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span>Undo / Redo typing</span>
+                          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+                            {mod} + Z / ⇧Z
                           </kbd>
                         </div>
                         <div className="flex justify-between gap-4">

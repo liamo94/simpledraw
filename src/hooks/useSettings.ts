@@ -20,6 +20,8 @@ export type FontFamily = "caveat" | "sans" | "serif" | "mono" | "comic" | "carto
 
 export type GridType = "off" | "dot" | "square";
 
+export type TextAlign = "left" | "center" | "right";
+
 export type Settings = {
   lineWidth: number;
   lineColor: string;
@@ -33,6 +35,9 @@ export type Settings = {
   shapeDashed: boolean;
   textSize: TextSize;
   fontFamily: FontFamily;
+  textBold: boolean;
+  textItalic: boolean;
+  textAlign: TextAlign;
   pressureSensitivity: boolean;
 };
 
@@ -58,6 +63,9 @@ function getDefaults(): Settings {
     shapeDashed: false,
     textSize: "m" as const,
     fontFamily: "caveat" as FontFamily,
+    textBold: false,
+    textItalic: false,
+    textAlign: "left" as TextAlign,
     pressureSensitivity: false,
   };
 }
