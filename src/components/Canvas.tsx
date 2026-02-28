@@ -1438,6 +1438,17 @@ function Canvas({
     window.addEventListener("drawtool:text-bold", onTextBold);
     window.addEventListener("drawtool:text-italic", onTextItalic);
     window.addEventListener("drawtool:text-align", onTextAlign);
+    const onImportStrokes = (e: Event) => {
+      const strokes = (e as CustomEvent).detail as Stroke[];
+      strokesRef.current = strokes;
+      undoStackRef.current = strokes.map((stroke) => ({ type: "draw" as const, stroke }));
+      redoStackRef.current = [];
+      strokesCacheRef.current = null;
+      selectedTextRef.current = null;
+      selectedGroupRef.current = [];
+      scheduleRedraw();
+    };
+    window.addEventListener("drawtool:import-strokes", onImportStrokes);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
@@ -1450,8 +1461,9 @@ function Canvas({
       window.removeEventListener("drawtool:text-bold", onTextBold);
       window.removeEventListener("drawtool:text-italic", onTextItalic);
       window.removeEventListener("drawtool:text-align", onTextAlign);
+      window.removeEventListener("drawtool:import-strokes", onImportStrokes);
     };
-  }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent]);
+  }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent, scheduleRedraw]);
 
   const MIN_SHAPE_SIZE = 8;
   const MIN_DASH_LENGTH = 10; // world units — discard dashed strokes shorter than this

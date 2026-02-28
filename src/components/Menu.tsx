@@ -17,6 +17,8 @@ type Props = {
   onSwitchCanvas: (n: number) => void;
   onToggleFullscreen: () => void;
   onResetView: () => void;
+  onExportData: () => void;
+  onImportData: () => void;
 };
 
 export default function Menu({
@@ -30,6 +32,8 @@ export default function Menu({
   onSwitchCanvas,
   onToggleFullscreen,
   onResetView,
+  onExportData,
+  onImportData,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
@@ -730,23 +734,69 @@ export default function Menu({
                   </span>
                 </button>
               ))}
-              <div className="flex items-center gap-3 text-sm">
-                <span>Export</span>
-                <div className="flex gap-1 flex-1">
-                  <button
-                    onClick={onExport}
-                    className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
-                  >
-                    With background
-                  </button>
-                  <button
-                    onClick={onExportTransparent}
-                    className={`flex-1 py-1 rounded text-xs transition-colors ${isDark ? "bg-white/5 text-white/60 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/60 hover:bg-black/10 hover:text-black"}`}
-                  >
-                    Transparent
-                  </button>
-                </div>
-              </div>
+            </div>
+
+            <div className="mt-4 text-sm mb-2">Export</div>
+            <div className="grid grid-cols-2 gap-1.5">
+              {(
+                [
+                  {
+                    label: "PNG",
+                    onClick: onExport,
+                    icon: (
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1" y="2" width="12" height="10" rx="1.5"/>
+                        <path d="M3 9.5 5.5 6.5 7.5 8.5 9 7 11 9.5" strokeLinejoin="round"/>
+                        <circle cx="10" cy="4.5" r="1.2" fill="currentColor" stroke="none"/>
+                      </svg>
+                    ),
+                  },
+                  {
+                    label: "Transparent",
+                    onClick: onExportTransparent,
+                    icon: (
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1" y="2" width="12" height="10" rx="1.5"/>
+                        <rect x="1" y="2" width="6" height="5" rx="1.5 0 0 0" fill="currentColor" fillOpacity="0.15" stroke="none"/>
+                        <rect x="7" y="7" width="6" height="5" rx="0 0 1.5 0" fill="currentColor" fillOpacity="0.15" stroke="none"/>
+                        <line x1="1" y1="7" x2="13" y2="7" strokeOpacity="0.25"/>
+                        <line x1="7" y1="2" x2="7" y2="12" strokeOpacity="0.25"/>
+                      </svg>
+                    ),
+                  },
+                  {
+                    label: "Save data",
+                    onClick: onExportData,
+                    icon: (
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 2v7"/>
+                        <path d="M4.5 7 7 10l2.5-3"/>
+                        <line x1="2" y1="12.5" x2="12" y2="12.5"/>
+                      </svg>
+                    ),
+                  },
+                  {
+                    label: "Load data",
+                    onClick: onImportData,
+                    icon: (
+                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 9V2"/>
+                        <path d="M4.5 4.5 7 2l2.5 2.5"/>
+                        <line x1="2" y1="12.5" x2="12" y2="12.5"/>
+                      </svg>
+                    ),
+                  },
+                ] as { label: string; onClick: () => void; icon: React.ReactNode }[]
+              ).map(({ label, onClick, icon }) => (
+                <button
+                  key={label}
+                  onClick={onClick}
+                  className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
+                >
+                  {icon}
+                  <span className="text-[10px] leading-none">{label}</span>
+                </button>
+              ))}
             </div>
 
             {!hasTouch && (

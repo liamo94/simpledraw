@@ -18,6 +18,7 @@ import useSettings, {
   type TextAlign,
 } from "./hooks/useSettings";
 import { isDarkTheme } from "./canvas/canvasUtils";
+import { loadStrokes, saveStrokes, validateStrokesFile } from "./canvas/storage";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -206,6 +207,57 @@ export default function App() {
       URL.revokeObjectURL(url);
     });
   }, []);
+
+  const importFileRef = useRef<HTMLInputElement>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [dropZoneActive, setDropZoneActive] = useState(false);
+  const dropZoneCounterRef = useRef(0);
+
+  const exportData = useCallback(() => {
+    const strokes = loadStrokes(activeCanvas);
+    const file = { version: 1, strokes };
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `canvas-${activeCanvas}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [activeCanvas]);
+
+  const processImportFile = useCallback((file: File) => {
+    file.text().then((text) => {
+      try {
+        const strokes = validateStrokesFile(JSON.parse(text));
+        saveStrokes(strokes, activeCanvas);
+        window.dispatchEvent(new CustomEvent("drawtool:import-strokes", { detail: strokes }));
+        showToast({ type: "text", message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}` });
+      } catch (err) {
+        showToast({ type: "text", message: `Import failed: ${(err as Error).message}` });
+      }
+    });
+  }, [activeCanvas, showToast]);
+
+  const importData = useCallback(() => {
+    setShowImportModal(true);
+  }, []);
+
+  const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    e.target.value = "";
+    setShowImportModal(false);
+    processImportFile(file);
+  }, [processImportFile]);
+
+  useEffect(() => {
+    if (!showImportModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopPropagation(); setShowImportModal(false); }
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [showImportModal]);
 
   useEffect(() => {
     const onZoom = (e: Event) => setZoom((e as CustomEvent).detail);
@@ -649,6 +701,15 @@ export default function App() {
         }}
         onToggleFullscreen={toggleFullscreen}
         onResetView={resetView}
+        onExportData={exportData}
+        onImportData={importData}
+      />
+      <input
+        ref={importFileRef}
+        type="file"
+        accept=".json"
+        className="hidden"
+        onChange={handleImportFile}
       />
       <Canvas
         lineWidth={settings.lineWidth}
@@ -1390,6 +1451,64 @@ export default function App() {
               )}
             </svg>
           )}
+        </div>
+      )}
+      {showImportModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Load canvas data"
+          className="fixed inset-0 z-[300] flex items-center justify-center"
+          style={{ background: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)" }}
+          onClick={() => setShowImportModal(false)}
+        >
+          <div
+            className={`flex flex-col gap-4 p-6 rounded-xl border backdrop-blur-sm ${isDark ? "bg-black/80 border-white/15" : "bg-white/90 border-black/15"}`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className={`text-sm font-medium ${isDark ? "text-white/80" : "text-black/80"}`}>
+              Load canvas data
+            </div>
+            {/* Drop zone */}
+            <div
+              className={`flex flex-col items-center gap-3 px-16 py-10 rounded-lg border-2 border-dashed cursor-pointer transition-colors select-none`}
+              style={{
+                borderColor: dropZoneActive
+                  ? isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)"
+                  : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
+                background: dropZoneActive
+                  ? isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)"
+                  : "transparent",
+              }}
+              onClick={() => importFileRef.current?.click()}
+              onDragEnter={(e) => { e.preventDefault(); dropZoneCounterRef.current++; setDropZoneActive(true); }}
+              onDragLeave={() => { if (--dropZoneCounterRef.current === 0) setDropZoneActive(false); }}
+              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+              onDrop={(e) => {
+                e.preventDefault();
+                dropZoneCounterRef.current = 0;
+                setDropZoneActive(false);
+                const file = e.dataTransfer.files[0];
+                if (file) { setShowImportModal(false); processImportFile(file); }
+              }}
+            >
+              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: dropZoneActive ? 0.9 : 0.4 }}>
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="17 8 12 3 7 8" />
+                <line x1="12" y1="3" x2="12" y2="15" />
+              </svg>
+              <span className="relative text-sm whitespace-nowrap">
+                {/* Invisible longest string holds the width */}
+                <span className="invisible select-none">Drop a JSON file here</span>
+                <span className={`absolute inset-0 text-center transition-opacity ${isDark ? "text-white/70" : "text-black/60"}`}>
+                  {dropZoneActive ? "Release to load" : "Drop a JSON file here"}
+                </span>
+              </span>
+              <span className={`text-xs ${isDark ? "text-white/30" : "text-black/30"}`}>
+                or click to browse
+              </span>
+            </div>
+          </div>
         </div>
       )}
     </>
