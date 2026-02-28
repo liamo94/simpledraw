@@ -48,7 +48,7 @@ export type TextSelectionRefs = {
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
   } | null>;
-  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>;
+  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean } | null>;
   zKeyRef: MutableRefObject<boolean>;
   touchToolRef: MutableRefObject<TouchTool>;
   lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke } | null>;
@@ -264,6 +264,20 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           }
         }
         lastTextTapRef.current = null;
+      }
+
+      // Shift+V: force box select — bypasses any stroke/group hit-testing
+      if (zKeyRef.current && e.shiftKey && e.pointerType !== "touch") {
+        selectedTextRef.current = null;
+        selectDragRef.current = null;
+        selectedGroupRef.current = [];
+        hoverTextRef.current = null;
+        strokesCacheRef.current = null;
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        boxSelectRef.current = { start: { ...wp }, end: { ...wp }, containOnly: true };
+        (e.target as Element).setPointerCapture(e.pointerId);
+        scheduleRedraw();
+        return;
       }
 
       // Group move: if a group is selected, check if pointer is inside combined bbox
@@ -631,8 +645,15 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         const selW = Math.abs(end.x - start.x);
         const selH = Math.abs(end.y - start.y);
         if (selW > 2 / scale && selH > 2 / scale) {
+          const containOnly = boxSelectRef.current?.containOnly ?? false;
           const hits = strokesRef.current.filter(stroke => {
             const bb = anyStrokeBBox(stroke);
+            if (containOnly) {
+              // Shift+V: stroke must be fully inside the selection box
+              return bb.x >= selX && bb.x + bb.w <= selX + selW &&
+                     bb.y >= selY && bb.y + bb.h <= selY + selH;
+            }
+            // Normal box select: intersection
             return bb.x < selX + selW && bb.x + bb.w > selX &&
                    bb.y < selY + selH && bb.y + bb.h > selY;
           });

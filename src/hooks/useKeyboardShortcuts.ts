@@ -395,7 +395,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         startWritingRef.current({ ...cursorWorldRef.current });
         return;
       }
-      if (e.key === "v" && !e.repeat && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+      if ((e.key === "v" || e.key === "V") && !e.repeat && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         zKeyRef.current = true;
         setZCursor("default");
       }
@@ -895,7 +895,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
-      if (e.key === "v") {
+      if (e.key === "v" || e.key === "V") {
         zKeyRef.current = false;
         if (hoverTextRef.current) {
           hoverTextRef.current = null;

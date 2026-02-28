@@ -1905,8 +1905,8 @@ function Canvas({
         );
       }
 
-      // Block all drawing/erasing while a stroke or group is selected (panning handled above)
-      if (selectedTextRef.current || selectedGroupRef.current.length > 0) return;
+      // Block all drawing/erasing while a stroke or group is selected, or in V-select mode
+      if (selectedTextRef.current || selectedGroupRef.current.length > 0 || zKeyRef.current) return;
 
       // --- Determine modifier ---
       let modifier:
