@@ -17,6 +17,7 @@ import useSettings, {
   type FontFamily,
   type TextAlign,
 } from "./hooks/useSettings";
+import { isDarkTheme } from "./canvas/canvasUtils";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -42,10 +43,6 @@ const isMac = navigator.platform.toUpperCase().includes("MAC");
     localStorage.removeItem(oldKey);
   }
 })();
-
-function isDarkTheme(theme: Theme): boolean {
-  return theme === "dark" || theme === "midnight" || theme === "lumber";
-}
 
 export default function App() {
   const [settings, updateSettings] = useSettings();
@@ -196,6 +193,20 @@ export default function App() {
     }
   }, []);
 
+  const exportPng = useCallback(() => {
+    const canvas = document.querySelector("canvas");
+    if (!canvas) return;
+    canvas.toBlob((blob) => {
+      if (!blob) return;
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "drawtool.png";
+      a.click();
+      URL.revokeObjectURL(url);
+    });
+  }, []);
+
   useEffect(() => {
     const onZoom = (e: Event) => setZoom((e as CustomEvent).detail);
     const onThickness = (e: Event) => {
@@ -339,19 +350,7 @@ export default function App() {
       updateSettings({ pressureSensitivity: next });
       showToast({ type: "toggle", label: "Dynamic stroke", on: next });
     };
-    const onExportShortcut = () => {
-      const canvas = document.querySelector("canvas");
-      if (!canvas) return;
-      canvas.toBlob((blob) => {
-        if (!blob) return;
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "drawtool.png";
-        a.click();
-        URL.revokeObjectURL(url);
-      });
-    };
+    const onExportShortcut = () => exportPng();
     const THEMES: Theme[] = [
       "dark",
       "midnight",
@@ -416,7 +415,7 @@ export default function App() {
       window.removeEventListener("drawtool:toast", onToast);
       window.removeEventListener("drawtool:cycle-theme", onCycleTheme);
     };
-  }, [updateSettings, requestClear, showToast, toggleFullscreen]);
+  }, [updateSettings, requestClear, showToast, toggleFullscreen, exportPng]);
 
   // Confirmation overlay keyboard handler — capture phase to block Canvas
   useEffect(() => {
@@ -442,20 +441,6 @@ export default function App() {
 
   const centerView = useCallback(() => {
     window.dispatchEvent(new Event("drawtool:center-view"));
-  }, []);
-
-  const exportPng = useCallback(() => {
-    const canvas = document.querySelector("canvas");
-    if (!canvas) return;
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = "drawtool.png";
-      a.click();
-      URL.revokeObjectURL(url);
-    });
   }, []);
 
   const exportTransparent = useCallback(() => {
