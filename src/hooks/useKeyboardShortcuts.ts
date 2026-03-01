@@ -41,7 +41,7 @@ export type KeyboardRefs = {
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
   } | null>;
-  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>;
+  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean } | null>;
   clipboardRef: MutableRefObject<Stroke[] | null>;
   cursorWorldRef: MutableRefObject<{ x: number; y: number }>;
   lastDPressRef: MutableRefObject<number>;
@@ -716,6 +716,39 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           scheduleRedraw();
           persistStrokes();
         }
+      }
+      if (cmdKey(e) && (e.key === "]" || e.key === "[") && !e.altKey && !isWritingRef.current) {
+        e.preventDefault();
+        const selection = selectedGroupRef.current.length > 0
+          ? selectedGroupRef.current
+          : selectedTextRef.current ? [selectedTextRef.current] : [];
+        if (selection.length > 0) {
+          const strokes = strokesRef.current;
+          const before = [...strokes];
+          const selSet = new Set(selection);
+          const sel = [...selection].sort((a, b) => strokes.indexOf(a) - strokes.indexOf(b));
+          const rest = strokes.filter(s => !selSet.has(s));
+          const forward = e.key === "]";
+          const extreme = e.shiftKey;
+          const topIdx = strokes.indexOf(sel[sel.length - 1]);
+          const insertPos = rest.filter(s => strokes.indexOf(s) < topIdx).length;
+          const newInsertPos = extreme
+            ? (forward ? rest.length : 0)
+            : forward
+              ? Math.min(rest.length, insertPos + 1)
+              : Math.max(0, insertPos - 1);
+          strokesRef.current = [...rest.slice(0, newInsertPos), ...sel, ...rest.slice(newInsertPos)];
+          undoStackRef.current.push({ type: "reorder", before, after: [...strokesRef.current] });
+          redoStackRef.current = [];
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+          const label = extreme
+            ? (forward ? "Brought to front" : "Sent to back")
+            : (forward ? "Brought forward" : "Sent backward");
+          window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: label }));
+        }
+        return;
       }
       if (e.key === "d" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         const now = performance.now();

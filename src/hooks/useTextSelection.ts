@@ -8,6 +8,29 @@ import {
 } from "../canvas/geometry";
 import type { TouchTool } from "../canvas/types";
 
+// ─── Hit-testing helpers ───────────────────────────────────────────────────────
+
+function distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
+  const dx = x2 - x1, dy = y2 - y1;
+  const lenSq = dx * dx + dy * dy;
+  if (lenSq === 0) return Math.hypot(px - x1, py - y1);
+  const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / lenSq));
+  return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+}
+
+/** Returns true if (wx, wy) hits the stroke. Arrow/line uses line-proximity; everything else uses bbox. */
+function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
+  if (stroke.points.length === 0) return false;
+  if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length >= 2) {
+    const p0 = stroke.points[0], p1 = stroke.points[1];
+    return distToSegment(wx, wy, p0.x, p0.y, p1.x, p1.y) <= 8 / scale;
+  }
+  const pad = 3 / scale;
+  const bb = anyStrokeBBox(stroke);
+  return wx >= bb.x - pad && wx <= bb.x + bb.w + pad &&
+         wy >= bb.y - pad && wy <= bb.y + bb.h + pad;
+}
+
 // ─── Ref bag ──────────────────────────────────────────────────────────────────
 
 export type TextSelectionRefs = {
@@ -266,14 +289,44 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         lastTextTapRef.current = null;
       }
 
-      // Shift+V: force box select — bypasses any stroke/group hit-testing
+      // Shift+V: add/remove stroke from selection, or force containment box select on empty space
       if (zKeyRef.current && e.shiftKey && e.pointerType !== "touch") {
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        const { scale } = viewRef.current;
+        let hit: Stroke | null = null;
+        for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+          const s = strokesRef.current[i];
+          if (hitTestStroke(s, wp.x, wp.y, scale)) { hit = s; break; }
+        }
+        if (hit) {
+          // Add or remove from the current selection
+          const group = selectedGroupRef.current;
+          const single = selectedTextRef.current;
+          const current = group.length > 0 ? [...group] : (single ? [single] : []);
+          const idx = current.indexOf(hit);
+          const newGroup = idx >= 0 ? current.filter(s => s !== hit) : [...current, hit];
+          if (newGroup.length === 0) {
+            selectedTextRef.current = null;
+            selectedGroupRef.current = [];
+          } else if (newGroup.length === 1) {
+            selectedTextRef.current = newGroup[0];
+            selectedGroupRef.current = [];
+            dispatchTextStyleSync(newGroup[0].bold ?? false, newGroup[0].italic ?? false, newGroup[0].textAlign ?? "left");
+          } else {
+            selectedTextRef.current = null;
+            selectedGroupRef.current = newGroup;
+          }
+          selectDragRef.current = null;
+          strokesCacheRef.current = null;
+          scheduleRedraw();
+          return;
+        }
+        // No stroke under cursor — start a containment box select
         selectedTextRef.current = null;
         selectDragRef.current = null;
         selectedGroupRef.current = [];
         hoverTextRef.current = null;
         strokesCacheRef.current = null;
-        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         boxSelectRef.current = { start: { ...wp }, end: { ...wp }, containOnly: true };
         (e.target as Element).setPointerCapture(e.pointerId);
         scheduleRedraw();
@@ -339,44 +392,61 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
         if (selectedTextRef.current) {
           const bb = anyStrokeBBox(selectedTextRef.current);
-          // Check corner handles first (only for shapes and text, not freehand)
-          if (selectedTextRef.current.shape || selectedTextRef.current.text) {
-            const cornerCenters = [
-              { x: bb.x - pad,        y: bb.y - pad },
-              { x: bb.x + bb.w + pad, y: bb.y - pad },
-              { x: bb.x + bb.w + pad, y: bb.y + bb.h + pad },
-              { x: bb.x - pad,        y: bb.y + bb.h + pad },
-            ];
-            for (let ci = 0; ci < 4; ci++) {
-              const cc = cornerCenters[ci];
-              if (Math.abs(wp.x - cc.x) <= hs + pad && Math.abs(wp.y - cc.y) <= hs + pad) {
-                selectDragRef.current = {
-                  mode: "corner",
-                  corner: ci as 0 | 1 | 2 | 3,
-                  startPtr: { ...wp },
-                  startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
-                  startScale: selectedTextRef.current.fontScale ?? 1,
-                  bbox: bb,
-                };
-                (e.target as Element).setPointerCapture(e.pointerId);
-                return;
+          const selShape = selectedTextRef.current.shape;
+          // Check handles first (only for shapes and text, not freehand)
+          if (selShape || selectedTextRef.current.text) {
+            if (selShape === "arrow" || selShape === "line") {
+              // Arrow/line: 3 inline handles — start (0), mid (1), end (2)
+              const p0 = selectedTextRef.current.points[0];
+              const p1 = selectedTextRef.current.points[1];
+              const handles = [p0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1];
+              for (let ci = 0; ci < 3; ci++) {
+                const hh = handles[ci];
+                if (Math.hypot(wp.x - hh.x, wp.y - hh.y) <= hs) {
+                  selectDragRef.current = {
+                    mode: "corner",
+                    corner: ci as 0 | 1 | 2 | 3,
+                    startPtr: { ...wp },
+                    startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
+                    startScale: 1,
+                    bbox: bb,
+                  };
+                  (e.target as Element).setPointerCapture(e.pointerId);
+                  return;
+                }
+              }
+            } else {
+              const cornerCenters = [
+                { x: bb.x - pad,        y: bb.y - pad },
+                { x: bb.x + bb.w + pad, y: bb.y - pad },
+                { x: bb.x + bb.w + pad, y: bb.y + bb.h + pad },
+                { x: bb.x - pad,        y: bb.y + bb.h + pad },
+              ];
+              for (let ci = 0; ci < 4; ci++) {
+                const cc = cornerCenters[ci];
+                if (Math.abs(wp.x - cc.x) <= hs + pad && Math.abs(wp.y - cc.y) <= hs + pad) {
+                  selectDragRef.current = {
+                    mode: "corner",
+                    corner: ci as 0 | 1 | 2 | 3,
+                    startPtr: { ...wp },
+                    startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
+                    startScale: selectedTextRef.current.fontScale ?? 1,
+                    bbox: bb,
+                  };
+                  (e.target as Element).setPointerCapture(e.pointerId);
+                  return;
+                }
               }
             }
           }
           // Check body — drag current stroke; defer click-to-cycle to pointer up
-          if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
-              wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+          if (hitTestStroke(selectedTextRef.current, wp.x, wp.y, scale)) {
             const curStroke = selectedTextRef.current;
             // Collect all hits under pointer (for deferred cycling on pointer up)
             const allHits: Stroke[] = [];
             for (let i = strokesRef.current.length - 1; i >= 0; i--) {
               const s = strokesRef.current[i];
-              if (s.points.length === 0) continue;
-              const hbb = anyStrokeBBox(s);
-              if (wp.x >= hbb.x - pad && wp.x <= hbb.x + hbb.w + pad &&
-                  wp.y >= hbb.y - pad && wp.y <= hbb.y + hbb.h + pad) {
-                allHits.push(s);
-              }
+              if (hitTestStroke(s, wp.x, wp.y, scale)) allHits.push(s);
             }
             selectDragRef.current = {
               mode: "move",
@@ -394,13 +464,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
             if (stroke === selectedTextRef.current) continue;
-            if (stroke.points.length === 0) continue;
-            const hbb = anyStrokeBBox(stroke);
-            if (wp.x >= hbb.x - pad && wp.x <= hbb.x + hbb.w + pad &&
-                wp.y >= hbb.y - pad && wp.y <= hbb.y + hbb.h + pad) {
-              newSel = stroke;
-              break;
-            }
+            if (hitTestStroke(stroke, wp.x, wp.y, scale)) { newSel = stroke; break; }
           }
           if (newSel) {
             selectedTextRef.current = newSel;
@@ -438,12 +502,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const hits: Stroke[] = [];
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
-            if (stroke.points.length === 0) continue;
-            const bb = anyStrokeBBox(stroke);
-            if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
-                wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
-              hits.push(stroke);
-            }
+            if (hitTestStroke(stroke, wp.x, wp.y, scale)) hits.push(stroke);
           }
           if (hits.length === 0) {
             selectedTextRef.current = null;
@@ -519,9 +578,31 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             stroke.points[i] = { x: drag.startPoints[i].x + dx, y: drag.startPoints[i].y + dy };
           }
         } else {
-          // Corner resize — keep opposite corner fixed
+          // Corner resize / arrow endpoint drag
           const ci = drag.corner!;
           const bb = drag.bbox;
+
+          // Arrow/line: endpoint handles reshape, midpoint handle translates
+          if (stroke.shape === "arrow" || stroke.shape === "line") {
+            if (ci === 1) {
+              // Midpoint handle → translate whole arrow
+              const dx = wp.x - drag.startPtr.x;
+              const dy = wp.y - drag.startPtr.y;
+              for (let i = 0; i < drag.startPoints.length; i++) {
+                stroke.points[i] = { x: drag.startPoints[i].x + dx, y: drag.startPoints[i].y + dy };
+              }
+            } else {
+              // Endpoint handle: ci 0 → points[0], ci 2 → points[1]
+              const ptIdx = ci === 0 ? 0 : 1;
+              const otherIdx = 1 - ptIdx;
+              stroke.points[ptIdx] = { ...wp };
+              stroke.points[otherIdx] = { ...drag.startPoints[otherIdx] };
+            }
+            strokesCacheRef.current = null;
+            scheduleRedraw();
+            return;
+          }
+
           const oppCorners = [
             { x: bb.x + bb.w, y: bb.y + bb.h }, // TL drag → BR fixed
             { x: bb.x,        y: bb.y + bb.h }, // TR drag → BL fixed
@@ -579,22 +660,41 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const selStroke = selectedTextRef.current;
           let cur = "default";
           if (selStroke.shape || selStroke.text) {
-            const cornerCenters = [
-              { x: bb.x - pad,        y: bb.y - pad },
-              { x: bb.x + bb.w + pad, y: bb.y - pad },
-              { x: bb.x + bb.w + pad, y: bb.y + bb.h + pad },
-              { x: bb.x - pad,        y: bb.y + bb.h + pad },
-            ];
-            for (const cc of cornerCenters) {
-              if (Math.abs(wp.x - cc.x) <= hs + pad && Math.abs(wp.y - cc.y) <= hs + pad) {
-                cur = "nwse-resize";
-                break;
+            const selShape = selStroke.shape;
+            if ((selShape === "arrow" || selShape === "line") && selStroke.points.length >= 2) {
+              // Arrow/line: 3 inline handles
+              const p0 = selStroke.points[0];
+              const p1 = selStroke.points[1];
+              const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+              for (const [i, hp] of [[0, p0], [1, mid], [2, p1]] as [number, {x:number;y:number}][]) {
+                if (Math.hypot(wp.x - hp.x, wp.y - hp.y) <= hs) {
+                  cur = i === 1 ? "move" : "crosshair";
+                  break;
+                }
               }
-            }
-            if (cur === "default" &&
-                wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
-                wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
-              cur = "move";
+              if (cur === "default" &&
+                  wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
+                  wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+                cur = "move";
+              }
+            } else {
+              const cornerCenters = [
+                { x: bb.x - pad,        y: bb.y - pad },
+                { x: bb.x + bb.w + pad, y: bb.y - pad },
+                { x: bb.x + bb.w + pad, y: bb.y + bb.h + pad },
+                { x: bb.x - pad,        y: bb.y + bb.h + pad },
+              ];
+              for (const cc of cornerCenters) {
+                if (Math.abs(wp.x - cc.x) <= hs + pad && Math.abs(wp.y - cc.y) <= hs + pad) {
+                  cur = "nwse-resize";
+                  break;
+                }
+              }
+              if (cur === "default" &&
+                  wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
+                  wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+                cur = "move";
+              }
             }
           } else if (
             wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
@@ -607,17 +707,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           // V held, no selection: show move cursor on hover
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
           const { scale } = viewRef.current;
-          const pad = 3 / scale;
           let hit: Stroke | null = null;
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
-            if (stroke.points.length === 0) continue;
-            const bb = anyStrokeBBox(stroke);
-            if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
-                wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
-              hit = stroke;
-              break;
-            }
+            if (hitTestStroke(stroke, wp.x, wp.y, scale)) { hit = stroke; break; }
           }
           if (hit !== hoverTextRef.current) {
             hoverTextRef.current = hit;

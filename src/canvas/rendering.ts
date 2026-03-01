@@ -152,7 +152,7 @@ export function renderShape(
       ctx.lineTo(p1.x, p1.y);
       ctx.stroke();
       const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-      const headLen = Math.max(15, lineWidth * 3);
+      const headLen = Math.max(22, lineWidth * 4.5);
       const headAngle = Math.PI / 6;
       ctx.beginPath();
       ctx.moveTo(p1.x, p1.y);
@@ -278,7 +278,7 @@ export function renderRoughShape(
     case "arrow": {
       rc.line(p0.x, p0.y, p1.x, p1.y, opts);
       const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-      const headLen = Math.max(15, lineWidth * 3);
+      const headLen = Math.max(22, lineWidth * 4.5);
       const headAngle = Math.PI / 6;
       ctx.beginPath();
       ctx.strokeStyle = color;
@@ -343,7 +343,7 @@ export function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
     }
     case "arrow": {
       const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-      const headLen = 15;
+      const headLen = 22;
       const headAngle = Math.PI / 6;
       return [
         p0,

@@ -154,7 +154,7 @@ function Canvas({
     bbox: BBox;
     cycleHits?: Stroke[]; // strokes under pointer for deferred click-to-cycle
   } | null>(null);
-  const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number } } | null>(null);
+  const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
   const groupDragRef = useRef<{
     startPtr: { x: number; y: number };
@@ -598,9 +598,47 @@ function Canvas({
     // Draw text select hover/selection overlay (world space)
     const drawOverlayStroke = (stroke: Stroke, isSelected: boolean) => {
       if (stroke.points.length === 0) return;
+      const lw = 1.5 / scale;
+
+      // Arrow/line: handles along the stroke, not a bounding box
+      if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length >= 2) {
+        const p0 = stroke.points[0];
+        const p1 = stroke.points[1];
+        const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+        ctx.save();
+        ctx.setLineDash([]);
+        ctx.lineWidth = lw;
+        if (isSelected) {
+          ctx.strokeStyle = "#4895ef";
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          const hr = 4.5 / scale;
+          for (const hp of [p0, mid, p1]) {
+            ctx.beginPath();
+            ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
+            ctx.fillStyle = "#ffffff"; ctx.fill();
+            ctx.strokeStyle = "#4895ef"; ctx.stroke();
+          }
+        } else {
+          // Hover: wide semi-transparent halo + faint handle outlines
+          ctx.lineCap = "round";
+          ctx.lineWidth = 8 / scale;
+          ctx.strokeStyle = isDark ? "rgba(255,255,255,0.18)" : "rgba(72,149,239,0.22)";
+          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          const hr = 4.5 / scale;
+          ctx.lineWidth = lw;
+          ctx.strokeStyle = isDark ? "rgba(255,255,255,0.4)" : "rgba(72,149,239,0.5)";
+          for (const hp of [p0, mid, p1]) {
+            ctx.beginPath();
+            ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+        ctx.restore();
+        return;
+      }
+
       const bb = anyStrokeBBox(stroke);
       const pad = (stroke.shape === "rectangle" ? 6 : 3) / scale;
-      const lw = 1.5 / scale;
       const rx = bb.x - pad, ry = bb.y - pad;
       const rw = bb.w + pad * 2, rh = bb.h + pad * 2;
 
@@ -625,7 +663,7 @@ function Canvas({
             { x: rx + rw, y: ry + rh },
             { x: rx,      y: ry + rh },
           ];
-          ctx.lineWidth = 1.5 / scale;
+          ctx.lineWidth = lw;
           for (const c of corners) {
             ctx.beginPath();
             ctx.rect(c.x - hr, c.y - hr, hr * 2, hr * 2);
@@ -640,7 +678,7 @@ function Canvas({
         ctx.fillStyle = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)";
         ctx.fill();
         ctx.strokeStyle = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.45)";
-        ctx.lineWidth = 1.5 / scale;
+        ctx.lineWidth = lw;
         ctx.setLineDash([]);
         ctx.stroke();
       }
@@ -1189,6 +1227,8 @@ function Canvas({
           const idx = strokesRef.current.lastIndexOf(s);
           if (idx !== -1) strokesRef.current.splice(idx, 1);
         }
+      } else if (action.type === "reorder") {
+        strokesRef.current = [...action.before];
       }
       redoStackRef.current.push(action);
     }
@@ -1252,6 +1292,8 @@ function Canvas({
         selectedGroupRef.current = action.strokes;
       } else if (action.type === "multi-draw") {
         strokesRef.current.push(...action.strokes);
+      } else if (action.type === "reorder") {
+        strokesRef.current = [...action.after];
       }
       undoStackRef.current.push(action);
     }

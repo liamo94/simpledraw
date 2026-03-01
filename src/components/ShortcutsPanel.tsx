@@ -1040,6 +1040,26 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
               strokeWidth="1.5"
               strokeLinecap="round"
             >
+              <rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" />
+              <path d="M9 5l3 3-3 3" strokeWidth="1.2" />
+            </svg>
+            Add/remove from selection
+          </span>
+          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+            Shift + V + click
+          </kbd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="flex items-center gap-1.5">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
               <circle cx="8" cy="8" r="5" />
               <circle cx="8" cy="8" r="2" strokeOpacity="0.5" />
             </svg>
@@ -1148,6 +1168,48 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
           </span>
           <kbd className={isDark ? "text-white/40" : "text-black/40"}>
             {mod} + D
+          </kbd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="flex items-center gap-1.5">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <rect x="2" y="6" width="8" height="8" rx="1" />
+              <rect x="6" y="2" width="8" height="8" rx="1" strokeOpacity="0.4" />
+              <path d="M10 5V3" strokeOpacity="0.8" />
+            </svg>
+            Bring forward / Send back
+          </span>
+          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+            {mod} + ] / [
+          </kbd>
+        </div>
+        <div className="flex justify-between gap-4">
+          <span className="flex items-center gap-1.5">
+            <svg
+              width="12"
+              height="12"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+            >
+              <rect x="2" y="6" width="8" height="8" rx="1" />
+              <rect x="6" y="2" width="8" height="8" rx="1" strokeOpacity="0.4" />
+              <path d="M10 5V2M8.5 3.5L10 2l1.5 1.5" strokeOpacity="0.8" />
+            </svg>
+            To front / To back
+          </span>
+          <kbd className={isDark ? "text-white/40" : "text-black/40"}>
+            {mod} + Shift + ] / [
           </kbd>
         </div>
         <div className="flex justify-between gap-4">
