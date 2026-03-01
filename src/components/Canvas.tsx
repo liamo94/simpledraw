@@ -1520,7 +1520,7 @@ function Canvas({
     if (!stroke || stroke.points.length < 2) return;
     const dx = Math.abs(stroke.points[1].x - stroke.points[0].x);
     const dy = Math.abs(stroke.points[1].y - stroke.points[0].y);
-    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE) {
+    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE && stroke.shape !== "arrow") {
       strokesRef.current.pop();
       undoStackRef.current.pop();
     }

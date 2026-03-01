@@ -409,7 +409,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: `Text: ${labels[next]}` }));
         return;
       }
-      if (e.key === "F" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current) {
+      if (e.key === "F" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current && !keyShapeRef.current) {
         const cur = fontFamilyRef.current;
         const idx = FONT_FAMILIES.findIndex(f => f.key === cur);
         const next = FONT_FAMILIES[(idx + 1) % FONT_FAMILIES.length];
@@ -772,7 +772,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:toggle-fullscreen"));
       }
-      if (e.key === "f" && !e.metaKey) {
+      if ((e.key === "f" || e.key === "F") && !e.metaKey) {
         fKeyHeldRef.current = true;
         if (isDrawingRef.current && activeModifierRef.current === "shape") {
           const stroke = strokesRef.current[strokesRef.current.length - 1];
@@ -988,7 +988,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           }
         }
       }
-      if (e.key === "f") {
+      if (e.key === "f" || e.key === "F") {
         fKeyHeldRef.current = false;
       }
       if (e.key === "Control" && isMac) setShapeActive(false);
