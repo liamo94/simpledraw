@@ -17,7 +17,7 @@ import useSettings, {
   type FontFamily,
   type TextAlign,
 } from "./hooks/useSettings";
-import { isDarkTheme } from "./canvas/canvasUtils";
+import { isDarkTheme, getBackgroundColor } from "./canvas/canvasUtils";
 import { loadStrokes, saveStrokes, validateStrokesFile } from "./canvas/storage";
 
 const SHAPES: ShapeKind[] = [
@@ -109,19 +109,9 @@ export default function App() {
   // Apply body styles based on theme
   useEffect(() => {
     const isDark = isDarkTheme(settings.theme);
-    if (settings.theme === "midnight") {
-      document.body.style.background = "#1a1a2e";
-    } else if (settings.theme === "dark") {
-      document.body.style.background = "#06060e";
-    } else if (settings.theme === "lumber") {
-      document.body.style.background = "#110e0a";
-    } else if (settings.theme === "journal") {
-      document.body.style.background = "#f5e2b8";
-    } else if (settings.theme === "sky") {
-      document.body.style.background = "#e0ecf6";
-    } else {
-      document.body.style.background = "#f5f5f0";
-    }
+    const bg = getBackgroundColor(settings.theme);
+    document.body.style.background = bg;
+    document.documentElement.style.background = bg;
     document.body.style.color = isDark
       ? "rgba(255,255,255,0.8)"
       : "rgba(0,0,0,0.8)";

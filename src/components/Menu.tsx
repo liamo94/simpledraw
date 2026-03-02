@@ -118,7 +118,7 @@ export default function Menu({
             });
             (e.currentTarget as HTMLElement).blur();
           }}
-          className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus-visible:ring-2 focus-visible:ring-blue-400 ${open ? (isDark ? "bg-white/20 border-white/30 text-white" : "bg-black/20 border-black/30 text-black") : isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+          className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "bg-white/20 border-white/30 text-white" : "bg-black/20 border-black/30 text-black") : isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
         >
           <svg
             width="14"
@@ -270,7 +270,7 @@ export default function Menu({
                   onClick={() => window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: color }))}
                   aria-label={`Color ${color}`}
                   aria-pressed={settings.lineColor === color}
-                  className="w-5 h-5 shrink-0 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
+                  className="w-5 h-5 shrink-0 rounded-full border-2 transition-transform focus:outline-none"
                   style={{
                     backgroundColor: color,
                     borderColor:
@@ -441,7 +441,7 @@ export default function Menu({
                   onClick={() => updateSettings({ activeShape: s })}
                   aria-label={s.charAt(0).toUpperCase() + s.slice(1)}
                   aria-pressed={settings.activeShape === s}
-                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none ${
                     settings.activeShape === s
                       ? isDark
                         ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
@@ -511,7 +511,7 @@ export default function Menu({
                   onClick={() => onSwitchCanvas(n)}
                   aria-label={`Canvas ${n}`}
                   aria-pressed={activeCanvas === n}
-                  className={`w-8 h-8 flex items-center justify-center rounded text-sm tabular-nums transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                  className={`w-8 h-8 flex items-center justify-center rounded text-sm tabular-nums transition-colors focus:outline-none ${
                     activeCanvas === n
                       ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
                       : isDark
@@ -766,7 +766,7 @@ export default function Menu({
                 <button
                   key={label}
                   onClick={onClick}
-                  className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
+                  className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus:outline-none ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
                 >
                   {icon}
                   <span className="text-[10px] leading-none">{label}</span>
