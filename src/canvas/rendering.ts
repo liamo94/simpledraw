@@ -108,6 +108,28 @@ export function roughPolyPath(pts: { x: number; y: number }[], r: number): strin
   return d + "Z";
 }
 
+// ─── Smooth polyline path (rounded bezier corners for multi-point arrows) ─────
+
+/** Builds a smooth open-polyline path through pts using quadratic bezier corners. */
+export function smoothArrowPath(ctx: CanvasRenderingContext2D, pts: { x: number; y: number }[], cornerRadius = 40) {
+  const n = pts.length;
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < n - 1; i++) {
+    const prev = pts[i - 1], curr = pts[i], next = pts[i + 1];
+    const d1x = prev.x - curr.x, d1y = prev.y - curr.y;
+    const l1 = Math.hypot(d1x, d1y);
+    const d2x = next.x - curr.x, d2y = next.y - curr.y;
+    const l2 = Math.hypot(d2x, d2y);
+    if (l1 < 1e-6 || l2 < 1e-6) { ctx.lineTo(curr.x, curr.y); continue; }
+    const r = Math.min(cornerRadius, l1 / 2, l2 / 2);
+    const t1x = curr.x + (d1x / l1) * r, t1y = curr.y + (d1y / l1) * r;
+    const t2x = curr.x + (d2x / l2) * r, t2y = curr.y + (d2y / l2) * r;
+    ctx.lineTo(t1x, t1y);
+    ctx.quadraticCurveTo(curr.x, curr.y, t2x, t2y);
+  }
+  ctx.lineTo(pts[n - 1].x, pts[n - 1].y);
+}
+
 // ─── Shape rendering ──────────────────────────────────────────────────────────
 
 export function renderShape(
@@ -311,7 +333,7 @@ export function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
 
   switch (stroke.shape!) {
     case "line":
-      return [p0, p1];
+      return stroke.points.length > 2 ? [...stroke.points] : [p0, p1];
     case "rectangle":
       return [
         { x, y },
@@ -344,21 +366,17 @@ export function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
       return [...pts, pts[0]];
     }
     case "arrow": {
-      const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+      const pts = stroke.points;
+      const last = pts[pts.length - 1];
+      const prev = pts[pts.length - 2];
+      const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
       const headLen = 22;
       const headAngle = Math.PI / 6;
       return [
-        p0,
-        p1,
-        {
-          x: p1.x - headLen * Math.cos(angle - headAngle),
-          y: p1.y - headLen * Math.sin(angle - headAngle),
-        },
-        p1,
-        {
-          x: p1.x - headLen * Math.cos(angle + headAngle),
-          y: p1.y - headLen * Math.sin(angle + headAngle),
-        },
+        ...pts,
+        { x: last.x - headLen * Math.cos(angle - headAngle), y: last.y - headLen * Math.sin(angle - headAngle) },
+        last,
+        { x: last.x - headLen * Math.cos(angle + headAngle), y: last.y - headLen * Math.sin(angle + headAngle) },
       ];
     }
     case "pentagon": {
@@ -422,6 +440,47 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
       ctx.fillStyle = color;
       ctx.arc(p.x, p.y, stroke.lineWidth * 0.6, 0, Math.PI * 2);
       ctx.fill();
+      continue;
+    }
+    // Multi-point line (3+ bend points, no arrowhead)
+    if (stroke.shape === "line" && stroke.points.length > 2) {
+      const pts = stroke.points;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = stroke.lineWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      const dashScale = stroke.lineWidth / 4;
+      ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
+      ctx.beginPath();
+      smoothArrowPath(ctx, pts);
+      ctx.stroke();
+      continue;
+    }
+    // Multi-point arrow (3+ bend points)
+    if (stroke.shape === "arrow" && stroke.points.length > 2) {
+      const pts = stroke.points;
+      const n = pts.length;
+      const last = pts[n - 1];
+      const prev = pts[n - 2];
+      const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+      const headLen = Math.max(22, stroke.lineWidth * 4.5);
+      const headAngle = Math.PI / 6;
+      ctx.strokeStyle = color;
+      ctx.lineWidth = stroke.lineWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      const dashScale = stroke.lineWidth / 4;
+      ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
+      ctx.beginPath();
+      smoothArrowPath(ctx, pts);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(last.x - headLen * Math.cos(angle - headAngle), last.y - headLen * Math.sin(angle - headAngle));
+      ctx.moveTo(last.x, last.y);
+      ctx.lineTo(last.x - headLen * Math.cos(angle + headAngle), last.y - headLen * Math.sin(angle + headAngle));
+      ctx.stroke();
       continue;
     }
     if (stroke.shape && stroke.points.length === 2) {

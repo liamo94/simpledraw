@@ -9,7 +9,7 @@ import {
   distToSegment, cmdKey, screenToWorld, smoothPoints, isMac,
   shapeToSegments,
   textBBox, anyStrokeBBox,
-  renderStrokesToCtx, snapshotCache,
+  renderStrokesToCtx, snapshotCache, smoothArrowPath,
 } from "../canvas/canvasUtils";
 import type { Stroke, UndoAction, BBox, TouchTool } from "../canvas/canvasUtils";
 export type { TouchTool } from "../canvas/canvasUtils";
@@ -147,12 +147,13 @@ function Canvas({
   const lastTextTapRef = useRef<{ time: number; stroke: Stroke } | null>(null);
   const selectDragRef = useRef<{
     mode: "move" | "corner";
-    corner?: 0 | 1 | 2 | 3;
+    corner?: number;
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[];
     startScale: number;
     bbox: BBox;
-    cycleHits?: Stroke[]; // strokes under pointer for deferred click-to-cycle
+    cycleHits?: Stroke[];
+    pendingBend?: { segmentIdx: number };
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
@@ -602,17 +603,22 @@ function Canvas({
 
       // Arrow/line: handles along the stroke, not a bounding box
       if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length >= 2) {
-        const p0 = stroke.points[0];
-        const p1 = stroke.points[1];
-        const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+        const pts = stroke.points;
+        const n = pts.length;
+        // Handles: for 2-point use [start, mid, end]; for N-point use each actual point
+        const handlePoints = n === 2
+          ? [pts[0], { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 }, pts[1]]
+          : pts;
         ctx.save();
         ctx.setLineDash([]);
         ctx.lineWidth = lw;
         if (isSelected) {
           ctx.strokeStyle = "#4895ef";
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          ctx.beginPath();
+          if (n > 2) smoothArrowPath(ctx, pts); else { ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[1].x, pts[1].y); }
+          ctx.stroke();
           const hr = 4.5 / scale;
-          for (const hp of [p0, mid, p1]) {
+          for (const hp of handlePoints) {
             ctx.beginPath();
             ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
             ctx.fillStyle = "#ffffff"; ctx.fill();
@@ -623,11 +629,13 @@ function Canvas({
           ctx.lineCap = "round";
           ctx.lineWidth = 8 / scale;
           ctx.strokeStyle = isDark ? "rgba(255,255,255,0.18)" : "rgba(72,149,239,0.22)";
-          ctx.beginPath(); ctx.moveTo(p0.x, p0.y); ctx.lineTo(p1.x, p1.y); ctx.stroke();
+          ctx.beginPath();
+          if (n > 2) smoothArrowPath(ctx, pts); else { ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[1].x, pts[1].y); }
+          ctx.stroke();
           const hr = 4.5 / scale;
           ctx.lineWidth = lw;
           ctx.strokeStyle = isDark ? "rgba(255,255,255,0.4)" : "rgba(72,149,239,0.5)";
-          for (const hp of [p0, mid, p1]) {
+          for (const hp of handlePoints) {
             ctx.beginPath();
             ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
             ctx.stroke();
@@ -893,7 +901,7 @@ function Canvas({
           }
         };
         const swapAction = (a: UndoAction) => {
-          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" ? [a.stroke] : [];
+          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "reshape" ? [a.stroke] : [];
           for (const s of list) {
             if (s.color === from) s.color = to;
           }
@@ -1229,6 +1237,8 @@ function Canvas({
         }
       } else if (action.type === "reorder") {
         strokesRef.current = [...action.before];
+      } else if (action.type === "reshape") {
+        action.stroke.points = action.from.map(p => ({ ...p }));
       }
       redoStackRef.current.push(action);
     }
@@ -1294,6 +1304,8 @@ function Canvas({
         strokesRef.current.push(...action.strokes);
       } else if (action.type === "reorder") {
         strokesRef.current = [...action.after];
+      } else if (action.type === "reshape") {
+        action.stroke.points = action.to.map(p => ({ ...p }));
       }
       undoStackRef.current.push(action);
     }
@@ -1520,7 +1532,7 @@ function Canvas({
     if (!stroke || stroke.points.length < 2) return;
     const dx = Math.abs(stroke.points[1].x - stroke.points[0].x);
     const dy = Math.abs(stroke.points[1].y - stroke.points[0].y);
-    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE && stroke.shape !== "arrow") {
+    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE && stroke.shape !== "arrow" && stroke.shape !== "line") {
       strokesRef.current.pop();
       undoStackRef.current.pop();
     }
@@ -1817,6 +1829,29 @@ function Canvas({
         return;
       }
       if (isDrawingRef.current) {
+        // Line bend: if Cmd+Shift still held on pointer up, freeze endpoint as a bend
+        if (activeModifierRef.current === "line") {
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke?.shape === "line") {
+            const lastPt = stroke.points[stroke.points.length - 1];
+            stroke.points.push({ ...lastPt }); // trailing point for next segment
+            strokesCacheRef.current = null;
+            scheduleRedraw();
+            return;
+          }
+        }
+        // Arrow bend: if 'a' key is still held on pointer up, freeze current endpoint as a
+        // bend and keep drawing instead of finalizing the stroke
+        if (activeModifierRef.current === "shape" && keyShapeRef.current === "arrow") {
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke?.shape === "arrow") {
+            const lastPt = stroke.points[stroke.points.length - 1];
+            stroke.points.push({ ...lastPt }); // trailing point for the next segment
+            strokesCacheRef.current = null;
+            scheduleRedraw();
+            return;
+          }
+        }
         if (activeModifierRef.current === "alt") {
           confirmErase();
           strokesCacheRef.current = null;
@@ -2103,13 +2138,19 @@ function Canvas({
             style: "solid",
             lineWidth,
             color: lineColor,
+            shape: "line",
           };
           strokesRef.current.push(stroke);
           undoStackRef.current.push({ type: "draw", stroke });
           redoStackRef.current = [];
         } else {
           const current = strokesRef.current[strokesRef.current.length - 1];
-          current.points[1] = point;
+          // For multi-segment: update last point
+          if (current?.shape === "line") {
+            current.points[current.points.length - 1] = point;
+          } else {
+            current.points[1] = point;
+          }
         }
         scheduleRedraw();
         return;
@@ -2145,7 +2186,12 @@ function Canvas({
           redoStackRef.current = [];
         } else {
           const current = strokesRef.current[strokesRef.current.length - 1];
-          current.points[1] = point;
+          // For arrows: update last point (supports multi-segment bend drawing)
+          if (current?.shape === "arrow") {
+            current.points[current.points.length - 1] = point;
+          } else {
+            current.points[1] = point;
+          }
         }
         scheduleRedraw();
         return;

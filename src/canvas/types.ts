@@ -36,7 +36,8 @@ export type UndoAction =
   | { type: "group-color-change"; strokes: Stroke[]; from: string[]; to: string }
   | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] }
   | { type: "multi-draw"; strokes: Stroke[] }
-  | { type: "reorder"; before: Stroke[]; after: Stroke[] };
+  | { type: "reorder"; before: Stroke[]; after: Stroke[] }
+  | { type: "reshape"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] };
 
 export type TouchTool =
   | "draw"

@@ -22,8 +22,12 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
 function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
   if (stroke.points.length === 0) return false;
   if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length >= 2) {
-    const p0 = stroke.points[0], p1 = stroke.points[1];
-    return distToSegment(wx, wy, p0.x, p0.y, p1.x, p1.y) <= 8 / scale;
+    const threshold = 8 / scale;
+    const pts = stroke.points;
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (distToSegment(wx, wy, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y) <= threshold) return true;
+    }
+    return false;
   }
   const pad = 3 / scale;
   const bb = anyStrokeBBox(stroke);
@@ -59,12 +63,13 @@ export type TextSelectionRefs = {
   selectedGroupRef: MutableRefObject<Stroke[]>;
   selectDragRef: MutableRefObject<{
     mode: "move" | "corner";
-    corner?: 0 | 1 | 2 | 3;
+    corner?: number;
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[];
     startScale: number;
     bbox: BBox;
     cycleHits?: Stroke[];
+    pendingBend?: { segmentIdx: number };
   } | null>;
   hoverTextRef: MutableRefObject<Stroke | null>;
   groupDragRef: MutableRefObject<{
@@ -396,23 +401,42 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           // Check handles first (only for shapes and text, not freehand)
           if (selShape || selectedTextRef.current.text) {
             if (selShape === "arrow" || selShape === "line") {
-              // Arrow/line: 3 inline handles — start (0), mid (1), end (2)
-              const p0 = selectedTextRef.current.points[0];
-              const p1 = selectedTextRef.current.points[1];
-              const handles = [p0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1];
-              for (let ci = 0; ci < 3; ci++) {
-                const hh = handles[ci];
-                if (Math.hypot(wp.x - hh.x, wp.y - hh.y) <= hs) {
-                  selectDragRef.current = {
-                    mode: "corner",
-                    corner: ci as 0 | 1 | 2 | 3,
-                    startPtr: { ...wp },
-                    startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
-                    startScale: 1,
-                    bbox: bb,
-                  };
-                  (e.target as Element).setPointerCapture(e.pointerId);
-                  return;
+              const pts = selectedTextRef.current.points;
+              const n = pts.length;
+              if (n === 2) {
+                // 2-point: 3 inline handles — start (0), mid (1), end (2)
+                const p0 = pts[0], p1 = pts[1];
+                const handles = [p0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1];
+                for (let ci = 0; ci < 3; ci++) {
+                  const hh = handles[ci];
+                  if (Math.hypot(wp.x - hh.x, wp.y - hh.y) <= hs) {
+                    selectDragRef.current = {
+                      mode: "corner",
+                      corner: ci,
+                      startPtr: { ...wp },
+                      startPoints: pts.map(p => ({ ...p })),
+                      startScale: 1,
+                      bbox: bb,
+                    };
+                    (e.target as Element).setPointerCapture(e.pointerId);
+                    return;
+                  }
+                }
+              } else {
+                // N-point: handle at each actual point
+                for (let ci = 0; ci < n; ci++) {
+                  if (Math.hypot(wp.x - pts[ci].x, wp.y - pts[ci].y) <= hs) {
+                    selectDragRef.current = {
+                      mode: "corner",
+                      corner: ci,
+                      startPtr: { ...wp },
+                      startPoints: pts.map(p => ({ ...p })),
+                      startScale: 1,
+                      bbox: bb,
+                    };
+                    (e.target as Element).setPointerCapture(e.pointerId);
+                    return;
+                  }
                 }
               }
             } else {
@@ -427,7 +451,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 if (Math.abs(wp.x - cc.x) <= hs + pad && Math.abs(wp.y - cc.y) <= hs + pad) {
                   selectDragRef.current = {
                     mode: "corner",
-                    corner: ci as 0 | 1 | 2 | 3,
+                    corner: ci,
                     startPtr: { ...wp },
                     startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
                     startScale: selectedTextRef.current.fontScale ?? 1,
@@ -439,14 +463,28 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               }
             }
           }
-          // Check body — drag current stroke; defer click-to-cycle to pointer up
+          // Check body — drag current stroke; for arrows, defer click-to-add-bend to pointer up
           if (hitTestStroke(selectedTextRef.current, wp.x, wp.y, scale)) {
             const curStroke = selectedTextRef.current;
-            // Collect all hits under pointer (for deferred cycling on pointer up)
+            const isArrow = curStroke.shape === "arrow" || curStroke.shape === "line";
+            let pendingBend: { segmentIdx: number } | undefined;
+            if (isArrow) {
+              // Find which segment was clicked (for deferred bend insertion on pointer up)
+              let bestSeg = -1, bestDist = Infinity;
+              const pts = curStroke.points;
+              for (let i = 0; i < pts.length - 1; i++) {
+                const d = distToSegment(wp.x, wp.y, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y);
+                if (d < bestDist) { bestDist = d; bestSeg = i; }
+              }
+              pendingBend = bestSeg >= 0 ? { segmentIdx: bestSeg } : undefined;
+            }
+            // Collect all hits for non-arrow strokes (deferred click-to-cycle)
             const allHits: Stroke[] = [];
-            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-              const s = strokesRef.current[i];
-              if (hitTestStroke(s, wp.x, wp.y, scale)) allHits.push(s);
+            if (!isArrow) {
+              for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+                const s = strokesRef.current[i];
+                if (hitTestStroke(s, wp.x, wp.y, scale)) allHits.push(s);
+              }
             }
             selectDragRef.current = {
               mode: "move",
@@ -455,6 +493,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               startScale: curStroke.fontScale ?? 1,
               bbox: bb,
               cycleHits: allHits.length > 1 ? allHits : undefined,
+              pendingBend,
             };
             (e.target as Element).setPointerCapture(e.pointerId);
             return;
@@ -584,19 +623,23 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
           // Arrow/line: endpoint handles reshape, midpoint handle translates
           if (stroke.shape === "arrow" || stroke.shape === "line") {
-            if (ci === 1) {
-              // Midpoint handle → translate whole arrow
-              const dx = wp.x - drag.startPtr.x;
-              const dy = wp.y - drag.startPtr.y;
-              for (let i = 0; i < drag.startPoints.length; i++) {
-                stroke.points[i] = { x: drag.startPoints[i].x + dx, y: drag.startPoints[i].y + dy };
+            if (drag.startPoints.length === 2) {
+              // 2-point arrow: ci=1 (midpoint) translates; ci=0/2 move endpoints
+              if (ci === 1) {
+                const dx = wp.x - drag.startPtr.x;
+                const dy = wp.y - drag.startPtr.y;
+                for (let i = 0; i < drag.startPoints.length; i++) {
+                  stroke.points[i] = { x: drag.startPoints[i].x + dx, y: drag.startPoints[i].y + dy };
+                }
+              } else {
+                const ptIdx = ci === 0 ? 0 : 1;
+                const otherIdx = 1 - ptIdx;
+                stroke.points[ptIdx] = { ...wp };
+                stroke.points[otherIdx] = { ...drag.startPoints[otherIdx] };
               }
             } else {
-              // Endpoint handle: ci 0 → points[0], ci 2 → points[1]
-              const ptIdx = ci === 0 ? 0 : 1;
-              const otherIdx = 1 - ptIdx;
-              stroke.points[ptIdx] = { ...wp };
-              stroke.points[otherIdx] = { ...drag.startPoints[otherIdx] };
+              // N-point arrow: ci directly maps to point index
+              stroke.points[ci] = { ...wp };
             }
             strokesCacheRef.current = null;
             scheduleRedraw();
@@ -662,20 +705,29 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           if (selStroke.shape || selStroke.text) {
             const selShape = selStroke.shape;
             if ((selShape === "arrow" || selShape === "line") && selStroke.points.length >= 2) {
-              // Arrow/line: 3 inline handles
-              const p0 = selStroke.points[0];
-              const p1 = selStroke.points[1];
-              const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
-              for (const [i, hp] of [[0, p0], [1, mid], [2, p1]] as [number, {x:number;y:number}][]) {
-                if (Math.hypot(wp.x - hp.x, wp.y - hp.y) <= hs) {
-                  cur = i === 1 ? "move" : "crosshair";
-                  break;
+              const pts = selStroke.points;
+              const n = pts.length;
+              if (n === 2) {
+                // 2-point: 3 inline handles — start, mid, end
+                const p0 = pts[0], p1 = pts[1];
+                const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
+                for (const [i, hp] of [[0, p0], [1, mid], [2, p1]] as [number, {x:number;y:number}][]) {
+                  if (Math.hypot(wp.x - hp.x, wp.y - hp.y) <= hs) {
+                    cur = i === 1 ? "move" : "crosshair";
+                    break;
+                  }
+                }
+              } else {
+                // N-point: handle at each actual point
+                for (let i = 0; i < n; i++) {
+                  if (Math.hypot(wp.x - pts[i].x, wp.y - pts[i].y) <= hs) {
+                    cur = "crosshair";
+                    break;
+                  }
                 }
               }
-              if (cur === "default" &&
-                  wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
-                  wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
-                cur = "move";
+              if (cur === "default" && hitTestStroke(selStroke, wp.x, wp.y, scale)) {
+                cur = "crosshair"; // shaft: click to add another bend
               }
             } else {
               const cornerCenters = [
@@ -805,6 +857,15 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               to: stroke.points.slice(0, drag.startPoints.length).map(p => ({ ...p })),
             });
             redoStackRef.current = [];
+            persistStrokes();
+          } else if (drag.pendingBend && (stroke.shape === "arrow" || stroke.shape === "line")) {
+            // No drag — insert a bend point at the click position
+            const from = drag.startPoints.map(p => ({ ...p }));
+            stroke.points.splice(drag.pendingBend.segmentIdx + 1, 0, { ...drag.startPtr });
+            const to = stroke.points.map(p => ({ ...p }));
+            undoStackRef.current.push({ type: "reshape", stroke, from, to });
+            redoStackRef.current = [];
+            strokesCacheRef.current = null;
             persistStrokes();
           } else if (drag.cycleHits && drag.cycleHits.length > 1) {
             // No drag occurred — cycle to the next overlapping stroke

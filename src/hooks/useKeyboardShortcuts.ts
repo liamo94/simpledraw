@@ -29,12 +29,13 @@ export type KeyboardRefs = {
   hoverTextRef: MutableRefObject<Stroke | null>;
   selectDragRef: MutableRefObject<{
     mode: "move" | "corner";
-    corner?: 0 | 1 | 2 | 3;
+    corner?: number;
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[];
     startScale: number;
     bbox: BBox;
     cycleHits?: Stroke[];
+    pendingBend?: { segmentIdx: number };
   } | null>;
   selectedGroupRef: MutableRefObject<Stroke[]>;
   groupDragRef: MutableRefObject<{
@@ -976,6 +977,24 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (e.key === "Shift") {
         shiftHeldRef.current = false;
+        // Line multi-segment: Shift release finalizes the in-progress line
+        if (activeModifierRef.current === "line" && isDrawingRef.current) {
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke?.shape === "line" && stroke.points.length > 2) {
+            const n = stroke.points.length;
+            const last = stroke.points[n - 1];
+            const prev = stroke.points[n - 2];
+            if (Math.hypot(last.x - prev.x, last.y - prev.y) < 1) {
+              stroke.points.pop();
+            }
+          }
+          discardTinyShape();
+          isDrawingRef.current = false;
+          activeModifierRef.current = null;
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+        }
         if (keyShapeRef.current) {
           keyShapeDashedRef.current = false;
           if (isDrawingRef.current && activeModifierRef.current === "shape") {
@@ -988,6 +1007,26 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           }
         }
       }
+      if (e.key === "Meta" || (e.key === "Control" && !isMac)) {
+        // Line multi-segment: Cmd/Ctrl release finalizes the in-progress line
+        if (activeModifierRef.current === "line" && isDrawingRef.current) {
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke?.shape === "line" && stroke.points.length > 2) {
+            const n = stroke.points.length;
+            const last = stroke.points[n - 1];
+            const prev = stroke.points[n - 2];
+            if (Math.hypot(last.x - prev.x, last.y - prev.y) < 1) {
+              stroke.points.pop();
+            }
+          }
+          discardTinyShape();
+          isDrawingRef.current = false;
+          activeModifierRef.current = null;
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+        }
+      }
       if (e.key === "f" || e.key === "F") {
         fKeyHeldRef.current = false;
       }
@@ -998,6 +1037,16 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         keyShapeDashedRef.current = false;
         setShapeActive(false);
         if (activeModifierRef.current === "shape") {
+          // Arrow multi-segment: trim dangling trailing point added on last pointer-up bend
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke?.shape === "arrow" && stroke.points.length > 2) {
+            const n = stroke.points.length;
+            const last = stroke.points[n - 1];
+            const prev = stroke.points[n - 2];
+            if (Math.hypot(last.x - prev.x, last.y - prev.y) < 1) {
+              stroke.points.pop();
+            }
+          }
           shapeJustCommittedRef.current = true;
           discardTinyShape();
           isDrawingRef.current = false;
@@ -1034,6 +1083,22 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       fKeyHeldRef.current = false;
       if (activeModifierRef.current === "alt") {
         cancelErase();
+      }
+      if (activeModifierRef.current === "line" && isDrawingRef.current) {
+        // Finalize any in-progress multi-segment line
+        const stroke = strokesRef.current[strokesRef.current.length - 1];
+        if (stroke?.shape === "line" && stroke.points.length > 2) {
+          const n = stroke.points.length;
+          const last = stroke.points[n - 1];
+          const prev = stroke.points[n - 2];
+          if (Math.hypot(last.x - prev.x, last.y - prev.y) < 1) {
+            stroke.points.pop();
+          }
+        }
+        isDrawingRef.current = false;
+        activeModifierRef.current = null;
+        strokesCacheRef.current = null;
+        persistStrokes();
       }
       if (activeModifierRef.current === "highlight") {
         isDrawingRef.current = false;
