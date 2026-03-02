@@ -564,14 +564,12 @@ export default function Menu({
                   onClick={() => updateSettings({ theme: t.id })}
                   aria-label={`${t.label} theme`}
                   aria-pressed={settings.theme === t.id}
-                  className={`w-7 h-7 rounded-md transition-opacity outline-none ${
-                    settings.theme === t.id ? "opacity-100" : "opacity-50 hover:opacity-80"
+                  className={`w-7 h-7 rounded-md outline-none transition-[opacity,transform] duration-150 ${
+                    settings.theme === t.id ? "opacity-100 scale-110" : "opacity-45 hover:opacity-75"
                   }`}
                   style={{
                     backgroundColor: t.bg,
-                    boxShadow: settings.theme === t.id
-                      ? `0 0 0 2px ${t.text}80, inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`
-                      : `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`,
+                    boxShadow: `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`,
                   }}
                 />
               ))}
