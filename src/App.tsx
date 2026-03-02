@@ -407,16 +407,20 @@ export default function App() {
       "dark",
       "midnight",
       "lumber",
+      "slate",
       "journal",
       "sky",
+      "sand",
       "white",
     ];
     const THEME_LABELS: Record<Theme, string> = {
       dark: "Black",
       midnight: "Midnight",
       lumber: "Lumber",
+      slate: "Slate",
       journal: "Journal",
       sky: "Sky",
+      sand: "Sand",
       white: "White",
     };
     const onCycleTheme = (e: Event) => {

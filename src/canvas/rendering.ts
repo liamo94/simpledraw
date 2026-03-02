@@ -7,15 +7,17 @@ import { smoothPoints, smoothWidths, buildFont, TEXT_SIZE_MAP } from "./geometry
 // ─── Theme helpers ────────────────────────────────────────────────────────────
 
 export function isDarkTheme(theme: Theme): boolean {
-  return theme === "dark" || theme === "midnight" || theme === "lumber";
+  return theme === "dark" || theme === "midnight" || theme === "lumber" || theme === "slate";
 }
 
 export function getBackgroundColor(theme: Theme): string {
   if (theme === "midnight") return "#1a1a2e";
   if (theme === "dark") return "#06060e";
   if (theme === "lumber") return "#110e0a";
+  if (theme === "slate") return "#1c2128";
   if (theme === "journal") return "#f5e2b8";
   if (theme === "sky") return "#e0ecf6";
+  if (theme === "sand") return "#f5e8dc";
   return "#f5f5f0";
 }
 
