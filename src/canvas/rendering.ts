@@ -130,6 +130,54 @@ export function smoothArrowPath(ctx: CanvasRenderingContext2D, pts: { x: number;
   ctx.lineTo(pts[n - 1].x, pts[n - 1].y);
 }
 
+/** Samples many points along the smooth bezier path that smoothArrowPath would draw.
+ *  Used to feed perfect-freehand for dynamic-stroke rendering of bent arrows. */
+function densifySmoothedPath(
+  pts: { x: number; y: number }[],
+  cornerRadius = 40,
+): { x: number; y: number }[] {
+  const result: { x: number; y: number }[] = [];
+  const n = pts.length;
+  if (n === 0) return result;
+  result.push({ ...pts[0] });
+  let prevPt = pts[0];
+  for (let i = 1; i < n - 1; i++) {
+    const prev = pts[i - 1], curr = pts[i], next = pts[i + 1];
+    const d1x = prev.x - curr.x, d1y = prev.y - curr.y;
+    const l1 = Math.hypot(d1x, d1y);
+    const d2x = next.x - curr.x, d2y = next.y - curr.y;
+    const l2 = Math.hypot(d2x, d2y);
+    if (l1 < 1e-6 || l2 < 1e-6) { result.push({ ...curr }); prevPt = curr; continue; }
+    const r = Math.min(cornerRadius, l1 / 2, l2 / 2);
+    const t1 = { x: curr.x + (d1x / l1) * r, y: curr.y + (d1y / l1) * r };
+    const t2 = { x: curr.x + (d2x / l2) * r, y: curr.y + (d2y / l2) * r };
+    // Linear segment prevPt → t1
+    const linearSteps = Math.max(1, Math.round(Math.hypot(t1.x - prevPt.x, t1.y - prevPt.y) / 4));
+    for (let s = 1; s <= linearSteps; s++) {
+      const t = s / linearSteps;
+      result.push({ x: prevPt.x + (t1.x - prevPt.x) * t, y: prevPt.y + (t1.y - prevPt.y) * t });
+    }
+    // Quadratic bezier t1 → curr (control) → t2
+    const bezierSteps = Math.max(4, Math.round(Math.hypot(t2.x - t1.x, t2.y - t1.y) * 1.2 / 4));
+    for (let s = 1; s <= bezierSteps; s++) {
+      const t = s / bezierSteps, mt = 1 - t;
+      result.push({
+        x: mt * mt * t1.x + 2 * mt * t * curr.x + t * t * t2.x,
+        y: mt * mt * t1.y + 2 * mt * t * curr.y + t * t * t2.y,
+      });
+    }
+    prevPt = t2;
+  }
+  // Final straight segment → last point
+  const last = pts[n - 1];
+  const finalSteps = Math.max(1, Math.round(Math.hypot(last.x - prevPt.x, last.y - prevPt.y) / 4));
+  for (let s = 1; s <= finalSteps; s++) {
+    const t = s / finalSteps;
+    result.push({ x: prevPt.x + (last.x - prevPt.x) * t, y: prevPt.y + (last.y - prevPt.y) * t });
+  }
+  return result;
+}
+
 // ─── Shape rendering ──────────────────────────────────────────────────────────
 
 export function renderShape(
@@ -462,19 +510,79 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
       const n = pts.length;
       const last = pts[n - 1];
       const prev = pts[n - 2];
-      const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
+      // If the trailing point hasn't moved yet (duplicate from bend click), use the prior segment direction
+      const angleFrom = Math.hypot(last.x - prev.x, last.y - prev.y) < 1 && n >= 3 ? pts[n - 3] : prev;
+      const angle = Math.atan2(last.y - angleFrom.y, last.x - angleFrom.x);
       const headLen = Math.max(22, stroke.lineWidth * 4.5);
       const headAngle = Math.PI / 6;
+      if (stroke.seed !== undefined && stroke.style !== "dashed") {
+        // Dynamic stroke: densify the bezier path and run through perfect-freehand.
+        // Trim the body to stop before the arrowhead tip so the V lines are clearly visible.
+        const sampled = densifySmoothedPath(pts);
+
+        // Walk backwards from the end and drop points until we've cleared headLen * 0.5
+        let cumulLen = 0;
+        let bodyEnd = sampled.length - 1;
+        for (let i = sampled.length - 1; i > 0; i--) {
+          cumulLen += Math.hypot(sampled[i].x - sampled[i - 1].x, sampled[i].y - sampled[i - 1].y);
+          if (cumulLen >= headLen * 0.5) { bodyEnd = i; break; }
+        }
+        const bodyPath = sampled.slice(0, bodyEnd + 1);
+
+        const ns = bodyPath.length;
+        const pfPts = bodyPath.map((p, i) => {
+          // straight → 0.7 (85% of lineWidth), sharp bend → 0.8 (90% of lineWidth).
+          let pressure = 0.7;
+          if (i > 0 && i < ns - 1) {
+            const sp = bodyPath[i - 1], sn = bodyPath[i + 1];
+            const ax = p.x - sp.x, ay = p.y - sp.y;
+            const bx = sn.x - p.x, by = sn.y - p.y;
+            const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+            if (la > 1e-6 && lb > 1e-6) {
+              const cos = (ax * bx + ay * by) / (la * lb);
+              pressure = 0.7 + (1 - Math.max(-1, Math.min(1, cos))) * 0.05;
+            }
+          }
+          return [p.x, p.y, pressure] as [number, number, number];
+        });
+        const outline = getStroke(pfPts, {
+          size: stroke.lineWidth,
+          thinning: 0.5,
+          smoothing: 0.5,
+          streamline: 0,
+          simulatePressure: false,
+          last: true,
+          end: { cap: true },
+        });
+        if (outline.length >= 2) {
+          ctx.beginPath();
+          ctx.moveTo(outline[0][0], outline[0][1]);
+          for (let i = 1; i < outline.length - 1; i++) {
+            const mx = (outline[i][0] + outline[i + 1][0]) / 2;
+            const my = (outline[i][1] + outline[i + 1][1]) / 2;
+            ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
+          }
+          ctx.lineTo(outline[outline.length - 1][0], outline[outline.length - 1][1]);
+          ctx.closePath();
+          ctx.fillStyle = color;
+          ctx.fill();
+        }
+      } else {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = stroke.lineWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        const dashScale = stroke.lineWidth / 4;
+        ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
+        ctx.beginPath();
+        smoothArrowPath(ctx, pts);
+        ctx.stroke();
+        ctx.setLineDash([]);
+      }
+      // Arrowhead (same for both paths)
       ctx.strokeStyle = color;
       ctx.lineWidth = stroke.lineWidth;
       ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      const dashScale = stroke.lineWidth / 4;
-      ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
-      ctx.beginPath();
-      smoothArrowPath(ctx, pts);
-      ctx.stroke();
-      ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(last.x, last.y);
       ctx.lineTo(last.x - headLen * Math.cos(angle - headAngle), last.y - headLen * Math.sin(angle - headAngle));

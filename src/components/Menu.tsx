@@ -1,9 +1,69 @@
 import { useState, useRef, useEffect } from "react";
-import type { Settings, Theme, TextSize, GridType, FontFamily, TextAlign } from "../hooks/useSettings";
+import type {
+  Settings,
+  Theme,
+  TextSize,
+  GridType,
+  FontFamily,
+  TextAlign,
+} from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
 
 function isDarkTheme(theme: Theme): boolean {
-  return theme === "dark" || theme === "midnight" || theme === "lumber" || theme === "slate";
+  return (
+    theme === "dark" ||
+    theme === "midnight" ||
+    theme === "lumber" ||
+    theme === "slate"
+  );
+}
+
+function AccordionSection({
+  label,
+  icon,
+  open,
+  onToggle,
+  isDark,
+  children,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  isDark: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div>
+      <button
+        onClick={onToggle}
+        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+          isDark
+            ? `${open ? "bg-white/[0.08] text-white/80" : "bg-white/5 text-white/55"} hover:bg-white/[0.11] hover:text-white/85`
+            : `${open ? "bg-black/[0.07] text-black/70" : "bg-black/[0.04] text-black/50"} hover:bg-black/[0.09] hover:text-black/75`
+        }`}
+      >
+        <span className="flex items-center gap-2">
+          {icon}
+          {label}
+        </span>
+        <svg
+          width="10"
+          height="10"
+          viewBox="0 0 10 10"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className={`transition-transform ${open ? "rotate-90" : ""}`}
+        >
+          <path d="M3.5 1.5L7 5L3.5 8.5" />
+        </svg>
+      </button>
+      {open && <div className="mt-1.5 px-1 pb-1">{children}</div>}
+    </div>
+  );
 }
 
 type Props = {
@@ -38,10 +98,12 @@ export default function Menu({
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
+  const [showExport, setShowExport] = useState(false);
   const [clearWipe, setClearWipe] = useState(0);
   const menuRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
+  const exportContentRef = useRef<HTMLDivElement>(null);
 
   const isDark = isDarkTheme(settings.theme);
 
@@ -51,6 +113,7 @@ export default function Menu({
         if (o) {
           setShowInfo(false);
           setShowAbout(false);
+          setShowExport(false);
           setClearWipe(0);
         }
         return !o;
@@ -67,6 +130,7 @@ export default function Menu({
         setOpen(false);
         setShowInfo(false);
         setShowAbout(false);
+        setShowExport(false);
       }
     };
 
@@ -80,6 +144,7 @@ export default function Menu({
     setOpen(false);
     setShowInfo(false);
     setShowAbout(false);
+    setShowExport(false);
     setClearWipe(0);
   };
 
@@ -190,7 +255,11 @@ export default function Menu({
               ))}
             </div>
             <div className="flex items-center justify-between">
-              <span className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Line thickness</span>
+              <span
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Line thickness
+              </span>
               <span
                 className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
               >
@@ -226,7 +295,11 @@ export default function Menu({
             </div>
 
             <div className="flex items-center justify-between mt-5">
-              <span className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Dash gap</span>
+              <span
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Dash gap
+              </span>
               <span
                 className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
               >
@@ -262,12 +335,20 @@ export default function Menu({
               ))}
             </div>
 
-            <div className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Color</div>
+            <div
+              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+            >
+              Color
+            </div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
               {palette.map((color) => (
                 <button
                   key={color}
-                  onClick={() => window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: color }))}
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new CustomEvent("drawtool:set-color", { detail: color }),
+                    )
+                  }
                   aria-label={`Color ${color}`}
                   aria-pressed={settings.lineColor === color}
                   className="w-5 h-5 shrink-0 rounded-full border-2 transition-transform focus:outline-none"
@@ -288,7 +369,11 @@ export default function Menu({
 
             {!hasTouch && (
               <>
-                <div className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Text size</div>
+                <div
+                  className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                >
+                  Text size
+                </div>
                 <div className="flex items-center gap-1 mt-2">
                   {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
                     <button
@@ -298,7 +383,9 @@ export default function Menu({
                       aria-pressed={settings.textSize === size}
                       className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
                         settings.textSize === size
-                          ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                          ? isDark
+                            ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                            : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
                           : isDark
                             ? "text-white/40 hover:text-white/60"
                             : "text-black/35 hover:text-black/55"
@@ -308,27 +395,51 @@ export default function Menu({
                     </button>
                   ))}
                 </div>
-                <div className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Font</div>
+                <div
+                  className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                >
+                  Font
+                </div>
                 <div className="flex items-center gap-1 mt-2">
                   {(
                     [
-                      { key: "caveat",   label: "Abc", css: "'Caveat', cursive" },
-                      { key: "comic",    label: "Abc", css: "'Bangers', cursive" },
-                      { key: "cartoon",  label: "Abc", css: "'Boogaloo', cursive" },
-                      { key: "sans",     label: "Abc", css: "system-ui, -apple-system, sans-serif" },
-                      { key: "serif",    label: "Abc", css: "Georgia, serif" },
-                      { key: "mono",     label: "Abc", css: "ui-monospace, 'Courier New', monospace" },
+                      { key: "caveat", label: "Abc", css: "'Caveat', cursive" },
+                      { key: "comic", label: "Abc", css: "'Bangers', cursive" },
+                      {
+                        key: "cartoon",
+                        label: "Abc",
+                        css: "'Boogaloo', cursive",
+                      },
+                      {
+                        key: "sans",
+                        label: "Abc",
+                        css: "system-ui, -apple-system, sans-serif",
+                      },
+                      { key: "serif", label: "Abc", css: "Georgia, serif" },
+                      {
+                        key: "mono",
+                        label: "Abc",
+                        css: "ui-monospace, 'Courier New', monospace",
+                      },
                     ] as { key: FontFamily; label: string; css: string }[]
                   ).map(({ key, label, css }) => (
                     <button
                       key={key}
-                      onClick={() => window.dispatchEvent(new CustomEvent("drawtool:font-family", { detail: key }))}
+                      onClick={() =>
+                        window.dispatchEvent(
+                          new CustomEvent("drawtool:font-family", {
+                            detail: key,
+                          }),
+                        )
+                      }
                       aria-label={`Font ${key}`}
                       aria-pressed={settings.fontFamily === key}
                       style={{ fontFamily: css }}
                       className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 ${
                         settings.fontFamily === key
-                          ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                          ? isDark
+                            ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                            : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
                           : isDark
                             ? "text-white/40 hover:text-white/60"
                             : "text-black/35 hover:text-black/55"
@@ -341,42 +452,69 @@ export default function Menu({
                 <div className="flex items-center gap-1 mt-2">
                   {/* Bold */}
                   <button
-                    onClick={() => window.dispatchEvent(new Event("drawtool:text-bold"))}
+                    onClick={() =>
+                      window.dispatchEvent(new Event("drawtool:text-bold"))
+                    }
                     aria-label="Bold"
                     aria-pressed={settings.textBold}
                     className={`flex-1 flex items-center justify-center py-1 rounded text-sm font-bold transition-all duration-150 ${
                       settings.textBold
-                        ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
-                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                        ? isDark
+                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                        : isDark
+                          ? "text-white/40 hover:text-white/60"
+                          : "text-black/35 hover:text-black/55"
                     }`}
                   >
                     B
                   </button>
                   {/* Italic */}
                   <button
-                    onClick={() => window.dispatchEvent(new Event("drawtool:text-italic"))}
+                    onClick={() =>
+                      window.dispatchEvent(new Event("drawtool:text-italic"))
+                    }
                     aria-label="Italic"
                     aria-pressed={settings.textItalic}
                     className={`flex-1 flex items-center justify-center py-1 rounded text-sm italic transition-all duration-150 ${
                       settings.textItalic
-                        ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
-                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                        ? isDark
+                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                        : isDark
+                          ? "text-white/40 hover:text-white/60"
+                          : "text-black/35 hover:text-black/55"
                     }`}
                   >
                     I
                   </button>
                   {/* Align Left */}
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: "left" as TextAlign }))}
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent("drawtool:text-align", {
+                          detail: "left" as TextAlign,
+                        }),
+                      )
+                    }
                     aria-label="Align left"
                     aria-pressed={settings.textAlign === "left"}
                     className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
                       settings.textAlign === "left"
-                        ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
-                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                        ? isDark
+                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                        : isDark
+                          ? "text-white/40 hover:text-white/60"
+                          : "text-black/35 hover:text-black/55"
                     }`}
                   >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="currentColor"
+                    >
                       <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
                       <rect x="1" y="5.5" width="8" height="1.5" rx="0.75" />
                       <rect x="1" y="9" width="10" height="1.5" rx="0.75" />
@@ -384,16 +522,31 @@ export default function Menu({
                   </button>
                   {/* Align Center */}
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: "center" as TextAlign }))}
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent("drawtool:text-align", {
+                          detail: "center" as TextAlign,
+                        }),
+                      )
+                    }
                     aria-label="Align center"
                     aria-pressed={settings.textAlign === "center"}
                     className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
                       settings.textAlign === "center"
-                        ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
-                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                        ? isDark
+                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                        : isDark
+                          ? "text-white/40 hover:text-white/60"
+                          : "text-black/35 hover:text-black/55"
                     }`}
                   >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="currentColor"
+                    >
                       <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
                       <rect x="3" y="5.5" width="8" height="1.5" rx="0.75" />
                       <rect x="2" y="9" width="10" height="1.5" rx="0.75" />
@@ -401,16 +554,31 @@ export default function Menu({
                   </button>
                   {/* Align Right */}
                   <button
-                    onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: "right" as TextAlign }))}
+                    onClick={() =>
+                      window.dispatchEvent(
+                        new CustomEvent("drawtool:text-align", {
+                          detail: "right" as TextAlign,
+                        }),
+                      )
+                    }
                     aria-label="Align right"
                     aria-pressed={settings.textAlign === "right"}
                     className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
                       settings.textAlign === "right"
-                        ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
-                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                        ? isDark
+                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                        : isDark
+                          ? "text-white/40 hover:text-white/60"
+                          : "text-black/35 hover:text-black/55"
                     }`}
                   >
-                    <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                    <svg
+                      width="14"
+                      height="14"
+                      viewBox="0 0 14 14"
+                      fill="currentColor"
+                    >
                       <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
                       <rect x="5" y="5.5" width="8" height="1.5" rx="0.75" />
                       <rect x="3" y="9" width="10" height="1.5" rx="0.75" />
@@ -420,7 +588,11 @@ export default function Menu({
               </>
             )}
 
-            <div className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Shape</div>
+            <div
+              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+            >
+              Shape
+            </div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
               {(
                 [
@@ -457,7 +629,15 @@ export default function Menu({
                     height="16"
                     viewBox="0 0 16 16"
                     fill="none"
-                    stroke={settings.activeShape === s ? (isDark ? "#5dd8e8" : "#00618c") : (isDark ? "white" : "black")}
+                    stroke={
+                      settings.activeShape === s
+                        ? isDark
+                          ? "#5dd8e8"
+                          : "#00618c"
+                        : isDark
+                          ? "white"
+                          : "black"
+                    }
                     strokeWidth="1.5"
                     strokeLinejoin="round"
                     strokeOpacity={settings.activeShape === s ? 1 : 0.5}
@@ -503,7 +683,11 @@ export default function Menu({
               ))}
             </div>
 
-            <div className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Canvas</div>
+            <div
+              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+            >
+              Canvas
+            </div>
             <div className="flex gap-1 mt-1.5 justify-center">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                 <button
@@ -513,7 +697,9 @@ export default function Menu({
                   aria-pressed={activeCanvas === n}
                   className={`w-8 h-8 flex items-center justify-center rounded text-sm tabular-nums transition-colors focus:outline-none ${
                     activeCanvas === n
-                      ? isDark ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                      ? isDark
+                        ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
+                        : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
                       : isDark
                         ? "text-white/40 hover:text-white/60 hover:bg-white/10"
                         : "text-black/35 hover:text-black/55 hover:bg-black/10"
@@ -537,27 +723,81 @@ export default function Menu({
                   className={`absolute inset-0 animate-wipe rounded ${isDark ? "bg-white/15" : "bg-black/10"}`}
                 />
               )}
-              <svg className="relative" width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
-                <line x1="2" y1="4.5" x2="14" y2="4.5"/>
-                <path d="M5.5 4.5V3a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v1.5"/>
-                <path d="M3.5 4.5L4.2 13a.5.5 0 0 0 .5.5h6.6a.5.5 0 0 0 .5-.5l.7-8.5"/>
-                <line x1="6.5" y1="7.5" x2="6.5" y2="11"/>
-                <line x1="9.5" y1="7.5" x2="9.5" y2="11"/>
+              <svg
+                className="relative"
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <line x1="2" y1="4.5" x2="14" y2="4.5" />
+                <path d="M5.5 4.5V3a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v1.5" />
+                <path d="M3.5 4.5L4.2 13a.5.5 0 0 0 .5.5h6.6a.5.5 0 0 0 .5-.5l.7-8.5" />
+                <line x1="6.5" y1="7.5" x2="6.5" y2="11" />
+                <line x1="9.5" y1="7.5" x2="9.5" y2="11" />
               </svg>
               <span className="relative">Clear screen</span>
             </button>
 
-            <div className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Theme</div>
+            <div
+              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+            >
+              Theme
+            </div>
             <div className="flex gap-2 mt-1.5">
               {[
-                { id: "dark" as const,     label: "Black",    bg: "#06060e", text: "#ffffff" },
-                { id: "midnight" as const, label: "Midnight", bg: "#1a1a2e", text: "#ffffff" },
-                { id: "lumber" as const,   label: "Lumber",   bg: "#110e0a", text: "#e8d5c0" },
-                { id: "slate" as const,    label: "Slate",    bg: "#1c2128", text: "#adbac7" },
-                { id: "journal" as const,  label: "Journal",  bg: "#f5e2b8", text: "#000000" },
-                { id: "sky" as const,      label: "Sky",      bg: "#e0ecf6", text: "#1a3a5c" },
-                { id: "sand" as const,     label: "Sand",     bg: "#f5e8dc", text: "#4a3520" },
-                { id: "white" as const,    label: "White",    bg: "#f5f5f0", text: "#000000" },
+                {
+                  id: "dark" as const,
+                  label: "Black",
+                  bg: "#06060e",
+                  text: "#ffffff",
+                },
+                {
+                  id: "midnight" as const,
+                  label: "Midnight",
+                  bg: "#1a1a2e",
+                  text: "#ffffff",
+                },
+                {
+                  id: "lumber" as const,
+                  label: "Lumber",
+                  bg: "#110e0a",
+                  text: "#e8d5c0",
+                },
+                {
+                  id: "slate" as const,
+                  label: "Slate",
+                  bg: "#1c2128",
+                  text: "#adbac7",
+                },
+                {
+                  id: "journal" as const,
+                  label: "Journal",
+                  bg: "#f5e2b8",
+                  text: "#000000",
+                },
+                {
+                  id: "sky" as const,
+                  label: "Sky",
+                  bg: "#e0ecf6",
+                  text: "#1a3a5c",
+                },
+                {
+                  id: "sand" as const,
+                  label: "Sand",
+                  bg: "#f5e8dc",
+                  text: "#4a3520",
+                },
+                {
+                  id: "white" as const,
+                  label: "White",
+                  bg: "#f5f5f0",
+                  text: "#000000",
+                },
               ].map((t) => (
                 <button
                   key={t.id}
@@ -565,7 +805,9 @@ export default function Menu({
                   aria-label={`${t.label} theme`}
                   aria-pressed={settings.theme === t.id}
                   className={`w-7 h-7 rounded-md outline-none transition-[opacity,transform] duration-150 ${
-                    settings.theme === t.id ? "opacity-100 scale-110" : "opacity-45 hover:opacity-75"
+                    settings.theme === t.id
+                      ? "opacity-100 scale-110"
+                      : "opacity-45 hover:opacity-75"
                   }`}
                   style={{
                     backgroundColor: t.bg,
@@ -576,31 +818,80 @@ export default function Menu({
             </div>
 
             <div className="mt-5 flex items-center justify-between">
-              <span className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Grid</span>
+              <span
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Grid
+              </span>
               <div
                 className={`flex rounded overflow-hidden border ${isDark ? "border-white/15" : "border-black/15"}`}
               >
                 {(["off", "dot", "square"] as GridType[]).map((g) => {
                   const active = settings.gridType === g;
                   const iconColor = active
-                    ? isDark ? "#5dd8e8" : "#00618c"
-                    : isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)";
+                    ? isDark
+                      ? "#5dd8e8"
+                      : "#00618c"
+                    : isDark
+                      ? "rgba(255,255,255,0.45)"
+                      : "rgba(0,0,0,0.4)";
                   const icon =
                     g === "off" ? (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <line x1="4" y1="4" x2="12" y2="12" stroke={iconColor} strokeWidth="1.5" strokeLinecap="round"/>
-                        <line x1="12" y1="4" x2="4" y2="12" stroke={iconColor} strokeWidth="1.5" strokeLinecap="round"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <line
+                          x1="4"
+                          y1="4"
+                          x2="12"
+                          y2="12"
+                          stroke={iconColor}
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                        <line
+                          x1="12"
+                          y1="4"
+                          x2="4"
+                          y2="12"
+                          stroke={iconColor}
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
                       </svg>
                     ) : g === "dot" ? (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill={iconColor}>
-                        <circle cx="4" cy="4" r="1.2"/><circle cx="8" cy="4" r="1.2"/><circle cx="12" cy="4" r="1.2"/>
-                        <circle cx="4" cy="8" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="12" cy="8" r="1.2"/>
-                        <circle cx="4" cy="12" r="1.2"/><circle cx="8" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill={iconColor}
+                      >
+                        <circle cx="4" cy="4" r="1.2" />
+                        <circle cx="8" cy="4" r="1.2" />
+                        <circle cx="12" cy="4" r="1.2" />
+                        <circle cx="4" cy="8" r="1.2" />
+                        <circle cx="8" cy="8" r="1.2" />
+                        <circle cx="12" cy="8" r="1.2" />
+                        <circle cx="4" cy="12" r="1.2" />
+                        <circle cx="8" cy="12" r="1.2" />
+                        <circle cx="12" cy="12" r="1.2" />
                       </svg>
                     ) : (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={iconColor} strokeWidth="0.9">
-                        <line x1="1" y1="5.5" x2="15" y2="5.5"/><line x1="1" y1="10.5" x2="15" y2="10.5"/>
-                        <line x1="5.5" y1="1" x2="5.5" y2="15"/><line x1="10.5" y1="1" x2="10.5" y2="15"/>
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={iconColor}
+                        strokeWidth="0.9"
+                      >
+                        <line x1="1" y1="5.5" x2="15" y2="5.5" />
+                        <line x1="1" y1="10.5" x2="15" y2="10.5" />
+                        <line x1="5.5" y1="1" x2="5.5" y2="15" />
+                        <line x1="10.5" y1="1" x2="10.5" y2="15" />
                       </svg>
                     );
                   return (
@@ -611,8 +902,12 @@ export default function Menu({
                       title={g.charAt(0).toUpperCase() + g.slice(1)}
                       className={`w-10 h-8 flex items-center justify-center transition-colors ${
                         active
-                          ? isDark ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
-                          : isDark ? "hover:bg-white/10" : "hover:bg-black/8"
+                          ? isDark
+                            ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
+                            : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                          : isDark
+                            ? "hover:bg-white/10"
+                            : "hover:bg-black/8"
                       }`}
                     >
                       {icon}
@@ -642,11 +937,20 @@ export default function Menu({
                 }}
                 className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
               >
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2 6V2h4"/>
-                  <path d="M10 2h4v4"/>
-                  <path d="M14 10v4h-4"/>
-                  <path d="M6 14H2v-4"/>
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 6V2h4" />
+                  <path d="M10 2h4v4" />
+                  <path d="M14 10v4h-4" />
+                  <path d="M6 14H2v-4" />
                 </svg>
                 Fullscreen
               </button>
@@ -709,73 +1013,51 @@ export default function Menu({
               ))}
             </div>
 
-            <div className={`mt-5 mb-2 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>Export</div>
-            <div className="grid grid-cols-2 gap-1.5">
-              {(
-                [
-                  {
-                    label: "PNG",
-                    onClick: onExport,
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="1" y="2" width="12" height="10" rx="1.5"/>
-                        <path d="M3 9.5 5.5 6.5 7.5 8.5 9 7 11 9.5" strokeLinejoin="round"/>
-                        <circle cx="10" cy="4.5" r="1.2" fill="currentColor" stroke="none"/>
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: "Transparent",
-                    onClick: onExportTransparent,
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="1" y="2" width="12" height="10" rx="1.5"/>
-                        <rect x="1" y="2" width="6" height="5" rx="1.5 0 0 0" fill="currentColor" fillOpacity="0.15" stroke="none"/>
-                        <rect x="7" y="7" width="6" height="5" rx="0 0 1.5 0" fill="currentColor" fillOpacity="0.15" stroke="none"/>
-                        <line x1="1" y1="7" x2="13" y2="7" strokeOpacity="0.25"/>
-                        <line x1="7" y1="2" x2="7" y2="12" strokeOpacity="0.25"/>
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: "Save data",
-                    onClick: onExportData,
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 2v7"/>
-                        <path d="M4.5 7 7 10l2.5-3"/>
-                        <line x1="2" y1="12.5" x2="12" y2="12.5"/>
-                      </svg>
-                    ),
-                  },
-                  {
-                    label: "Load data",
-                    onClick: onImportData,
-                    icon: (
-                      <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 9V2"/>
-                        <path d="M4.5 4.5 7 2l2.5 2.5"/>
-                        <line x1="2" y1="12.5" x2="12" y2="12.5"/>
-                      </svg>
-                    ),
-                  },
-                ] as { label: string; onClick: () => void; icon: React.ReactNode }[]
-              ).map(({ label, onClick, icon }) => (
-                <button
-                  key={label}
-                  onClick={onClick}
-                  className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus:outline-none ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
-                >
-                  {icon}
-                  <span className="text-[10px] leading-none">{label}</span>
-                </button>
-              ))}
-            </div>
-
-            {!hasTouch && (
-              <>
-                <button
-                  onClick={() =>
+            <div className="mt-4 space-y-1.5">
+              {!hasTouch && (
+                <AccordionSection
+                  label="Keys"
+                  icon={
+                    <svg
+                      width="12"
+                      height="12"
+                      viewBox="0 0 14 14"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <rect x="1" y="4" width="12" height="7" rx="1.5" />
+                      <line
+                        x1="3.5"
+                        y1="6.8"
+                        x2="3.5"
+                        y2="6.8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="7"
+                        y1="6.8"
+                        x2="7"
+                        y2="6.8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <line
+                        x1="10.5"
+                        y1="6.8"
+                        x2="10.5"
+                        y2="6.8"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                      <line x1="4.5" y1="9" x2="9.5" y2="9" />
+                    </svg>
+                  }
+                  open={showInfo}
+                  onToggle={() =>
                     setShowInfo((v) => {
                       if (!v)
                         setTimeout(
@@ -789,94 +1071,248 @@ export default function Menu({
                       return !v;
                     })
                   }
-                  className={`mt-4 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
+                  isDark={isDark}
                 >
+                  <div ref={infoRef}>
+                    <ShortcutsPanel isDark={isDark} />
+                  </div>
+                </AccordionSection>
+              )}
+
+              <AccordionSection
+                label="Export"
+                icon={
                   <svg
-                    width="10"
-                    height="10"
-                    viewBox="0 0 10 10"
+                    width="12"
+                    height="12"
+                    viewBox="0 0 14 14"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="1.5"
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    className={`transition-transform ${showInfo ? "rotate-90" : ""}`}
                   >
-                    <path d="M3.5 1.5L7 5L3.5 8.5" />
+                    <path d="M7 2v7" />
+                    <path d="M4.5 7 7 10l2.5-3" />
+                    <line x1="2" y1="12.5" x2="12" y2="12.5" />
                   </svg>
-                  Shortcuts
-                </button>
+                }
+                open={showExport}
+                onToggle={() =>
+                  setShowExport((v) => {
+                    if (!v)
+                      setTimeout(
+                        () =>
+                          exportContentRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "nearest",
+                          }),
+                        0,
+                      );
+                    return !v;
+                  })
+                }
+                isDark={isDark}
+              >
+                <div ref={exportContentRef} className="grid grid-cols-2 gap-1.5">
+                  {(
+                    [
+                      {
+                        label: "PNG",
+                        onClick: onExport,
+                        icon: (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 14 14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="1" y="2" width="12" height="10" rx="1.5" />
+                            <path
+                              d="M3 9.5 5.5 6.5 7.5 8.5 9 7 11 9.5"
+                              strokeLinejoin="round"
+                            />
+                            <circle
+                              cx="10"
+                              cy="4.5"
+                              r="1.2"
+                              fill="currentColor"
+                              stroke="none"
+                            />
+                          </svg>
+                        ),
+                      },
+                      {
+                        label: "Transparent",
+                        onClick: onExportTransparent,
+                        icon: (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 14 14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <rect x="1" y="2" width="12" height="10" rx="1.5" />
+                            <rect
+                              x="1"
+                              y="2"
+                              width="6"
+                              height="5"
+                              rx="1.5 0 0 0"
+                              fill="currentColor"
+                              fillOpacity="0.15"
+                              stroke="none"
+                            />
+                            <rect
+                              x="7"
+                              y="7"
+                              width="6"
+                              height="5"
+                              rx="0 0 1.5 0"
+                              fill="currentColor"
+                              fillOpacity="0.15"
+                              stroke="none"
+                            />
+                            <line
+                              x1="1"
+                              y1="7"
+                              x2="13"
+                              y2="7"
+                              strokeOpacity="0.25"
+                            />
+                            <line
+                              x1="7"
+                              y1="2"
+                              x2="7"
+                              y2="12"
+                              strokeOpacity="0.25"
+                            />
+                          </svg>
+                        ),
+                      },
+                      {
+                        label: "Save data",
+                        onClick: onExportData,
+                        icon: (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 14 14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M7 2v7" />
+                            <path d="M4.5 7 7 10l2.5-3" />
+                            <line x1="2" y1="12.5" x2="12" y2="12.5" />
+                          </svg>
+                        ),
+                      },
+                      {
+                        label: "Load data",
+                        onClick: onImportData,
+                        icon: (
+                          <svg
+                            width="16"
+                            height="16"
+                            viewBox="0 0 14 14"
+                            fill="none"
+                            stroke="currentColor"
+                            strokeWidth="1.3"
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                          >
+                            <path d="M7 9V2" />
+                            <path d="M4.5 4.5 7 2l2.5 2.5" />
+                            <line x1="2" y1="12.5" x2="12" y2="12.5" />
+                          </svg>
+                        ),
+                      },
+                    ] as {
+                      label: string;
+                      onClick: () => void;
+                      icon: React.ReactNode;
+                    }[]
+                  ).map(({ label, onClick, icon }) => (
+                    <button
+                      key={label}
+                      onClick={onClick}
+                      className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus:outline-none ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
+                    >
+                      {icon}
+                      <span className="text-[10px] leading-none">{label}</span>
+                    </button>
+                  ))}
+                </div>
+              </AccordionSection>
 
-                {showInfo && (
-                  <div
-                    ref={infoRef}
-                    className={`mt-2 pt-2 border-t ${isDark ? "border-white/10" : "border-black/10"}`}
+              <AccordionSection
+                label="About"
+                icon={
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
-                    <ShortcutsPanel isDark={isDark} />
-                  </div>
-                )}
-              </>
-            )}
-
-            <button
-              onClick={() =>
-                setShowAbout((v) => {
-                  if (!v)
-                    setTimeout(
-                      () =>
-                        aboutRef.current?.scrollIntoView({
-                          behavior: "smooth",
-                          block: "nearest",
-                        }),
-                      0,
-                    );
-                  return !v;
-                })
-              }
-              className={`mt-4 flex items-center gap-1.5 text-xs transition-colors ${isDark ? "text-white/50 hover:text-white" : "text-black/50 hover:text-black"}`}
-            >
-              <svg
-                width="10"
-                height="10"
-                viewBox="0 0 10 10"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                className={`transition-transform ${showAbout ? "rotate-90" : ""}`}
+                    <circle cx="7" cy="7" r="5.5" />
+                    <line x1="7" y1="6.5" x2="7" y2="10" strokeLinecap="round" />
+                    <circle cx="7" cy="4.5" r="0.6" fill="currentColor" stroke="none" />
+                  </svg>
+                }
+                open={showAbout}
+                onToggle={() =>
+                  setShowAbout((v) => {
+                    if (!v)
+                      setTimeout(
+                        () =>
+                          aboutRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "nearest",
+                          }),
+                        0,
+                      );
+                    return !v;
+                  })
+                }
+                isDark={isDark}
               >
-                <path d="M3.5 1.5L7 5L3.5 8.5" />
-              </svg>
-              About
-            </button>
-
-            {showAbout && (
-              <div
-                ref={aboutRef}
-                className={`mt-2 pt-2 border-t text-xs leading-relaxed break-words ${isDark ? "border-white/10 text-white/60" : "border-black/10 text-black/60"}`}
-              >
-                <p>drawtool was built out of a need for three things:</p>
-                <ul className="mt-1.5 list-disc list-inside space-y-1">
-                  <li>
-                    A classic freehand whiteboard &mdash; simple to draw on, no
-                    bloat.
-                  </li>
-                  <li>
-                    A keyboard-first experience. Drawing by clicking and
-                    dragging (especially on a trackpad) is painful, so every
-                    action is a modifier key away.
-                  </li>
-                  <li>
-                    Shortcuts for everything &mdash; solid lines, dashed lines,
-                    straight lines, eraser, colors, thickness, undo, redo.
-                  </li>
-                </ul>
-              </div>
-            )}
+                <div
+                  ref={aboutRef}
+                  className={`text-xs leading-relaxed break-words ${isDark ? "text-white/60" : "text-black/60"}`}
+                >
+                  <p>
+                    drawtool started as a personal tool &mdash; a drawing canvas
+                    that stays out of the way.
+                  </p>
+                  <ul className="mt-1.5 list-disc list-inside space-y-1">
+                    <li>Freehand and clean, no sidebar bloat.</li>
+                    <li>
+                      Every tool a key away &mdash; so you never have to leave
+                      the canvas to reach a toolbar.
+                    </li>
+                    <li>Built for trackpads, great with a mouse.</li>
+                  </ul>
+                </div>
+              </AccordionSection>
+            </div>
 
             <div
-              className={`mt-2 pt-2 border-t text-center ${isDark ? "border-white/10" : "border-black/10"}`}
+              className={`mt-3 pt-2 border-t text-center ${isDark ? "border-white/10" : "border-black/10"}`}
             >
               <a
                 href="https://liamo.co"

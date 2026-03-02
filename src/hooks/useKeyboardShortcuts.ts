@@ -3,6 +3,7 @@ import type { MutableRefObject, RefObject } from "react";
 import type { ShapeKind, TextSize, FontFamily, TextAlign } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import { cmdKey, isMac, textBBox, anyStrokeBBox, FONT_FAMILIES } from "../canvas/geometry";
+import { strokesKey } from "../canvas/storage";
 
 // ─── Ref bag type ─────────────────────────────────────────────────────────────
 
@@ -410,7 +411,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: `Text: ${labels[next]}` }));
         return;
       }
-      if (e.key === "F" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current && !keyShapeRef.current) {
+      if (e.key === "Y" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current && !keyShapeRef.current) {
         const cur = fontFamilyRef.current;
         const idx = FONT_FAMILIES.findIndex(f => f.key === cur);
         const next = FONT_FAMILIES[(idx + 1) % FONT_FAMILIES.length];
@@ -856,6 +857,26 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         window.dispatchEvent(
           new CustomEvent("drawtool:switch-canvas", { detail: parseInt(e.key) }),
         );
+      }
+      // 0 → jump to cleanest canvas (empty first, else fewest strokes)
+      if (e.key === "0" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        const counts = Array.from({ length: 9 }, (_, i) => {
+          const raw = localStorage.getItem(strokesKey(i + 1));
+          if (!raw) return 0;
+          try { return (JSON.parse(raw) as unknown[]).length; } catch { return 0; }
+        });
+        const empty = counts.findIndex((n) => n === 0);
+        if (empty !== -1) {
+          window.dispatchEvent(
+            new CustomEvent("drawtool:switch-canvas", { detail: empty + 1 }),
+          );
+        } else {
+          const min = Math.min(...counts);
+          const least = counts.findIndex((n) => n === min);
+          window.dispatchEvent(
+            new CustomEvent("drawtool:switch-canvas", { detail: least + 1 }),
+          );
+        }
       }
       if (e.key === "Escape" && (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current)) {
         e.preventDefault();
