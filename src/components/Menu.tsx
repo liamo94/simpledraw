@@ -564,7 +564,7 @@ export default function Menu({
                   onClick={() => updateSettings({ theme: t.id })}
                   aria-label={`${t.label} theme`}
                   aria-pressed={settings.theme === t.id}
-                  className={`w-7 h-7 rounded-md transition-all outline-none ${
+                  className={`w-7 h-7 rounded-md transition-opacity outline-none ${
                     settings.theme === t.id ? "opacity-100" : "opacity-50 hover:opacity-80"
                   }`}
                   style={{
