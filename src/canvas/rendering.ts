@@ -178,6 +178,101 @@ function densifySmoothedPath(
   return result;
 }
 
+// ─── Cloud shape helpers ───────────────────────────────────────────────────────
+
+/**
+ * Returns circle centers, outer intersection points, and bump radius for a cloud shape.
+ * Centers are placed on a rounded-rectangle perimeter so a wide cloud gets more bumps
+ * across the top/bottom and fewer on the sides — producing an asymmetric cloud silhouette.
+ */
+function cloudArcData(x: number, y: number, w: number, h: number) {
+  const ox = x + w / 2, oy = y + h / 2;
+  // Guard against zero/near-zero dimension (e.g. perfectly horizontal drag).
+  // Without this, bumpR = 0 → N = Infinity → infinite loop.
+  const bumpR = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
+  const norm2pi = (a: number) => ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
+
+  // Inner rounded rectangle whose perimeter we place bump centers along
+  const margin = bumpR * 0.55;
+  const iw = Math.max(bumpR * 0.6, w - 2 * margin);
+  const ih = Math.max(bumpR * 0.6, h - 2 * margin);
+  const ir = Math.min(iw / 2, ih / 2, bumpR * 1.1); // inner corner radius
+  const ix = ox - iw / 2, iy = oy - ih / 2;
+
+  // Perimeter of the inner rounded rect
+  const sw = Math.max(0, iw - 2 * ir);
+  const sh = Math.max(0, ih - 2 * ir);
+  const cp = (Math.PI / 2) * ir; // per-corner arc length
+  const perimeter = 2 * (sw + sh) + 4 * cp;
+
+  // N bumps spaced so adjacent circles always overlap (spacing < 2 * bumpR).
+  // Cap at 200 as a safety net (practical clouds never need more).
+  const N = Math.min(200, Math.max(6, Math.ceil(perimeter / (bumpR * 1.5)) + 1));
+  const spacing = perimeter / N;
+
+  // Walk the rounded rect clockwise from top-left corner.
+  // Also record the outward normal at each center — used for arc direction selection.
+  // Using the rect normal (not cloud-center direction) avoids wrong arc choices for
+  // bumps at the far ends of straight sections where the cloud-center direction tilts.
+  const centers: { x: number; y: number }[] = [];
+  const normals: number[] = [];
+  for (let i = 0; i < N; i++) {
+    let d = i * spacing;
+    let pt: { x: number; y: number };
+    let na: number; // outward normal angle
+    if (d < cp) {
+      const a = Math.PI + (d / cp) * (Math.PI / 2);
+      pt = { x: ix + ir + Math.cos(a) * ir, y: iy + ir + Math.sin(a) * ir };
+      na = a; // corner normal = angle from corner center
+    } else if ((d -= cp) < sw) {
+      pt = { x: ix + ir + d, y: iy };
+      na = -Math.PI / 2; // top edge: pointing up
+    } else if ((d -= sw) < cp) {
+      const a = -Math.PI / 2 + (d / cp) * (Math.PI / 2);
+      pt = { x: ix + iw - ir + Math.cos(a) * ir, y: iy + ir + Math.sin(a) * ir };
+      na = a;
+    } else if ((d -= cp) < sh) {
+      pt = { x: ix + iw, y: iy + ir + d };
+      na = 0; // right edge: pointing right
+    } else if ((d -= sh) < cp) {
+      const a = (d / cp) * (Math.PI / 2);
+      pt = { x: ix + iw - ir + Math.cos(a) * ir, y: iy + ih - ir + Math.sin(a) * ir };
+      na = a;
+    } else if ((d -= cp) < sw) {
+      pt = { x: ix + iw - ir - d, y: iy + ih };
+      na = Math.PI / 2; // bottom edge: pointing down
+    } else if ((d -= sw) < cp) {
+      const a = Math.PI / 2 + (d / cp) * (Math.PI / 2);
+      pt = { x: ix + ir + Math.cos(a) * ir, y: iy + ih - ir + Math.sin(a) * ir };
+      na = a;
+    } else {
+      d -= cp;
+      pt = { x: ix, y: iy + ih - ir - d };
+      na = Math.PI; // left edge: pointing left
+    }
+    centers.push(pt);
+    normals.push(na);
+  }
+
+  // For each adjacent pair find the outer intersection point (farther from cloud center)
+  const ipts: { x: number; y: number }[] = [];
+  for (let i = 0; i < N; i++) {
+    const c1 = centers[i], c2 = centers[(i + 1) % N];
+    const dx = c2.x - c1.x, dy = c2.y - c1.y, d = Math.hypot(dx, dy);
+    const a2 = d / 2, h2 = bumpR * bumpR - a2 * a2;
+    if (h2 <= 0) { ipts.push({ x: (c1.x + c2.x) / 2, y: (c1.y + c2.y) / 2 }); continue; }
+    const hh = Math.sqrt(h2);
+    const mx = (c1.x + c2.x) / 2, my = (c1.y + c2.y) / 2;
+    const px = -dy / d * hh, py = dx / d * hh;
+    const d1 = Math.hypot(mx + px - ox, my + py - oy);
+    const d2 = Math.hypot(mx - px - ox, my - py - oy);
+    ipts.push(d1 > d2 ? { x: mx + px, y: my + py } : { x: mx - px, y: my - py });
+  }
+
+  return { centers, normals, ipts, bumpR, N, norm2pi };
+}
+
+
 // ─── Shape rendering ──────────────────────────────────────────────────────────
 
 export function renderShape(
@@ -252,13 +347,19 @@ export function renderShape(
     case "diamond":
       roundedPoly(ctx, [{ x: cx, y }, { x: x + w, y: cy }, { x: cx, y: y + h }, { x, y: cy }], r);
       break;
-    case "lightning": {
-      ctx.moveTo(x + w * 0.55, y);
-      ctx.lineTo(x + w * 0.15, y + h * 0.5);
-      ctx.lineTo(x + w * 0.45, y + h * 0.5);
-      ctx.lineTo(x + w * 0.35, y + h);
-      ctx.lineTo(x + w * 0.85, y + h * 0.4);
-      ctx.lineTo(x + w * 0.55, y + h * 0.4);
+    case "cloud": {
+      const { centers, normals, ipts, bumpR, N, norm2pi } = cloudArcData(x, y, w, h);
+      ctx.moveTo(ipts[N - 1].x, ipts[N - 1].y);
+      for (let i = 0; i < N; i++) {
+        const c = centers[i];
+        const sp = ipts[(i + N - 1) % N], ep = ipts[i];
+        const sa = Math.atan2(sp.y - c.y, sp.x - c.x);
+        const ea = Math.atan2(ep.y - c.y, ep.x - c.x);
+        const outerDir = norm2pi(normals[i]);
+        const t1 = norm2pi(sa), t2 = norm2pi(ea);
+        const cwPasses = t1 <= t2 ? (outerDir >= t1 && outerDir <= t2) : (outerDir >= t1 || outerDir <= t2);
+        ctx.arc(c.x, c.y, bumpR, sa, ea, !cwPasses);
+      }
       ctx.closePath();
       break;
     }
@@ -337,16 +438,17 @@ export function renderRoughShape(
       rc.polygon(pts.map((p) => [p.x, p.y] as [number, number]), opts);
       break;
     }
-    case "lightning":
-      rc.polygon([
-        [x + w * 0.55, y],
-        [x + w * 0.15, y + h * 0.5],
-        [x + w * 0.45, y + h * 0.5],
-        [x + w * 0.35, y + h],
-        [x + w * 0.85, y + h * 0.4],
-        [x + w * 0.55, y + h * 0.4],
-      ], opts);
+    case "cloud": {
+      // Cloud arc junctions cause rough.js artifacts — render with plain canvas instead.
+      ctx.strokeStyle = color;
+      ctx.lineWidth = lineWidth;
+      ctx.lineCap = "round";
+      ctx.lineJoin = "round";
+      const dashScale = lineWidth / 4;
+      ctx.setLineDash(style === "dashed" ? [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] : []);
+      renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill);
       break;
+    }
     case "arrow": {
       rc.line(p0.x, p0.y, p1.x, p1.y, opts);
       const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
@@ -444,17 +546,8 @@ export function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
         { x: cx, y },
       ];
     }
-    case "lightning": {
-      const pts = [
-        { x: x + w * 0.55, y },
-        { x: x + w * 0.15, y: y + h * 0.5 },
-        { x: x + w * 0.45, y: y + h * 0.5 },
-        { x: x + w * 0.35, y: y + h },
-        { x: x + w * 0.85, y: y + h * 0.4 },
-        { x: x + w * 0.55, y: y + h * 0.4 },
-      ];
-      return [...pts, pts[0]];
-    }
+    case "cloud":
+      return [{ x, y }, { x: x + w, y }, { x: x + w, y: y + h }, { x, y: y + h }, { x, y }];
   }
 }
 

@@ -605,7 +605,7 @@ export default function Menu({
                   "hexagon",
                   "star",
                   "arrow",
-                  "lightning",
+                  "cloud",
                 ] as const
               ).map((s) => (
                 <button
@@ -675,8 +675,8 @@ export default function Menu({
                         />
                       </>
                     )}
-                    {s === "lightning" && (
-                      <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
+                    {s === "cloud" && (
+                      <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
                     )}
                   </svg>
                 </button>

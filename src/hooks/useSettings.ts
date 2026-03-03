@@ -10,7 +10,7 @@ export type ShapeKind =
   | "pentagon"
   | "hexagon"
   | "diamond"
-  | "lightning";
+  | "cloud";
 
 export type Theme = "dark" | "midnight" | "lumber" | "white" | "journal" | "sky" | "slate" | "sand";
 

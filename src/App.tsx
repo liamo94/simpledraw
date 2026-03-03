@@ -30,7 +30,7 @@ const SHAPES: ShapeKind[] = [
   "hexagon",
   "star",
   "arrow",
-  "lightning",
+  "cloud",
 ];
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
@@ -626,8 +626,8 @@ export default function App() {
                   <polyline points="9,5 12,8 9,11" />
                 </>
               )}
-              {settings.activeShape === "lightning" && (
-                <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
+              {settings.activeShape === "cloud" && (
+                <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
               )}
             </svg>
           ),
@@ -1076,8 +1076,8 @@ export default function App() {
                           <polyline points="9,5 12,8 9,11" />
                         </>
                       )}
-                      {shape === "lightning" && (
-                        <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
+                      {shape === "cloud" && (
+                        <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
                       )}
                     </svg>
                   </button>
@@ -1440,8 +1440,8 @@ export default function App() {
                   <polyline points="9,5 12,8 9,11" />
                 </>
               )}
-              {toast.shape === "lightning" && (
-                <polygon points="9,1 3,8.5 7.5,8.5 6,15 13,7 8.5,7" />
+              {toast.shape === "cloud" && (
+                <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
               )}
             </svg>
           )}

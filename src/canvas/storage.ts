@@ -37,7 +37,7 @@ export function saveStrokes(strokes: Stroke[], canvasIndex: number) {
 export type StrokesFile = { version: 1; strokes: Stroke[] };
 
 const VALID_STYLES  = new Set(["solid", "dashed"]);
-const VALID_SHAPES  = new Set(["line", "circle", "rectangle", "triangle", "star", "arrow", "pentagon", "hexagon", "diamond", "lightning"]);
+const VALID_SHAPES  = new Set(["line", "circle", "rectangle", "triangle", "star", "arrow", "pentagon", "hexagon", "diamond", "cloud"]);
 const VALID_SIZES   = new Set(["xs", "s", "m", "l", "xl"]);
 const VALID_FONTS   = new Set(["caveat", "sans", "serif", "mono", "comic", "cartoon"]);
 const VALID_ALIGNS  = new Set(["left", "center", "right"]);
