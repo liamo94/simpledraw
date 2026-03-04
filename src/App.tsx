@@ -18,7 +18,7 @@ import useSettings, {
   type TextAlign,
 } from "./hooks/useSettings";
 import { isDarkTheme, getBackgroundColor } from "./canvas/canvasUtils";
-import { loadStrokes, saveStrokes, validateStrokesFile } from "./canvas/storage";
+import { loadStrokes, saveStrokes, validateStrokesFile, strokesKey } from "./canvas/storage";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -44,6 +44,28 @@ const isMac = navigator.platform.toUpperCase().includes("MAC");
     localStorage.removeItem(oldKey);
   }
 })();
+
+// Compute /new routing before first render
+let _newRouteCanvas: number | null = null;
+let _newRouteAllOccupied = false;
+
+if (window.location.pathname === '/new') {
+  window.history.replaceState(null, '', '/');
+  const counts = Array.from({ length: 9 }, (_, i) => {
+    const raw = localStorage.getItem(strokesKey(i + 1));
+    if (!raw) return 0;
+    try { return (JSON.parse(raw) as unknown[]).length; } catch { return 0; }
+  });
+  const empty = counts.findIndex(n => n === 0);
+  if (empty !== -1) {
+    _newRouteCanvas = empty + 1;
+  } else {
+    const min = Math.min(...counts);
+    _newRouteCanvas = counts.findIndex(n => n === min) + 1;
+    _newRouteAllOccupied = true;
+  }
+  localStorage.setItem('drawtool-active-canvas', String(_newRouteCanvas));
+}
 
 export default function App() {
   const [settings, updateSettings] = useSettings();
@@ -134,6 +156,8 @@ export default function App() {
   }, [settings.theme, updateSettings]);
 
   const [confirmingClear, setConfirmingClear] = useState(false);
+  const [newCanvasDialogOpen, setNewCanvasDialogOpen] = useState(_newRouteAllOccupied);
+  const [newCanvasBlurred, setNewCanvasBlurred] = useState(_newRouteAllOccupied);
 
   const doClear = useCallback(() => {
     setConfirmingClear(false);
@@ -479,6 +503,27 @@ export default function App() {
     return () =>
       window.removeEventListener("keydown", onKey, { capture: true });
   }, [confirmingClear, doClear]);
+
+  // New-canvas dialog keyboard trap
+  useEffect(() => {
+    if (!newCanvasDialogOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (e.key === 'Escape') {
+        setNewCanvasDialogOpen(false);
+        setNewCanvasBlurred(false);
+      } else if ((e.metaKey || e.ctrlKey) && e.key === 'x') {
+        window.dispatchEvent(new Event("drawtool:clear"));
+        window.dispatchEvent(new Event("drawtool:reset-view"));
+        setZoom(1);
+        setNewCanvasDialogOpen(false);
+        setNewCanvasBlurred(false);
+      }
+    };
+    window.addEventListener('keydown', onKey, { capture: true });
+    return () => window.removeEventListener('keydown', onKey, { capture: true });
+  }, [newCanvasDialogOpen]);
 
   const resetView = useCallback(() => {
     window.dispatchEvent(new Event("drawtool:reset-view"));
@@ -1238,6 +1283,66 @@ export default function App() {
           )
         )}
       </div>
+      {newCanvasBlurred && newCanvasDialogOpen && (
+        <div className="fixed inset-0 z-40 backdrop-blur-xl pointer-events-none" />
+      )}
+      {newCanvasDialogOpen && (
+        <div
+          role="alertdialog"
+          aria-modal="true"
+          className="fixed inset-0 flex items-center justify-center z-50"
+        >
+          <div className={`px-8 py-5 rounded-lg border backdrop-blur-sm text-center max-w-xs ${isDark ? "bg-black/80 border-white/15" : "bg-white/80 border-black/15"}`}>
+            <div className={`text-sm font-medium mb-1 ${isDark ? "text-white/80" : "text-black/80"}`}>
+              All canvases are in use
+            </div>
+            <div className={`text-xs mb-3 ${isDark ? "text-white/40" : "text-black/40"}`}>
+              This canvas has content. Open it as-is or clear it first.
+            </div>
+            <div className="flex gap-2 mt-3 justify-center">
+              <button
+                aria-label={newCanvasBlurred ? "Show canvas" : "Hide canvas"}
+                onClick={() => setNewCanvasBlurred(b => !b)}
+                className={`px-2.5 py-1.5 rounded transition-colors ${isDark ? "text-white/50 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/50 hover:text-black bg-black/5 hover:bg-black/10"}`}
+              >
+                {newCanvasBlurred ? (
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 8C1 8 3.5 3 8 3s7 5 7 5-2.5 5-7 5S1 8 1 8z" />
+                    <circle cx="8" cy="8" r="2" />
+                  </svg>
+                ) : (
+                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M1 8C1 8 3.5 3 8 3s7 5 7 5-2.5 5-7 5S1 8 1 8z" />
+                    <circle cx="8" cy="8" r="2" />
+                    <line x1="2" y1="2" x2="14" y2="14" />
+                  </svg>
+                )}
+              </button>
+              <button
+                onClick={() => {
+                  setNewCanvasDialogOpen(false);
+                  setNewCanvasBlurred(false);
+                }}
+                className={`flex-1 py-1.5 rounded text-xs whitespace-nowrap transition-colors ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+              >
+                Open anyway
+              </button>
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new Event("drawtool:clear"));
+                  window.dispatchEvent(new Event("drawtool:reset-view"));
+                  setZoom(1);
+                  setNewCanvasDialogOpen(false);
+                  setNewCanvasBlurred(false);
+                }}
+                className={`flex-1 py-1.5 rounded text-xs whitespace-nowrap transition-colors ${isDark ? "text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20" : "text-red-600 hover:text-red-700 bg-red-500/10 hover:bg-red-500/20"}`}
+              >
+                Clear &amp; open
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {confirmingClear && (
         <div
           role="alertdialog"
