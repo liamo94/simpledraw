@@ -749,7 +749,7 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
         size: baseWidth,
         thinning: 1,
         smoothing: 0.5,
-        streamline: 0,
+        streamline: 0.4,
         simulatePressure: false,
         last: true,
       });
@@ -758,9 +758,16 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
 
       ctx.beginPath();
       ctx.setLineDash([]);
-      ctx.moveTo(outline[0][0], outline[0][1]);
-      for (let i = 1; i < outline.length; i++) {
-        ctx.lineTo(outline[i][0], outline[i][1]);
+      // Render outline with quadratic bezier curves (midpoint method) for smooth corners
+      const n = outline.length;
+      const startMx = (outline[n - 1][0] + outline[0][0]) / 2;
+      const startMy = (outline[n - 1][1] + outline[0][1]) / 2;
+      ctx.moveTo(startMx, startMy);
+      for (let i = 0; i < n; i++) {
+        const next = outline[(i + 1) % n];
+        const mx = (outline[i][0] + next[0]) / 2;
+        const my = (outline[i][1] + next[1]) / 2;
+        ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
       }
       ctx.closePath();
       ctx.fillStyle = color;
