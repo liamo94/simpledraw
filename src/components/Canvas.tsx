@@ -1069,6 +1069,15 @@ function Canvas({
   );
 
   const resetView = useCallback(() => {
+    const view = viewRef.current;
+    const cx = window.innerWidth / 2;
+    const cy = window.innerHeight / 2;
+    const wx = (cx - view.x) / view.scale;
+    const wy = (cy - view.y) / view.scale;
+    animateView({ x: cx - wx, y: cy - wy, scale: 1 });
+  }, [animateView]);
+
+  const resetViewOrigin = useCallback(() => {
     animateView({ x: 0, y: 0, scale: 1 });
   }, [animateView]);
 
@@ -1334,6 +1343,7 @@ function Canvas({
   useEffect(() => {
     const onClear = () => clearCanvas();
     const onResetView = () => resetView();
+    const onResetViewOrigin = () => resetViewOrigin();
     const onCenterView = () => centerView();
     const onZoomStep = (e: Event) =>
       zoomBy((e as CustomEvent).detail as number);
@@ -1376,6 +1386,7 @@ function Canvas({
     };
     window.addEventListener("drawtool:clear", onClear);
     window.addEventListener("drawtool:reset-view", onResetView);
+    window.addEventListener("drawtool:reset-view-origin", onResetViewOrigin);
     window.addEventListener("drawtool:center-view", onCenterView);
     window.addEventListener("drawtool:zoom-step", onZoomStep);
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
@@ -1506,6 +1517,7 @@ function Canvas({
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
+      window.removeEventListener("drawtool:reset-view-origin", onResetViewOrigin);
       window.removeEventListener("drawtool:center-view", onCenterView);
       window.removeEventListener("drawtool:zoom-step", onZoomStep);
       window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
@@ -1517,7 +1529,7 @@ function Canvas({
       window.removeEventListener("drawtool:text-align", onTextAlign);
       window.removeEventListener("drawtool:import-strokes", onImportStrokes);
     };
-  }, [clearCanvas, resetView, centerView, zoomBy, exportTransparent, scheduleRedraw]);
+  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, scheduleRedraw]);
 
   const MIN_SHAPE_SIZE = 8;
   const MIN_DASH_LENGTH = 10; // world units — discard dashed strokes shorter than this

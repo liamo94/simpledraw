@@ -466,6 +466,17 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           // Check body — drag current stroke; for arrows, defer click-to-add-bend to pointer up
           if (hitTestStroke(selectedTextRef.current, wp.x, wp.y, scale)) {
             const curStroke = selectedTextRef.current;
+            // Double-click on selected text stroke → enter edit mode
+            if (curStroke.text) {
+              const now = performance.now();
+              const last = lastTextTapRef.current;
+              if (last && last.stroke === curStroke && now - last.time < 300) {
+                lastTextTapRef.current = null;
+                startEditingStroke(curStroke, undefined, true);
+                return;
+              }
+              lastTextTapRef.current = { time: now, stroke: curStroke };
+            }
             const isArrow = curStroke.shape === "arrow" || curStroke.shape === "line";
             let pendingBend: { segmentIdx: number } | undefined;
             if (isArrow) {

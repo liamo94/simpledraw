@@ -607,9 +607,13 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:export"));
       }
-      if (cmdKey(e) && e.key === "0") {
+      if (cmdKey(e) && e.key === "0" && !e.shiftKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:reset-view"));
+      }
+      if (cmdKey(e) && e.shiftKey && e.key === "0") {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:reset-view-origin"));
       }
       if (cmdKey(e) && e.key === "1") {
         e.preventDefault();

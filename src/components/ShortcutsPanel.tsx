@@ -99,6 +99,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><ZoomInIcon />Zoom in</>} kbd="+" />
         <Row label={<><ZoomOutIcon />Zoom out</>} kbd="−" />
         <Row label={<><ResetZoomIcon />Reset zoom</>} kbd={`${mod} + 0`} />
+        <Row label={<><PanIcon />Reset view to origin</>} kbd={`${mod} + ⇧ + 0`} />
         <Row label={<><FitIcon />Fit to content</>} kbd={`${mod} + 1`} />
       </div>
 
@@ -110,6 +111,8 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><EraseIcon />Erase</>} kbd={`${alt} + drag`} />
         <Row label={<><HighlightIcon />Highlight</>} kbd="W/H + drag" />
         <Row label={<><PressureIcon />Dynamic stroke</>} kbd="P" />
+        <Row label={<><ThicknessIcon />Thicker / Thinner</>} kbd="{ / }" />
+        <Row label={<><DotIcon />Place dot</>} kbd="." />
       </div>
 
       <div className={headingClass}>Shapes</div>
@@ -123,6 +126,16 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><FilledRectIcon />Filled shape</>} kbd={`${isMac ? "F + Ctrl" : `F + ${alt}`} + drag`} />
       </div>
 
+      <div className={headingClass}>Text</div>
+      <div className="space-y-1">
+        <Row label={<><TextIcon />Write text</>} kbd="T" />
+        <Row label={<><TextSizeIcon />Cycle text size</>} kbd="Shift + T" />
+        <Row label={<><FontIcon />Cycle font</>} kbd="Shift + Y" />
+        <Row label="Bold / Italic" kbd={`${mod} + B / I`} />
+        <Row label="Alignment" kbd={`${mod} + ⇧ + L / E / R`} />
+        <Row label="Undo / Redo typing" kbd={`${mod} + Z / ⇧Z`} />
+      </div>
+
       <div className={headingClass}>Tools</div>
       <div className="space-y-1">
         <Row label={<><LaserIcon />Laser pointer</>} kbd="Q/L + drag" />
@@ -133,14 +146,6 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><CanvasIcon />Switch canvas</>} kbd="1 – 9" />
         <Row label={<><CanvasIcon />Jump to cleanest canvas</>} kbd="0" />
         <Row label={<><RenameIcon />Rename canvas</>} kbd={`${mod} + ,`} />
-        <Row label={<><ThicknessIcon />Thicker / Thinner</>} kbd="{ / }" />
-        <Row label={<><DotIcon />Place dot</>} kbd="." />
-        <Row label={<><TextIcon />Write text</>} kbd="T" />
-        <Row label={<><TextSizeIcon />Cycle text size</>} kbd="Shift + T" />
-        <Row label={<><FontIcon />Cycle font</>} kbd="Shift + Y" />
-        <Row label="Bold / Italic (text mode)" kbd={`${mod} + B / I`} />
-        <Row label="Alignment (text mode)" kbd={`${mod} + ⇧ + L / E / R`} />
-        <Row label="Undo / Redo typing" kbd={`${mod} + Z / ⇧Z`} />
         <Row label={<><ClearIcon />Clear canvas</>} kbd={`${mod} + X`} />
         <Row label={<><ExportIcon />Export</>} kbd={`${mod} + E`} />
         <Row label={<><MenuIcon />Menu</>} kbd="M" />
