@@ -64,7 +64,7 @@ function Canvas({
   const eraseMovingRef = useRef(false);
   const isDrawingRef = useRef(false);
   const activeModifierRef = useRef<
-    "meta" | "shift" | "alt" | "line" | "shape" | "highlight" | "laser" | null
+    "meta" | "shift" | "alt" | "line" | "shape" | "highlight" | "laser" | "spray" | null
   >(null);
   const laserTrailRef = useRef<{ x: number; y: number }[]>([]);
   const laserMovingRef = useRef(false);
@@ -102,6 +102,9 @@ function Canvas({
   const highlightKeyRef = useRef(false);
   const laserKeyRef = useRef(false);
   const [lasering, setLasering] = useState(false);
+  const sprayKeyRef = useRef(false);
+  const sprayIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [spraying, setSpraying] = useState(false);
   const spaceDownRef = useRef(false);
   const keyShapeRef = useRef<ShapeKind | null>(null);
   const keyShapeDashedRef = useRef(false);
@@ -1576,11 +1579,12 @@ function Canvas({
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
       shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef,
       finishWritingRef, startWritingRef, cursorRef,
+      sprayKeyRef,
     },
     {
       scheduleRedraw, persistStrokes, persistView, clearCanvas,
       undo, redo, confirmErase, cancelErase, cancelCurrentStroke, discardTinyShape, notifyColorUsed,
-      setZCursor, setPanning, setErasing, setShapeActive, setHighlighting, setLasering,
+      setZCursor, setPanning, setErasing, setShapeActive, setHighlighting, setLasering, setSpraying,
     },
   );
 
@@ -1870,6 +1874,19 @@ function Canvas({
           scheduleRedraw();
         }
         if (activeModifierRef.current === "shape") shapeJustCommittedRef.current = true;
+        // Stop spray interval
+        if (sprayIntervalRef.current) {
+          clearInterval(sprayIntervalRef.current);
+          sprayIntervalRef.current = null;
+        }
+        // Discard empty spray strokes
+        if (activeModifierRef.current === "spray") {
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke?.spray && stroke.points.length === 0) {
+            strokesRef.current.pop();
+            undoStackRef.current.pop();
+          }
+        }
         discardTinyShape();
         // Discard dashed freehand strokes that are too short to show a dash
         if (activeModifierRef.current === "shift") {
@@ -2006,6 +2023,7 @@ function Canvas({
         | "shape"
         | "highlight"
         | "laser"
+        | "spray"
         | null;
 
       if (e.pointerType === "touch") {
@@ -2036,6 +2054,8 @@ function Canvas({
           ? null
           : laserKeyRef.current
           ? "laser"
+          : sprayKeyRef.current
+          ? "spray"
           : highlightKeyRef.current
           ? "highlight"
           : keyShapeRef.current
@@ -2063,6 +2083,10 @@ function Canvas({
             confirmErase();
             strokesCacheRef.current = null;
             scheduleRedraw();
+          }
+          if (sprayIntervalRef.current) {
+            clearInterval(sprayIntervalRef.current);
+            sprayIntervalRef.current = null;
           }
           discardTinyShape();
           isDrawingRef.current = false;
@@ -2209,6 +2233,52 @@ function Canvas({
         return;
       }
 
+      if (modifier === "spray") {
+        const addSprayDots = (wx: number, wy: number) => {
+          const current = strokesRef.current[strokesRef.current.length - 1];
+          if (!current?.spray) return;
+          const radius = lineWidthRef.current * 3;
+          const count = Math.max(4, Math.round(lineWidthRef.current * 0.8));
+          for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const r = Math.random() * radius;
+            current.points.push({ x: wx + Math.cos(angle) * r, y: wy + Math.sin(angle) * r });
+          }
+        };
+        if (!isDrawingRef.current || activeModifierRef.current !== "spray") {
+          notifyColorUsed(lineColor);
+          isDrawingRef.current = true;
+          activeModifierRef.current = "spray";
+          const stroke: Stroke = {
+            points: [],
+            style: "solid",
+            lineWidth,
+            color: lineColor,
+            spray: true,
+          };
+          strokesRef.current.push(stroke);
+          undoStackRef.current.push({ type: "draw", stroke });
+          redoStackRef.current = [];
+          // Start interval for spraying when stationary
+          if (sprayIntervalRef.current) clearInterval(sprayIntervalRef.current);
+          sprayIntervalRef.current = setInterval(() => {
+            if (!sprayKeyRef.current) {
+              if (sprayIntervalRef.current) {
+                clearInterval(sprayIntervalRef.current);
+                sprayIntervalRef.current = null;
+              }
+              return;
+            }
+            addSprayDots(cursorWorldRef.current.x, cursorWorldRef.current.y);
+            scheduleRedraw();
+          }, 40);
+        }
+        addSprayDots(point.x, point.y);
+        persistStrokesDebounced();
+        scheduleRedraw();
+        return;
+      }
+
       if (modifier === "highlight") {
         if (
           !isDrawingRef.current ||
@@ -2327,6 +2397,10 @@ function Canvas({
           return;
         }
         if (activeModifierRef.current === "shape") shapeJustCommittedRef.current = true;
+        if (sprayIntervalRef.current) {
+          clearInterval(sprayIntervalRef.current);
+          sprayIntervalRef.current = null;
+        }
         discardTinyShape();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
@@ -2393,19 +2467,22 @@ function Canvas({
   };
   const highlightCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='6' stroke-linecap='round' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
   const laserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='4' fill='%23ff3030' fill-opacity='0.9'/%3E%3Ccircle cx='12' cy='12' r='7' fill='none' stroke='%23ff3030' stroke-width='1' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
+  const sprayCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='2' cy='5' r='1.2' fill='${encodedColor}'/%3E%3Ccircle cx='1' cy='9' r='1' fill='${encodedColor}'/%3E%3Ccircle cx='2.5' cy='13' r='1' fill='${encodedColor}'/%3E%3Cg transform='rotate(-12 12 14)'%3E%3Crect x='8' y='9' width='9' height='11' rx='2' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Crect x='10' y='5' width='5' height='4' rx='1' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3Cline x1='10' y1='7' x2='6' y2='7' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/g%3E%3C/svg%3E") 2 9, crosshair`;
   const cursor = zCursor !== null
       ? zCursor
       : panning
         ? "grabbing"
         : lasering
           ? laserCursor
-          : erasing
-            ? eraserCursor
-            : highlighting
-              ? highlightCursor
-              : shapeActive
-                ? shapeCursors[keyShapeRef.current || activeShape]
-                : crosshairCursor;
+          : spraying
+            ? sprayCursor
+            : erasing
+              ? eraserCursor
+              : highlighting
+                ? highlightCursor
+                : shapeActive
+                  ? shapeCursors[keyShapeRef.current || activeShape]
+                  : crosshairCursor;
 
   cursorRef.current = cursor;
 

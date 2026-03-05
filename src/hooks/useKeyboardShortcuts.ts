@@ -55,7 +55,8 @@ export type KeyboardRefs = {
   laserTrailRef: MutableRefObject<{ x: number; y: number }[]>;
   isDrawingRef: MutableRefObject<boolean>;
   isZoomingRef: MutableRefObject<boolean>;
-  activeModifierRef: MutableRefObject<"meta" | "shift" | "alt" | "line" | "shape" | "highlight" | "laser" | null>;
+  activeModifierRef: MutableRefObject<"meta" | "shift" | "alt" | "line" | "shape" | "highlight" | "laser" | "spray" | null>;
+  sprayKeyRef: MutableRefObject<boolean>;
   spaceDownRef: MutableRefObject<boolean>;
   isPanningRef: MutableRefObject<boolean>;
   highlightKeyRef: MutableRefObject<boolean>;
@@ -91,6 +92,7 @@ export type KeyboardCallbacks = {
   setShapeActive: (s: boolean) => void;
   setHighlighting: (h: boolean) => void;
   setLasering: (l: boolean) => void;
+  setSpraying: (s: boolean) => void;
 };
 
 // ─── Hook ─────────────────────────────────────────────────────────────────────
@@ -107,12 +109,13 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef,
     finishWritingRef, startWritingRef, cursorRef,
+    sprayKeyRef,
   } = refs;
 
   const {
     scheduleRedraw, persistStrokes, persistView, clearCanvas,
     undo, redo, confirmErase, cancelErase, cancelCurrentStroke, discardTinyShape, notifyColorUsed,
-    setZCursor, setPanning, setErasing, setShapeActive, setHighlighting, setLasering,
+    setZCursor, setPanning, setErasing, setShapeActive, setHighlighting, setLasering, setSpraying,
   } = callbacks;
 
   useEffect(() => {
@@ -849,6 +852,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         laserKeyRef.current = true;
         setLasering(true);
       }
+      if (e.key === "b" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey && !isWritingRef.current) {
+        sprayKeyRef.current = true;
+        setSpraying(true);
+      }
       // Letter-key shape shortcuts (lowercase = solid, uppercase/shift = dashed)
       const shapeKeyMap: Record<string, ShapeKind> = {
         a: "arrow", A: "arrow",
@@ -1002,6 +1009,16 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         highlightKeyRef.current = false;
         setHighlighting(false);
         if (activeModifierRef.current === "highlight") {
+          isDrawingRef.current = false;
+          activeModifierRef.current = null;
+          strokesCacheRef.current = null;
+          persistStrokes();
+        }
+      }
+      if (e.key === "b") {
+        sprayKeyRef.current = false;
+        setSpraying(false);
+        if (activeModifierRef.current === "spray") {
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           strokesCacheRef.current = null;

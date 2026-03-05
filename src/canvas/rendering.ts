@@ -770,6 +770,17 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
       ctx.fill();
       continue;
     }
+    // Spray stroke: individual dots, not connected
+    if (stroke.spray) {
+      ctx.fillStyle = color;
+      const dotR = Math.max(0.5, stroke.lineWidth * 0.35);
+      for (const p of stroke.points) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      continue;
+    }
     // Multi-point line (3+ bend points, no arrowhead)
     if (stroke.shape === "line" && stroke.points.length > 2) {
       const pts = stroke.points;

@@ -69,6 +69,18 @@ const LayerExtremeIcon = () => <I><rect x="2" y="6" width="8" height="8" rx="1" 
 const DeleteIcon = () => <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I>;
 const NudgeIcon = () => <I><path d="M8 3v10M3 8h10" /></I>;
 const DeselectIcon = () => <I><path d="M3 8h10M8 3v10" strokeOpacity="0.4" /><circle cx="8" cy="8" r="3" /></I>;
+const SprayIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+    <circle cx="1.5" cy="3.5" r="0.85" fill="currentColor" stroke="none" />
+    <circle cx="0.5" cy="6.5" r="0.75" fill="currentColor" stroke="none" />
+    <circle cx="1.5" cy="9.5" r="0.75" fill="currentColor" stroke="none" />
+    <g transform="rotate(-12 9.5 10)">
+      <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
+      <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
+      <line x1="7.5" y1="5.5" x2="5" y2="5.5" />
+    </g>
+  </svg>
+);
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
@@ -110,6 +122,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><LineIcon />Straight line</>} kbd={`${mod} + Shift + drag`} />
         <Row label={<><EraseIcon />Erase</>} kbd={`${alt} + drag`} />
         <Row label={<><HighlightIcon />Highlight</>} kbd="W/H + drag" />
+        <Row label={<><SprayIcon />Spray paint</>} kbd="B + drag" />
         <Row label={<><PressureIcon />Dynamic stroke</>} kbd="P" />
         <Row label={<><ThicknessIcon />Thicker / Thinner</>} kbd="{ / }" />
         <Row label={<><DotIcon />Place dot</>} kbd="." />
