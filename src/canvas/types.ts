@@ -1,4 +1,4 @@
-import type { ShapeKind, Theme, TextSize, FontFamily, TextAlign } from "../hooks/useSettings";
+import type { ShapeKind, Theme, TextSize, FontFamily, TextAlign, FillStyle } from "../hooks/useSettings";
 
 // ─── Core types ───────────────────────────────────────────────────────────────
 
@@ -19,7 +19,7 @@ export type Stroke = {
   fontScale?: number;
   widths?: number[];
   seed?: number;
-  fill?: boolean;
+  fill?: FillStyle | boolean;
 };
 
 export type UndoAction =
@@ -61,4 +61,4 @@ export type CanvasSnapshot = {
 export const snapshotCache = new Map<number, CanvasSnapshot>();
 
 // Re-export setting types used across canvas modules
-export type { Theme, TextSize, FontFamily, TextAlign };
+export type { Theme, TextSize, FontFamily, TextAlign, FillStyle };

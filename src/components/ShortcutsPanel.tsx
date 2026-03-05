@@ -124,6 +124,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><ArrowIcon />Arrow</>} kbd="A + drag" />
         <Row label={<><DashedRectIcon />Dashed shape</>} kbd={`${isMac ? "Shift + Ctrl" : `Shift + ${alt}`} + drag`} />
         <Row label={<><FilledRectIcon />Filled shape</>} kbd={`${isMac ? "F + Ctrl" : `F + ${alt}`} + drag`} />
+        <Row label={<><FilledRectIcon />Cycle fill style</>} kbd="Shift + F" />
       </div>
 
       <div className={headingClass}>Text</div>

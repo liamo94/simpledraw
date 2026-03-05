@@ -6,6 +6,7 @@ import type {
   GridType,
   FontFamily,
   TextAlign,
+  FillStyle,
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
 
@@ -679,6 +680,65 @@ export default function Menu({
                       <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
                     )}
                   </svg>
+                </button>
+              ))}
+            </div>
+
+            <div className={`mt-4 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+              Fill
+            </div>
+            <div className="flex gap-1.5 mt-1.5 justify-center">
+              {(["solid", "dots", "hatch", "crosshatch"] as FillStyle[]).map((f) => (
+                <button
+                  key={String(f)}
+                  onClick={() => updateSettings({ shapeFill: f })}
+                  aria-label={`Fill: ${f}`}
+                  aria-pressed={settings.shapeFill === f}
+                  title={f.charAt(0).toUpperCase() + f.slice(1)}
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none ${
+                    settings.shapeFill === f
+                      ? isDark
+                        ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
+                        : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                      : isDark
+                        ? "hover:bg-white/10"
+                        : "hover:bg-black/10"
+                  }`}
+                >
+                  {f === "solid" && (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "solid" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFill === "solid" ? 1 : 0.5}>
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.shapeFill === "solid" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} fillOpacity="0.35" />
+                    </svg>
+                  )}
+                  {f === "dots" && (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFill === "dots" ? 1 : 0.5}>
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                      <circle cx="6" cy="6.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
+                      <circle cx="10" cy="6.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
+                      <circle cx="6" cy="10.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
+                      <circle cx="10" cy="10.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
+                    </svg>
+                  )}
+                  {f === "hatch" && (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "hatch" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeLinejoin="round" opacity={settings.shapeFill === "hatch" ? 1 : 0.5}>
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                      {/* 3 parallel ↘ lines */}
+                      <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                      <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
+                      <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                    </svg>
+                  )}
+                  {f === "crosshatch" && (
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "crosshatch" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeLinejoin="round" opacity={settings.shapeFill === "crosshatch" ? 1 : 0.5}>
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                      {/* ↘ lines */}
+                      <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                      <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                      {/* ↗ lines */}
+                      <line x1="9" y1="2" x2="2" y2="9" strokeWidth="1.1" />
+                      <line x1="14" y1="7" x2="7" y2="14" strokeWidth="1.1" />
+                    </svg>
+                  )}
                 </button>
               ))}
             </div>

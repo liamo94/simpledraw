@@ -1,6 +1,6 @@
 import { getStroke } from "perfect-freehand";
 import rough from "roughjs";
-import type { ShapeKind, Theme } from "../hooks/useSettings";
+import type { ShapeKind, Theme, FillStyle } from "../hooks/useSettings";
 import type { Stroke } from "./types";
 import { smoothPoints, smoothWidths, buildFont, TEXT_SIZE_MAP } from "./geometry";
 
@@ -275,23 +275,14 @@ function cloudArcData(x: number, y: number, w: number, h: number) {
 
 // ─── Shape rendering ──────────────────────────────────────────────────────────
 
-export function renderShape(
+function buildShapePath(
   ctx: CanvasRenderingContext2D,
+  shape: ShapeKind,
+  x: number, y: number, w: number, h: number,
+  cx: number, cy: number, r: number,
   p0: { x: number; y: number },
   p1: { x: number; y: number },
-  shape: ShapeKind,
-  lineWidth: number,
-  color?: string,
-  fill?: boolean,
 ) {
-  const x = Math.min(p0.x, p1.x);
-  const y = Math.min(p0.y, p1.y);
-  const w = Math.abs(p1.x - p0.x);
-  const h = Math.abs(p1.y - p0.y);
-  const cx = x + w / 2;
-  const cy = y + h / 2;
-  const r = Math.min(w, h) * 0.12;
-
   ctx.beginPath();
   switch (shape) {
     case "line":
@@ -317,21 +308,6 @@ export function renderShape(
     case "arrow": {
       ctx.moveTo(p0.x, p0.y);
       ctx.lineTo(p1.x, p1.y);
-      ctx.stroke();
-      const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-      const headLen = Math.max(22, lineWidth * 4.5);
-      const headAngle = Math.PI / 6;
-      ctx.beginPath();
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(
-        p1.x - headLen * Math.cos(angle - headAngle),
-        p1.y - headLen * Math.sin(angle - headAngle),
-      );
-      ctx.moveTo(p1.x, p1.y);
-      ctx.lineTo(
-        p1.x - headLen * Math.cos(angle + headAngle),
-        p1.y - headLen * Math.sin(angle + headAngle),
-      );
       break;
     }
     case "pentagon": {
@@ -364,9 +340,204 @@ export function renderShape(
       break;
     }
   }
-  if (fill && color && shape !== "line" && shape !== "arrow") {
-    ctx.fillStyle = hexToRgba(color, 0.2);
-    ctx.fill();
+}
+
+function sketchyHatchLines(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  baseAngle: number, gap: number, seed: number, seedOffset: number,
+) {
+  // Each line is rotated around its midpoint by ±7° and position-jittered ±20% of gap.
+  // Uses long lines (clipped to shape) so angle variation doesn't leave gaps.
+  const diag = w + h;
+  const halfLen = diag * 1.1;
+  let i = 0;
+  for (let d = -diag; d <= diag; d += gap) {
+    const r1 = seededRand(seed, seedOffset + i * 2);
+    const r2 = seededRand(seed, seedOffset + i * 2 + 1);
+    const angle = baseAngle + (r1 - 0.5) * 0.25; // ±7° jitter
+    const dOff = (r2 - 0.5) * gap * 0.4;           // ±20% position jitter
+    const mx = x + d + dOff + h / 2;
+    const my = y + h / 2;
+    ctx.beginPath();
+    ctx.moveTo(mx - Math.cos(angle) * halfLen, my - Math.sin(angle) * halfLen);
+    ctx.lineTo(mx + Math.cos(angle) * halfLen, my + Math.sin(angle) * halfLen);
+    ctx.stroke();
+    i++;
+  }
+}
+
+function drawHatchFill(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  color: string, lineWidth: number,
+  seed?: number,
+) {
+  const gap = Math.max(8, lineWidth * 3);
+  const sketchy = seed !== undefined;
+  ctx.strokeStyle = hexToRgba(color, 0.4);
+  ctx.lineWidth = Math.max(1, lineWidth * 0.4);
+  ctx.setLineDash([]);
+  ctx.lineCap = sketchy ? "round" : "butt";
+  if (sketchy) {
+    sketchyHatchLines(ctx, x, y, w, h, Math.PI / 4, gap, seed!, 0);
+  } else {
+    const diag = w + h;
+    for (let d = -diag; d <= diag; d += gap) {
+      ctx.beginPath();
+      ctx.moveTo(x + d, y);
+      ctx.lineTo(x + d + h, y + h);
+      ctx.stroke();
+    }
+  }
+}
+
+function drawCrossHatchFill(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  color: string, lineWidth: number,
+  seed?: number,
+) {
+  const gap = Math.max(8, lineWidth * 3);
+  const sketchy = seed !== undefined;
+  ctx.strokeStyle = hexToRgba(color, 0.35);
+  ctx.lineWidth = Math.max(1, lineWidth * 0.4);
+  ctx.setLineDash([]);
+  ctx.lineCap = sketchy ? "round" : "butt";
+  if (sketchy) {
+    sketchyHatchLines(ctx, x, y, w, h, Math.PI / 4,      gap, seed!, 0);
+    sketchyHatchLines(ctx, x, y, w, h, -Math.PI / 4, gap, seed!, 10000);
+  } else {
+    const diag = w + h;
+    for (let d = -diag; d <= diag; d += gap) {
+      ctx.beginPath();
+      ctx.moveTo(x + d, y);
+      ctx.lineTo(x + d + h, y + h);
+      ctx.stroke();
+    }
+    for (let d = -diag; d <= diag; d += gap) {
+      ctx.beginPath();
+      ctx.moveTo(x + d, y + h);
+      ctx.lineTo(x + d + h, y);
+      ctx.stroke();
+    }
+  }
+}
+
+function seededRand(seed: number, i: number): number {
+  const x = Math.sin(seed * 127.1 + i * 311.7) * 43758.5453;
+  return x - Math.floor(x);
+}
+
+function drawDotsFill(
+  ctx: CanvasRenderingContext2D,
+  x: number, y: number, w: number, h: number,
+  color: string, lineWidth: number,
+  seed?: number,
+) {
+  const gap = Math.max(9, lineWidth * 3.5);
+  const dotR = Math.max(1, lineWidth * 0.28);
+
+  if (seed !== undefined) {
+    // Sketchy mode: dense hand-drawn dashes, all leaning ~45° with slight wobble
+    const sketchGap = Math.max(6, lineWidth * 2.2);
+    const halfLen = Math.max(2.5, lineWidth * 1.1);
+    const dashW = Math.max(0.7, lineWidth * 0.4);
+    ctx.strokeStyle = hexToRgba(color, 0.65);
+    ctx.lineWidth = dashW;
+    ctx.lineCap = "round";
+    ctx.setLineDash([]);
+    let i = 0;
+    for (let px = x + sketchGap / 2; px < x + w; px += sketchGap) {
+      for (let py = y + sketchGap / 2; py < y + h; py += sketchGap) {
+        const r1 = seededRand(seed, i * 4);
+        const r2 = seededRand(seed, i * 4 + 1);
+        const r3 = seededRand(seed, i * 4 + 2);
+        const r4 = seededRand(seed, i * 4 + 3);
+        const jx = (r1 - 0.5) * sketchGap * 0.45;
+        const jy = (r2 - 0.5) * sketchGap * 0.45;
+        // All lean ~45° with a subtle ±8° wobble
+        const angle = Math.PI / 4 + (r3 - 0.5) * Math.PI * 0.09;
+        // Short marks with slight natural variation
+        const len = halfLen * (0.45 + r4 * 0.3);
+        // Alternate thickness: thin marks interleaved with slightly heavier ones
+        ctx.lineWidth = dashW * (0.8 + r1 * 0.6);
+        const cos = Math.cos(angle) * len, sin = Math.sin(angle) * len;
+        const cx = px + jx, cy = py + jy;
+        ctx.beginPath();
+        ctx.moveTo(cx - cos, cy - sin);
+        ctx.lineTo(cx + cos, cy + sin);
+        ctx.stroke();
+        i++;
+      }
+    }
+  } else {
+    ctx.fillStyle = hexToRgba(color, 0.55);
+    for (let px = x + gap / 2; px < x + w; px += gap) {
+      for (let py = y + gap / 2; py < y + h; py += gap) {
+        ctx.beginPath();
+        ctx.arc(px, py, dotR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+  }
+}
+
+export function renderShape(
+  ctx: CanvasRenderingContext2D,
+  p0: { x: number; y: number },
+  p1: { x: number; y: number },
+  shape: ShapeKind,
+  lineWidth: number,
+  color?: string,
+  fill?: FillStyle | boolean,
+  seed?: number,
+) {
+  const x = Math.min(p0.x, p1.x);
+  const y = Math.min(p0.y, p1.y);
+  const w = Math.abs(p1.x - p0.x);
+  const h = Math.abs(p1.y - p0.y);
+  const cx = x + w / 2;
+  const cy = y + h / 2;
+  const r = Math.min(w, h) * 0.12;
+
+  // Arrow is handled separately (stroke only, no fill)
+  if (shape === "arrow") {
+    buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
+    ctx.stroke();
+    const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
+    const headLen = Math.max(22, lineWidth * 4.5);
+    const headAngle = Math.PI / 6;
+    ctx.beginPath();
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p1.x - headLen * Math.cos(angle - headAngle), p1.y - headLen * Math.sin(angle - headAngle));
+    ctx.moveTo(p1.x, p1.y);
+    ctx.lineTo(p1.x - headLen * Math.cos(angle + headAngle), p1.y - headLen * Math.sin(angle + headAngle));
+    ctx.stroke();
+    return;
+  }
+
+  buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
+
+  const f = fill === true ? "solid" : fill; // backward compat for stored fill:true
+  if (f && color && shape !== "line") {
+    if (f === "solid") {
+      ctx.fillStyle = hexToRgba(color, 0.2);
+      ctx.fill();
+    } else {
+      // Cloud bumps protrude outside the bounding box by ~bumpR*0.45, so expand
+      // the fill region to cover them. Other shapes stay within their bbox.
+      const fillPad = shape === "cloud" ? 3 * Math.sqrt(Math.max(1, Math.min(w, h))) : 0;
+      const fx = x - fillPad, fy = y - fillPad, fw = w + 2 * fillPad, fh = h + 2 * fillPad;
+      // clip to shape, draw pattern, restore, then rebuild path for stroke
+      ctx.save();
+      ctx.clip();
+      if (f === "hatch") drawHatchFill(ctx, fx, fy, fw, fh, color, lineWidth, seed);
+      else if (f === "crosshatch") drawCrossHatchFill(ctx, fx, fy, fw, fh, color, lineWidth, seed);
+      else drawDotsFill(ctx, fx, fy, fw, fh, color, lineWidth, seed);
+      ctx.restore();
+      buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
+    }
   }
   ctx.stroke();
 }
@@ -381,7 +552,7 @@ export function renderRoughShape(
   dashGap: number | undefined,
   seed: number,
   color: string,
-  fill?: boolean,
+  fill?: FillStyle | boolean,
 ) {
   const x = Math.min(p0.x, p1.x);
   const y = Math.min(p0.y, p1.y);
@@ -389,7 +560,21 @@ export function renderRoughShape(
   const h = Math.abs(p1.y - p0.y);
   const cx = x + w / 2;
   const cy = y + h / 2;
+  const r = Math.min(w, h) * 0.1;
   const dashScale = lineWidth / 4;
+  const f = fill === true ? "solid" : fill; // backward compat
+  const hasFill = !!f && shape !== "line" && shape !== "arrow";
+
+  // Dots and single-hatch use plain canvas clip for stability across re-renders.
+  if (hasFill && (f === "dots" || f === "hatch") && shape !== "cloud") {
+    buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
+    ctx.save();
+    ctx.clip();
+    if (f === "hatch") drawHatchFill(ctx, x, y, w, h, color, lineWidth);
+    else drawDotsFill(ctx, x, y, w, h, color, lineWidth, seed);
+    ctx.restore();
+  }
+
   const opts = {
     roughness: 1.2,
     bowing: 1,
@@ -400,11 +585,13 @@ export function renderRoughShape(
     ...(style === "dashed"
       ? { strokeLineDash: [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] }
       : {}),
-    ...(fill && shape !== "line" && shape !== "arrow"
+    ...(hasFill && f === "solid"
       ? { fill: hexToRgba(color, 0.2), fillStyle: "solid" as const }
       : {}),
+    ...(hasFill && f === "crosshatch"
+      ? { fill: hexToRgba(color, 0.35), fillStyle: "cross-hatch" as const, fillWeight: Math.max(1, lineWidth * 0.45), hachureGap: Math.max(6, lineWidth * 3.5) }
+      : {}),
   };
-  const r = Math.min(w, h) * 0.1;
   const roundedOpts = { ...opts, preserveVertices: true };
   const rc = rough.canvas(ctx.canvas as HTMLCanvasElement);
   switch (shape) {
@@ -446,7 +633,7 @@ export function renderRoughShape(
       ctx.lineJoin = "round";
       const dashScale = lineWidth / 4;
       ctx.setLineDash(style === "dashed" ? [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] : []);
-      renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill);
+      renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill, seed);
       break;
     }
     case "arrow": {

@@ -40,7 +40,7 @@ function Canvas({
   theme: Theme;
   touchTool: TouchTool;
   activeShape: ShapeKind;
-  shapeFill: boolean;
+  shapeFill: import("../hooks/useSettings").FillStyle | false;
   shapeDashed: boolean;
   canvasIndex: number;
   textSize: TextSize;
@@ -1574,7 +1574,7 @@ function Canvas({
       textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
       laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
-      shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef,
+      shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef,
       finishWritingRef, startWritingRef, cursorRef,
     },
     {
@@ -1734,7 +1734,7 @@ function Canvas({
           const dashed = keyShapeDashedRef.current;
           stroke.style = dashed ? "dashed" : "solid";
           if (!dashed) stroke.dashGap = undefined;
-          stroke.fill = fKeyHeldRef.current || undefined;
+          stroke.fill = fKeyHeldRef.current ? (shapeFillRef.current || "solid") : undefined;
         }
       }
       if (e.button === 0) pointerButtonDownRef.current = true;
@@ -2180,7 +2180,7 @@ function Canvas({
           activeModifierRef.current = "shape";
           const isTouch = e.pointerType === "touch";
           const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (isTouch ? shapeDashedRef.current : shiftHeldRef.current);
-          const fill = isTouch ? shapeFillRef.current : fKeyHeldRef.current;
+          const fill = isTouch ? shapeFillRef.current : (fKeyHeldRef.current ? (shapeFillRef.current || "solid") : false);
           const stroke: Stroke = {
             points: [point, { ...point }],
             style: dashed ? "dashed" : "solid",
@@ -2188,7 +2188,7 @@ function Canvas({
             lineWidth,
             color: lineColor,
             shape: keyShapeRef.current || activeShapeRef.current,
-            ...(fill ? { fill: true } : {}),
+            ...(fill ? { fill } : {}),
             ...(pressureSensitivityRef.current
               ? { seed: Math.floor(Math.random() * 2 ** 31) }
               : {}),

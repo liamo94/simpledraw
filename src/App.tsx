@@ -16,7 +16,10 @@ import useSettings, {
   type GridType,
   type FontFamily,
   type TextAlign,
+  type FillStyle,
 } from "./hooks/useSettings";
+
+const FILL_CYCLE: (FillStyle | false)[] = [false, "solid", "dots", "hatch", "crosshatch"];
 import { isDarkTheme, getBackgroundColor } from "./canvas/canvasUtils";
 import { loadStrokes, saveStrokes, validateStrokesFile, strokesKey } from "./canvas/storage";
 
@@ -107,6 +110,7 @@ export default function App() {
     | { type: "text"; message: string }
     | { type: "shape"; shape: ShapeKind }
     | { type: "toggle"; label: string; on: boolean }
+    | { type: "fill"; fill: FillStyle }
     | null
   >(null);
   const [toastFading, setToastFading] = useState(false);
@@ -183,7 +187,8 @@ export default function App() {
       content:
         | { type: "text"; message: string }
         | { type: "shape"; shape: ShapeKind }
-        | { type: "toggle"; label: string; on: boolean },
+        | { type: "toggle"; label: string; on: boolean }
+        | { type: "fill"; fill: FillStyle },
     ) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (toastFadeRef.current) clearTimeout(toastFadeRef.current);
@@ -416,6 +421,14 @@ export default function App() {
       updateSettings({ pressureSensitivity: next });
       showToast({ type: "toggle", label: "Dynamic stroke", on: next });
     };
+    const FILLS: FillStyle[] = ["solid", "dots", "hatch", "crosshatch"];
+    const onCycleFill = () => {
+      const cur = settingsRef.current.shapeFill;
+      const idx = cur === false ? -1 : FILLS.indexOf(cur);
+      const next = FILLS[(idx + 1) % FILLS.length];
+      updateSettings({ shapeFill: next });
+      showToast({ type: "fill", fill: next });
+    };
     const onExportShortcut = () => exportPng();
     const THEMES: Theme[] = [
       "dark",
@@ -449,6 +462,7 @@ export default function App() {
     window.addEventListener("drawtool:toggle-grid", onToggleGrid);
     window.addEventListener("drawtool:toggle-grid-back", onToggleGridBack);
     window.addEventListener("drawtool:toggle-pressure", onTogglePressure);
+    window.addEventListener("drawtool:cycle-fill", onCycleFill);
     window.addEventListener("drawtool:export", onExportShortcut);
     window.addEventListener("drawtool:text-size", onTextSize);
     window.addEventListener("drawtool:font-family", onFontFamily);
@@ -477,6 +491,7 @@ export default function App() {
       window.removeEventListener("drawtool:toggle-grid", onToggleGrid);
       window.removeEventListener("drawtool:toggle-grid-back", onToggleGridBack);
       window.removeEventListener("drawtool:toggle-pressure", onTogglePressure);
+      window.removeEventListener("drawtool:cycle-fill", onCycleFill);
       window.removeEventListener("drawtool:export", onExportShortcut);
       window.removeEventListener("drawtool:text-size", onTextSize);
       window.removeEventListener("drawtool:font-family", onFontFamily);
@@ -1029,18 +1044,50 @@ export default function App() {
               >
                 <div className="flex w-full gap-1 pb-1 mb-0.5" style={{ borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}` }}>
                   <button
-                    aria-label="Fill shape"
-                    aria-pressed={settings.shapeFill}
-                    onClick={() => updateSettings({ shapeFill: !settings.shapeFill })}
+                    aria-label={`Fill: ${settings.shapeFill || "none"}`}
+                    onClick={() => updateSettings({ shapeFill: FILL_CYCLE[(FILL_CYCLE.indexOf(settings.shapeFill) + 1) % FILL_CYCLE.length] })}
                     className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
                       settings.shapeFill
                         ? isDark ? "bg-white/20" : "bg-black/20"
                         : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
                     }`}
                   >
-                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFill ? 1 : 0.35}>
-                      <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.lineColor} />
-                    </svg>
+                    {settings.shapeFill === false && (
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity="0.35">
+                        <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                      </svg>
+                    )}
+                    {settings.shapeFill === "solid" && (
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round">
+                        <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.lineColor} />
+                      </svg>
+                    )}
+                    {settings.shapeFill === "dots" && (
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round">
+                        <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                        <circle cx="6" cy="6.5" r="1.2" fill={settings.lineColor} stroke="none" />
+                        <circle cx="10" cy="6.5" r="1.2" fill={settings.lineColor} stroke="none" />
+                        <circle cx="6" cy="10.5" r="1.2" fill={settings.lineColor} stroke="none" />
+                        <circle cx="10" cy="10.5" r="1.2" fill={settings.lineColor} stroke="none" />
+                      </svg>
+                    )}
+                    {settings.shapeFill === "hatch" && (
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round">
+                        <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                        <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                        <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
+                        <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                      </svg>
+                    )}
+                    {settings.shapeFill === "crosshatch" && (
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round">
+                        <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                        <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                        <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                        <line x1="9" y1="2" x2="2" y2="9" strokeWidth="1.1" />
+                        <line x1="14" y1="7" x2="7" y2="14" strokeWidth="1.1" />
+                      </svg>
+                    )}
                   </button>
                   <button
                     aria-label="Dashed shape"
@@ -1507,6 +1554,38 @@ export default function App() {
             </>
           ) : toast.type === "text" ? (
             toast.message
+          ) : toast.type === "fill" ? (
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round">
+              {toast.fill === "solid" && (
+                <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" fill="currentColor" fillOpacity="0.35" />
+              )}
+              {toast.fill === "dots" && (
+                <>
+                  <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                  <circle cx="6" cy="6.5" r="1.2" fill="currentColor" stroke="none" />
+                  <circle cx="10" cy="6.5" r="1.2" fill="currentColor" stroke="none" />
+                  <circle cx="6" cy="10.5" r="1.2" fill="currentColor" stroke="none" />
+                  <circle cx="10" cy="10.5" r="1.2" fill="currentColor" stroke="none" />
+                </>
+              )}
+              {toast.fill === "hatch" && (
+                <>
+                  <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                  <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                  <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
+                  <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                </>
+              )}
+              {toast.fill === "crosshatch" && (
+                <>
+                  <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                  <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                  <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                  <line x1="9" y1="2" x2="2" y2="9" strokeWidth="1.1" />
+                  <line x1="14" y1="7" x2="7" y2="14" strokeWidth="1.1" />
+                </>
+              )}
+            </svg>
           ) : (
             <svg
               width="20"

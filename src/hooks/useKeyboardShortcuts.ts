@@ -1,6 +1,6 @@
 import { useEffect } from "react";
 import type { MutableRefObject, RefObject } from "react";
-import type { ShapeKind, TextSize, FontFamily, TextAlign } from "./useSettings";
+import type { ShapeKind, TextSize, FontFamily, TextAlign, FillStyle } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import { cmdKey, isMac, textBBox, anyStrokeBBox, FONT_FAMILIES } from "../canvas/geometry";
 import { strokesKey } from "../canvas/storage";
@@ -65,6 +65,7 @@ export type KeyboardRefs = {
   keyShapeDashedRef: MutableRefObject<boolean>;
   shapeJustCommittedRef: MutableRefObject<boolean>;
   fKeyHeldRef: MutableRefObject<boolean>;
+  shapeFillRef: MutableRefObject<FillStyle | false>;
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   cursorRef: MutableRefObject<string>;
@@ -104,7 +105,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
     laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
-    shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef,
+    shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef,
     finishWritingRef, startWritingRef, cursorRef,
   } = refs;
 
@@ -778,11 +779,15 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:toggle-fullscreen"));
       }
-      if ((e.key === "f" || e.key === "F") && !e.metaKey) {
+      if (e.key === "F" && !e.metaKey) {
+        // Shift+F: cycle fill style
+        window.dispatchEvent(new Event("drawtool:cycle-fill"));
+      } else if (e.key === "f" && !e.metaKey) {
+        // F (no shift): apply fill while held
         fKeyHeldRef.current = true;
         if (isDrawingRef.current && activeModifierRef.current === "shape") {
           const stroke = strokesRef.current[strokesRef.current.length - 1];
-          if (stroke?.shape) { stroke.fill = true; scheduleRedraw(); }
+          if (stroke?.shape) { stroke.fill = shapeFillRef.current || "solid"; scheduleRedraw(); }
         }
       }
       if (e.key === "p" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {

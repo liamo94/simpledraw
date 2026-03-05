@@ -22,6 +22,8 @@ export type GridType = "off" | "dot" | "square";
 
 export type TextAlign = "left" | "center" | "right";
 
+export type FillStyle = "solid" | "dots" | "hatch" | "crosshatch";
+
 export type Settings = {
   lineWidth: number;
   lineColor: string;
@@ -31,7 +33,7 @@ export type Settings = {
   theme: Theme;
   confirmClear: boolean;
   activeShape: ShapeKind;
-  shapeFill: boolean;
+  shapeFill: FillStyle | false;
   shapeDashed: boolean;
   textSize: TextSize;
   fontFamily: FontFamily;
@@ -87,6 +89,8 @@ function load(): Settings {
         parsed.gridType = parsed.showDotGrid ? "dot" : "off";
         delete parsed.showDotGrid;
       }
+      // Migrate old boolean shapeFill to FillStyle
+      if (parsed.shapeFill === true) parsed.shapeFill = "solid";
       return { ...defaults, ...parsed };
     }
   } catch {
