@@ -76,7 +76,7 @@ export type TextSelectionRefs = {
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
   } | null>;
-  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean } | null>;
+  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: Stroke; prevGroup?: Stroke[]; prevSingle?: Stroke | null } | null>;
   zKeyRef: MutableRefObject<boolean>;
   touchToolRef: MutableRefObject<TouchTool>;
   lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke } | null>;
@@ -294,45 +294,25 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         lastTextTapRef.current = null;
       }
 
-      // Shift+V: add/remove stroke from selection, or force containment box select on empty space
+      // Shift+V: always start a containment box select so dragging inside a large element works.
+      // Click-toggle (tiny drag) is resolved on pointerup via clickHit.
+      // Don't clear selection on pointerdown — preserve it so click-toggle can build on it.
       if (zKeyRef.current && e.shiftKey && e.pointerType !== "touch") {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
-        let hit: Stroke | null = null;
+        let clickHit: Stroke | null = null;
         for (let i = strokesRef.current.length - 1; i >= 0; i--) {
           const s = strokesRef.current[i];
-          if (hitTestStroke(s, wp.x, wp.y, scale)) { hit = s; break; }
+          if (hitTestStroke(s, wp.x, wp.y, scale)) { clickHit = s; break; }
         }
-        if (hit) {
-          // Add or remove from the current selection
-          const group = selectedGroupRef.current;
-          const single = selectedTextRef.current;
-          const current = group.length > 0 ? [...group] : (single ? [single] : []);
-          const idx = current.indexOf(hit);
-          const newGroup = idx >= 0 ? current.filter(s => s !== hit) : [...current, hit];
-          if (newGroup.length === 0) {
-            selectedTextRef.current = null;
-            selectedGroupRef.current = [];
-          } else if (newGroup.length === 1) {
-            selectedTextRef.current = newGroup[0];
-            selectedGroupRef.current = [];
-            dispatchTextStyleSync(newGroup[0].bold ?? false, newGroup[0].italic ?? false, newGroup[0].textAlign ?? "left");
-          } else {
-            selectedTextRef.current = null;
-            selectedGroupRef.current = newGroup;
-          }
-          selectDragRef.current = null;
-          strokesCacheRef.current = null;
-          scheduleRedraw();
-          return;
-        }
-        // No stroke under cursor — start a containment box select
-        selectedTextRef.current = null;
+        boxSelectRef.current = {
+          start: { ...wp }, end: { ...wp }, containOnly: true,
+          clickHit: clickHit ?? undefined,
+          prevGroup: [...selectedGroupRef.current],
+          prevSingle: selectedTextRef.current,
+        };
         selectDragRef.current = null;
-        selectedGroupRef.current = [];
         hoverTextRef.current = null;
-        strokesCacheRef.current = null;
-        boxSelectRef.current = { start: { ...wp }, end: { ...wp }, containOnly: true };
         (e.target as Element).setPointerCapture(e.pointerId);
         scheduleRedraw();
         return;
@@ -359,7 +339,11 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           return;
         } else {
           // Click outside group — clear group selection
-          const hitOnClear = hoverTextRef.current;
+          // Hit-test at the actual click position rather than using (potentially stale) hoverTextRef
+          let hitOnClear: Stroke | null = null;
+          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+            if (hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hitOnClear = strokesRef.current[i]; break; }
+          }
           selectedGroupRef.current = [];
           groupDragRef.current = null;
           hoverTextRef.current = null;
@@ -766,6 +750,18 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             cur = "move";
           }
           setZCursor(cur);
+        } else if (selectedGroupRef.current.length > 0) {
+          // Group selected without V: show move cursor inside group bbox, arrow elsewhere
+          const wp2 = screenToWorld(e.clientX, e.clientY, viewRef.current);
+          const scale2 = viewRef.current.scale;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const s of selectedGroupRef.current) {
+            const bb = anyStrokeBBox(s);
+            minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+            maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+          }
+          const pad2 = 8 / scale2;
+          setZCursor(wp2.x >= minX - pad2 && wp2.x <= maxX + pad2 && wp2.y >= minY - pad2 && wp2.y <= maxY + pad2 ? "move" : "default");
         } else if (zKeyRef.current) {
           // V held, no selection: show move cursor on hover
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
@@ -795,11 +791,35 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       // Commit box selection
       if (boxSelectRef.current) {
         const { scale } = viewRef.current;
-        const { start, end } = boxSelectRef.current;
+        const { start, end, clickHit } = boxSelectRef.current;
         const selX = Math.min(start.x, end.x);
         const selY = Math.min(start.y, end.y);
         const selW = Math.abs(end.x - start.x);
         const selH = Math.abs(end.y - start.y);
+        // Tiny drag = click: toggle the stroke that was under the pointer on pointerdown
+        if (selW <= 6 / scale && selH <= 6 / scale && clickHit) {
+          const { prevGroup, prevSingle } = boxSelectRef.current!;
+          const group = prevGroup ?? [];
+          const single = prevSingle ?? null;
+          const current = group.length > 0 ? [...group] : (single ? [single] : []);
+          const idx = current.indexOf(clickHit);
+          const newGroup = idx >= 0 ? current.filter(s => s !== clickHit) : [...current, clickHit];
+          if (newGroup.length === 0) {
+            selectedTextRef.current = null;
+            selectedGroupRef.current = [];
+          } else if (newGroup.length === 1) {
+            selectedTextRef.current = newGroup[0];
+            selectedGroupRef.current = [];
+            dispatchTextStyleSync(newGroup[0].bold ?? false, newGroup[0].italic ?? false, newGroup[0].textAlign ?? "left");
+          } else {
+            selectedTextRef.current = null;
+            selectedGroupRef.current = newGroup;
+          }
+          boxSelectRef.current = null;
+          strokesCacheRef.current = null;
+          scheduleRedraw();
+          return;
+        }
         if (selW > 2 / scale && selH > 2 / scale) {
           const containOnly = boxSelectRef.current?.containOnly ?? false;
           const hits = strokesRef.current.filter(stroke => {
@@ -822,6 +842,11 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             selectedGroupRef.current = hits;
             selectedTextRef.current = null;
             setZCursor("default");
+          } else {
+            // Drag captured nothing — clear any pre-existing selection
+            selectedTextRef.current = null;
+            selectedGroupRef.current = [];
+            setZCursor(zKeyRef.current ? "default" : null);
           }
         }
         boxSelectRef.current = null;

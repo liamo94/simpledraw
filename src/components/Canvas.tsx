@@ -155,7 +155,7 @@ function Canvas({
     cycleHits?: Stroke[];
     pendingBend?: { segmentIdx: number };
   } | null>(null);
-  const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean } | null>(null);
+  const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: import("../canvas/types").Stroke; prevGroup?: import("../canvas/types").Stroke[]; prevSingle?: import("../canvas/types").Stroke | null } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
   const groupDragRef = useRef<{
     startPtr: { x: number; y: number };

@@ -43,7 +43,7 @@ export type KeyboardRefs = {
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
   } | null>;
-  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean } | null>;
+  boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: Stroke; prevGroup?: Stroke[]; prevSingle?: Stroke | null } | null>;
   clipboardRef: MutableRefObject<Stroke[] | null>;
   cursorWorldRef: MutableRefObject<{ x: number; y: number }>;
   lastDPressRef: MutableRefObject<number>;
@@ -965,7 +965,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           hoverTextRef.current = null;
           scheduleRedraw();
         }
-        setZCursor(null);
+        // Keep arrow cursor if something is still selected
+        if (!selectedTextRef.current && selectedGroupRef.current.length === 0) {
+          setZCursor(null);
+        }
       }
       if (e.key === " ") {
         spaceDownRef.current = false;
