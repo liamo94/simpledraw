@@ -999,7 +999,11 @@ function Canvas({
     const prevIndex = canvasIndexRef.current;
     if (prevIndex === canvasIndex) return;
 
-    // Cancel any in-progress drawing
+    // Cancel any in-progress drawing or writing
+    if (isWritingRef.current) {
+      finishWritingRef.current();
+    }
+    lastTextTapRef.current = null;
     if (isDrawingRef.current) {
       if (activeModifierRef.current !== "alt") {
         strokesRef.current.pop();
@@ -1586,7 +1590,7 @@ function Canvas({
       laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
       shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
-      finishWritingRef, startWritingRef, cursorRef,
+      lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
       sprayKeyRef,
     },
     {

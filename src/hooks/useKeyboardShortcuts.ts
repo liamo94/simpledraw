@@ -68,6 +68,7 @@ export type KeyboardRefs = {
   fKeyHeldRef: MutableRefObject<boolean>;
   shapeFillRef: MutableRefObject<FillStyle>;
   fillOpacityRef: MutableRefObject<number>;
+  lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke } | null>;
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   cursorRef: MutableRefObject<string>;
@@ -109,7 +110,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
-    finishWritingRef, startWritingRef, cursorRef,
+    lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
     sprayKeyRef,
   } = refs;
 
@@ -903,6 +904,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         selectedGroupRef.current = [];
         groupDragRef.current = null;
         boxSelectRef.current = null;
+        lastTextTapRef.current = null;
         zKeyRef.current = false;
         setZCursor(null);
         scheduleRedraw();
