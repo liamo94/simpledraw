@@ -110,9 +110,9 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><ZoomIcon />Zoom</>} kbd={`Pinch / ${mod} + scroll`} />
         <Row label={<><ZoomInIcon />Zoom in</>} kbd="+" />
         <Row label={<><ZoomOutIcon />Zoom out</>} kbd="−" />
-        <Row label={<><ResetZoomIcon />Reset zoom</>} kbd={`${mod} + 0`} />
-        <Row label={<><PanIcon />Reset view to origin</>} kbd={`${mod} + ⇧ + 0`} />
-        <Row label={<><FitIcon />Fit to content</>} kbd={`${mod} + 1`} />
+        <Row label={<><ResetZoomIcon />Reset zoom</>} kbd="⇧ + 1" />
+        <Row label={<><FitIcon />Fit to content</>} kbd="⇧ + 2" />
+        <Row label={<><PanIcon />Reset view to origin</>} kbd="⇧ + 3" />
       </div>
 
       <div className={headingClass}>Drawing</div>

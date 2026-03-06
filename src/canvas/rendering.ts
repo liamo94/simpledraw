@@ -871,6 +871,7 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
         ctx.setLineDash([]);
       }
       // Arrowhead (same for both paths)
+      ctx.setLineDash([]);
       ctx.strokeStyle = color;
       ctx.lineWidth = stroke.lineWidth;
       ctx.lineCap = "round";

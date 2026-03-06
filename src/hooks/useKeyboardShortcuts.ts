@@ -611,15 +611,15 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:export"));
       }
-      if (cmdKey(e) && e.key === "0" && !e.shiftKey) {
+      if (e.shiftKey && e.code === "Digit1" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:reset-view"));
       }
-      if (cmdKey(e) && e.shiftKey && e.key === "0") {
+      if (e.shiftKey && e.code === "Digit3" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:reset-view-origin"));
       }
-      if (cmdKey(e) && e.key === "1") {
+      if (e.shiftKey && e.code === "Digit2" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:center-view"));
       }
