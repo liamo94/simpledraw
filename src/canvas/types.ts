@@ -20,6 +20,7 @@ export type Stroke = {
   widths?: number[];
   seed?: number;
   fill?: FillStyle | boolean;
+  fillOpacity?: number;
   spray?: boolean;
 };
 

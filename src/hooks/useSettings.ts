@@ -34,6 +34,7 @@ export type Settings = {
   confirmClear: boolean;
   activeShape: ShapeKind;
   shapeFill: FillStyle | false;
+  fillOpacity: number;
   shapeDashed: boolean;
   textSize: TextSize;
   fontFamily: FontFamily;
@@ -62,6 +63,7 @@ function getDefaults(): Settings {
     confirmClear: true,
     activeShape: "rectangle" as const,
     shapeFill: false,
+    fillOpacity: 35,
     shapeDashed: false,
     textSize: "m" as const,
     fontFamily: "caveat" as FontFamily,

@@ -774,6 +774,7 @@ export default function App() {
         touchTool={touchTool}
         activeShape={settings.activeShape}
         shapeFill={settings.shapeFill}
+        fillOpacity={settings.fillOpacity}
         shapeDashed={settings.shapeDashed}
         canvasIndex={activeCanvas}
         textSize={settings.textSize}

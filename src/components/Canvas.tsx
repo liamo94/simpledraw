@@ -23,6 +23,7 @@ function Canvas({
   touchTool,
   activeShape,
   shapeFill,
+  fillOpacity,
   shapeDashed,
   canvasIndex,
   textSize,
@@ -41,6 +42,7 @@ function Canvas({
   touchTool: TouchTool;
   activeShape: ShapeKind;
   shapeFill: import("../hooks/useSettings").FillStyle | false;
+  fillOpacity: number;
   shapeDashed: boolean;
   canvasIndex: number;
   textSize: TextSize;
@@ -83,6 +85,8 @@ function Canvas({
   activeShapeRef.current = activeShape;
   const shapeFillRef = useRef(shapeFill);
   shapeFillRef.current = shapeFill;
+  const fillOpacityRef = useRef(fillOpacity);
+  fillOpacityRef.current = fillOpacity;
   const shapeDashedRef = useRef(shapeDashed);
   shapeDashedRef.current = shapeDashed;
   const pressureSensitivityRef = useRef(pressureSensitivity);
@@ -1577,7 +1581,7 @@ function Canvas({
       textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
       laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
-      shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef,
+      shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
       finishWritingRef, startWritingRef, cursorRef,
       sprayKeyRef,
     },
@@ -1739,6 +1743,7 @@ function Canvas({
           stroke.style = dashed ? "dashed" : "solid";
           if (!dashed) stroke.dashGap = undefined;
           stroke.fill = fKeyHeldRef.current ? (shapeFillRef.current || "solid") : undefined;
+          if (stroke.fill) stroke.fillOpacity = fillOpacityRef.current / 100;
         }
       }
       if (e.button === 0) pointerButtonDownRef.current = true;
@@ -2212,7 +2217,7 @@ function Canvas({
             lineWidth,
             color: lineColor,
             shape: keyShapeRef.current || activeShapeRef.current,
-            ...(fill ? { fill } : {}),
+            ...(fill ? { fill, fillOpacity: fillOpacityRef.current / 100 } : {}),
             ...(pressureSensitivityRef.current
               ? { seed: Math.floor(Math.random() * 2 ** 31) }
               : {}),

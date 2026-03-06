@@ -270,7 +270,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       }
 
       // Double-click on text = enter edit mode (mouse/stylus, no z key needed)
-      if (e.pointerType !== "touch" && !zKeyRef.current && !selectedTextRef.current) {
+      if (e.pointerType !== "touch" && !zKeyRef.current && !selectedTextRef.current?.text) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
         const pad = 3 / scale;

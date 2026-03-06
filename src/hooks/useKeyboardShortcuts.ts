@@ -67,6 +67,7 @@ export type KeyboardRefs = {
   shapeJustCommittedRef: MutableRefObject<boolean>;
   fKeyHeldRef: MutableRefObject<boolean>;
   shapeFillRef: MutableRefObject<FillStyle | false>;
+  fillOpacityRef: MutableRefObject<number>;
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   cursorRef: MutableRefObject<string>;
@@ -107,7 +108,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
     laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
-    shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef,
+    shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     finishWritingRef, startWritingRef, cursorRef,
     sprayKeyRef,
   } = refs;
@@ -790,7 +791,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         fKeyHeldRef.current = true;
         if (isDrawingRef.current && activeModifierRef.current === "shape") {
           const stroke = strokesRef.current[strokesRef.current.length - 1];
-          if (stroke?.shape) { stroke.fill = shapeFillRef.current || "solid"; scheduleRedraw(); }
+          if (stroke?.shape) { stroke.fill = shapeFillRef.current || "solid"; stroke.fillOpacity = fillOpacityRef.current / 100; scheduleRedraw(); }
         }
       }
       if (e.key === "p" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {

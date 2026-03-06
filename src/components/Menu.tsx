@@ -687,7 +687,7 @@ export default function Menu({
             <div className={`mt-4 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
               Fill
             </div>
-            <div className="flex gap-1.5 mt-1.5 justify-center">
+            <div className="flex items-center gap-1.5 mt-1.5">
               {(["solid", "dots", "hatch", "crosshatch"] as FillStyle[]).map((f) => (
                 <button
                   key={String(f)}
@@ -741,6 +741,20 @@ export default function Menu({
                   )}
                 </button>
               ))}
+              <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              <div className={`flex items-center gap-1.5 flex-1 transition-opacity ${settings.shapeFill === false ? "opacity-30 pointer-events-none" : ""}`}>
+                <input
+                  type="range"
+                  min={5}
+                  max={100}
+                  step={5}
+                  value={settings.fillOpacity}
+                  onChange={(e) => updateSettings({ fillOpacity: Number(e.target.value) })}
+                  className="flex-1 min-w-0"
+                  style={{ accentColor: isDark ? "#5dd8e8" : "#00618c" }}
+                />
+                <span className={`text-[10px] tabular-nums w-6 text-right ${isDark ? "text-white/40" : "text-black/40"}`}>{settings.fillOpacity}%</span>
+              </div>
             </div>
 
             <div

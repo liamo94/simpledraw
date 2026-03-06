@@ -372,10 +372,11 @@ function drawHatchFill(
   x: number, y: number, w: number, h: number,
   color: string, lineWidth: number,
   seed?: number,
+  opacity?: number,
 ) {
   const gap = Math.max(8, lineWidth * 3);
   const sketchy = seed !== undefined;
-  ctx.strokeStyle = hexToRgba(color, 0.4);
+  ctx.strokeStyle = hexToRgba(color, opacity ?? 0.4);
   ctx.lineWidth = Math.max(1, lineWidth * 0.4);
   ctx.setLineDash([]);
   ctx.lineCap = sketchy ? "round" : "butt";
@@ -397,10 +398,11 @@ function drawCrossHatchFill(
   x: number, y: number, w: number, h: number,
   color: string, lineWidth: number,
   seed?: number,
+  opacity?: number,
 ) {
   const gap = Math.max(8, lineWidth * 3);
   const sketchy = seed !== undefined;
-  ctx.strokeStyle = hexToRgba(color, 0.35);
+  ctx.strokeStyle = hexToRgba(color, opacity ?? 0.35);
   ctx.lineWidth = Math.max(1, lineWidth * 0.4);
   ctx.setLineDash([]);
   ctx.lineCap = sketchy ? "round" : "butt";
@@ -434,6 +436,7 @@ function drawDotsFill(
   x: number, y: number, w: number, h: number,
   color: string, lineWidth: number,
   seed?: number,
+  opacity?: number,
 ) {
   const gap = Math.max(9, lineWidth * 3.5);
   const dotR = Math.max(1, lineWidth * 0.28);
@@ -443,7 +446,7 @@ function drawDotsFill(
     const sketchGap = Math.max(6, lineWidth * 2.2);
     const halfLen = Math.max(2.5, lineWidth * 1.1);
     const dashW = Math.max(0.7, lineWidth * 0.4);
-    ctx.strokeStyle = hexToRgba(color, 0.65);
+    ctx.strokeStyle = hexToRgba(color, opacity ?? 0.65);
     ctx.lineWidth = dashW;
     ctx.lineCap = "round";
     ctx.setLineDash([]);
@@ -472,7 +475,7 @@ function drawDotsFill(
       }
     }
   } else {
-    ctx.fillStyle = hexToRgba(color, 0.55);
+    ctx.fillStyle = hexToRgba(color, opacity ?? 0.55);
     for (let px = x + gap / 2; px < x + w; px += gap) {
       for (let py = y + gap / 2; py < y + h; py += gap) {
         ctx.beginPath();
@@ -492,6 +495,7 @@ export function renderShape(
   color?: string,
   fill?: FillStyle | boolean,
   seed?: number,
+  fillOpacity?: number,
 ) {
   const x = Math.min(p0.x, p1.x);
   const y = Math.min(p0.y, p1.y);
@@ -522,7 +526,7 @@ export function renderShape(
   const f = fill === true ? "solid" : fill; // backward compat for stored fill:true
   if (f && color && shape !== "line") {
     if (f === "solid") {
-      ctx.fillStyle = hexToRgba(color, 0.2);
+      ctx.fillStyle = hexToRgba(color, fillOpacity ?? 0.2);
       ctx.fill();
     } else {
       // Cloud bumps protrude outside the bounding box by ~bumpR*0.45, so expand
@@ -532,9 +536,9 @@ export function renderShape(
       // clip to shape, draw pattern, restore, then rebuild path for stroke
       ctx.save();
       ctx.clip();
-      if (f === "hatch") drawHatchFill(ctx, fx, fy, fw, fh, color, lineWidth, seed);
-      else if (f === "crosshatch") drawCrossHatchFill(ctx, fx, fy, fw, fh, color, lineWidth, seed);
-      else drawDotsFill(ctx, fx, fy, fw, fh, color, lineWidth, seed);
+      if (f === "hatch") drawHatchFill(ctx, fx, fy, fw, fh, color, lineWidth, seed, fillOpacity);
+      else if (f === "crosshatch") drawCrossHatchFill(ctx, fx, fy, fw, fh, color, lineWidth, seed, fillOpacity);
+      else drawDotsFill(ctx, fx, fy, fw, fh, color, lineWidth, seed, fillOpacity);
       ctx.restore();
       buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
     }
@@ -553,6 +557,7 @@ export function renderRoughShape(
   seed: number,
   color: string,
   fill?: FillStyle | boolean,
+  fillOpacity?: number,
 ) {
   const x = Math.min(p0.x, p1.x);
   const y = Math.min(p0.y, p1.y);
@@ -570,8 +575,8 @@ export function renderRoughShape(
     buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
     ctx.save();
     ctx.clip();
-    if (f === "hatch") drawHatchFill(ctx, x, y, w, h, color, lineWidth);
-    else drawDotsFill(ctx, x, y, w, h, color, lineWidth, seed);
+    if (f === "hatch") drawHatchFill(ctx, x, y, w, h, color, lineWidth, undefined, fillOpacity);
+    else drawDotsFill(ctx, x, y, w, h, color, lineWidth, seed, fillOpacity);
     ctx.restore();
   }
 
@@ -586,10 +591,10 @@ export function renderRoughShape(
       ? { strokeLineDash: [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] }
       : {}),
     ...(hasFill && f === "solid"
-      ? { fill: hexToRgba(color, 0.2), fillStyle: "solid" as const }
+      ? { fill: hexToRgba(color, fillOpacity ?? 0.2), fillStyle: "solid" as const }
       : {}),
     ...(hasFill && f === "crosshatch"
-      ? { fill: hexToRgba(color, 0.35), fillStyle: "cross-hatch" as const, fillWeight: Math.max(1, lineWidth * 0.45), hachureGap: Math.max(6, lineWidth * 3.5) }
+      ? { fill: hexToRgba(color, fillOpacity ?? 0.35), fillStyle: "cross-hatch" as const, fillWeight: Math.max(1, lineWidth * 0.45), hachureGap: Math.max(6, lineWidth * 3.5) }
       : {}),
   };
   const roundedOpts = { ...opts, preserveVertices: true };
@@ -633,7 +638,7 @@ export function renderRoughShape(
       ctx.lineJoin = "round";
       const dashScale = lineWidth / 4;
       ctx.setLineDash(style === "dashed" ? [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] : []);
-      renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill, seed);
+      renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill, seed, fillOpacity);
       break;
     }
     case "arrow": {
@@ -902,6 +907,7 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
           stroke.seed,
           color,
           stroke.fill,
+          stroke.fillOpacity,
         );
       } else {
         ctx.strokeStyle = color;
@@ -922,6 +928,8 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
           stroke.lineWidth,
           color,
           stroke.fill,
+          undefined,
+          stroke.fillOpacity,
         );
       }
       continue;
