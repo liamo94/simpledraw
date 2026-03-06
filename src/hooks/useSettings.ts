@@ -33,7 +33,8 @@ export type Settings = {
   theme: Theme;
   confirmClear: boolean;
   activeShape: ShapeKind;
-  shapeFill: FillStyle | false;
+  shapeFill: FillStyle;
+  shapeFillEnabled: boolean;
   fillOpacity: number;
   shapeDashed: boolean;
   textSize: TextSize;
@@ -62,7 +63,8 @@ function getDefaults(): Settings {
     theme: getSystemTheme(),
     confirmClear: true,
     activeShape: "rectangle" as const,
-    shapeFill: false,
+    shapeFill: "solid" as FillStyle,
+    shapeFillEnabled: navigator.maxTouchPoints === 0,
     fillOpacity: 35,
     shapeDashed: false,
     textSize: "m" as const,
@@ -93,6 +95,7 @@ function load(): Settings {
       }
       // Migrate old boolean shapeFill to FillStyle
       if (parsed.shapeFill === true) parsed.shapeFill = "solid";
+      if (parsed.shapeFill === false) { parsed.shapeFill = "solid"; parsed.shapeFillEnabled = false; }
       return { ...defaults, ...parsed };
     }
   } catch {

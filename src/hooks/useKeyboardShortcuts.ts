@@ -66,7 +66,7 @@ export type KeyboardRefs = {
   keyShapeDashedRef: MutableRefObject<boolean>;
   shapeJustCommittedRef: MutableRefObject<boolean>;
   fKeyHeldRef: MutableRefObject<boolean>;
-  shapeFillRef: MutableRefObject<FillStyle | false>;
+  shapeFillRef: MutableRefObject<FillStyle>;
   fillOpacityRef: MutableRefObject<number>;
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
@@ -791,7 +791,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         fKeyHeldRef.current = true;
         if (isDrawingRef.current && activeModifierRef.current === "shape") {
           const stroke = strokesRef.current[strokesRef.current.length - 1];
-          if (stroke?.shape) { stroke.fill = shapeFillRef.current || "solid"; stroke.fillOpacity = fillOpacityRef.current / 100; scheduleRedraw(); }
+          if (stroke?.shape) { stroke.fill = shapeFillRef.current; stroke.fillOpacity = fillOpacityRef.current / 100; scheduleRedraw(); }
         }
       }
       if (e.key === "p" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {

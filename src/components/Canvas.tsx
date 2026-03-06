@@ -23,6 +23,7 @@ function Canvas({
   touchTool,
   activeShape,
   shapeFill,
+  shapeFillEnabled,
   fillOpacity,
   shapeDashed,
   canvasIndex,
@@ -41,7 +42,8 @@ function Canvas({
   theme: Theme;
   touchTool: TouchTool;
   activeShape: ShapeKind;
-  shapeFill: import("../hooks/useSettings").FillStyle | false;
+  shapeFill: import("../hooks/useSettings").FillStyle;
+  shapeFillEnabled: boolean;
   fillOpacity: number;
   shapeDashed: boolean;
   canvasIndex: number;
@@ -85,6 +87,8 @@ function Canvas({
   activeShapeRef.current = activeShape;
   const shapeFillRef = useRef(shapeFill);
   shapeFillRef.current = shapeFill;
+  const shapeFillEnabledRef = useRef(shapeFillEnabled);
+  shapeFillEnabledRef.current = shapeFillEnabled;
   const fillOpacityRef = useRef(fillOpacity);
   fillOpacityRef.current = fillOpacity;
   const shapeDashedRef = useRef(shapeDashed);
@@ -1742,7 +1746,7 @@ function Canvas({
           const dashed = keyShapeDashedRef.current;
           stroke.style = dashed ? "dashed" : "solid";
           if (!dashed) stroke.dashGap = undefined;
-          stroke.fill = fKeyHeldRef.current ? (shapeFillRef.current || "solid") : undefined;
+          stroke.fill = fKeyHeldRef.current ? shapeFillRef.current : undefined;
           if (stroke.fill) stroke.fillOpacity = fillOpacityRef.current / 100;
         }
       }
@@ -2209,7 +2213,7 @@ function Canvas({
           activeModifierRef.current = "shape";
           const isTouch = e.pointerType === "touch";
           const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (isTouch ? shapeDashedRef.current : shiftHeldRef.current);
-          const fill = isTouch ? shapeFillRef.current : (fKeyHeldRef.current ? (shapeFillRef.current || "solid") : false);
+          const fill = isTouch ? (shapeFillEnabledRef.current ? shapeFillRef.current : undefined) : (fKeyHeldRef.current ? shapeFillRef.current : undefined);
           const stroke: Stroke = {
             points: [point, { ...point }],
             style: dashed ? "dashed" : "solid",

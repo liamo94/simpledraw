@@ -19,7 +19,6 @@ import useSettings, {
   type FillStyle,
 } from "./hooks/useSettings";
 
-const FILL_CYCLE: (FillStyle | false)[] = [false, "solid", "dots", "hatch", "crosshatch"];
 import { isDarkTheme, getBackgroundColor } from "./canvas/canvasUtils";
 import { loadStrokes, saveStrokes, validateStrokesFile, strokesKey } from "./canvas/storage";
 
@@ -424,8 +423,7 @@ export default function App() {
     const FILLS: FillStyle[] = ["solid", "dots", "hatch", "crosshatch"];
     const onCycleFill = () => {
       const cur = settingsRef.current.shapeFill;
-      const idx = cur === false ? -1 : FILLS.indexOf(cur);
-      const next = FILLS[(idx + 1) % FILLS.length];
+      const next = FILLS[(FILLS.indexOf(cur) + 1) % FILLS.length];
       updateSettings({ shapeFill: next });
       showToast({ type: "fill", fill: next });
     };
@@ -774,6 +772,7 @@ export default function App() {
         touchTool={touchTool}
         activeShape={settings.activeShape}
         shapeFill={settings.shapeFill}
+        shapeFillEnabled={settings.shapeFillEnabled}
         fillOpacity={settings.fillOpacity}
         shapeDashed={settings.shapeDashed}
         canvasIndex={activeCanvas}
@@ -1045,26 +1044,21 @@ export default function App() {
               >
                 <div className="flex w-full gap-1 pb-1 mb-0.5" style={{ borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}` }}>
                   <button
-                    aria-label={`Fill: ${settings.shapeFill || "none"}`}
-                    onClick={() => updateSettings({ shapeFill: FILL_CYCLE[(FILL_CYCLE.indexOf(settings.shapeFill) + 1) % FILL_CYCLE.length] })}
+                    aria-label={`Fill: ${settings.shapeFillEnabled ? settings.shapeFill : "none"}`}
+                    onClick={() => updateSettings({ shapeFillEnabled: !settings.shapeFillEnabled })}
                     className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
-                      settings.shapeFill
+                      settings.shapeFillEnabled
                         ? isDark ? "bg-white/20" : "bg-black/20"
                         : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
                     }`}
                   >
-                    {settings.shapeFill === false && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity="0.35">
-                        <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                      </svg>
-                    )}
                     {settings.shapeFill === "solid" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
                         <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.lineColor} />
                       </svg>
                     )}
                     {settings.shapeFill === "dots" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
                         <rect x="2" y="2" width="12" height="12" rx="1.5" />
                         <circle cx="6" cy="6.5" r="1.2" fill={settings.lineColor} stroke="none" />
                         <circle cx="10" cy="6.5" r="1.2" fill={settings.lineColor} stroke="none" />
@@ -1073,7 +1067,7 @@ export default function App() {
                       </svg>
                     )}
                     {settings.shapeFill === "hatch" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
                         <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
                         <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
                         <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
@@ -1081,7 +1075,7 @@ export default function App() {
                       </svg>
                     )}
                     {settings.shapeFill === "crosshatch" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round">
+                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
                         <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
                         <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
                         <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />

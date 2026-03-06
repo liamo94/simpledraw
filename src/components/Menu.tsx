@@ -742,7 +742,7 @@ export default function Menu({
                 </button>
               ))}
               <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
-              <div className={`flex items-center gap-1.5 flex-1 transition-opacity ${settings.shapeFill === false ? "opacity-30 pointer-events-none" : ""}`}>
+              <div className="flex items-center gap-1.5 flex-1">
                 <input
                   type="range"
                   min={5}
