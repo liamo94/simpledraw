@@ -35,6 +35,7 @@ export type Settings = {
   activeShape: ShapeKind;
   shapeFill: FillStyle;
   shapeFillEnabled: boolean;
+  shapeCorners: "rounded" | "sharp";
   fillOpacity: number;
   shapeDashed: boolean;
   textSize: TextSize;
@@ -65,6 +66,7 @@ function getDefaults(): Settings {
     activeShape: "rectangle" as const,
     shapeFill: "solid" as FillStyle,
     shapeFillEnabled: navigator.maxTouchPoints === 0,
+    shapeCorners: "rounded" as const,
     fillOpacity: 35,
     shapeDashed: false,
     textSize: "m" as const,

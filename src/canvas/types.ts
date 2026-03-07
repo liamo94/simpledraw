@@ -22,6 +22,7 @@ export type Stroke = {
   fill?: FillStyle | boolean;
   fillOpacity?: number;
   spray?: boolean;
+  sharp?: boolean;
 };
 
 export type UndoAction =

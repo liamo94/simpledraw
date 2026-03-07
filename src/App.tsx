@@ -775,6 +775,7 @@ export default function App() {
         shapeFillEnabled={settings.shapeFillEnabled}
         fillOpacity={settings.fillOpacity}
         shapeDashed={settings.shapeDashed}
+        shapeCorners={settings.shapeCorners}
         canvasIndex={activeCanvas}
         textSize={settings.textSize}
         fontFamily={settings.fontFamily}

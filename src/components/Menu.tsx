@@ -10,6 +10,14 @@ import type {
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
 
+function Tooltip({ label }: { label: string }) {
+  return (
+    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50">
+      {label}
+    </span>
+  );
+}
+
 function isDarkTheme(theme: Theme): boolean {
   return (
     theme === "dark" ||
@@ -371,11 +379,11 @@ export default function Menu({
             {!hasTouch && (
               <>
                 <div
-                  className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                  className={`mt-4 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
                 >
                   Text size
                 </div>
-                <div className="flex items-center gap-1 mt-2">
+                <div className="flex items-center gap-1 mt-1">
                   {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
                     <button
                       key={size}
@@ -397,11 +405,11 @@ export default function Menu({
                   ))}
                 </div>
                 <div
-                  className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                  className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
                 >
                   Font
                 </div>
-                <div className="flex items-center gap-1 mt-2">
+                <div className="flex items-center gap-1 mt-1">
                   {(
                     [
                       { key: "caveat", label: "Abc", css: "'Caveat', cursive" },
@@ -436,7 +444,7 @@ export default function Menu({
                       aria-label={`Font ${key}`}
                       aria-pressed={settings.fontFamily === key}
                       style={{ fontFamily: css }}
-                      className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 ${
+                      className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 relative group ${
                         settings.fontFamily === key
                           ? isDark
                             ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
@@ -446,11 +454,12 @@ export default function Menu({
                             : "text-black/35 hover:text-black/55"
                       }`}
                     >
+                      <Tooltip label={key.charAt(0).toUpperCase() + key.slice(1)} />
                       {label}
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-1 mt-2">
+                <div className="flex items-center gap-1 mt-1">
                   {/* Bold */}
                   <button
                     onClick={() =>
@@ -590,11 +599,11 @@ export default function Menu({
             )}
 
             <div
-              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
             >
               Shape
             </div>
-            <div className="flex gap-1.5 mt-1.5 justify-center">
+            <div className="flex gap-1.5 mt-1 justify-center">
               {(
                 [
                   "line",
@@ -614,7 +623,7 @@ export default function Menu({
                   onClick={() => updateSettings({ activeShape: s })}
                   aria-label={s.charAt(0).toUpperCase() + s.slice(1)}
                   aria-pressed={settings.activeShape === s}
-                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none ${
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                     settings.activeShape === s
                       ? isDark
                         ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
@@ -623,8 +632,8 @@ export default function Menu({
                         ? "hover:bg-white/10"
                         : "hover:bg-black/10"
                   }`}
-                  title={s.charAt(0).toUpperCase() + s.slice(1)}
                 >
+                  <Tooltip label={s.charAt(0).toUpperCase() + s.slice(1)} />
                   <svg
                     width="16"
                     height="16"
@@ -684,18 +693,17 @@ export default function Menu({
               ))}
             </div>
 
-            <div className={`mt-4 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+            <div className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
               Fill
             </div>
-            <div className="flex items-center gap-1.5 mt-1.5">
+            <div className="flex items-center gap-1.5 mt-1">
               {(["solid", "dots", "hatch", "crosshatch"] as FillStyle[]).map((f) => (
                 <button
                   key={String(f)}
                   onClick={() => updateSettings({ shapeFill: f })}
                   aria-label={`Fill: ${f}`}
                   aria-pressed={settings.shapeFill === f}
-                  title={f.charAt(0).toUpperCase() + f.slice(1)}
-                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none ${
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                     settings.shapeFill === f
                       ? isDark
                         ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
@@ -705,6 +713,7 @@ export default function Menu({
                         : "hover:bg-black/10"
                   }`}
                 >
+                  <Tooltip label={f.charAt(0).toUpperCase() + f.slice(1)} />
                   {f === "solid" && (
                     <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "solid" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFill === "solid" ? 1 : 0.5}>
                       <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.shapeFill === "solid" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} fillOpacity="0.35" />
@@ -757,12 +766,106 @@ export default function Menu({
               </div>
             </div>
 
+            <div className={`mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+              <span>Style</span>
+              <span>Grid</span>
+            </div>
+            <div className="flex items-center gap-1.5 mt-1">
+              {(["rounded", "sharp"] as const).map((c) => (
+                <button
+                  key={c}
+                  onClick={() => updateSettings({ shapeCorners: c })}
+                  aria-pressed={settings.shapeCorners === c}
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
+                    settings.shapeCorners === c
+                      ? isDark ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                      : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                  }`}
+                >
+                  <Tooltip label={c === "rounded" ? "Rounded" : "Sharp"} />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                    stroke={settings.shapeCorners === c ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"}
+                    strokeWidth="1.5" strokeLinejoin="round"
+                    opacity={settings.shapeCorners === c ? 1 : 0.5}
+                  >
+                    {c === "rounded" ? <rect x="2" y="2" width="12" height="12" rx="3" /> : <rect x="2" y="2" width="12" height="12" rx="0" />}
+                  </svg>
+                </button>
+              ))}
+              <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              {([false, true] as const).map((on) => (
+                <button
+                  key={String(on)}
+                  onClick={() => updateSettings({ pressureSensitivity: on })}
+                  aria-pressed={settings.pressureSensitivity === on}
+                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
+                    settings.pressureSensitivity === on
+                      ? isDark ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                      : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                  }`}
+                >
+                  <Tooltip label={on ? "Dynamic" : "Uniform"} />
+                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" opacity={settings.pressureSensitivity === on ? 1 : 0.5}>
+                    {on ? (
+                      <path d="M 2,8.5 C 4,7 7,4.5 14,8 C 7,11.5 4,10 2,8.5 Z"
+                        fill={settings.pressureSensitivity ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} />
+                    ) : (
+                      <path d="M 2,11 C 6,9 10,8 14,6"
+                        stroke={!settings.pressureSensitivity ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"}
+                        strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                    )}
+                  </svg>
+                </button>
+              ))}
+              <div className="flex-1" />
+              <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              {(["off", "dot", "square"] as GridType[]).map((g) => {
+                const active = settings.gridType === g;
+                const iconColor = active
+                  ? isDark ? "#5dd8e8" : "#00618c"
+                  : isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.4)";
+                return (
+                  <button
+                    key={g}
+                    onClick={() => updateSettings({ gridType: g })}
+                    aria-pressed={active}
+                    className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
+                      active
+                        ? isDark ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    }`}
+                  >
+                    <Tooltip label={g.charAt(0).toUpperCase() + g.slice(1)} />
+                    {g === "off" && (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <line x1="4" y1="4" x2="12" y2="12" stroke={iconColor} strokeWidth="1.5" strokeLinecap="round" />
+                        <line x1="12" y1="4" x2="4" y2="12" stroke={iconColor} strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    )}
+                    {g === "dot" && (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill={iconColor}>
+                        <circle cx="4" cy="4" r="1.2" /><circle cx="8" cy="4" r="1.2" /><circle cx="12" cy="4" r="1.2" />
+                        <circle cx="4" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" /><circle cx="12" cy="8" r="1.2" />
+                        <circle cx="4" cy="12" r="1.2" /><circle cx="8" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" />
+                      </svg>
+                    )}
+                    {g === "square" && (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={iconColor} strokeWidth="0.9">
+                        <line x1="1" y1="5.5" x2="15" y2="5.5" /><line x1="1" y1="10.5" x2="15" y2="10.5" />
+                        <line x1="5.5" y1="1" x2="5.5" y2="15" /><line x1="10.5" y1="1" x2="10.5" y2="15" />
+                      </svg>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
             <div
-              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
             >
               Canvas
             </div>
-            <div className="flex gap-1 mt-1.5 justify-center">
+            <div className="flex gap-1 mt-1 justify-center">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                 <button
                   key={n}
@@ -878,7 +981,7 @@ export default function Menu({
                   onClick={() => updateSettings({ theme: t.id })}
                   aria-label={`${t.label} theme`}
                   aria-pressed={settings.theme === t.id}
-                  className={`w-7 h-7 rounded-md outline-none transition-[opacity,transform] duration-150 ${
+                  className={`w-7 h-7 rounded-md outline-none transition-[opacity,transform] duration-150 relative group ${
                     settings.theme === t.id
                       ? "opacity-100 scale-110"
                       : "opacity-45 hover:opacity-75"
@@ -887,109 +990,12 @@ export default function Menu({
                     backgroundColor: t.bg,
                     boxShadow: `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`,
                   }}
-                />
+                >
+                  <Tooltip label={t.label} />
+                </button>
               ))}
             </div>
 
-            <div className="mt-5 flex items-center justify-between">
-              <span
-                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-              >
-                Grid
-              </span>
-              <div
-                className={`flex rounded overflow-hidden border ${isDark ? "border-white/15" : "border-black/15"}`}
-              >
-                {(["off", "dot", "square"] as GridType[]).map((g) => {
-                  const active = settings.gridType === g;
-                  const iconColor = active
-                    ? isDark
-                      ? "#5dd8e8"
-                      : "#00618c"
-                    : isDark
-                      ? "rgba(255,255,255,0.45)"
-                      : "rgba(0,0,0,0.4)";
-                  const icon =
-                    g === "off" ? (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                      >
-                        <line
-                          x1="4"
-                          y1="4"
-                          x2="12"
-                          y2="12"
-                          stroke={iconColor}
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                        <line
-                          x1="12"
-                          y1="4"
-                          x2="4"
-                          y2="12"
-                          stroke={iconColor}
-                          strokeWidth="1.5"
-                          strokeLinecap="round"
-                        />
-                      </svg>
-                    ) : g === "dot" ? (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill={iconColor}
-                      >
-                        <circle cx="4" cy="4" r="1.2" />
-                        <circle cx="8" cy="4" r="1.2" />
-                        <circle cx="12" cy="4" r="1.2" />
-                        <circle cx="4" cy="8" r="1.2" />
-                        <circle cx="8" cy="8" r="1.2" />
-                        <circle cx="12" cy="8" r="1.2" />
-                        <circle cx="4" cy="12" r="1.2" />
-                        <circle cx="8" cy="12" r="1.2" />
-                        <circle cx="12" cy="12" r="1.2" />
-                      </svg>
-                    ) : (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        stroke={iconColor}
-                        strokeWidth="0.9"
-                      >
-                        <line x1="1" y1="5.5" x2="15" y2="5.5" />
-                        <line x1="1" y1="10.5" x2="15" y2="10.5" />
-                        <line x1="5.5" y1="1" x2="5.5" y2="15" />
-                        <line x1="10.5" y1="1" x2="10.5" y2="15" />
-                      </svg>
-                    );
-                  return (
-                    <button
-                      key={g}
-                      onClick={() => updateSettings({ gridType: g })}
-                      aria-pressed={active}
-                      title={g.charAt(0).toUpperCase() + g.slice(1)}
-                      className={`w-10 h-8 flex items-center justify-center transition-colors ${
-                        active
-                          ? isDark
-                            ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
-                            : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
-                          : isDark
-                            ? "hover:bg-white/10"
-                            : "hover:bg-black/8"
-                      }`}
-                    >
-                      {icon}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
 
             {hasTouch && (
               <button
@@ -1030,30 +1036,17 @@ export default function Menu({
               </button>
             )}
 
-            <div className="mt-4 space-y-3">
+            {!hasTouch && <div className="mt-4 space-y-3">
               {[
-                ...(!hasTouch
-                  ? [
-                      {
-                        label: "Zoom controls",
-                        key: "showZoomControls" as const,
-                        value: settings.showZoomControls,
-                      },
-                    ]
-                  : []),
-                ...(!hasTouch
-                  ? [
-                      {
-                        label: "Confirm clear",
-                        key: "confirmClear" as const,
-                        value: settings.confirmClear,
-                      },
-                    ]
-                  : []),
                 {
-                  label: "Dynamic stroke",
-                  key: "pressureSensitivity" as const,
-                  value: settings.pressureSensitivity,
+                  label: "Zoom controls",
+                  key: "showZoomControls" as const,
+                  value: settings.showZoomControls,
+                },
+                {
+                  label: "Confirm clear",
+                  key: "confirmClear" as const,
+                  value: settings.confirmClear,
                 },
               ].map((opt) => (
                 <button
@@ -1085,7 +1078,7 @@ export default function Menu({
                   </span>
                 </button>
               ))}
-            </div>
+            </div>}
 
             <div className="mt-4 space-y-1.5">
               {!hasTouch && (

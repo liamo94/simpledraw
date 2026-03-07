@@ -496,6 +496,7 @@ export function renderShape(
   fill?: FillStyle | boolean,
   seed?: number,
   fillOpacity?: number,
+  sharp?: boolean,
 ) {
   const x = Math.min(p0.x, p1.x);
   const y = Math.min(p0.y, p1.y);
@@ -503,7 +504,7 @@ export function renderShape(
   const h = Math.abs(p1.y - p0.y);
   const cx = x + w / 2;
   const cy = y + h / 2;
-  const r = Math.min(w, h) * 0.12;
+  const r = sharp ? 0 : Math.min(w, h) * 0.12;
 
   // Arrow is handled separately (stroke only, no fill)
   if (shape === "arrow") {
@@ -558,6 +559,7 @@ export function renderRoughShape(
   color: string,
   fill?: FillStyle | boolean,
   fillOpacity?: number,
+  sharp?: boolean,
 ) {
   const x = Math.min(p0.x, p1.x);
   const y = Math.min(p0.y, p1.y);
@@ -565,7 +567,7 @@ export function renderRoughShape(
   const h = Math.abs(p1.y - p0.y);
   const cx = x + w / 2;
   const cy = y + h / 2;
-  const r = Math.min(w, h) * 0.1;
+  const r = sharp ? 0 : Math.min(w, h) * 0.1;
   const dashScale = lineWidth / 4;
   const f = fill === true ? "solid" : fill; // backward compat
   const hasFill = !!f && shape !== "line" && shape !== "arrow";
@@ -796,7 +798,12 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
       const dashScale = stroke.lineWidth / 4;
       ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
       ctx.beginPath();
-      smoothArrowPath(ctx, pts);
+      if (stroke.sharp) {
+        ctx.moveTo(pts[0].x, pts[0].y);
+        for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+      } else {
+        smoothArrowPath(ctx, pts);
+      }
       ctx.stroke();
       continue;
     }
@@ -811,7 +818,7 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
       const angle = Math.atan2(last.y - angleFrom.y, last.x - angleFrom.x);
       const headLen = Math.max(22, stroke.lineWidth * 4.5);
       const headAngle = Math.PI / 6;
-      if (stroke.seed !== undefined && stroke.style !== "dashed") {
+      if (stroke.seed !== undefined && stroke.style !== "dashed" && !stroke.sharp) {
         // Dynamic stroke: densify the bezier path and run through perfect-freehand.
         // Trim the body to stop before the arrowhead tip so the V lines are clearly visible.
         const sampled = densifySmoothedPath(pts);
@@ -871,7 +878,12 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
         const dashScale = stroke.lineWidth / 4;
         ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
         ctx.beginPath();
-        smoothArrowPath(ctx, pts);
+        if (stroke.sharp) {
+          ctx.moveTo(pts[0].x, pts[0].y);
+          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+        } else {
+          smoothArrowPath(ctx, pts);
+        }
         ctx.stroke();
         ctx.setLineDash([]);
       }
@@ -908,6 +920,7 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
           color,
           stroke.fill,
           stroke.fillOpacity,
+          stroke.sharp,
         );
       } else {
         ctx.strokeStyle = color;
@@ -930,6 +943,7 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
           stroke.fill,
           undefined,
           stroke.fillOpacity,
+          stroke.sharp,
         );
       }
       continue;

@@ -26,6 +26,7 @@ function Canvas({
   shapeFillEnabled,
   fillOpacity,
   shapeDashed,
+  shapeCorners,
   canvasIndex,
   textSize,
   fontFamily,
@@ -46,6 +47,7 @@ function Canvas({
   shapeFillEnabled: boolean;
   fillOpacity: number;
   shapeDashed: boolean;
+  shapeCorners: "rounded" | "sharp";
   canvasIndex: number;
   textSize: TextSize;
   fontFamily: FontFamily;
@@ -89,6 +91,8 @@ function Canvas({
   shapeFillRef.current = shapeFill;
   const shapeFillEnabledRef = useRef(shapeFillEnabled);
   shapeFillEnabledRef.current = shapeFillEnabled;
+  const shapeCornersRef = useRef(shapeCorners);
+  shapeCornersRef.current = shapeCorners;
   const fillOpacityRef = useRef(fillOpacity);
   fillOpacityRef.current = fillOpacity;
   const shapeDashedRef = useRef(shapeDashed);
@@ -2188,6 +2192,7 @@ function Canvas({
             lineWidth,
             color: lineColor,
             shape: "line",
+            ...(shapeCornersRef.current === "sharp" ? { sharp: true } : {}),
           };
           strokesRef.current.push(stroke);
           undoStackRef.current.push({ type: "draw", stroke });
@@ -2229,6 +2234,7 @@ function Canvas({
             ...(pressureSensitivityRef.current
               ? { seed: Math.floor(Math.random() * 2 ** 31) }
               : {}),
+            ...(shapeCornersRef.current === "sharp" ? { sharp: true } : {}),
           };
           strokesRef.current.push(stroke);
           undoStackRef.current.push({ type: "draw", stroke });
