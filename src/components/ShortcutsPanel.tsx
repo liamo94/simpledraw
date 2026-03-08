@@ -28,6 +28,7 @@ const EraseIcon = () => (
 );
 const HighlightIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none" opacity="0.5"><rect x="2" y="5" width="12" height="6" rx="1" /></svg>;
 const PressureIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><path d="M2,8 L14,5 L14,11 Z" opacity="0.7" /></svg>;
+const CornersIcon = () => <I><path d="M4,13 L4,4 L13,4" /></I>;
 const RectIcon = () => <I><rect x="2" y="3" width="12" height="10" rx="0.5" /></I>;
 const CircleIcon = () => <I><circle cx="8" cy="8" r="6" /></I>;
 const ArrowIcon = () => <I><line x1="2" y1="8" x2="12" y2="8" /><polyline points="9,5 12,8 9,11" /></I>;
@@ -124,6 +125,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><HighlightIcon />Highlight</>} kbd="W/H + drag" />
         <Row label={<><SprayIcon />Spray paint</>} kbd="B + drag" />
         <Row label={<><PressureIcon />Dynamic stroke</>} kbd="P" />
+        <Row label={<><CornersIcon />Rounded / sharp edges</>} kbd="E" />
         <Row label={<><ThicknessIcon />Thicker / Thinner</>} kbd="{ / }" />
         <Row label={<><DotIcon />Place dot</>} kbd="." />
       </div>

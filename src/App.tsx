@@ -20,7 +20,12 @@ import useSettings, {
 } from "./hooks/useSettings";
 
 import { isDarkTheme, getBackgroundColor } from "./canvas/canvasUtils";
-import { loadStrokes, saveStrokes, validateStrokesFile, strokesKey } from "./canvas/storage";
+import {
+  loadStrokes,
+  saveStrokes,
+  validateStrokesFile,
+  strokesKey,
+} from "./canvas/storage";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -51,22 +56,26 @@ const isMac = navigator.platform.toUpperCase().includes("MAC");
 let _newRouteCanvas: number | null = null;
 let _newRouteAllOccupied = false;
 
-if (window.location.pathname === '/new') {
-  window.history.replaceState(null, '', '/');
+if (window.location.pathname === "/new") {
+  window.history.replaceState(null, "", "/");
   const counts = Array.from({ length: 9 }, (_, i) => {
     const raw = localStorage.getItem(strokesKey(i + 1));
     if (!raw) return 0;
-    try { return (JSON.parse(raw) as unknown[]).length; } catch { return 0; }
+    try {
+      return (JSON.parse(raw) as unknown[]).length;
+    } catch {
+      return 0;
+    }
   });
-  const empty = counts.findIndex(n => n === 0);
+  const empty = counts.findIndex((n) => n === 0);
   if (empty !== -1) {
     _newRouteCanvas = empty + 1;
   } else {
     const min = Math.min(...counts);
-    _newRouteCanvas = counts.findIndex(n => n === min) + 1;
+    _newRouteCanvas = counts.findIndex((n) => n === min) + 1;
     _newRouteAllOccupied = true;
   }
-  localStorage.setItem('drawtool-active-canvas', String(_newRouteCanvas));
+  localStorage.setItem("drawtool-active-canvas", String(_newRouteCanvas));
 }
 
 export default function App() {
@@ -110,6 +119,7 @@ export default function App() {
     | { type: "shape"; shape: ShapeKind }
     | { type: "toggle"; label: string; on: boolean }
     | { type: "fill"; fill: FillStyle }
+    | { type: "corners"; corners: "rounded" | "sharp" }
     | null
   >(null);
   const [toastFading, setToastFading] = useState(false);
@@ -159,8 +169,10 @@ export default function App() {
   }, [settings.theme, updateSettings]);
 
   const [confirmingClear, setConfirmingClear] = useState(false);
-  const [newCanvasDialogOpen, setNewCanvasDialogOpen] = useState(_newRouteAllOccupied);
-  const [newCanvasBlurred, setNewCanvasBlurred] = useState(_newRouteAllOccupied);
+  const [newCanvasDialogOpen, setNewCanvasDialogOpen] =
+    useState(_newRouteAllOccupied);
+  const [newCanvasBlurred, setNewCanvasBlurred] =
+    useState(_newRouteAllOccupied);
 
   const doClear = useCallback(() => {
     setConfirmingClear(false);
@@ -187,7 +199,8 @@ export default function App() {
         | { type: "text"; message: string }
         | { type: "shape"; shape: ShapeKind }
         | { type: "toggle"; label: string; on: boolean }
-        | { type: "fill"; fill: FillStyle },
+        | { type: "fill"; fill: FillStyle }
+        | { type: "corners"; corners: "rounded" | "sharp" },
     ) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (toastFadeRef.current) clearTimeout(toastFadeRef.current);
@@ -234,7 +247,9 @@ export default function App() {
   const exportData = useCallback(() => {
     const strokes = loadStrokes(activeCanvas);
     const file = { version: 1, strokes };
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+    const blob = new Blob([JSON.stringify(file, null, 2)], {
+      type: "application/json",
+    });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -243,38 +258,56 @@ export default function App() {
     URL.revokeObjectURL(url);
   }, [activeCanvas]);
 
-  const processImportFile = useCallback((file: File) => {
-    file.text().then((text) => {
-      try {
-        const strokes = validateStrokesFile(JSON.parse(text));
-        saveStrokes(strokes, activeCanvas);
-        window.dispatchEvent(new CustomEvent("drawtool:import-strokes", { detail: strokes }));
-        showToast({ type: "text", message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}` });
-      } catch (err) {
-        showToast({ type: "text", message: `Import failed: ${(err as Error).message}` });
-      }
-    });
-  }, [activeCanvas, showToast]);
+  const processImportFile = useCallback(
+    (file: File) => {
+      file.text().then((text) => {
+        try {
+          const strokes = validateStrokesFile(JSON.parse(text));
+          saveStrokes(strokes, activeCanvas);
+          window.dispatchEvent(
+            new CustomEvent("drawtool:import-strokes", { detail: strokes }),
+          );
+          showToast({
+            type: "text",
+            message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}`,
+          });
+        } catch (err) {
+          showToast({
+            type: "text",
+            message: `Import failed: ${(err as Error).message}`,
+          });
+        }
+      });
+    },
+    [activeCanvas, showToast],
+  );
 
   const importData = useCallback(() => {
     setShowImportModal(true);
   }, []);
 
-  const handleImportFile = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    e.target.value = "";
-    setShowImportModal(false);
-    processImportFile(file);
-  }, [processImportFile]);
+  const handleImportFile = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      e.target.value = "";
+      setShowImportModal(false);
+      processImportFile(file);
+    },
+    [processImportFile],
+  );
 
   useEffect(() => {
     if (!showImportModal) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopPropagation(); setShowImportModal(false); }
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setShowImportModal(false);
+      }
     };
     window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
   }, [showImportModal]);
 
   useEffect(() => {
@@ -326,7 +359,9 @@ export default function App() {
       const idx = palette.indexOf(cur);
       const next =
         (idx === -1 ? 0 : idx + dir + palette.length) % palette.length;
-      updateSettings({ lineColor: palette[next] });
+      window.dispatchEvent(
+        new CustomEvent("drawtool:set-color", { detail: palette[next] }),
+      );
     };
     const onColorUsed = (e: Event) => {
       const color = (e as CustomEvent).detail as string;
@@ -341,7 +376,9 @@ export default function App() {
       if (a !== b) {
         usedColorARef.current = b;
         usedColorBRef.current = a;
-        updateSettings({ lineColor: b });
+        window.dispatchEvent(
+          new CustomEvent("drawtool:set-color", { detail: b }),
+        );
       }
     };
     const onRequestClear = () => requestClear();
@@ -394,7 +431,13 @@ export default function App() {
       updateSettings({ lineColor: color });
     };
     const onTextStyleSync = (e: Event) => {
-      updateSettings((e as CustomEvent).detail as { textBold: boolean; textItalic: boolean; textAlign: TextAlign });
+      updateSettings(
+        (e as CustomEvent).detail as {
+          textBold: boolean;
+          textItalic: boolean;
+          textAlign: TextAlign;
+        },
+      );
     };
     const onToast = (e: Event) => {
       const message = (e as CustomEvent).detail as string;
@@ -419,6 +462,12 @@ export default function App() {
       const next = !settingsRef.current.pressureSensitivity;
       updateSettings({ pressureSensitivity: next });
       showToast({ type: "toggle", label: "Dynamic stroke", on: next });
+    };
+    const onToggleCorners = () => {
+      const next =
+        settingsRef.current.shapeCorners === "rounded" ? "sharp" : "rounded";
+      updateSettings({ shapeCorners: next });
+      showToast({ type: "corners", corners: next });
     };
     const FILLS: FillStyle[] = ["solid", "dots", "hatch", "crosshatch"];
     const onCycleFill = () => {
@@ -460,6 +509,7 @@ export default function App() {
     window.addEventListener("drawtool:toggle-grid", onToggleGrid);
     window.addEventListener("drawtool:toggle-grid-back", onToggleGridBack);
     window.addEventListener("drawtool:toggle-pressure", onTogglePressure);
+    window.addEventListener("drawtool:toggle-corners", onToggleCorners);
     window.addEventListener("drawtool:cycle-fill", onCycleFill);
     window.addEventListener("drawtool:export", onExportShortcut);
     window.addEventListener("drawtool:text-size", onTextSize);
@@ -489,6 +539,7 @@ export default function App() {
       window.removeEventListener("drawtool:toggle-grid", onToggleGrid);
       window.removeEventListener("drawtool:toggle-grid-back", onToggleGridBack);
       window.removeEventListener("drawtool:toggle-pressure", onTogglePressure);
+      window.removeEventListener("drawtool:toggle-corners", onToggleCorners);
       window.removeEventListener("drawtool:cycle-fill", onCycleFill);
       window.removeEventListener("drawtool:export", onExportShortcut);
       window.removeEventListener("drawtool:text-size", onTextSize);
@@ -523,10 +574,10 @@ export default function App() {
     const onKey = (e: KeyboardEvent) => {
       e.stopPropagation();
       e.preventDefault();
-      if (e.key === 'Escape') {
+      if (e.key === "Escape") {
         setNewCanvasDialogOpen(false);
         setNewCanvasBlurred(false);
-      } else if ((e.metaKey || e.ctrlKey) && e.key === 'x') {
+      } else if ((e.metaKey || e.ctrlKey) && e.key === "x") {
         window.dispatchEvent(new Event("drawtool:clear"));
         window.dispatchEvent(new Event("drawtool:reset-view"));
         setZoom(1);
@@ -534,8 +585,9 @@ export default function App() {
         setNewCanvasBlurred(false);
       }
     };
-    window.addEventListener('keydown', onKey, { capture: true });
-    return () => window.removeEventListener('keydown', onKey, { capture: true });
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
   }, [newCanvasDialogOpen]);
 
   const resetView = useCallback(() => {
@@ -744,7 +796,6 @@ export default function App() {
         updateSettings={updateSettings}
         onExport={exportPng}
         onExportTransparent={exportTransparent}
-        onClear={requestClear}
         hasTouch={hasTouch}
         activeCanvas={activeCanvas}
         onSwitchCanvas={(n) => {
@@ -1043,41 +1094,133 @@ export default function App() {
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                <div className="flex w-full gap-1 pb-1 mb-0.5" style={{ borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}` }}>
+                <div
+                  className="flex w-full gap-1 pb-1 mb-0.5"
+                  style={{
+                    borderBottom: `1px solid ${isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)"}`,
+                  }}
+                >
                   <button
                     aria-label={`Fill: ${settings.shapeFillEnabled ? settings.shapeFill : "none"}`}
-                    onClick={() => updateSettings({ shapeFillEnabled: !settings.shapeFillEnabled })}
+                    onClick={() =>
+                      updateSettings({
+                        shapeFillEnabled: !settings.shapeFillEnabled,
+                      })
+                    }
                     className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
                       settings.shapeFillEnabled
-                        ? isDark ? "bg-white/20" : "bg-black/20"
-                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                        ? isDark
+                          ? "bg-white/20"
+                          : "bg-black/20"
+                        : isDark
+                          ? "hover:bg-white/10"
+                          : "hover:bg-black/10"
                     }`}
                   >
                     {settings.shapeFill === "solid" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
-                        <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.lineColor} />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeWidth="1.5"
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFillEnabled ? 1 : 0.35}
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="12"
+                          height="12"
+                          rx="1.5"
+                          fill={settings.lineColor}
+                        />
                       </svg>
                     )}
                     {settings.shapeFill === "dots" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeWidth="1.5"
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFillEnabled ? 1 : 0.35}
+                      >
                         <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                        <circle cx="6" cy="6.5" r="1.2" fill={settings.lineColor} stroke="none" />
-                        <circle cx="10" cy="6.5" r="1.2" fill={settings.lineColor} stroke="none" />
-                        <circle cx="6" cy="10.5" r="1.2" fill={settings.lineColor} stroke="none" />
-                        <circle cx="10" cy="10.5" r="1.2" fill={settings.lineColor} stroke="none" />
+                        <circle
+                          cx="6"
+                          cy="6.5"
+                          r="1.2"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
+                        <circle
+                          cx="10"
+                          cy="6.5"
+                          r="1.2"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
+                        <circle
+                          cx="6"
+                          cy="10.5"
+                          r="1.2"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
+                        <circle
+                          cx="10"
+                          cy="10.5"
+                          r="1.2"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
                       </svg>
                     )}
                     {settings.shapeFill === "hatch" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
-                        <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFillEnabled ? 1 : 0.35}
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="12"
+                          height="12"
+                          rx="1.5"
+                          strokeWidth="1.5"
+                        />
                         <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
                         <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
                         <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
                       </svg>
                     )}
                     {settings.shapeFill === "crosshatch" && (
-                      <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeLinejoin="round" opacity={settings.shapeFillEnabled ? 1 : 0.35}>
-                        <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFillEnabled ? 1 : 0.35}
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="12"
+                          height="12"
+                          rx="1.5"
+                          strokeWidth="1.5"
+                        />
                         <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
                         <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
                         <line x1="9" y1="2" x2="2" y2="9" strokeWidth="1.1" />
@@ -1088,31 +1231,11 @@ export default function App() {
                   <button
                     aria-label="Dashed shape"
                     aria-pressed={settings.shapeDashed}
-                    onClick={() => updateSettings({ shapeDashed: !settings.shapeDashed })}
+                    onClick={() =>
+                      updateSettings({ shapeDashed: !settings.shapeDashed })
+                    }
                     className={`flex-1 flex items-center justify-center p-2 rounded transition-colors ${
                       settings.shapeDashed
-                        ? isDark ? "bg-white/20" : "bg-black/20"
-                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
-                    }`}
-                  >
-                    <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="3.5 2.5" opacity={settings.shapeDashed ? 1 : 0.35}>
-                      <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="grid grid-cols-2 gap-1 w-full">
-                {SHAPES.map((shape) => (
-                  <button
-                    key={shape}
-                    aria-label={shape.charAt(0).toUpperCase() + shape.slice(1)}
-                    aria-pressed={settings.activeShape === shape}
-                    onClick={() => {
-                      updateSettings({ activeShape: shape });
-                      setTouchTool("shape");
-                      setShowShapePicker(false);
-                    }}
-                    className={`flex items-center justify-center p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                      settings.activeShape === shape
                         ? isDark
                           ? "bg-white/20"
                           : "bg-black/20"
@@ -1129,47 +1252,85 @@ export default function App() {
                       stroke={settings.lineColor}
                       strokeWidth="1.5"
                       strokeLinejoin="round"
+                      strokeDasharray="3.5 2.5"
+                      opacity={settings.shapeDashed ? 1 : 0.35}
                     >
-                      {shape === "line" && (
-                        <line
-                          x1="3"
-                          y1="13"
-                          x2="13"
-                          y2="3"
-                          strokeLinecap="round"
-                        />
-                      )}
-                      {shape === "rectangle" && (
-                        <rect x="2" y="3" width="12" height="10" rx="1" />
-                      )}
-                      {shape === "circle" && <circle cx="8" cy="8" r="6" />}
-                      {shape === "triangle" && (
-                        <polygon points="8,2 14,14 2,14" />
-                      )}
-                      {shape === "diamond" && (
-                        <polygon points="8,1 15,8 8,15 1,8" />
-                      )}
-                      {shape === "pentagon" && (
-                        <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-                      )}
-                      {shape === "hexagon" && (
-                        <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-                      )}
-                      {shape === "star" && (
-                        <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-                      )}
-                      {shape === "arrow" && (
-                        <>
-                          <line x1="2" y1="8" x2="12" y2="8" />
-                          <polyline points="9,5 12,8 9,11" />
-                        </>
-                      )}
-                      {shape === "cloud" && (
-                        <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
-                      )}
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" />
                     </svg>
                   </button>
-                ))}
+                </div>
+                <div className="grid grid-cols-2 gap-1 w-full">
+                  {SHAPES.map((shape) => (
+                    <button
+                      key={shape}
+                      aria-label={
+                        shape.charAt(0).toUpperCase() + shape.slice(1)
+                      }
+                      aria-pressed={settings.activeShape === shape}
+                      onClick={() => {
+                        updateSettings({ activeShape: shape });
+                        setTouchTool("shape");
+                        setShowShapePicker(false);
+                      }}
+                      className={`flex items-center justify-center p-2 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
+                        settings.activeShape === shape
+                          ? isDark
+                            ? "bg-white/20"
+                            : "bg-black/20"
+                          : isDark
+                            ? "hover:bg-white/10"
+                            : "hover:bg-black/10"
+                      }`}
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeWidth="1.5"
+                        strokeLinejoin="round"
+                      >
+                        {shape === "line" && (
+                          <line
+                            x1="3"
+                            y1="13"
+                            x2="13"
+                            y2="3"
+                            strokeLinecap="round"
+                          />
+                        )}
+                        {shape === "rectangle" && (
+                          <rect x="2" y="3" width="12" height="10" rx="1" />
+                        )}
+                        {shape === "circle" && <circle cx="8" cy="8" r="6" />}
+                        {shape === "triangle" && (
+                          <polygon points="8,2 14,14 2,14" />
+                        )}
+                        {shape === "diamond" && (
+                          <polygon points="8,1 15,8 8,15 1,8" />
+                        )}
+                        {shape === "pentagon" && (
+                          <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
+                        )}
+                        {shape === "hexagon" && (
+                          <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
+                        )}
+                        {shape === "star" && (
+                          <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
+                        )}
+                        {shape === "arrow" && (
+                          <>
+                            <line x1="2" y1="8" x2="12" y2="8" />
+                            <polyline points="9,5 12,8 9,11" />
+                          </>
+                        )}
+                        {shape === "cloud" && (
+                          <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
+                        )}
+                      </svg>
+                    </button>
+                  ))}
                 </div>
               </div>
             )}
@@ -1285,8 +1446,8 @@ export default function App() {
         >
           {activeCanvas}
         </div>
-        {!hasTouch && (
-          isEditingName ? (
+        {!hasTouch &&
+          (isEditingName ? (
             <input
               ref={canvasNameInputRef}
               value={canvasName}
@@ -1323,8 +1484,7 @@ export default function App() {
             >
               {canvasName}
             </span>
-          )
-        )}
+          ))}
       </div>
       {newCanvasBlurred && newCanvasDialogOpen && (
         <div className="fixed inset-0 z-40 backdrop-blur-xl pointer-events-none" />
@@ -1335,26 +1495,50 @@ export default function App() {
           aria-modal="true"
           className="fixed inset-0 flex items-center justify-center z-50"
         >
-          <div className={`px-8 py-5 rounded-lg border backdrop-blur-sm text-center max-w-xs ${isDark ? "bg-black/80 border-white/15" : "bg-white/80 border-black/15"}`}>
-            <div className={`text-sm font-medium mb-1 ${isDark ? "text-white/80" : "text-black/80"}`}>
+          <div
+            className={`px-8 py-5 rounded-lg border backdrop-blur-sm text-center max-w-xs ${isDark ? "bg-black/80 border-white/15" : "bg-white/80 border-black/15"}`}
+          >
+            <div
+              className={`text-sm font-medium mb-1 ${isDark ? "text-white/80" : "text-black/80"}`}
+            >
               All canvases are in use
             </div>
-            <div className={`text-xs mb-3 ${isDark ? "text-white/40" : "text-black/40"}`}>
+            <div
+              className={`text-xs mb-3 ${isDark ? "text-white/40" : "text-black/40"}`}
+            >
               This canvas has content. Open it as-is or clear it first.
             </div>
             <div className="flex gap-2 mt-3 justify-center">
               <button
                 aria-label={newCanvasBlurred ? "Show canvas" : "Hide canvas"}
-                onClick={() => setNewCanvasBlurred(b => !b)}
+                onClick={() => setNewCanvasBlurred((b) => !b)}
                 className={`px-2.5 py-1.5 rounded transition-colors ${isDark ? "text-white/50 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/50 hover:text-black bg-black/5 hover:bg-black/10"}`}
               >
                 {newCanvasBlurred ? (
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M1 8C1 8 3.5 3 8 3s7 5 7 5-2.5 5-7 5S1 8 1 8z" />
                     <circle cx="8" cy="8" r="2" />
                   </svg>
                 ) : (
-                  <svg width="15" height="15" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="15"
+                    height="15"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <path d="M1 8C1 8 3.5 3 8 3s7 5 7 5-2.5 5-7 5S1 8 1 8z" />
                     <circle cx="8" cy="8" r="2" />
                     <line x1="2" y1="2" x2="14" y2="14" />
@@ -1548,25 +1732,100 @@ export default function App() {
               />
               {toast.label}
             </>
+          ) : toast.type === "corners" ? (
+            <>
+              Edges
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinejoin="round"
+              >
+                <rect
+                  x="2"
+                  y="2"
+                  width="12"
+                  height="12"
+                  rx={toast.corners === "rounded" ? 3 : 0}
+                />
+              </svg>
+            </>
           ) : toast.type === "text" ? (
             toast.message
           ) : toast.type === "fill" ? (
-            <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeLinejoin="round">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeLinejoin="round"
+            >
               {toast.fill === "solid" && (
-                <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" fill="currentColor" fillOpacity="0.35" />
+                <rect
+                  x="2"
+                  y="2"
+                  width="12"
+                  height="12"
+                  rx="1.5"
+                  strokeWidth="1.5"
+                  fill="currentColor"
+                  fillOpacity="0.35"
+                />
               )}
               {toast.fill === "dots" && (
                 <>
-                  <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
-                  <circle cx="6" cy="6.5" r="1.2" fill="currentColor" stroke="none" />
-                  <circle cx="10" cy="6.5" r="1.2" fill="currentColor" stroke="none" />
-                  <circle cx="6" cy="10.5" r="1.2" fill="currentColor" stroke="none" />
-                  <circle cx="10" cy="10.5" r="1.2" fill="currentColor" stroke="none" />
+                  <rect
+                    x="2"
+                    y="2"
+                    width="12"
+                    height="12"
+                    rx="1.5"
+                    strokeWidth="1.5"
+                  />
+                  <circle
+                    cx="6"
+                    cy="6.5"
+                    r="1.2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <circle
+                    cx="10"
+                    cy="6.5"
+                    r="1.2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <circle
+                    cx="6"
+                    cy="10.5"
+                    r="1.2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
+                  <circle
+                    cx="10"
+                    cy="10.5"
+                    r="1.2"
+                    fill="currentColor"
+                    stroke="none"
+                  />
                 </>
               )}
               {toast.fill === "hatch" && (
                 <>
-                  <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                  <rect
+                    x="2"
+                    y="2"
+                    width="12"
+                    height="12"
+                    rx="1.5"
+                    strokeWidth="1.5"
+                  />
                   <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
                   <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
                   <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
@@ -1574,7 +1833,14 @@ export default function App() {
               )}
               {toast.fill === "crosshatch" && (
                 <>
-                  <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
+                  <rect
+                    x="2"
+                    y="2"
+                    width="12"
+                    height="12"
+                    rx="1.5"
+                    strokeWidth="1.5"
+                  />
                   <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
                   <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
                   <line x1="9" y1="2" x2="2" y2="9" strokeWidth="1.1" />
@@ -1633,14 +1899,18 @@ export default function App() {
           aria-modal="true"
           aria-label="Load canvas data"
           className="fixed inset-0 z-[300] flex items-center justify-center"
-          style={{ background: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)" }}
+          style={{
+            background: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)",
+          }}
           onClick={() => setShowImportModal(false)}
         >
           <div
             className={`flex flex-col gap-4 p-6 rounded-xl border backdrop-blur-sm ${isDark ? "bg-black/80 border-white/15" : "bg-white/90 border-black/15"}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`text-sm font-medium ${isDark ? "text-white/80" : "text-black/80"}`}>
+            <div
+              className={`text-sm font-medium ${isDark ? "text-white/80" : "text-black/80"}`}
+            >
               Load canvas data
             </div>
             {/* Drop zone */}
@@ -1648,37 +1918,72 @@ export default function App() {
               className={`flex flex-col items-center gap-3 px-16 py-10 rounded-lg border-2 border-dashed cursor-pointer transition-colors select-none`}
               style={{
                 borderColor: dropZoneActive
-                  ? isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.5)"
-                  : isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.15)",
+                  ? isDark
+                    ? "rgba(255,255,255,0.6)"
+                    : "rgba(0,0,0,0.5)"
+                  : isDark
+                    ? "rgba(255,255,255,0.2)"
+                    : "rgba(0,0,0,0.15)",
                 background: dropZoneActive
-                  ? isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.04)"
+                  ? isDark
+                    ? "rgba(255,255,255,0.08)"
+                    : "rgba(0,0,0,0.04)"
                   : "transparent",
               }}
               onClick={() => importFileRef.current?.click()}
-              onDragEnter={(e) => { e.preventDefault(); dropZoneCounterRef.current++; setDropZoneActive(true); }}
-              onDragLeave={() => { if (--dropZoneCounterRef.current === 0) setDropZoneActive(false); }}
-              onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
+              onDragEnter={(e) => {
+                e.preventDefault();
+                dropZoneCounterRef.current++;
+                setDropZoneActive(true);
+              }}
+              onDragLeave={() => {
+                if (--dropZoneCounterRef.current === 0)
+                  setDropZoneActive(false);
+              }}
+              onDragOver={(e) => {
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "copy";
+              }}
               onDrop={(e) => {
                 e.preventDefault();
                 dropZoneCounterRef.current = 0;
                 setDropZoneActive(false);
                 const file = e.dataTransfer.files[0];
-                if (file) { setShowImportModal(false); processImportFile(file); }
+                if (file) {
+                  setShowImportModal(false);
+                  processImportFile(file);
+                }
               }}
             >
-              <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" style={{ opacity: dropZoneActive ? 0.9 : 0.4 }}>
+              <svg
+                width="28"
+                height="28"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                style={{ opacity: dropZoneActive ? 0.9 : 0.4 }}
+              >
                 <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
                 <polyline points="17 8 12 3 7 8" />
                 <line x1="12" y1="3" x2="12" y2="15" />
               </svg>
               <span className="relative text-sm whitespace-nowrap">
                 {/* Invisible longest string holds the width */}
-                <span className="invisible select-none">Drop a JSON file here</span>
-                <span className={`absolute inset-0 text-center transition-opacity ${isDark ? "text-white/70" : "text-black/60"}`}>
+                <span className="invisible select-none">
+                  Drop a JSON file here
+                </span>
+                <span
+                  className={`absolute inset-0 text-center transition-opacity ${isDark ? "text-white/70" : "text-black/60"}`}
+                >
                   {dropZoneActive ? "Release to load" : "Drop a JSON file here"}
                 </span>
               </span>
-              <span className={`text-xs ${isDark ? "text-white/30" : "text-black/30"}`}>
+              <span
+                className={`text-xs ${isDark ? "text-white/30" : "text-black/30"}`}
+              >
                 or click to browse
               </span>
             </div>

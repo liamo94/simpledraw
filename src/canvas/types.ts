@@ -37,6 +37,9 @@ export type UndoAction =
   | { type: "align-change"; stroke: Stroke; from: TextAlign; to: TextAlign; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }
   | { type: "color-change"; stroke: Stroke; from: string; to: string }
   | { type: "group-color-change"; strokes: Stroke[]; from: string[]; to: string }
+  | { type: "fill-style-change"; strokes: Stroke[]; from: (FillStyle | boolean | undefined)[]; to: FillStyle }
+  | { type: "fill-opacity-change"; strokes: Stroke[]; from: (number | undefined)[]; to: number }
+  | { type: "corners-change"; strokes: Stroke[]; from: (boolean | undefined)[]; to: boolean | undefined }
   | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] }
   | { type: "multi-draw"; strokes: Stroke[] }
   | { type: "reorder"; before: Stroke[]; after: Stroke[] }

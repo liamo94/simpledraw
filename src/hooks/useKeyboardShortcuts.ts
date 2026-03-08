@@ -798,6 +798,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       if (e.key === "p" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         window.dispatchEvent(new Event("drawtool:toggle-pressure"));
       }
+      if (e.key === "e" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
+        window.dispatchEvent(new Event("drawtool:toggle-corners"));
+      }
       if (cmdKey(e) && e.key === ",") {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:focus-canvas-name"));

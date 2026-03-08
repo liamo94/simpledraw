@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import type {
   Settings,
   Theme,
@@ -80,7 +80,6 @@ type Props = {
   updateSettings: (partial: Partial<Settings>) => void;
   onExport: () => void;
   onExportTransparent: () => void;
-  onClear: () => void;
   hasTouch: boolean;
   activeCanvas: number;
   onSwitchCanvas: (n: number) => void;
@@ -95,7 +94,6 @@ export default function Menu({
   updateSettings,
   onExport,
   onExportTransparent,
-  onClear,
   hasTouch,
   activeCanvas,
   onSwitchCanvas,
@@ -106,13 +104,22 @@ export default function Menu({
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [clearWipe, setClearWipe] = useState(0);
+  const [clearConfirming, setClearConfirming] = useState(false);
+  const clearConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const menuRef = useRef<HTMLDivElement>(null);
   const infoRef = useRef<HTMLDivElement>(null);
+  const helpRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
   const exportContentRef = useRef<HTMLDivElement>(null);
+  const isMac = /mac/i.test(navigator.platform);
+  const mod = isMac ? "⌘" : "Ctrl";
+  const alt = isMac ? "⌥" : "Alt";
 
   const isDark = isDarkTheme(settings.theme);
 
@@ -121,6 +128,7 @@ export default function Menu({
       setOpen((o) => {
         if (o) {
           setShowInfo(false);
+          setShowHelp(false);
           setShowAbout(false);
           setShowExport(false);
           setClearWipe(0);
@@ -138,6 +146,7 @@ export default function Menu({
       if (e.key === "Escape") {
         setOpen(false);
         setShowInfo(false);
+        setShowHelp(false);
         setShowAbout(false);
         setShowExport(false);
       }
@@ -152,9 +161,15 @@ export default function Menu({
   const closeMenu = () => {
     setOpen(false);
     setShowInfo(false);
+    setShowHelp(false);
     setShowAbout(false);
     setShowExport(false);
     setClearWipe(0);
+    setClearConfirming(false);
+    if (clearConfirmTimerRef.current) {
+      clearTimeout(clearConfirmTimerRef.current);
+      clearConfirmTimerRef.current = null;
+    }
   };
 
   const palette = [
@@ -454,7 +469,9 @@ export default function Menu({
                             : "text-black/35 hover:text-black/55"
                       }`}
                     >
-                      <Tooltip label={key.charAt(0).toUpperCase() + key.slice(1)} />
+                      <Tooltip
+                        label={key.charAt(0).toUpperCase() + key.slice(1)}
+                      />
                       {label}
                     </button>
                   ))}
@@ -693,64 +710,222 @@ export default function Menu({
               ))}
             </div>
 
-            <div className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+            <div
+              className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+            >
               Fill
             </div>
             <div className="flex items-center gap-1.5 mt-1">
-              {(["solid", "dots", "hatch", "crosshatch"] as FillStyle[]).map((f) => (
-                <button
-                  key={String(f)}
-                  onClick={() => updateSettings({ shapeFill: f })}
-                  aria-label={`Fill: ${f}`}
-                  aria-pressed={settings.shapeFill === f}
-                  className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
-                    settings.shapeFill === f
-                      ? isDark
-                        ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
-                        : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
-                      : isDark
-                        ? "hover:bg-white/10"
-                        : "hover:bg-black/10"
-                  }`}
-                >
-                  <Tooltip label={f.charAt(0).toUpperCase() + f.slice(1)} />
-                  {f === "solid" && (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "solid" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFill === "solid" ? 1 : 0.5}>
-                      <rect x="2" y="2" width="12" height="12" rx="1.5" fill={settings.shapeFill === "solid" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} fillOpacity="0.35" />
-                    </svg>
-                  )}
-                  {f === "dots" && (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeWidth="1.5" strokeLinejoin="round" opacity={settings.shapeFill === "dots" ? 1 : 0.5}>
-                      <rect x="2" y="2" width="12" height="12" rx="1.5" />
-                      <circle cx="6" cy="6.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
-                      <circle cx="10" cy="6.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
-                      <circle cx="6" cy="10.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
-                      <circle cx="10" cy="10.5" r="1.2" fill={settings.shapeFill === "dots" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} stroke="none" />
-                    </svg>
-                  )}
-                  {f === "hatch" && (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "hatch" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeLinejoin="round" opacity={settings.shapeFill === "hatch" ? 1 : 0.5}>
-                      <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
-                      {/* 3 parallel ↘ lines */}
-                      <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
-                      <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
-                      <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
-                    </svg>
-                  )}
-                  {f === "crosshatch" && (
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={settings.shapeFill === "crosshatch" ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} strokeLinejoin="round" opacity={settings.shapeFill === "crosshatch" ? 1 : 0.5}>
-                      <rect x="2" y="2" width="12" height="12" rx="1.5" strokeWidth="1.5" />
-                      {/* ↘ lines */}
-                      <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
-                      <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
-                      {/* ↗ lines */}
-                      <line x1="9" y1="2" x2="2" y2="9" strokeWidth="1.1" />
-                      <line x1="14" y1="7" x2="7" y2="14" strokeWidth="1.1" />
-                    </svg>
-                  )}
-                </button>
-              ))}
-              <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              {(["solid", "dots", "hatch", "crosshatch"] as FillStyle[]).map(
+                (f) => (
+                  <button
+                    key={String(f)}
+                    onClick={() => updateSettings({ shapeFill: f })}
+                    aria-label={`Fill: ${f}`}
+                    aria-pressed={settings.shapeFill === f}
+                    className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
+                      settings.shapeFill === f
+                        ? isDark
+                          ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
+                          : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                        : isDark
+                          ? "hover:bg-white/10"
+                          : "hover:bg-black/10"
+                    }`}
+                  >
+                    <Tooltip label={f.charAt(0).toUpperCase() + f.slice(1)} />
+                    {f === "solid" && (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={
+                          settings.shapeFill === "solid"
+                            ? isDark
+                              ? "#5dd8e8"
+                              : "#00618c"
+                            : isDark
+                              ? "white"
+                              : "black"
+                        }
+                        strokeWidth="1.5"
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFill === "solid" ? 1 : 0.5}
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="12"
+                          height="12"
+                          rx="1.5"
+                          fill={
+                            settings.shapeFill === "solid"
+                              ? isDark
+                                ? "#5dd8e8"
+                                : "#00618c"
+                              : isDark
+                                ? "white"
+                                : "black"
+                          }
+                          fillOpacity="0.35"
+                        />
+                      </svg>
+                    )}
+                    {f === "dots" && (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={
+                          settings.shapeFill === "dots"
+                            ? isDark
+                              ? "#5dd8e8"
+                              : "#00618c"
+                            : isDark
+                              ? "white"
+                              : "black"
+                        }
+                        strokeWidth="1.5"
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFill === "dots" ? 1 : 0.5}
+                      >
+                        <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                        <circle
+                          cx="6"
+                          cy="6.5"
+                          r="1.2"
+                          fill={
+                            settings.shapeFill === "dots"
+                              ? isDark
+                                ? "#5dd8e8"
+                                : "#00618c"
+                              : isDark
+                                ? "white"
+                                : "black"
+                          }
+                          stroke="none"
+                        />
+                        <circle
+                          cx="10"
+                          cy="6.5"
+                          r="1.2"
+                          fill={
+                            settings.shapeFill === "dots"
+                              ? isDark
+                                ? "#5dd8e8"
+                                : "#00618c"
+                              : isDark
+                                ? "white"
+                                : "black"
+                          }
+                          stroke="none"
+                        />
+                        <circle
+                          cx="6"
+                          cy="10.5"
+                          r="1.2"
+                          fill={
+                            settings.shapeFill === "dots"
+                              ? isDark
+                                ? "#5dd8e8"
+                                : "#00618c"
+                              : isDark
+                                ? "white"
+                                : "black"
+                          }
+                          stroke="none"
+                        />
+                        <circle
+                          cx="10"
+                          cy="10.5"
+                          r="1.2"
+                          fill={
+                            settings.shapeFill === "dots"
+                              ? isDark
+                                ? "#5dd8e8"
+                                : "#00618c"
+                              : isDark
+                                ? "white"
+                                : "black"
+                          }
+                          stroke="none"
+                        />
+                      </svg>
+                    )}
+                    {f === "hatch" && (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={
+                          settings.shapeFill === "hatch"
+                            ? isDark
+                              ? "#5dd8e8"
+                              : "#00618c"
+                            : isDark
+                              ? "white"
+                              : "black"
+                        }
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFill === "hatch" ? 1 : 0.5}
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="12"
+                          height="12"
+                          rx="1.5"
+                          strokeWidth="1.5"
+                        />
+                        {/* 3 parallel ↘ lines */}
+                        <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                        <line x1="2" y1="2" x2="14" y2="14" strokeWidth="1.1" />
+                        <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                      </svg>
+                    )}
+                    {f === "crosshatch" && (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={
+                          settings.shapeFill === "crosshatch"
+                            ? isDark
+                              ? "#5dd8e8"
+                              : "#00618c"
+                            : isDark
+                              ? "white"
+                              : "black"
+                        }
+                        strokeLinejoin="round"
+                        opacity={settings.shapeFill === "crosshatch" ? 1 : 0.5}
+                      >
+                        <rect
+                          x="2"
+                          y="2"
+                          width="12"
+                          height="12"
+                          rx="1.5"
+                          strokeWidth="1.5"
+                        />
+                        {/* ↘ lines */}
+                        <line x1="7" y1="2" x2="14" y2="9" strokeWidth="1.1" />
+                        <line x1="2" y1="7" x2="9" y2="14" strokeWidth="1.1" />
+                        {/* ↗ lines */}
+                        <line x1="9" y1="2" x2="2" y2="9" strokeWidth="1.1" />
+                        <line x1="14" y1="7" x2="7" y2="14" strokeWidth="1.1" />
+                      </svg>
+                    )}
+                  </button>
+                ),
+              )}
+              <div
+                className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
+              />
               <div className="flex items-center gap-1.5 flex-1">
                 <input
                   type="range"
@@ -758,15 +933,23 @@ export default function Menu({
                   max={100}
                   step={5}
                   value={settings.fillOpacity}
-                  onChange={(e) => updateSettings({ fillOpacity: Number(e.target.value) })}
+                  onChange={(e) =>
+                    updateSettings({ fillOpacity: Number(e.target.value) })
+                  }
                   className="flex-1 min-w-0"
                   style={{ accentColor: isDark ? "#5dd8e8" : "#00618c" }}
                 />
-                <span className={`text-[10px] tabular-nums w-6 text-right ${isDark ? "text-white/40" : "text-black/40"}`}>{settings.fillOpacity}%</span>
+                <span
+                  className={`text-[10px] tabular-nums w-6 text-right ${isDark ? "text-white/40" : "text-black/40"}`}
+                >
+                  {settings.fillOpacity}%
+                </span>
               </div>
             </div>
 
-            <div className={`mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+            <div
+              className={`mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+            >
               <span>Style</span>
               <span>Grid</span>
             </div>
@@ -778,21 +961,44 @@ export default function Menu({
                   aria-pressed={settings.shapeCorners === c}
                   className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                     settings.shapeCorners === c
-                      ? isDark ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
-                      : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                      ? isDark
+                        ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
+                        : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                      : isDark
+                        ? "hover:bg-white/10"
+                        : "hover:bg-black/10"
                   }`}
                 >
                   <Tooltip label={c === "rounded" ? "Rounded" : "Sharp"} />
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
-                    stroke={settings.shapeCorners === c ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"}
-                    strokeWidth="1.5" strokeLinejoin="round"
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke={
+                      settings.shapeCorners === c
+                        ? isDark
+                          ? "#5dd8e8"
+                          : "#00618c"
+                        : isDark
+                          ? "white"
+                          : "black"
+                    }
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
                     opacity={settings.shapeCorners === c ? 1 : 0.5}
                   >
-                    {c === "rounded" ? <rect x="2" y="2" width="12" height="12" rx="3" /> : <rect x="2" y="2" width="12" height="12" rx="0" />}
+                    {c === "rounded" ? (
+                      <rect x="2" y="2" width="12" height="12" rx="3" />
+                    ) : (
+                      <rect x="2" y="2" width="12" height="12" rx="0" />
+                    )}
                   </svg>
                 </button>
               ))}
-              <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              <div
+                className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
+              />
               {([false, true] as const).map((on) => (
                 <button
                   key={String(on)}
@@ -800,30 +1006,68 @@ export default function Menu({
                   aria-pressed={settings.pressureSensitivity === on}
                   className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                     settings.pressureSensitivity === on
-                      ? isDark ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
-                      : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                      ? isDark
+                        ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
+                        : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                      : isDark
+                        ? "hover:bg-white/10"
+                        : "hover:bg-black/10"
                   }`}
                 >
                   <Tooltip label={on ? "Dynamic" : "Uniform"} />
-                  <svg width="16" height="16" viewBox="0 0 16 16" fill="none" opacity={settings.pressureSensitivity === on ? 1 : 0.5}>
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    opacity={settings.pressureSensitivity === on ? 1 : 0.5}
+                  >
                     {on ? (
-                      <path d="M 2,8.5 C 4,7 7,4.5 14,8 C 7,11.5 4,10 2,8.5 Z"
-                        fill={settings.pressureSensitivity ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"} />
+                      <path
+                        d="M 2,8.5 C 4,7 7,4.5 14,8 C 7,11.5 4,10 2,8.5 Z"
+                        fill={
+                          settings.pressureSensitivity
+                            ? isDark
+                              ? "#5dd8e8"
+                              : "#00618c"
+                            : isDark
+                              ? "white"
+                              : "black"
+                        }
+                      />
                     ) : (
-                      <path d="M 2,11 C 6,9 10,8 14,6"
-                        stroke={!settings.pressureSensitivity ? (isDark ? "#5dd8e8" : "#00618c") : isDark ? "white" : "black"}
-                        strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                      <path
+                        d="M 2,11 C 6,9 10,8 14,6"
+                        stroke={
+                          !settings.pressureSensitivity
+                            ? isDark
+                              ? "#5dd8e8"
+                              : "#00618c"
+                            : isDark
+                              ? "white"
+                              : "black"
+                        }
+                        strokeWidth="2.5"
+                        strokeLinecap="round"
+                        fill="none"
+                      />
                     )}
                   </svg>
                 </button>
               ))}
               <div className="flex-1" />
-              <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              <div
+                className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
+              />
               {(["off", "dot", "square"] as GridType[]).map((g) => {
                 const active = settings.gridType === g;
                 const iconColor = active
-                  ? isDark ? "#5dd8e8" : "#00618c"
-                  : isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.4)";
+                  ? isDark
+                    ? "#5dd8e8"
+                    : "#00618c"
+                  : isDark
+                    ? "rgba(255,255,255,0.5)"
+                    : "rgba(0,0,0,0.4)";
                 return (
                   <button
                     key={g}
@@ -831,28 +1075,73 @@ export default function Menu({
                     aria-pressed={active}
                     className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                       active
-                        ? isDark ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50" : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
-                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                        ? isDark
+                          ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
+                          : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                        : isDark
+                          ? "hover:bg-white/10"
+                          : "hover:bg-black/10"
                     }`}
                   >
                     <Tooltip label={g.charAt(0).toUpperCase() + g.slice(1)} />
                     {g === "off" && (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                        <line x1="4" y1="4" x2="12" y2="12" stroke={iconColor} strokeWidth="1.5" strokeLinecap="round" />
-                        <line x1="12" y1="4" x2="4" y2="12" stroke={iconColor} strokeWidth="1.5" strokeLinecap="round" />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <line
+                          x1="4"
+                          y1="4"
+                          x2="12"
+                          y2="12"
+                          stroke={iconColor}
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
+                        <line
+                          x1="12"
+                          y1="4"
+                          x2="4"
+                          y2="12"
+                          stroke={iconColor}
+                          strokeWidth="1.5"
+                          strokeLinecap="round"
+                        />
                       </svg>
                     )}
                     {g === "dot" && (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill={iconColor}>
-                        <circle cx="4" cy="4" r="1.2" /><circle cx="8" cy="4" r="1.2" /><circle cx="12" cy="4" r="1.2" />
-                        <circle cx="4" cy="8" r="1.2" /><circle cx="8" cy="8" r="1.2" /><circle cx="12" cy="8" r="1.2" />
-                        <circle cx="4" cy="12" r="1.2" /><circle cx="8" cy="12" r="1.2" /><circle cx="12" cy="12" r="1.2" />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill={iconColor}
+                      >
+                        <circle cx="4" cy="4" r="1.2" />
+                        <circle cx="8" cy="4" r="1.2" />
+                        <circle cx="12" cy="4" r="1.2" />
+                        <circle cx="4" cy="8" r="1.2" />
+                        <circle cx="8" cy="8" r="1.2" />
+                        <circle cx="12" cy="8" r="1.2" />
+                        <circle cx="4" cy="12" r="1.2" />
+                        <circle cx="8" cy="12" r="1.2" />
+                        <circle cx="12" cy="12" r="1.2" />
                       </svg>
                     )}
                     {g === "square" && (
-                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={iconColor} strokeWidth="0.9">
-                        <line x1="1" y1="5.5" x2="15" y2="5.5" /><line x1="1" y1="10.5" x2="15" y2="10.5" />
-                        <line x1="5.5" y1="1" x2="5.5" y2="15" /><line x1="10.5" y1="1" x2="10.5" y2="15" />
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={iconColor}
+                        strokeWidth="0.9"
+                      >
+                        <line x1="1" y1="5.5" x2="15" y2="5.5" />
+                        <line x1="1" y1="10.5" x2="15" y2="10.5" />
+                        <line x1="5.5" y1="1" x2="5.5" y2="15" />
+                        <line x1="10.5" y1="1" x2="10.5" y2="15" />
                       </svg>
                     )}
                   </button>
@@ -889,10 +1178,42 @@ export default function Menu({
 
             <button
               onClick={() => {
-                setClearWipe((n) => n + 1);
-                onClear();
+                if (clearConfirming) {
+                  if (clearConfirmTimerRef.current) {
+                    clearTimeout(clearConfirmTimerRef.current);
+                    clearConfirmTimerRef.current = null;
+                  }
+                  setClearConfirming(false);
+                  setClearWipe((n) => n + 1);
+                  window.dispatchEvent(new Event("drawtool:clear"));
+                } else {
+                  const detail = { count: 0 };
+                  window.dispatchEvent(
+                    new CustomEvent("drawtool:query-stroke-count", { detail }),
+                  );
+                  const needsConfirm =
+                    settings.confirmClear && !hasTouch && detail.count > 10;
+                  if (needsConfirm) {
+                    setClearConfirming(true);
+                    clearConfirmTimerRef.current = setTimeout(() => {
+                      setClearConfirming(false);
+                      clearConfirmTimerRef.current = null;
+                    }, 3000);
+                  } else {
+                    setClearWipe((n) => n + 1);
+                    window.dispatchEvent(new Event("drawtool:clear"));
+                  }
+                }
               }}
-              className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 relative overflow-hidden ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
+              className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 relative overflow-hidden ${
+                clearConfirming
+                  ? isDark
+                    ? "text-red-400 bg-red-500/10 hover:bg-red-500/20"
+                    : "text-red-600 bg-red-500/8 hover:bg-red-500/15"
+                  : isDark
+                    ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10"
+                    : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"
+              }`}
             >
               {clearWipe > 0 && (
                 <span
@@ -917,7 +1238,9 @@ export default function Menu({
                 <line x1="6.5" y1="7.5" x2="6.5" y2="11" />
                 <line x1="9.5" y1="7.5" x2="9.5" y2="11" />
               </svg>
-              <span className="relative">Clear screen</span>
+              <span className="relative">
+                {clearConfirming ? "Are you sure?" : "Clear screen"}
+              </span>
             </button>
 
             <div
@@ -996,7 +1319,6 @@ export default function Menu({
               ))}
             </div>
 
-
             {hasTouch && (
               <button
                 onClick={() => {
@@ -1036,49 +1358,51 @@ export default function Menu({
               </button>
             )}
 
-            {!hasTouch && <div className="mt-4 space-y-3">
-              {[
-                {
-                  label: "Zoom controls",
-                  key: "showZoomControls" as const,
-                  value: settings.showZoomControls,
-                },
-                {
-                  label: "Confirm clear",
-                  key: "confirmClear" as const,
-                  value: settings.confirmClear,
-                },
-              ].map((opt) => (
-                <button
-                  key={opt.key}
-                  role="switch"
-                  aria-checked={opt.value}
-                  onClick={() => updateSettings({ [opt.key]: !opt.value })}
-                  className="flex items-center justify-between w-full text-sm cursor-pointer group"
-                >
-                  <span>{opt.label}</span>
-                  <span
-                    className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                      opt.value
-                        ? "bg-[#00618c]"
-                        : isDark
-                          ? "bg-white/15 group-hover:bg-white/25"
-                          : "bg-black/12 group-hover:bg-black/20"
-                    }`}
+            {!hasTouch && (
+              <div className="mt-4 space-y-3">
+                {[
+                  {
+                    label: "Zoom controls",
+                    key: "showZoomControls" as const,
+                    value: settings.showZoomControls,
+                  },
+                  {
+                    label: "Confirm clear",
+                    key: "confirmClear" as const,
+                    value: settings.confirmClear,
+                  },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    role="switch"
+                    aria-checked={opt.value}
+                    onClick={() => updateSettings({ [opt.key]: !opt.value })}
+                    className="flex items-center justify-between w-full text-sm cursor-pointer group"
                   >
+                    <span>{opt.label}</span>
                     <span
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                      className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
                         opt.value
-                          ? "translate-x-[16px] bg-white"
+                          ? "bg-[#00618c]"
                           : isDark
-                            ? "bg-white/70"
-                            : "bg-white"
+                            ? "bg-white/15 group-hover:bg-white/25"
+                            : "bg-black/12 group-hover:bg-black/20"
                       }`}
-                    />
-                  </span>
-                </button>
-              ))}
-            </div>}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                          opt.value
+                            ? "translate-x-[16px] bg-white"
+                            : isDark
+                              ? "bg-white/70"
+                              : "bg-white"
+                        }`}
+                      />
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="mt-4 space-y-1.5">
               {!hasTouch && (
@@ -1147,6 +1471,179 @@ export default function Menu({
               )}
 
               <AccordionSection
+                label="Help"
+                icon={
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <circle cx="7" cy="7" r="5.5" />
+                    <path d="M5.5 5.5a1.5 1.5 0 0 1 3 0c0 1-1.5 1.5-1.5 2.5" />
+                    <circle
+                      cx="7"
+                      cy="10"
+                      r="0.6"
+                      fill="currentColor"
+                      stroke="none"
+                    />
+                  </svg>
+                }
+                open={showHelp}
+                onToggle={() =>
+                  setShowHelp((v) => {
+                    if (!v)
+                      setTimeout(
+                        () =>
+                          helpRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "nearest",
+                          }),
+                        0,
+                      );
+                    return !v;
+                  })
+                }
+                isDark={isDark}
+              >
+                <div
+                  ref={helpRef}
+                  className={`text-xs space-y-4 pt-2.5 ${isDark ? "text-white/60" : "text-black/60"}`}
+                >
+                  <div>
+                    <div
+                      className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
+                    >
+                      Getting started
+                    </div>
+                    <div className="space-y-1">
+                      {[
+                        ["Draw", `${mod} + drag`],
+                        ["Draw freehand", "click + drag"],
+                        ["Dashed line", "Shift + drag"],
+                        ["Straight line", `${mod} + Shift + drag`],
+                        [
+                          "Draw shape",
+                          `${isMac ? "Ctrl" : `${alt} + Shift`} + drag`,
+                        ],
+                        ["Erase", `${alt} + drag`],
+                        ["Write text", "T, then click"],
+                      ].map(([label, kbd]) => (
+                        <div key={label} className="flex justify-between gap-4">
+                          <span>{label}</span>
+                          <kbd
+                            className={`shrink-0 ${isDark ? "text-white/35" : "text-black/35"}`}
+                          >
+                            {kbd}
+                          </kbd>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <div
+                      className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
+                    >
+                      Tips
+                    </div>
+                    <ul className="space-y-1.5 list-none">
+                      {(
+                        [
+                          <>
+                            Press{" "}
+                            <kbd
+                              className={
+                                isDark ? "text-white/35" : "text-black/35"
+                              }
+                            >
+                              V
+                            </kbd>{" "}
+                            to select — drag to move, or{" "}
+                            <kbd
+                              className={
+                                isDark ? "text-white/35" : "text-black/35"
+                              }
+                            >
+                              Ctrl
+                            </kbd>
+                            +drag to box-select multiple strokes.
+                          </>,
+                          "Click a line or arrow to select it — drag any point to bend it. While drawing, click to add a bend mid-stroke.",
+                          "Double-click text to edit it.",
+                          <>
+                            Hold{" "}
+                            <kbd
+                              className={
+                                isDark ? "text-white/35" : "text-black/35"
+                              }
+                            >
+                              F
+                            </kbd>{" "}
+                            while drawing a shape to fill it. Shift+F cycles
+                            fill styles.
+                          </>,
+                          <>
+                            Press{" "}
+                            <kbd
+                              className={
+                                isDark ? "text-white/35" : "text-black/35"
+                              }
+                            >
+                              [{" "}
+                            </kbd>{" "}
+                            or{" "}
+                            <kbd
+                              className={
+                                isDark ? "text-white/35" : "text-black/35"
+                              }
+                            >
+                              {" "}
+                              ]
+                            </kbd>{" "}
+                            to cycle through colours.
+                          </>,
+                          "Press 1–9 to jump between 9 canvases. Press 0 for the emptiest one.",
+                        ] as React.ReactNode[]
+                      ).map((tip, i) => (
+                        <li key={i}>{tip}</li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div>
+                    <div
+                      className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
+                    >
+                      URL tricks
+                    </div>
+                    <ul className="space-y-1.5 list-none">
+                      {[
+                        [
+                          "/new",
+                          "Opens a blank canvas — silently switches to the first empty slot, or asks before clearing if all 9 are in use.",
+                        ],
+                      ].map(([path, desc]) => (
+                        <li key={path}>
+                          <code
+                            className={`text-[11px] mr-1.5 ${isDark ? "text-white/50" : "text-black/50"}`}
+                          >
+                            {path}
+                          </code>
+                          {desc}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                </div>
+              </AccordionSection>
+
+              <AccordionSection
                 label="Export"
                 icon={
                   <svg
@@ -1181,7 +1678,10 @@ export default function Menu({
                 }
                 isDark={isDark}
               >
-                <div ref={exportContentRef} className="grid grid-cols-2 gap-1.5">
+                <div
+                  ref={exportContentRef}
+                  className="grid grid-cols-2 gap-1.5"
+                >
                   {(
                     [
                       {
@@ -1337,8 +1837,20 @@ export default function Menu({
                     strokeLinejoin="round"
                   >
                     <circle cx="7" cy="7" r="5.5" />
-                    <line x1="7" y1="6.5" x2="7" y2="10" strokeLinecap="round" />
-                    <circle cx="7" cy="4.5" r="0.6" fill="currentColor" stroke="none" />
+                    <line
+                      x1="7"
+                      y1="6.5"
+                      x2="7"
+                      y2="10"
+                      strokeLinecap="round"
+                    />
+                    <circle
+                      cx="7"
+                      cy="4.5"
+                      r="0.6"
+                      fill="currentColor"
+                      stroke="none"
+                    />
                   </svg>
                 }
                 open={showAbout}

@@ -826,6 +826,63 @@ function Canvas({
     };
   }, []);
 
+  // Apply fill style / fill opacity / corners to selected shape strokes when settings change
+  const prevShapeFillForApply = useRef(shapeFill);
+  const prevFillOpacityForApply = useRef(fillOpacity);
+  const prevShapeCornersForApply = useRef(shapeCorners);
+
+  useEffect(() => {
+    const prev = prevShapeFillForApply.current;
+    prevShapeFillForApply.current = shapeFill;
+    if (prev === shapeFill) return;
+    const targets = [
+      ...selectedGroupRef.current,
+      ...(selectedTextRef.current && !selectedGroupRef.current.includes(selectedTextRef.current) ? [selectedTextRef.current] : []),
+    ].filter(s => s.shape && s.shape !== "line" && s.fill !== undefined);
+    if (targets.length === 0) return;
+    undoStackRef.current.push({ type: "fill-style-change", strokes: targets, from: targets.map(s => s.fill), to: shapeFill });
+    redoStackRef.current = [];
+    targets.forEach(s => { s.fill = shapeFill; });
+    strokesCacheRef.current = null;
+    persistStrokes();
+    scheduleRedraw();
+  }, [shapeFill, persistStrokes, scheduleRedraw]);
+
+  useEffect(() => {
+    const prev = prevFillOpacityForApply.current;
+    prevFillOpacityForApply.current = fillOpacity;
+    if (prev === fillOpacity) return;
+    const targets = [
+      ...selectedGroupRef.current,
+      ...(selectedTextRef.current && !selectedGroupRef.current.includes(selectedTextRef.current) ? [selectedTextRef.current] : []),
+    ].filter(s => s.shape && s.shape !== "line" && s.fill !== undefined);
+    if (targets.length === 0) return;
+    undoStackRef.current.push({ type: "fill-opacity-change", strokes: targets, from: targets.map(s => s.fillOpacity), to: fillOpacity / 100 });
+    redoStackRef.current = [];
+    targets.forEach(s => { s.fillOpacity = fillOpacity / 100; });
+    strokesCacheRef.current = null;
+    persistStrokes();
+    scheduleRedraw();
+  }, [fillOpacity, persistStrokes, scheduleRedraw]);
+
+  useEffect(() => {
+    const prev = prevShapeCornersForApply.current;
+    prevShapeCornersForApply.current = shapeCorners;
+    if (prev === shapeCorners) return;
+    const targets = [
+      ...selectedGroupRef.current,
+      ...(selectedTextRef.current && !selectedGroupRef.current.includes(selectedTextRef.current) ? [selectedTextRef.current] : []),
+    ].filter(s => s.shape && s.shape !== "line");
+    if (targets.length === 0) return;
+    const toSharp = shapeCorners === "sharp" ? true : undefined;
+    undoStackRef.current.push({ type: "corners-change", strokes: targets, from: targets.map(s => s.sharp), to: toSharp });
+    redoStackRef.current = [];
+    targets.forEach(s => { s.sharp = toSharp; });
+    strokesCacheRef.current = null;
+    persistStrokes();
+    scheduleRedraw();
+  }, [shapeCorners, persistStrokes, scheduleRedraw]);
+
   const cancelErase = useCallback(() => {
     eraseTrailRef.current = [];
     pendingEraseRef.current.clear();
@@ -1253,6 +1310,12 @@ function Canvas({
         action.stroke.color = action.from;
       } else if (action.type === "group-color-change") {
         action.strokes.forEach((s, i) => { s.color = action.from[i]; });
+      } else if (action.type === "fill-style-change") {
+        action.strokes.forEach((s, i) => { s.fill = action.from[i]; });
+      } else if (action.type === "fill-opacity-change") {
+        action.strokes.forEach((s, i) => { s.fillOpacity = action.from[i]; });
+      } else if (action.type === "corners-change") {
+        action.strokes.forEach((s, i) => { s.sharp = action.from[i]; });
       } else if (action.type === "group-move") {
         for (let i = 0; i < action.strokes.length; i++) {
           action.strokes[i].points = action.from[i].map(p => ({ ...p }));
@@ -1323,6 +1386,12 @@ function Canvas({
         action.stroke.color = action.to;
       } else if (action.type === "group-color-change") {
         action.strokes.forEach(s => { s.color = action.to; });
+      } else if (action.type === "fill-style-change") {
+        action.strokes.forEach(s => { s.fill = action.to; });
+      } else if (action.type === "fill-opacity-change") {
+        action.strokes.forEach(s => { s.fillOpacity = action.to; });
+      } else if (action.type === "corners-change") {
+        action.strokes.forEach(s => { s.sharp = action.to; });
       } else if (action.type === "group-move") {
         for (let i = 0; i < action.strokes.length; i++) {
           action.strokes[i].points = action.to[i].map(p => ({ ...p }));
