@@ -1192,7 +1192,7 @@ export default function Menu({
                     new CustomEvent("drawtool:query-stroke-count", { detail }),
                   );
                   const needsConfirm =
-                    settings.confirmClear && !hasTouch && detail.count > 10;
+                    settings.confirmClear && detail.count > 10;
                   if (needsConfirm) {
                     setClearConfirming(true);
                     clearConfirmTimerRef.current = setTimeout(() => {
@@ -1358,51 +1358,64 @@ export default function Menu({
               </button>
             )}
 
-            {!hasTouch && (
-              <div className="mt-4 space-y-3">
-                {[
-                  {
-                    label: "Zoom controls",
-                    key: "showZoomControls" as const,
-                    value: settings.showZoomControls,
-                  },
-                  {
-                    label: "Confirm clear",
-                    key: "confirmClear" as const,
-                    value: settings.confirmClear,
-                  },
-                ].map((opt) => (
-                  <button
-                    key={opt.key}
-                    role="switch"
-                    aria-checked={opt.value}
-                    onClick={() => updateSettings({ [opt.key]: !opt.value })}
-                    className="flex items-center justify-between w-full text-sm cursor-pointer group"
+            <div className="mt-4 space-y-3">
+              {!hasTouch && (
+                <button
+                  role="switch"
+                  aria-checked={settings.showZoomControls}
+                  onClick={() => updateSettings({ showZoomControls: !settings.showZoomControls })}
+                  className="flex items-center justify-between w-full text-sm cursor-pointer group"
+                >
+                  <span>Zoom controls</span>
+                  <span
+                    className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                      settings.showZoomControls
+                        ? "bg-[#00618c]"
+                        : isDark
+                          ? "bg-white/15 group-hover:bg-white/25"
+                          : "bg-black/12 group-hover:bg-black/20"
+                    }`}
                   >
-                    <span>{opt.label}</span>
                     <span
-                      className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                        opt.value
-                          ? "bg-[#00618c]"
+                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                        settings.showZoomControls
+                          ? "translate-x-[16px] bg-white"
                           : isDark
-                            ? "bg-white/15 group-hover:bg-white/25"
-                            : "bg-black/12 group-hover:bg-black/20"
+                            ? "bg-white/70"
+                            : "bg-white"
                       }`}
-                    >
-                      <span
-                        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
-                          opt.value
-                            ? "translate-x-[16px] bg-white"
-                            : isDark
-                              ? "bg-white/70"
-                              : "bg-white"
-                        }`}
-                      />
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
+                    />
+                  </span>
+                </button>
+              )}
+              <button
+                role="switch"
+                aria-checked={settings.confirmClear}
+                onClick={() => updateSettings({ confirmClear: !settings.confirmClear })}
+                className="flex items-center justify-between w-full text-sm cursor-pointer group"
+              >
+                <span>Confirm clear</span>
+                <span
+                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                    settings.confirmClear
+                      ? "bg-[#00618c]"
+                      : isDark
+                        ? "bg-white/15 group-hover:bg-white/25"
+                        : "bg-black/12 group-hover:bg-black/20"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                      settings.confirmClear
+                        ? "translate-x-[16px] bg-white"
+                        : isDark
+                          ? "bg-white/70"
+                          : "bg-white"
+                    }`}
+                  />
+                </span>
+              </button>
+            </div>
 
             <div className="mt-4 space-y-1.5">
               {!hasTouch && (
@@ -1515,36 +1528,38 @@ export default function Menu({
                   ref={helpRef}
                   className={`text-xs space-y-4 pt-2.5 ${isDark ? "text-white/60" : "text-black/60"}`}
                 >
-                  <div>
-                    <div
-                      className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
-                    >
-                      Getting started
+                  {!hasTouch && (
+                    <div>
+                      <div
+                        className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
+                      >
+                        Getting started
+                      </div>
+                      <div className="space-y-1">
+                        {[
+                          ["Draw", `${mod} + drag`],
+                          ["Draw freehand", "click + drag"],
+                          ["Dashed line", "Shift + drag"],
+                          ["Straight line", `${mod} + Shift + drag`],
+                          [
+                            "Draw shape",
+                            `${isMac ? "Ctrl" : `${alt} + Shift`} + drag`,
+                          ],
+                          ["Erase", `${alt} + drag`],
+                          ["Write text", "T, then click"],
+                        ].map(([label, kbd]) => (
+                          <div key={label} className="flex justify-between gap-4">
+                            <span>{label}</span>
+                            <kbd
+                              className={`shrink-0 ${isDark ? "text-white/35" : "text-black/35"}`}
+                            >
+                              {kbd}
+                            </kbd>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="space-y-1">
-                      {[
-                        ["Draw", `${mod} + drag`],
-                        ["Draw freehand", "click + drag"],
-                        ["Dashed line", "Shift + drag"],
-                        ["Straight line", `${mod} + Shift + drag`],
-                        [
-                          "Draw shape",
-                          `${isMac ? "Ctrl" : `${alt} + Shift`} + drag`,
-                        ],
-                        ["Erase", `${alt} + drag`],
-                        ["Write text", "T, then click"],
-                      ].map(([label, kbd]) => (
-                        <div key={label} className="flex justify-between gap-4">
-                          <span>{label}</span>
-                          <kbd
-                            className={`shrink-0 ${isDark ? "text-white/35" : "text-black/35"}`}
-                          >
-                            {kbd}
-                          </kbd>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  )}
 
                   <div>
                     <div
@@ -1555,62 +1570,36 @@ export default function Menu({
                     <ul className="space-y-1.5 list-none">
                       {(
                         [
-                          <>
-                            Press{" "}
-                            <kbd
-                              className={
-                                isDark ? "text-white/35" : "text-black/35"
-                              }
-                            >
-                              V
-                            </kbd>{" "}
-                            to select — drag to move, or{" "}
-                            <kbd
-                              className={
-                                isDark ? "text-white/35" : "text-black/35"
-                              }
-                            >
-                              Ctrl
-                            </kbd>
-                            +drag to box-select multiple strokes.
-                          </>,
-                          "Click a line or arrow to select it — drag any point to bend it. While drawing, click to add a bend mid-stroke.",
-                          "Double-click text to edit it.",
-                          <>
-                            Hold{" "}
-                            <kbd
-                              className={
-                                isDark ? "text-white/35" : "text-black/35"
-                              }
-                            >
-                              F
-                            </kbd>{" "}
-                            while drawing a shape to fill it. Shift+F cycles
-                            fill styles.
-                          </>,
-                          <>
-                            Press{" "}
-                            <kbd
-                              className={
-                                isDark ? "text-white/35" : "text-black/35"
-                              }
-                            >
-                              [{" "}
-                            </kbd>{" "}
-                            or{" "}
-                            <kbd
-                              className={
-                                isDark ? "text-white/35" : "text-black/35"
-                              }
-                            >
-                              {" "}
-                              ]
-                            </kbd>{" "}
-                            to cycle through colours.
-                          </>,
-                          "Press 1–9 to jump between 9 canvases. Press 0 for the emptiest one.",
+                          !hasTouch && (
+                            <>
+                              Press{" "}
+                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>V</kbd>{" "}
+                              to select — drag to move, or{" "}
+                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>Ctrl</kbd>
+                              +drag to box-select multiple strokes.
+                            </>
+                          ),
+                          "Tap a line or arrow to select it — drag any point to bend it. While drawing, tap to add a bend mid-stroke.",
+                          "Double-tap text to edit it.",
+                          !hasTouch && (
+                            <>
+                              Hold{" "}
+                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>F</kbd>{" "}
+                              while drawing a shape to fill it. Shift+F cycles fill styles.
+                            </>
+                          ),
+                          !hasTouch && (
+                            <>
+                              Press{" "}
+                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>[ </kbd>{" "}
+                              or{" "}
+                              <kbd className={isDark ? "text-white/35" : "text-black/35"}> ]</kbd>{" "}
+                              to cycle through colours.
+                            </>
+                          ),
+                          !hasTouch && "Press 1–9 to jump between 9 canvases. Press 0 for the emptiest one.",
                         ] as React.ReactNode[]
-                      ).map((tip, i) => (
+                      ).filter(Boolean).map((tip, i) => (
                         <li key={i}>{tip}</li>
                       ))}
                     </ul>
