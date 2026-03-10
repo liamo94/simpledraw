@@ -1754,6 +1754,18 @@ function Canvas({
           }
         }
       }
+      // For filled shapes, also hit-test the interior via ray-casting
+      if (!hit && stroke.fill && stroke.shape && stroke.shape !== "line" && stroke.shape !== "arrow") {
+        let inside = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const xi = pts[i].x, yi = pts[i].y;
+          const xj = pts[j].x, yj = pts[j].y;
+          if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+            inside = !inside;
+          }
+        }
+        if (inside) hit = true;
+      }
       if (hit) pendingEraseRef.current.add(stroke);
     }
   }, []);
