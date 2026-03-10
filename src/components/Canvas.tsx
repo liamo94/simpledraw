@@ -1820,7 +1820,8 @@ function Canvas({
       if (e.button === 0 && isDrawingRef.current && activeModifierRef.current === "shape") {
         const stroke = strokesRef.current[strokesRef.current.length - 1];
         if (stroke?.shape) {
-          const dashed = keyShapeDashedRef.current;
+          // Key shapes track dashed via keyShapeDashedRef; modifier-only shapes use shiftHeldRef.
+          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : shiftHeldRef.current;
           stroke.style = dashed ? "dashed" : "solid";
           if (!dashed) stroke.dashGap = undefined;
           stroke.fill = fKeyHeldRef.current ? shapeFillRef.current : undefined;
@@ -2255,9 +2256,11 @@ function Canvas({
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "line";
+          const dashed = shapeDashedRef.current;
           const stroke: Stroke = {
             points: [point, { ...point }],
-            style: "solid",
+            style: dashed ? "dashed" : "solid",
+            ...(dashed ? { dashGap } : {}),
             lineWidth,
             color: lineColor,
             shape: "line",
