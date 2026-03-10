@@ -1659,7 +1659,7 @@ export default function App() {
               <div className="flex justify-between gap-6">
                 <span>Dashed line</span>
                 <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                  Shift + drag
+                  ⇧ + drag
                 </kbd>
               </div>
               <div className="flex justify-between gap-6">
@@ -1671,7 +1671,7 @@ export default function App() {
               <div className="flex justify-between gap-6">
                 <span>Shape</span>
                 <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                  {isMac ? "Ctrl" : `${alt} + Shift`} + drag
+                  {isMac ? "Ctrl" : `${alt} + ⇧`} + drag
                 </kbd>
               </div>
               <div className="flex justify-between gap-6">

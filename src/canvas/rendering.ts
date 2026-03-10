@@ -529,6 +529,7 @@ export function renderShape(
     const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
     const headLen = Math.max(22, lineWidth * 4.5);
     const headAngle = Math.PI / 6;
+    ctx.setLineDash([]);
     ctx.beginPath();
     ctx.moveTo(p1.x, p1.y);
     ctx.lineTo(p1.x - headLen * Math.cos(angle - headAngle), p1.y - headLen * Math.sin(angle - headAngle));

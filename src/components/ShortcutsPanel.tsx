@@ -140,8 +140,8 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
       <div className={headingClass}>Drawing</div>
       <div className="space-y-1">
         <Row label={<><DrawIcon />Draw</>} kbd={`Click / ${mod} + drag`} />
-        <Row label={<><DashedDrawIcon />Draw dashed</>} kbd="Shift + drag" />
-        <Row label={<><LineIcon />Straight line</>} kbd={`${mod} + Shift + drag`} />
+        <Row label={<><DashedDrawIcon />Draw dashed</>} kbd="Right-click / ⇧ + drag" />
+        <Row label={<><LineIcon />Straight line</>} kbd={`${mod} + ⇧ + drag`} />
         <Row label={<><EraseIcon />Erase</>} kbd={`${alt} + drag`} />
         <Row label={<><HighlightIcon />Highlight</>} kbd="W/H + drag" />
         <Row label={<><SprayIcon />Spray paint</>} kbd="B + drag" />
@@ -152,22 +152,22 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
 
       <div className={headingClass}>Shapes</div>
       <div className="space-y-1">
-        <Row label="Draw shape" kbd={`${isMac ? "Ctrl" : `${alt} + Shift`} + drag`} />
+        <Row label="Draw shape" kbd={`${isMac ? "Ctrl" : `${alt} + ⇧`} + drag`} />
         <Row label="Cycle shape" kbd="S" />
         <Row label={<><RectIcon />Rectangle</>} kbd="R + drag" />
         <Row label={<><CircleIcon />Circle</>} kbd="C + drag" />
         <Row label={<><ArrowIcon />Arrow</>} kbd="A + drag" />
-        <Row label={<><DashedRectIcon />Dashed shape</>} kbd={`${isMac ? "Shift + Ctrl" : `Shift + ${alt}`} + drag`} />
+        <Row label={<><DashedRectIcon />Dashed shape</>} kbd={`${isMac ? "⇧ + Ctrl" : `⇧ + ${alt}`} + drag`} />
         <Row label={<><FilledRectIcon />Filled shape</>} kbd={`${isMac ? "F + Ctrl" : `F + ${alt}`} + drag`} />
-        <Row label={<><FilledRectIcon />Cycle fill style</>} kbd="Shift + F" />
+        <Row label={<><FilledRectIcon />Cycle fill style</>} kbd={`${alt} + F`} />
         <Row label={<><CornersIcon />Rounded / sharp edges</>} kbd="E" />
       </div>
 
       <div className={headingClass}>Text</div>
       <div className="space-y-1">
         <Row label={<><TextIcon />Write text</>} kbd="T" />
-        <Row label={<><TextSizeIcon />Cycle text size</>} kbd="Shift + T" />
-        <Row label={<><FontIcon />Cycle font</>} kbd="Shift + Y" />
+        <Row label={<><TextSizeIcon />Cycle text size</>} kbd="⇧ + T" />
+        <Row label={<><FontIcon />Cycle font</>} kbd="⇧ + Y" />
         <Row label={<><BoldItalicIcon />Bold / Italic</>} kbd={`${mod} + B / I`} />
         <Row label={<><AlignTextIcon />Alignment</>} kbd={`${mod} + ⇧ + L / E / R`} />
         <Row label={<><UndoIcon />Undo typing</>} kbd={`${mod} + Z`} />
@@ -178,7 +178,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
       <div className="space-y-1">
         <Row label={<><LaserIcon />Laser pointer</>} kbd="Q/L + drag" />
         <Row label={<><UndoIcon />Undo</>} kbd={`U / ${mod} + Z`} />
-        <Row label={<><RedoIcon />Redo</>} kbd={`Shift + U / ${mod} + Shift + Z`} />
+        <Row label={<><RedoIcon />Redo</>} kbd={`⇧ + U / ${mod} + ⇧ + Z`} />
         <Row label={<><ColorIcon />Next / Prev color</>} kbd="] / [" />
         <Row label={<><SwapColorIcon />Swap last 2 colors</>} kbd="," />
         <Row label={<><CanvasIcon />Switch canvas</>} kbd="1 – 9" />
@@ -196,7 +196,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
       <div className="space-y-1">
         <Row label={<><SelectIcon />Select / move / resize</>} kbd="V + hold" />
         <Row label={<><BoxSelectIcon />Box select</>} kbd="V + drag" />
-        <Row label={<><AddSelectIcon />Add / remove from selection</>} kbd="Shift + V + click" />
+        <Row label={<><AddSelectIcon />Add / remove from selection</>} kbd="⇧ + V + click" />
         <Row label={<><CycleIcon />Cycle overlapping</>} kbd="Click again" />
         <Row label={<><SelectAllIcon />Select all</>} kbd={`${mod} + A`} />
         <Row label={<><CopyIcon />Copy</>} kbd={`${mod} + C`} />
@@ -204,7 +204,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><CutIcon />Cut</>} kbd={`${mod} + X`} />
         <Row label={<><DuplicateIcon />Duplicate</>} kbd={`${mod} + D`} />
         <Row label={<><LayerIcon />Bring forward / Send back</>} kbd={`${mod} + ] / [`} />
-        <Row label={<><LayerExtremeIcon />To front / To back</>} kbd={`${mod} + Shift + ] / [`} />
+        <Row label={<><LayerExtremeIcon />To front / To back</>} kbd={`${mod} + ⇧ + ] / [`} />
         <Row label={<><DeleteIcon />Delete</>} kbd="Backspace" />
         <Row label={<><NudgeIcon />Nudge</>} kbd="↑ ↓ ← →" />
         <Row label={<><DeselectIcon />Deselect</>} kbd="Escape" />

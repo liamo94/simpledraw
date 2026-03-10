@@ -62,6 +62,7 @@ export type KeyboardRefs = {
   highlightKeyRef: MutableRefObject<boolean>;
   laserKeyRef: MutableRefObject<boolean>;
   shiftHeldRef: MutableRefObject<boolean>;
+  rightClickHeldRef: MutableRefObject<boolean>;
   keyShapeRef: MutableRefObject<ShapeKind | null>;
   keyShapeDashedRef: MutableRefObject<boolean>;
   shapeJustCommittedRef: MutableRefObject<boolean>;
@@ -109,7 +110,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
     laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
-    shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
+    shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
     sprayKeyRef,
   } = refs;
@@ -784,11 +785,11 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:toggle-fullscreen"));
       }
-      if (e.key === "F" && !e.metaKey) {
-        // Shift+F: cycle fill style
+      if ((e.key === "f" || e.key === "ƒ") && e.altKey && !e.metaKey) {
+        // Alt+F: cycle fill style
         window.dispatchEvent(new Event("drawtool:cycle-fill"));
-      } else if (e.key === "f" && !e.metaKey) {
-        // F (no shift): apply fill while held
+      } else if ((e.key === "f" || e.key === "F") && !e.metaKey && !e.altKey) {
+        // F (with or without shift): apply fill while held
         fKeyHeldRef.current = true;
         if (isDrawingRef.current && activeModifierRef.current === "shape") {
           const stroke = strokesRef.current[strokesRef.current.length - 1];
@@ -869,7 +870,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       };
       if (shapeKeyMap[e.key] && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         keyShapeRef.current = shapeKeyMap[e.key];
-        keyShapeDashedRef.current = shiftHeldRef.current;
+        keyShapeDashedRef.current = shiftHeldRef.current || rightClickHeldRef.current;
         shapeJustCommittedRef.current = false;
         setShapeActive(true);
       }
@@ -1053,14 +1054,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         }
         if (keyShapeRef.current) {
           keyShapeDashedRef.current = false;
-          if (isDrawingRef.current && activeModifierRef.current === "shape") {
-            const stroke = strokesRef.current[strokesRef.current.length - 1];
-            if (stroke?.shape) {
-              stroke.style = "solid";
-              stroke.dashGap = undefined;
-              scheduleRedraw();
-            }
-          }
+          // Don't retroactively convert the in-progress stroke to solid — dashed state is locked at creation.
         }
       }
       if (e.key === "Meta" || (e.key === "Control" && !isMac)) {

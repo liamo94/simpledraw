@@ -123,6 +123,7 @@ function Canvas({
   const fKeyHeldRef = useRef(false);
   const pointerButtonDownRef = useRef(false);
   const shiftHeldRef = useRef(false); // own shift tracking — e.shiftKey can get stuck on Mac
+  const rightClickHeldRef = useRef(false);
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
   const clipboardRef = useRef<Stroke[] | null>(null);
   const cursorWorldRef = useRef({ x: 0, y: 0 });
@@ -1662,7 +1663,7 @@ function Canvas({
       textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
       laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
-      shiftHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
+      shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
       lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
       sprayKeyRef,
     },
@@ -1833,14 +1834,15 @@ function Canvas({
         const stroke = strokesRef.current[strokesRef.current.length - 1];
         if (stroke?.shape) {
           // Key shapes track dashed via keyShapeDashedRef; modifier-only shapes use shiftHeldRef.
-          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : shiftHeldRef.current;
+          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (shiftHeldRef.current || rightClickHeldRef.current);
           stroke.style = dashed ? "dashed" : "solid";
           if (!dashed) stroke.dashGap = undefined;
           stroke.fill = fKeyHeldRef.current ? shapeFillRef.current : undefined;
           if (stroke.fill) stroke.fillOpacity = fillOpacityRef.current / 100;
         }
       }
-      if (e.button === 0) pointerButtonDownRef.current = true;
+      if (e.button === 0 || e.button === 2) pointerButtonDownRef.current = true;
+      if (e.button === 2) rightClickHeldRef.current = true;
       (e.target as Element).setPointerCapture(e.pointerId);
     },
     [cancelCurrentStroke],
@@ -1934,6 +1936,7 @@ function Canvas({
       }
       // Mouse pointer up
       pointerButtonDownRef.current = false;
+      if (e.button === 2) rightClickHeldRef.current = false;
       if (isPanningRef.current) {
         isPanningRef.current = false;
         setPanning(false);
@@ -2171,9 +2174,11 @@ function Canvas({
                       ? "meta"
                       : e.shiftKey
                         ? "shift"
-                        : (e.buttons & 1) !== 0
-                          ? "meta"
-                          : null;
+                        : (e.buttons & 2) !== 0
+                          ? "shift"
+                          : (e.buttons & 1) !== 0
+                            ? "meta"
+                            : null;
       }
 
       if (!modifier) {
@@ -2305,7 +2310,7 @@ function Canvas({
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
           const isTouch = e.pointerType === "touch";
-          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (isTouch ? shapeDashedRef.current : shiftHeldRef.current);
+          const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (isTouch ? shapeDashedRef.current : (shiftHeldRef.current || rightClickHeldRef.current));
           const fill = isTouch ? (shapeFillEnabledRef.current ? shapeFillRef.current : undefined) : (fKeyHeldRef.current ? shapeFillRef.current : undefined);
           const stroke: Stroke = {
             points: [point, { ...point }],

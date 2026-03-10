@@ -476,7 +476,7 @@ export default function Menu({
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-1 mt-1">
+                <div className="flex items-center gap-1 mt-2.5">
                   {/* Bold */}
                   <button
                     onClick={() =>
@@ -1363,7 +1363,11 @@ export default function Menu({
                 <button
                   role="switch"
                   aria-checked={settings.showZoomControls}
-                  onClick={() => updateSettings({ showZoomControls: !settings.showZoomControls })}
+                  onClick={() =>
+                    updateSettings({
+                      showZoomControls: !settings.showZoomControls,
+                    })
+                  }
                   className="flex items-center justify-between w-full text-sm cursor-pointer group"
                 >
                   <span>Zoom controls</span>
@@ -1391,7 +1395,9 @@ export default function Menu({
               <button
                 role="switch"
                 aria-checked={settings.confirmClear}
-                onClick={() => updateSettings({ confirmClear: !settings.confirmClear })}
+                onClick={() =>
+                  updateSettings({ confirmClear: !settings.confirmClear })
+                }
                 className="flex items-center justify-between w-full text-sm cursor-pointer group"
               >
                 <span>Confirm clear</span>
@@ -1539,16 +1545,19 @@ export default function Menu({
                         {[
                           ["Draw", `${mod} + drag`],
                           ["Draw freehand", "click + drag"],
-                          ["Dashed line", "Shift + drag"],
-                          ["Straight line", `${mod} + Shift + drag`],
+                          ["Dashed line", "⇧ + drag"],
+                          ["Straight line", `${mod} + ⇧ + drag`],
                           [
                             "Draw shape",
-                            `${isMac ? "Ctrl" : `${alt} + Shift`} + drag`,
+                            `${isMac ? "Ctrl" : `${alt} + ⇧`} + drag`,
                           ],
                           ["Erase", `${alt} + drag`],
                           ["Write text", "T, then click"],
                         ].map(([label, kbd]) => (
-                          <div key={label} className="flex justify-between gap-4">
+                          <div
+                            key={label}
+                            className="flex justify-between gap-4"
+                          >
                             <span>{label}</span>
                             <kbd
                               className={`shrink-0 ${isDark ? "text-white/35" : "text-black/35"}`}
@@ -1573,10 +1582,22 @@ export default function Menu({
                           !hasTouch && (
                             <>
                               Press{" "}
-                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>V</kbd>{" "}
+                              <kbd
+                                className={
+                                  isDark ? "text-white/35" : "text-black/35"
+                                }
+                              >
+                                V
+                              </kbd>{" "}
                               to select — drag to move, or{" "}
-                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>Ctrl</kbd>
-                              +drag to box-select multiple strokes.
+                              <kbd
+                                className={
+                                  isDark ? "text-white/35" : "text-black/35"
+                                }
+                              >
+                                Ctrl
+                              </kbd>{" "}
+                              + drag to box-select multiple strokes.
                             </>
                           ),
                           "Tap a line or arrow to select it — drag any point to bend it. While drawing, tap to add a bend mid-stroke.",
@@ -1584,24 +1605,62 @@ export default function Menu({
                           !hasTouch && (
                             <>
                               Hold{" "}
-                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>F</kbd>{" "}
-                              while drawing a shape to fill it. Shift+F cycles fill styles.
+                              <kbd
+                                className={
+                                  isDark ? "text-white/35" : "text-black/35"
+                                }
+                              >
+                                F
+                              </kbd>{" "}
+                              while drawing a shape to fill it.{" "}
+                              <kbd
+                                className={
+                                  isDark ? "text-white/35" : "text-black/35"
+                                }
+                              >
+                                {alt}
+                              </kbd>{" "}
+                              +{" "}
+                              <kbd
+                                className={
+                                  isDark ? "text-white/35" : "text-black/35"
+                                }
+                              >
+                                F
+                              </kbd>{" "}
+                              cycles fill styles.
                             </>
                           ),
                           !hasTouch && (
                             <>
                               Press{" "}
-                              <kbd className={isDark ? "text-white/35" : "text-black/35"}>[ </kbd>{" "}
+                              <kbd
+                                className={
+                                  isDark ? "text-white/35" : "text-black/35"
+                                }
+                              >
+                                [{" "}
+                              </kbd>{" "}
                               or{" "}
-                              <kbd className={isDark ? "text-white/35" : "text-black/35"}> ]</kbd>{" "}
+                              <kbd
+                                className={
+                                  isDark ? "text-white/35" : "text-black/35"
+                                }
+                              >
+                                {" "}
+                                ]
+                              </kbd>{" "}
                               to cycle through colours.
                             </>
                           ),
-                          !hasTouch && "Press 1–9 to jump between 9 canvases. Press 0 for the emptiest one.",
+                          !hasTouch &&
+                            "Press 1–9 to jump between 9 canvases. Press 0 for the emptiest one.",
                         ] as React.ReactNode[]
-                      ).filter(Boolean).map((tip, i) => (
-                        <li key={i}>{tip}</li>
-                      ))}
+                      )
+                        .filter(Boolean)
+                        .map((tip, i) => (
+                          <li key={i}>{tip}</li>
+                        ))}
                     </ul>
                   </div>
 
