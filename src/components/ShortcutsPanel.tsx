@@ -40,17 +40,38 @@ const LaserIcon = () => (
     <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
   </svg>
 );
-const UndoIcon = () => <I><path d="M4,6 C4,3 8,2 11,4" /><polyline points="2,6.5 4,6 5.5,8" /></I>;
-const RedoIcon = () => <I><path d="M12,6 C12,3 8,2 5,4" /><polyline points="14,6.5 12,6 10.5,8" /></I>;
+const UndoIcon = () => <I><path d="M12,11 C12,4 4,4 4,9" /><polyline points="2,8 4,10 6,8" /></I>;
+const RedoIcon = () => <I><path d="M4,11 C4,4 12,4 12,9" /><polyline points="14,8 12,10 10,8" /></I>;
 const ColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><circle cx="4" cy="8" r="2.5" opacity="0.4" /><circle cx="11" cy="8" r="2.5" /></svg>;
 const SwapColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><circle cx="5" cy="8" r="2.5" /><path d="M9.5 6.5 L12.5 8 L9.5 9.5" opacity="0.4" /><path d="M12.5 6.5 L9.5 8 L12.5 9.5" opacity="0.4" /></svg>;
 const CanvasIcon = () => <I strokeWidth="1.2"><rect x="2" y="2" width="12" height="12" rx="1.5" /><line x1="6" y1="5" x2="6" y2="11" /><line x1="10" y1="5" x2="10" y2="11" /><line x1="2" y1="8" x2="14" y2="8" /></I>;
 const RenameIcon = () => <I strokeWidth="1.2"><rect x="2" y="2" width="12" height="12" rx="1.5" /><text x="8" y="8.5" textAnchor="middle" dominantBaseline="middle" fill="currentColor" stroke="none" fontSize="6.5" fontWeight="600" fontFamily="system-ui,-apple-system,sans-serif">Aa</text></I>;
 const ThicknessIcon = () => <I><line x1="4" y1="8" x2="12" y2="8" /></I>;
 const DotIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><circle cx="8" cy="8" r="3" /></svg>;
-const TextIcon = () => <I strokeWidth="1.3"><path d="M3 3h6M6 3v8M4.5 3v1M7.5 3v1" /></I>;
-const TextSizeIcon = () => <I strokeWidth="1.3"><path d="M3 3h6M6 3v8M4.5 3v1M7.5 3v1" /><path d="M10 6l2 2-2 2" strokeWidth="1.2" /></I>;
-const FontIcon = () => <I strokeWidth="1.3"><path d="M3 5h4M5 3v10M10 4l3 8M10 4l-3 8" /></I>;
+const TextIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+    <text x="8" y="13" textAnchor="middle" fontSize="14" fontWeight="600" fontFamily="system-ui,-apple-system,sans-serif">A</text>
+  </svg>
+);
+const TextSizeIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+    <text x="5" y="13" textAnchor="middle" fontSize="14" fontWeight="600" fontFamily="system-ui,-apple-system,sans-serif">A</text>
+    <text x="13" y="13" textAnchor="middle" fontSize="9" fontWeight="600" fontFamily="system-ui,-apple-system,sans-serif">A</text>
+  </svg>
+);
+const FontIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+    <text x="5" y="13" textAnchor="middle" fontSize="13" fontWeight="600" fontFamily="system-ui,-apple-system,sans-serif">A</text>
+    <text x="13" y="13" textAnchor="middle" fontSize="13" fontFamily="Georgia,serif" fillOpacity="0.5">a</text>
+  </svg>
+);
+const BoldItalicIcon = () => (
+  <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+    <text x="1" y="12" fontSize="11" fontWeight="800" fontFamily="system-ui,-apple-system,sans-serif">B</text>
+    <text x="9" y="12" fontSize="11" fontStyle="italic" fontFamily="Georgia,serif" fillOpacity="0.55">I</text>
+  </svg>
+);
+const AlignTextIcon = () => <I strokeWidth="1.3"><line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="10" y2="8" /><line x1="2" y1="12" x2="12" y2="12" /></I>;
 const ClearIcon = () => <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I>;
 const ExportIcon = () => <I><path d="M3 13h10M8 3v7M5 7l3 3 3-3" /></I>;
 const MenuIcon = () => <I><line x1="3" y1="4" x2="13" y2="4" /><line x1="3" y1="8" x2="13" y2="8" /><line x1="3" y1="12" x2="13" y2="12" /></I>;
@@ -125,7 +146,6 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><HighlightIcon />Highlight</>} kbd="W/H + drag" />
         <Row label={<><SprayIcon />Spray paint</>} kbd="B + drag" />
         <Row label={<><PressureIcon />Dynamic stroke</>} kbd="P" />
-        <Row label={<><CornersIcon />Rounded / sharp edges</>} kbd="E" />
         <Row label={<><ThicknessIcon />Thicker / Thinner</>} kbd="{ / }" />
         <Row label={<><DotIcon />Place dot</>} kbd="." />
       </div>
@@ -140,6 +160,7 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><DashedRectIcon />Dashed shape</>} kbd={`${isMac ? "Shift + Ctrl" : `Shift + ${alt}`} + drag`} />
         <Row label={<><FilledRectIcon />Filled shape</>} kbd={`${isMac ? "F + Ctrl" : `F + ${alt}`} + drag`} />
         <Row label={<><FilledRectIcon />Cycle fill style</>} kbd="Shift + F" />
+        <Row label={<><CornersIcon />Rounded / sharp edges</>} kbd="E" />
       </div>
 
       <div className={headingClass}>Text</div>
@@ -147,9 +168,10 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><TextIcon />Write text</>} kbd="T" />
         <Row label={<><TextSizeIcon />Cycle text size</>} kbd="Shift + T" />
         <Row label={<><FontIcon />Cycle font</>} kbd="Shift + Y" />
-        <Row label="Bold / Italic" kbd={`${mod} + B / I`} />
-        <Row label="Alignment" kbd={`${mod} + ⇧ + L / E / R`} />
-        <Row label="Undo / Redo typing" kbd={`${mod} + Z / ⇧Z`} />
+        <Row label={<><BoldItalicIcon />Bold / Italic</>} kbd={`${mod} + B / I`} />
+        <Row label={<><AlignTextIcon />Alignment</>} kbd={`${mod} + ⇧ + L / E / R`} />
+        <Row label={<><UndoIcon />Undo typing</>} kbd={`${mod} + Z`} />
+        <Row label={<><RedoIcon />Redo typing</>} kbd={`${mod} + ⇧Z`} />
       </div>
 
       <div className={headingClass}>Tools</div>
