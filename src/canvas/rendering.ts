@@ -189,7 +189,10 @@ function cloudArcData(x: number, y: number, w: number, h: number) {
   const ox = x + w / 2, oy = y + h / 2;
   // Guard against zero/near-zero dimension (e.g. perfectly horizontal drag).
   // Without this, bumpR = 0 → N = Infinity → infinite loop.
-  const bumpR = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
+  // Also enforce a minimum bumpR based on perimeter so elongated clouds don't get
+  // too many tiny bumps — approx perimeter / 42 keeps N ≤ ~28.
+  const naturalBumpR = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
+  const bumpR = Math.max(naturalBumpR, 2 * (w + h) / 42);
   const norm2pi = (a: number) => ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
 
   // Inner rounded rectangle whose perimeter we place bump centers along
@@ -675,14 +678,101 @@ export function renderRoughShape(
         }
         rc.path(svgPath, opts);
       } else {
-        // Smooth cloud: arc junctions cause rough.js artifacts — use plain canvas.
-        ctx.strokeStyle = color;
-        ctx.lineWidth = lineWidth;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        const dashScale = lineWidth / 4;
-        ctx.setLineDash(style === "dashed" ? [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] : []);
-        renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill, seed, fillOpacity, sharp);
+        // Smooth cloud with dynamic stroke: perfect-freehand with curvature-based pressure.
+        // Thick at bump peaks, thin at pinch points — tldraw-style hand-drawn look.
+        const { centers, normals, ipts, bumpR, N, norm2pi } = cloudArcData(x, y, w, h);
+
+        // Sample each arc with pressure: sin curve so peaks are thick, pinches are thin.
+        // Start from the PEAK of arc 0 so the seam falls at maximum width (invisible).
+        const getArcSpan = (i: number) => {
+          const c = centers[i];
+          const sp = ipts[(i + N - 1) % N];
+          const sa = Math.atan2(sp.y - c.y, sp.x - c.x);
+          const ea = Math.atan2(ipts[i].y - c.y, ipts[i].x - c.x);
+          const outerDir = norm2pi(normals[i]);
+          const t1 = norm2pi(sa), t2 = norm2pi(ea);
+          const cwPasses = t1 <= t2 ? (outerDir >= t1 && outerDir <= t2) : (outerDir >= t1 || outerDir <= t2);
+          const span = !cwPasses ? -norm2pi(sa - ea) : norm2pi(ea - sa);
+          const steps = Math.max(8, Math.ceil(Math.abs(span) / (Math.PI / 20)));
+          return { c, sa, span, steps };
+        };
+        // Per-arc random peak pressure (seeded so stable across re-renders)
+        let rs = (seed | 0) >>> 0;
+        const rng = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
+        const valleyP = 0.83;
+        // Each bump: random peak pressure, asymmetric peak position, and slight radial size offset.
+        const peakPs   = Array.from({ length: N }, () => 0.90 + rng() * 0.10); // 0.90–1.0
+        const peakTs   = Array.from({ length: N }, () => 0.38 + rng() * 0.24); // 0.38–0.62 (off-centre peak)
+        const arcRadii = Array.from({ length: N }, () => bumpR * (1 + (rng() - 0.5) * 0.08));
+
+        const pfPts: [number, number, number][] = [];
+        const pushSample = (c: { x: number; y: number }, sa: number, span: number, steps: number, j: number, arcIdx: number) => {
+          const t = j / steps;
+          const angle = sa + span * t;
+          const r = arcRadii[arcIdx];
+          // Asymmetric bell: sin mapped so it peaks at peakTs[arcIdx] rather than always t=0.5
+          const pt = peakTs[arcIdx];
+          const bell = t < pt ? Math.sin((t / pt) * (Math.PI / 2)) : Math.sin(((1 - t) / (1 - pt)) * (Math.PI / 2));
+          pfPts.push([
+            c.x + Math.cos(angle) * r,
+            c.y + Math.sin(angle) * r,
+            valleyP + (peakPs[arcIdx] - valleyP) * bell,
+          ]);
+        };
+        const a0 = getArcSpan(0);
+        const mid0 = Math.floor(a0.steps / 2);
+        // Arc 0: peak → end (second half)
+        for (let j = mid0; j < a0.steps; j++) pushSample(a0.c, a0.sa, a0.span, a0.steps, j, 0);
+        // Arcs 1..N-1: full
+        for (let i = 1; i < N; i++) {
+          const ai = getArcSpan(i);
+          for (let j = 0; j < ai.steps; j++) pushSample(ai.c, ai.sa, ai.span, ai.steps, j, i);
+        }
+        // Arc 0: start → peak (first half, closing the loop back at the seam)
+        for (let j = 0; j <= mid0; j++) pushSample(a0.c, a0.sa, a0.span, a0.steps, j, 0);
+
+        // Fill: clip to exact arc path and draw fill pattern
+        if (hasFill) {
+          const r = Math.min(w, h) * 0.12;
+          buildShapePath(ctx, "cloud", x, y, w, h, cx, cy, r, p0, p1, false, seed);
+          if (f === "solid") {
+            ctx.fillStyle = hexToRgba(color, fillOpacity ?? 0.2);
+            ctx.fill();
+          } else {
+            const fillPad = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
+            ctx.save();
+            ctx.clip();
+            if (f === "hatch") drawHatchFill(ctx, x - fillPad, y - fillPad, w + 2 * fillPad, h + 2 * fillPad, color, lineWidth, seed, fillOpacity);
+            else if (f === "crosshatch") drawCrossHatchFill(ctx, x - fillPad, y - fillPad, w + 2 * fillPad, h + 2 * fillPad, color, lineWidth, seed, fillOpacity);
+            else drawDotsFill(ctx, x - fillPad, y - fillPad, w + 2 * fillPad, h + 2 * fillPad, color, lineWidth, seed, fillOpacity);
+            ctx.restore();
+          }
+        }
+
+        // Stroke: render variable-width outline via perfect-freehand
+        if (pfPts.length >= 2) {
+          const outline = getStroke(pfPts, {
+            size: lineWidth * 1.15,
+            thinning: 0.6,
+            smoothing: 0.3,
+            streamline: 0.0,
+            simulatePressure: false,
+            last: false,
+          });
+          if (outline.length >= 2) {
+            ctx.beginPath();
+            ctx.moveTo(outline[0][0], outline[0][1]);
+            for (let i = 1; i < outline.length - 1; i++) {
+              const mx = (outline[i][0] + outline[i + 1][0]) / 2;
+              const my = (outline[i][1] + outline[i + 1][1]) / 2;
+              ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
+            }
+            ctx.lineTo(outline[outline.length - 1][0], outline[outline.length - 1][1]);
+            ctx.closePath();
+            ctx.fillStyle = color;
+            ctx.fill();
+          }
+        }
       }
       break;
     }
