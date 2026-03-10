@@ -282,6 +282,8 @@ function buildShapePath(
   cx: number, cy: number, r: number,
   p0: { x: number; y: number },
   p1: { x: number; y: number },
+  sharp?: boolean,
+  seed?: number,
 ) {
   ctx.beginPath();
   switch (shape) {
@@ -326,15 +328,29 @@ function buildShapePath(
     case "cloud": {
       const { centers, normals, ipts, bumpR, N, norm2pi } = cloudArcData(x, y, w, h);
       ctx.moveTo(ipts[N - 1].x, ipts[N - 1].y);
-      for (let i = 0; i < N; i++) {
-        const c = centers[i];
-        const sp = ipts[(i + N - 1) % N], ep = ipts[i];
-        const sa = Math.atan2(sp.y - c.y, sp.x - c.x);
-        const ea = Math.atan2(ep.y - c.y, ep.x - c.x);
-        const outerDir = norm2pi(normals[i]);
-        const t1 = norm2pi(sa), t2 = norm2pi(ea);
-        const cwPasses = t1 <= t2 ? (outerDir >= t1 && outerDir <= t2) : (outerDir >= t1 || outerDir <= t2);
-        ctx.arc(c.x, c.y, bumpR, sa, ea, !cwPasses);
+      if (sharp) {
+        // Jagged/spiky cloud: spike tips protrude beyond the smooth arc peak.
+        // Seeded LCG (keyed on stroke seed) gives consistent spike heights across drags.
+        let rs = ((seed ?? 42) | 0) >>> 0;
+        const rng = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
+        for (let i = 0; i < N; i++) {
+          const scale = 1.4 + rng() * 0.4; // 1.4–1.8× beyond arc peak
+          const tipX = centers[i].x + Math.cos(normals[i]) * bumpR * scale;
+          const tipY = centers[i].y + Math.sin(normals[i]) * bumpR * scale;
+          ctx.lineTo(tipX, tipY);
+          ctx.lineTo(ipts[i].x, ipts[i].y);
+        }
+      } else {
+        for (let i = 0; i < N; i++) {
+          const c = centers[i];
+          const sp = ipts[(i + N - 1) % N], ep = ipts[i];
+          const sa = Math.atan2(sp.y - c.y, sp.x - c.x);
+          const ea = Math.atan2(ep.y - c.y, ep.x - c.x);
+          const outerDir = norm2pi(normals[i]);
+          const t1 = norm2pi(sa), t2 = norm2pi(ea);
+          const cwPasses = t1 <= t2 ? (outerDir >= t1 && outerDir <= t2) : (outerDir >= t1 || outerDir <= t2);
+          ctx.arc(c.x, c.y, bumpR, sa, ea, !cwPasses);
+        }
       }
       ctx.closePath();
       break;
@@ -522,7 +538,7 @@ export function renderShape(
     return;
   }
 
-  buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
+  buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1, sharp, seed);
 
   const f = fill === true ? "solid" : fill; // backward compat for stored fill:true
   if (f && color && shape !== "line") {
@@ -541,7 +557,7 @@ export function renderShape(
       else if (f === "crosshatch") drawCrossHatchFill(ctx, fx, fy, fw, fh, color, lineWidth, seed, fillOpacity);
       else drawDotsFill(ctx, fx, fy, fw, fh, color, lineWidth, seed, fillOpacity);
       ctx.restore();
-      buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
+      buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1, sharp, seed);
     }
   }
   ctx.stroke();
@@ -633,14 +649,40 @@ export function renderRoughShape(
       break;
     }
     case "cloud": {
-      // Cloud arc junctions cause rough.js artifacts — render with plain canvas instead.
-      ctx.strokeStyle = color;
-      ctx.lineWidth = lineWidth;
-      ctx.lineCap = "round";
-      ctx.lineJoin = "round";
-      const dashScale = lineWidth / 4;
-      ctx.setLineDash(style === "dashed" ? [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] : []);
-      renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill, seed, fillOpacity);
+      if (sharp) {
+        // Jagged cloud is all straight lines — safe to use rough.js directly.
+        const { centers, normals, ipts, bumpR, N } = cloudArcData(x, y, w, h);
+        let rs = (seed | 0) >>> 0;
+        const rng = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
+        const spikePts: { x: number; y: number }[] = [ipts[N - 1]];
+        for (let i = 0; i < N; i++) {
+          const sc = 1.4 + rng() * 0.4;
+          spikePts.push({ x: centers[i].x + Math.cos(normals[i]) * bumpR * sc, y: centers[i].y + Math.sin(normals[i]) * bumpR * sc });
+          spikePts.push(ipts[i]);
+        }
+        const svgPath = "M " + spikePts.map(p => `${p.x} ${p.y}`).join(" L ") + " Z";
+        if (hasFill && (f === "hatch" || f === "dots")) {
+          const fillPad = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
+          ctx.save();
+          ctx.beginPath();
+          spikePts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
+          ctx.closePath();
+          ctx.clip();
+          if (f === "hatch") drawHatchFill(ctx, x - fillPad, y - fillPad, w + 2 * fillPad, h + 2 * fillPad, color, lineWidth, undefined, fillOpacity);
+          else drawDotsFill(ctx, x - fillPad, y - fillPad, w + 2 * fillPad, h + 2 * fillPad, color, lineWidth, seed, fillOpacity);
+          ctx.restore();
+        }
+        rc.path(svgPath, opts);
+      } else {
+        // Smooth cloud: arc junctions cause rough.js artifacts — use plain canvas.
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lineWidth;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        const dashScale = lineWidth / 4;
+        ctx.setLineDash(style === "dashed" ? [10 * dashScale, (dashGap ?? 8) * 5 * dashScale] : []);
+        renderShape(ctx, p0, p1, "cloud", lineWidth, color, fill, seed, fillOpacity, sharp);
+      }
       break;
     }
     case "arrow": {
