@@ -130,6 +130,10 @@ export default function Menu({
   const isDark = isDarkTheme(settings.theme);
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent("drawtool:menu-state", { detail: open }));
+  }, [open]);
+
+  useEffect(() => {
     const onToggle = () =>
       setOpen((o) => {
         if (o) {
@@ -141,8 +145,19 @@ export default function Menu({
         }
         return !o;
       });
+    const onClose = () => {
+      setOpen(false);
+      setShowInfo(false);
+      setShowHelp(false);
+      setShowAbout(false);
+      setShowExport(false);
+    };
     window.addEventListener("drawtool:toggle-menu", onToggle);
-    return () => window.removeEventListener("drawtool:toggle-menu", onToggle);
+    window.addEventListener("drawtool:close-menu", onClose);
+    return () => {
+      window.removeEventListener("drawtool:toggle-menu", onToggle);
+      window.removeEventListener("drawtool:close-menu", onClose);
+    };
   }, []);
 
   useEffect(() => {

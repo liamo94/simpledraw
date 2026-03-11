@@ -809,12 +809,23 @@ function Canvas({
 
   // --- RAF-queue scheduleRedraw (item 1) ---
   const rafIdRef = useRef<number | null>(null);
+  const lastStateRef = useRef({ canUndo: false, canRedo: false, hasSelection: false });
   const scheduleRedraw = useCallback(() => {
     if (rafIdRef.current !== null) return;
     rafIdRef.current = requestAnimationFrame(() => {
       rafIdRef.current = null;
       redraw();
       checkContentOffScreen();
+      const canUndo = undoStackRef.current.length > 0;
+      const canRedo = redoStackRef.current.length > 0;
+      const hasSelection = selectedTextRef.current !== null || selectedGroupRef.current.length > 0;
+      const last = lastStateRef.current;
+      if (canUndo !== last.canUndo || canRedo !== last.canRedo || hasSelection !== last.hasSelection) {
+        last.canUndo = canUndo;
+        last.canRedo = canRedo;
+        last.hasSelection = hasSelection;
+        window.dispatchEvent(new CustomEvent("drawtool:state", { detail: { canUndo, canRedo, hasSelection } }));
+      }
     });
   }, [redraw, checkContentOffScreen]);
 
@@ -892,6 +903,28 @@ function Canvas({
     activeModifierRef.current = null;
     scheduleRedraw();
   }, [scheduleRedraw]);
+
+  // Sync select tool: set zKeyRef and cursor, clear selection when leaving select mode
+  const prevTouchToolRef = useRef(touchTool);
+  useEffect(() => {
+    const prev = prevTouchToolRef.current;
+    prevTouchToolRef.current = touchTool;
+    if (prev === "select" && touchTool !== "select") {
+      zKeyRef.current = false;
+      selectedTextRef.current = null;
+      selectedGroupRef.current = [];
+      selectDragRef.current = null;
+      groupDragRef.current = null;
+      hoverTextRef.current = null;
+      strokesCacheRef.current = null;
+      setZCursor(null);
+      scheduleRedraw();
+    } else if (touchTool === "select") {
+      zKeyRef.current = true;
+      setZCursor("default");
+      scheduleRedraw();
+    }
+  }, [touchTool, setZCursor, scheduleRedraw]);
 
   // Drain erase trail when cursor stops moving
   useEffect(() => {
@@ -1620,6 +1653,10 @@ function Canvas({
       scheduleRedraw();
     };
     window.addEventListener("drawtool:import-strokes", onImportStrokes);
+    const onUndoEvent = () => undo();
+    window.addEventListener("drawtool:undo", onUndoEvent);
+    const onRedoEvent = () => redo();
+    window.addEventListener("drawtool:redo", onRedoEvent);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
@@ -1635,8 +1672,10 @@ function Canvas({
       window.removeEventListener("drawtool:text-italic", onTextItalic);
       window.removeEventListener("drawtool:text-align", onTextAlign);
       window.removeEventListener("drawtool:import-strokes", onImportStrokes);
+      window.removeEventListener("drawtool:undo", onUndoEvent);
+      window.removeEventListener("drawtool:redo", onRedoEvent);
     };
-  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, exportSvg, scheduleRedraw]);
+  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 
   const MIN_SHAPE_SIZE = 8;
   const MIN_DASH_LENGTH = 10; // world units — discard dashed strokes shorter than this
@@ -1942,6 +1981,9 @@ function Canvas({
               strokesCacheRef.current = null;
               scheduleRedraw();
             }
+            if (activeModifierRef.current === "laser") {
+              setLasering(false);
+            }
             discardTinyShape();
             isDrawingRef.current = false;
             activeModifierRef.current = null;
@@ -2030,7 +2072,7 @@ function Canvas({
         scheduleRedraw();
       }
     },
-    [confirmErase, discardTinyShape, persistStrokes, persistView, scheduleRedraw, notifyColorUsed],
+    [confirmErase, discardTinyShape, persistStrokes, persistView, scheduleRedraw, notifyColorUsed, setLasering],
   );
 
   const onPointerMove = useCallback(
@@ -2165,7 +2207,11 @@ function Canvas({
                       ? "shape"
                       : tool === "highlight"
                         ? "highlight"
-                        : null;
+                        : tool === "laser"
+                          ? "laser"
+                          : tool === "spray"
+                            ? "spray"
+                            : null;
         }
       } else {
         modifier = isZoomingRef.current
@@ -2262,6 +2308,7 @@ function Canvas({
       if (modifier === "laser") {
         if (!isDrawingRef.current || activeModifierRef.current !== "laser") {
           laserTrailRef.current = [];
+          setLasering(true);
         }
         isDrawingRef.current = true;
         activeModifierRef.current = "laser";
@@ -2506,6 +2553,7 @@ function Canvas({
       broadcastZoom,
       notifyColorUsed,
       cancelCurrentStroke,
+      setLasering,
     ],
   );
 

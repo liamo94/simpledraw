@@ -120,7 +120,7 @@ export default function App() {
   const exportFormatRef = useRef(exportFormat);
   const exportTransparentBgRef = useRef(exportTransparentBg);
   const [showThicknessPicker, setShowThicknessPicker] = useState<
-    "draw" | "dashed" | "line" | "highlight" | null
+    "draw" | "dashed" | "line" | null
   >(null);
   const [toast, setToast] = useState<
     | { type: "text"; message: string }
@@ -133,11 +133,25 @@ export default function App() {
   const [toastFading, setToastFading] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [lastMarkTool, setLastMarkTool] = useState<"highlight" | "laser" | "spray">("highlight");
+  const [canUndo, setCanUndo] = useState(false);
+  const [canRedo, setCanRedo] = useState(false);
+  const [hasSelection, setHasSelection] = useState(false);
+  const [, setMenuOpen] = useState(false);
+  const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 768);
+  useEffect(() => {
+    const onResize = () => setIsTablet(window.innerWidth >= 768);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const highlightLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
+  const handLastTapRef = useRef<number>(0);
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
   const drawButtonRef = useRef<HTMLButtonElement>(null);
   const dashedButtonRef = useRef<HTMLButtonElement>(null);
@@ -317,6 +331,30 @@ export default function App() {
     return () =>
       window.removeEventListener("keydown", onKey, { capture: true });
   }, [showImportModal]);
+
+  useEffect(() => {
+    const onState = (e: Event) => {
+      const { canUndo, canRedo, hasSelection } = (e as CustomEvent).detail;
+      setCanUndo(canUndo);
+      setCanRedo(canRedo);
+      setHasSelection(hasSelection);
+    };
+    const onMenuState = (e: Event) => {
+      const open = (e as CustomEvent).detail as boolean;
+      setMenuOpen(open);
+      if (open) {
+        setShowShapePicker(false);
+        setShowThicknessPicker(null);
+        setShowHighlightPicker(false);
+      }
+    };
+    window.addEventListener("drawtool:state", onState);
+    window.addEventListener("drawtool:menu-state", onMenuState);
+    return () => {
+      window.removeEventListener("drawtool:state", onState);
+      window.removeEventListener("drawtool:menu-state", onMenuState);
+    };
+  }, []);
 
   useEffect(() => {
     const onZoom = (e: Event) => setZoom((e as CustomEvent).detail);
@@ -661,14 +699,17 @@ export default function App() {
             <svg
               width="17"
               height="17"
-              viewBox="0 0 16 16"
+              viewBox="0 0 24 24"
               fill="none"
               stroke="currentColor"
-              strokeWidth="1.5"
+              strokeWidth="2"
               strokeLinecap="round"
               strokeLinejoin="round"
             >
-              <path d="M8 1.5v13M1.5 8h13M3 4.5L1.5 8 3 11.5M13 4.5L14.5 8 13 11.5M4.5 3L8 1.5 11.5 3M4.5 13L8 14.5 11.5 13" />
+              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2" />
+              <path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2" />
+              <path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8" />
+              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
             </svg>
           ),
         },
@@ -801,6 +842,24 @@ export default function App() {
             </svg>
           ),
         },
+        {
+          id: "select",
+          label: "Select",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 16 16"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.4"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <path d="M2 2l4.5 11 2-4.5L13 6.5z" />
+            </svg>
+          ),
+        },
       ],
       [settings.lineColor, settings.activeShape],
     );
@@ -861,19 +920,100 @@ export default function App() {
       />
       {hasTouch ? (
         <>
-          {(showShapePicker || showThicknessPicker) && (
+          {(showShapePicker || showThicknessPicker || showHighlightPicker) && (
             <div
               className="fixed inset-0 z-40"
               onPointerDown={() => {
                 setShowShapePicker(false);
                 setShowThicknessPicker(null);
+                setShowHighlightPicker(false);
               }}
             />
           )}
+          {/* Undo / Redo / Delete — tablet: fixed bottom-left; mobile: above toolbar right-aligned */}
+          {isTablet && (
+            <div className="fixed bottom-4 left-4 z-50 flex items-center gap-0.5">
+              <button
+                aria-label="Undo"
+                disabled={!canUndo}
+                onClick={() => window.dispatchEvent(new Event("drawtool:undo"))}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 8.5H12C14.5 8.5 16.5 10.5 16.5 13S14.5 17.5 12 17.5H7" />
+                  <path d="M7 5.5L4 8.5l3 3" />
+                </svg>
+              </button>
+              <button
+                aria-label="Redo"
+                disabled={!canRedo}
+                onClick={() => window.dispatchEvent(new Event("drawtool:redo"))}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 8.5H8C5.5 8.5 3.5 10.5 3.5 13S5.5 17.5 8 17.5H13" />
+                  <path d="M13 5.5L16 8.5l-3 3" />
+                </svg>
+              </button>
+              <button
+                aria-label="Delete selection"
+                disabled={!hasSelection}
+                onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }))}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2.5 5.5h15" />
+                  <path d="M7.5 5.5V3.5h5v2" />
+                  <path d="M5 5.5l1 13h8l1-13" />
+                  <path d="M8.5 9v6" />
+                  <path d="M11.5 9v6" />
+                </svg>
+              </button>
+            </div>
+          )}
           <nav
             aria-label="Drawing tools"
-            className="fixed bottom-4 left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-1 touch-toolbar"
+            className={`fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : "bottom-4"}`}
           >
+            {/* Undo / Redo / Delete — mobile only: above toolbar right-aligned */}
+            {!isTablet && <div className="absolute right-1 bottom-full mb-1 flex items-center gap-0.5">
+              <button
+                aria-label="Undo"
+                disabled={!canUndo}
+                onClick={() => window.dispatchEvent(new Event("drawtool:undo"))}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 8.5H12C14.5 8.5 16.5 10.5 16.5 13S14.5 17.5 12 17.5H7" />
+                  <path d="M7 5.5L4 8.5l3 3" />
+                </svg>
+              </button>
+              <button
+                aria-label="Redo"
+                disabled={!canRedo}
+                onClick={() => window.dispatchEvent(new Event("drawtool:redo"))}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M16 8.5H8C5.5 8.5 3.5 10.5 3.5 13S5.5 17.5 8 17.5H13" />
+                  <path d="M13 5.5L16 8.5l-3 3" />
+                </svg>
+              </button>
+              <button
+                aria-label="Delete selection"
+                disabled={!hasSelection}
+                onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }))}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M2.5 5.5h15" />
+                  <path d="M7.5 5.5V3.5h5v2" />
+                  <path d="M5 5.5l1 13h8l1-13" />
+                  <path d="M8.5 9v6" />
+                  <path d="M11.5 9v6" />
+                </svg>
+              </button>
+            </div>}
             <div
               className="relative flex items-center gap-0.5 sm:gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
@@ -905,8 +1045,12 @@ export default function App() {
                     key={t.id}
                     ref={buttonRef}
                     aria-label={t.label}
-                    aria-pressed={touchTool === t.id}
+                    aria-pressed={
+                      touchTool === t.id ||
+                      (t.id === "highlight" && (touchTool === "laser" || touchTool === "spray"))
+                    }
                     onClick={() => {
+                      window.dispatchEvent(new Event("drawtool:close-menu"));
                       if (shapeLongPressRef.current) {
                         clearTimeout(shapeLongPressRef.current);
                         shapeLongPressRef.current = null;
@@ -915,14 +1059,31 @@ export default function App() {
                         clearTimeout(thicknessLongPressRef.current);
                         thicknessLongPressRef.current = null;
                       }
+                      if (highlightLongPressRef.current) {
+                        clearTimeout(highlightLongPressRef.current);
+                        highlightLongPressRef.current = null;
+                      }
                       if (longPressFiredRef.current) {
                         longPressFiredRef.current = false;
                         return;
                       }
-                      if (!showShapePicker && !showThicknessPicker)
-                        setTouchTool(t.id);
+                      if (!showShapePicker && !showThicknessPicker && !showHighlightPicker) {
+                        if (t.id === "hand") {
+                          const now = Date.now();
+                          if (now - handLastTapRef.current < 350) {
+                            resetView();
+                            handLastTapRef.current = 0;
+                          } else {
+                            handLastTapRef.current = now;
+                            setTouchTool("hand");
+                          }
+                        } else {
+                          setTouchTool(t.id === "highlight" ? lastMarkTool : t.id);
+                        }
+                      }
                       setShowShapePicker(false);
                       setShowThicknessPicker(null);
+                      setShowHighlightPicker(false);
                     }}
                     onPointerDown={
                       hasLongPress
@@ -931,25 +1092,30 @@ export default function App() {
                               shapeLongPressRef.current = setTimeout(() => {
                                 setShowShapePicker(true);
                                 setShowThicknessPicker(null);
+                                setShowHighlightPicker(false);
                                 setTouchTool(t.id);
                                 shapeLongPressRef.current = null;
+                                longPressFiredRef.current = true;
+                              }, 400);
+                            } else if (t.id === "highlight") {
+                              highlightLongPressRef.current = setTimeout(() => {
+                                setShowHighlightPicker(true);
+                                setShowThicknessPicker(null);
+                                setShowShapePicker(false);
+                                highlightLongPressRef.current = null;
                                 longPressFiredRef.current = true;
                               }, 400);
                             } else if (
                               t.id === "draw" ||
                               t.id === "dashed" ||
-                              t.id === "line" ||
-                              t.id === "highlight"
+                              t.id === "line"
                             ) {
                               thicknessLongPressRef.current = setTimeout(() => {
                                 setShowThicknessPicker(
-                                  t.id as
-                                    | "draw"
-                                    | "dashed"
-                                    | "line"
-                                    | "highlight",
+                                  t.id as "draw" | "dashed" | "line",
                                 );
                                 setShowShapePicker(false);
+                                setShowHighlightPicker(false);
                                 setTouchTool(t.id);
                                 thicknessLongPressRef.current = null;
                                 longPressFiredRef.current = true;
@@ -967,6 +1133,10 @@ export default function App() {
                         clearTimeout(thicknessLongPressRef.current);
                         thicknessLongPressRef.current = null;
                       }
+                      if (highlightLongPressRef.current) {
+                        clearTimeout(highlightLongPressRef.current);
+                        highlightLongPressRef.current = null;
+                      }
                     }}
                     onPointerLeave={() => {
                       if (shapeLongPressRef.current) {
@@ -977,9 +1147,13 @@ export default function App() {
                         clearTimeout(thicknessLongPressRef.current);
                         thicknessLongPressRef.current = null;
                       }
+                      if (highlightLongPressRef.current) {
+                        clearTimeout(highlightLongPressRef.current);
+                        highlightLongPressRef.current = null;
+                      }
                     }}
                     className={`flex items-center gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                      touchTool === t.id
+                      (touchTool === t.id || (t.id === "highlight" && (touchTool === "laser" || touchTool === "spray")))
                         ? isDark
                           ? "bg-white/20 text-white"
                           : "bg-black/20 text-black"
@@ -988,13 +1162,29 @@ export default function App() {
                           : "text-black/60 hover:bg-black/10"
                     }`}
                   >
-                    {t.icon}
+                    {t.id === "highlight" && lastMarkTool === "laser" ? (
+                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
+                        <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+                      </svg>
+                    ) : t.id === "highlight" && lastMarkTool === "spray" ? (
+                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="1.5" cy="3.5" r="0.85" fill={settings.lineColor} stroke="none" />
+                        <circle cx="0.5" cy="6.5" r="0.75" fill={settings.lineColor} stroke="none" />
+                        <circle cx="1.5" cy="9.5" r="0.75" fill={settings.lineColor} stroke="none" />
+                        <g transform="rotate(-12 9.5 10)">
+                          <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
+                          <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
+                          <line x1="7.5" y1="5.5" x2="5" y2="5.5" />
+                        </g>
+                      </svg>
+                    ) : t.icon}
                   </button>
                 );
               })}
               {showThicknessPicker && (
                 <div
-                  className="absolute bottom-full mb-2 left-0 right-0 p-3 rounded-lg border backdrop-blur-sm"
+                  className={`absolute left-0 right-0 p-3 rounded-lg border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                   style={{
                     background: isDark
                       ? "rgba(0,0,0,0.85)"
@@ -1103,7 +1293,7 @@ export default function App() {
             </div>
             {showShapePicker && (
               <div
-                className="absolute bottom-full mb-2 flex flex-wrap gap-1 p-1 rounded-lg border backdrop-blur-sm"
+                className={`absolute flex flex-wrap gap-1 p-1 rounded-lg border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                 style={{
                   background: isDark
                     ? "rgba(0,0,0,0.85)"
@@ -1355,6 +1545,60 @@ export default function App() {
                     </button>
                   ))}
                 </div>
+              </div>
+            )}
+            {showHighlightPicker && (
+              <div
+                className={`absolute p-1.5 rounded-lg border backdrop-blur-sm flex gap-1 ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
+                style={{
+                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
+                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {(["highlight", "laser", "spray"] as const).map((tool) => (
+                  <button
+                    key={tool}
+                    aria-label={tool === "highlight" ? "Mark" : tool === "laser" ? "Laser" : "Spray"}
+                    aria-pressed={touchTool === tool}
+                    onClick={() => {
+                      setTouchTool(tool);
+                      setLastMarkTool(tool);
+                      setShowHighlightPicker(false);
+                    }}
+                    className={`flex items-center justify-center px-3 py-2.5 rounded transition-colors ${
+                      touchTool === tool
+                        ? isDark ? "bg-white/20 text-white" : "bg-black/20 text-black"
+                        : isDark ? "text-white/60 hover:bg-white/10" : "text-black/60 hover:bg-black/10"
+                    }`}
+                  >
+                    {tool === "highlight" && (
+                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="3" strokeLinecap="round" strokeOpacity="0.4">
+                        <line x1="2" y1="8" x2="14" y2="8" />
+                      </svg>
+                    )}
+                    {tool === "laser" && (
+                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
+                        <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
+                        <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+                      </svg>
+                    )}
+                    {tool === "spray" && (
+                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="1.5" cy="3.5" r="0.85" fill={settings.lineColor} stroke="none" />
+                        <circle cx="0.5" cy="6.5" r="0.75" fill={settings.lineColor} stroke="none" />
+                        <circle cx="1.5" cy="9.5" r="0.75" fill={settings.lineColor} stroke="none" />
+                        <g transform="rotate(-12 9.5 10)">
+                          <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
+                          <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
+                          <line x1="7.5" y1="5.5" x2="5" y2="5.5" />
+                        </g>
+                      </svg>
+                    )}
+                  </button>
+                ))}
               </div>
             )}
           </nav>

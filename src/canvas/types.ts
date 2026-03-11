@@ -53,7 +53,10 @@ export type TouchTool =
   | "hand"
   | "shape"
   | "highlight"
-  | "text";
+  | "laser"
+  | "spray"
+  | "text"
+  | "select";
 
 export type BBox = { x: number; y: number; w: number; h: number };
 

@@ -319,7 +319,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       }
 
       // Group move: if a group is selected, check if pointer is inside combined bbox
-      if (selectedGroupRef.current.length > 0 && e.pointerType !== "touch") {
+      if (selectedGroupRef.current.length > 0 && (e.pointerType !== "touch" || touchToolRef.current === "select")) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -372,8 +372,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         }
       }
 
-      // Text select / move / resize mode (mouse/stylus, z held or already selected)
-      if ((selectedTextRef.current || zKeyRef.current) && e.pointerType !== "touch") {
+      // Text select / move / resize mode (mouse/stylus, z held or already selected, or touch select tool)
+      if ((selectedTextRef.current || zKeyRef.current) && (e.pointerType !== "touch" || touchToolRef.current === "select")) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
         const pad = 3 / scale;
@@ -520,7 +520,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           selectedTextRef.current = null;
           selectDragRef.current = null;
           selectedGroupRef.current = [];
-          if (zKeyRef.current) {
+          if (zKeyRef.current || touchToolRef.current === "select") {
             boxSelectRef.current = { start: { ...wp }, end: { ...wp } };
             (e.target as Element).setPointerCapture(e.pointerId);
             scheduleRedraw();
@@ -531,8 +531,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           return;
         }
 
-        // z held, no selection — collect all hits and cycle / start box select
-        if (zKeyRef.current) {
+        // z held (or touch select tool), no selection — collect all hits and cycle / start box select
+        if (zKeyRef.current || touchToolRef.current === "select") {
           const hits: Stroke[] = [];
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
