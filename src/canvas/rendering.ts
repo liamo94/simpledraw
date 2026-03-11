@@ -185,7 +185,7 @@ function densifySmoothedPath(
  * Centers are placed on a rounded-rectangle perimeter so a wide cloud gets more bumps
  * across the top/bottom and fewer on the sides — producing an asymmetric cloud silhouette.
  */
-function cloudArcData(x: number, y: number, w: number, h: number) {
+export function cloudArcData(x: number, y: number, w: number, h: number) {
   const ox = x + w / 2, oy = y + h / 2;
   // Guard against zero/near-zero dimension (e.g. perfectly horizontal drag).
   // Without this, bumpR = 0 → N = Infinity → infinite loop.
@@ -552,7 +552,7 @@ export function renderShape(
     } else {
       // Cloud bumps protrude outside the bounding box by ~bumpR*0.45, so expand
       // the fill region to cover them. Other shapes stay within their bbox.
-      const fillPad = shape === "cloud" ? 3 * Math.sqrt(Math.max(1, Math.min(w, h))) : 0;
+      const fillPad = shape === "cloud" ? Math.max(3 * Math.sqrt(Math.max(1, Math.min(w, h))), 2 * (w + h) / 42) : 0;
       const fx = x - fillPad, fy = y - fillPad, fw = w + 2 * fillPad, fh = h + 2 * fillPad;
       // clip to shape, draw pattern, restore, then rebuild path for stroke
       ctx.save();
@@ -666,7 +666,7 @@ export function renderRoughShape(
         }
         const svgPath = "M " + spikePts.map(p => `${p.x} ${p.y}`).join(" L ") + " Z";
         if (hasFill && (f === "hatch" || f === "dots")) {
-          const fillPad = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
+          const fillPad = Math.max(3 * Math.sqrt(Math.max(1, Math.min(w, h))), 2 * (w + h) / 42);
           ctx.save();
           ctx.beginPath();
           spikePts.forEach((p, i) => i === 0 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y));
@@ -739,7 +739,7 @@ export function renderRoughShape(
             ctx.fillStyle = hexToRgba(color, fillOpacity ?? 0.2);
             ctx.fill();
           } else {
-            const fillPad = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
+            const fillPad = bumpR; // use actual bumpR so fill covers all bumps
             ctx.save();
             ctx.clip();
             if (f === "hatch") drawHatchFill(ctx, x - fillPad, y - fillPad, w + 2 * fillPad, h + 2 * fillPad, color, lineWidth, seed, fillOpacity);
@@ -749,8 +749,18 @@ export function renderRoughShape(
           }
         }
 
-        // Stroke: render variable-width outline via perfect-freehand
-        if (pfPts.length >= 2) {
+        // Stroke: perfect-freehand for solid; plain canvas dashes for dashed
+        if (style === "dashed") {
+          ctx.strokeStyle = color;
+          ctx.lineWidth = lineWidth;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          const ds = lineWidth / 4;
+          ctx.setLineDash([10 * ds, (dashGap ?? 8) * 5 * ds]);
+          buildShapePath(ctx, "cloud", x, y, w, h, cx, cy, Math.min(w, h) * 0.12, p0, p1, false, seed);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        } else if (pfPts.length >= 2) {
           const outline = getStroke(pfPts, {
             size: lineWidth * 1.15,
             thinning: 0.6,

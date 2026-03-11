@@ -111,6 +111,14 @@ export default function App() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [contentOffScreen, setContentOffScreen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
+  const [exportFormat, setExportFormat] = useState<"png" | "svg">(() =>
+    (localStorage.getItem("drawtool-export-format") as "png" | "svg") ?? "png"
+  );
+  const [exportTransparentBg, setExportTransparentBg] = useState(() =>
+    localStorage.getItem("drawtool-export-transparent") === "1"
+  );
+  const exportFormatRef = useRef(exportFormat);
+  const exportTransparentBgRef = useRef(exportTransparentBg);
   const [showThicknessPicker, setShowThicknessPicker] = useState<
     "draw" | "dashed" | "line" | "highlight" | null
   >(null);
@@ -476,7 +484,11 @@ export default function App() {
       updateSettings({ shapeFill: next });
       showToast({ type: "fill", fill: next });
     };
-    const onExportShortcut = () => exportPng();
+    const onExportShortcut = () => {
+      if (exportFormatRef.current === "svg") exportSvgFn(exportTransparentBgRef.current);
+      else if (exportTransparentBgRef.current) exportTransparent();
+      else exportPng();
+    };
     const THEMES: Theme[] = [
       "dark",
       "midnight",
@@ -601,6 +613,10 @@ export default function App() {
 
   const exportTransparent = useCallback(() => {
     window.dispatchEvent(new Event("drawtool:export-transparent"));
+  }, []);
+
+  const exportSvgFn = useCallback((transparent: boolean) => {
+    window.dispatchEvent(new CustomEvent("drawtool:export-svg", { detail: { transparent } }));
   }, []);
 
   const zoomIn = useCallback(() => {
@@ -794,8 +810,15 @@ export default function App() {
       <Menu
         settings={settings}
         updateSettings={updateSettings}
-        onExport={exportPng}
-        onExportTransparent={exportTransparent}
+        onExport={(format, transparent) => {
+          if (format === "svg") exportSvgFn(transparent);
+          else if (transparent) exportTransparent();
+          else exportPng();
+        }}
+        exportFormat={exportFormat}
+        exportTransparentBg={exportTransparentBg}
+        onSetExportFormat={(f) => { setExportFormat(f); exportFormatRef.current = f; localStorage.setItem("drawtool-export-format", f); }}
+        onSetExportTransparentBg={(v) => { setExportTransparentBg(v); exportTransparentBgRef.current = v; localStorage.setItem("drawtool-export-transparent", v ? "1" : "0"); }}
         hasTouch={hasTouch}
         activeCanvas={activeCanvas}
         onSwitchCanvas={(n) => {

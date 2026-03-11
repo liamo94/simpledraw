@@ -914,7 +914,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         scheduleRedraw();
         return;
       }
-      if (e.key === "Backspace" && selectedGroupRef.current.length > 0 && !isWritingRef.current) {
+      if ((e.key === "Backspace" || e.key === "Delete") && selectedGroupRef.current.length > 0 && !isWritingRef.current) {
         e.preventDefault();
         const toDelete = selectedGroupRef.current;
         strokesRef.current = strokesRef.current.filter(s => !toDelete.includes(s));
@@ -927,7 +927,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         scheduleRedraw();
         return;
       }
-      if (e.key === "Backspace" && selectedTextRef.current && !isWritingRef.current) {
+      if ((e.key === "Backspace" || e.key === "Delete") && selectedTextRef.current && !isWritingRef.current) {
         e.preventDefault();
         const stroke = selectedTextRef.current;
         strokesRef.current = strokesRef.current.filter((s) => s !== stroke);

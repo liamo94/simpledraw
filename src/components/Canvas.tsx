@@ -2,6 +2,7 @@ import { useRef, useEffect, useCallback, useState, memo } from "react";
 import type { ShapeKind, Theme, TextSize, GridType, FontFamily, TextAlign } from "../hooks/useSettings";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useTextSelection } from "../hooks/useTextSelection";
+import { generateSvg } from "../canvas/svgExport";
 import {
   isDarkTheme, getBackgroundColor,
   TEXT_SIZE_MAP, buildFont, dispatchTextStyleSync,
@@ -1281,6 +1282,20 @@ function Canvas({
     });
   }, []);
 
+  const exportSvg = useCallback((transparent: boolean) => {
+    const strokes = strokesRef.current;
+    if (strokes.length === 0) return;
+    const svgStr = generateSvg(strokes, transparent, theme);
+    if (!svgStr) return;
+    const blob = new Blob([svgStr], { type: "image/svg+xml" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = transparent ? "drawtool-transparent.svg" : "drawtool.svg";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [theme]);
+
   const undo = useCallback(() => {
     const action = undoStackRef.current.pop();
     if (action) {
@@ -1440,6 +1455,7 @@ function Canvas({
       (e as CustomEvent).detail.count = strokesRef.current.length;
     };
     const onExportTransparent = () => exportTransparent();
+    const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false);
     const onFontFamily = (e: Event) => {
       const key = (e as CustomEvent).detail as FontFamily;
       const sel = selectedTextRef.current;
@@ -1480,6 +1496,7 @@ function Canvas({
     window.addEventListener("drawtool:zoom-step", onZoomStep);
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
     window.addEventListener("drawtool:export-transparent", onExportTransparent);
+    window.addEventListener("drawtool:export-svg", onExportSvg);
     const onTextBold = () => {
       const editStroke = editingStrokeRef.current;
       const sel = selectedTextRef.current;
@@ -1611,6 +1628,7 @@ function Canvas({
       window.removeEventListener("drawtool:zoom-step", onZoomStep);
       window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
       window.removeEventListener("drawtool:export-transparent", onExportTransparent);
+      window.removeEventListener("drawtool:export-svg", onExportSvg);
       window.removeEventListener("drawtool:font-family", onFontFamily);
       window.removeEventListener("drawtool:set-color", onSetColor);
       window.removeEventListener("drawtool:text-bold", onTextBold);
@@ -1618,7 +1636,7 @@ function Canvas({
       window.removeEventListener("drawtool:text-align", onTextAlign);
       window.removeEventListener("drawtool:import-strokes", onImportStrokes);
     };
-  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, scheduleRedraw]);
+  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, exportSvg, scheduleRedraw]);
 
   const MIN_SHAPE_SIZE = 8;
   const MIN_DASH_LENGTH = 10; // world units — discard dashed strokes shorter than this
