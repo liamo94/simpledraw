@@ -1651,7 +1651,7 @@ function Canvas({
     if (!stroke || stroke.points.length < 2) return;
     const dx = Math.abs(stroke.points[1].x - stroke.points[0].x);
     const dy = Math.abs(stroke.points[1].y - stroke.points[0].y);
-    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE && stroke.shape !== "arrow" && stroke.shape !== "line") {
+    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE) {
       strokesRef.current.pop();
       undoStackRef.current.pop();
     }
@@ -2211,6 +2211,21 @@ function Canvas({
             sprayIntervalRef.current = null;
           }
           discardTinyShape();
+          // Discard tiny freehand strokes — catches phantom strokes from brief modifier-key holds
+          if (activeModifierRef.current === "shift" || activeModifierRef.current === "meta") {
+            const stroke = strokesRef.current[strokesRef.current.length - 1];
+            if (stroke && !stroke.shape && !stroke.spray) {
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              for (const p of stroke.points) {
+                if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
+                if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
+              }
+              if (maxX - minX < MIN_DASH_LENGTH && maxY - minY < MIN_DASH_LENGTH) {
+                strokesRef.current.pop();
+                undoStackRef.current.pop();
+              }
+            }
+          }
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           strokesCacheRef.current = null;
