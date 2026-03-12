@@ -4,7 +4,7 @@ import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useTextSelection } from "../hooks/useTextSelection";
 import { generateSvg } from "../canvas/svgExport";
 import {
-  isDarkTheme, getBackgroundColor,
+  isDarkTheme, getBackgroundColor, getGridColor,
   TEXT_SIZE_MAP, buildFont, dispatchTextStyleSync,
   loadStrokes, saveStrokes, loadView, saveView,
   distToSegment, cmdKey, screenToWorld, smoothPoints, isMac,
@@ -267,12 +267,13 @@ function Canvas({
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     // --- Grid via tiled patterns ---
-    const isDarkKey = isDark ? "1" : "0";
+    const themeKey = themeRef.current;
+    const gridColor = getGridColor(themeRef.current);
     if (gridTypeRef.current === "dot") {
       const BASE = 12;
       const DOT_RADIUS = 0.75;
-      const baseAlpha = isDark ? 0.4 : 0.55;
-      const dotColor = isDark ? "white" : "black";
+      const baseAlpha = isDark ? 0.4 : 0.65;
+      const dotColor = gridColor;
 
       for (let spacing = BASE; spacing < 500000; spacing *= 5) {
         const screenGap = spacing * scale;
@@ -283,7 +284,7 @@ function Canvas({
 
         const tileSize = Math.max(Math.round(screenGap), 1);
         const patternScale = screenGap / tileSize;
-        const tileKey = `${tileSize},${isDarkKey}`;
+        const tileKey = `${tileSize},${themeKey}`;
         let pattern = gridPatternCacheRef.current.get(tileKey);
         if (!pattern) {
           const tile = document.createElement("canvas");
@@ -319,20 +320,19 @@ function Canvas({
       //   Major (solid):   screenGap ~60–600 px  — outer grid lines
       // The 60–120 px overlap is the crossfade zone where a level transitions
       // from dashed inner to solid outer as you zoom in, giving seamless adaption.
-      const lineColor = isDark ? "white" : "black";
       const canvasMax = Math.max(canvas.width, canvas.height);
 
       const drawSqLevel = (sg: number, dashed: boolean, alpha: number) => {
         if (alpha < 0.005) return;
         const tileSize = Math.max(Math.round(sg), 1);
         const patternScale = sg / tileSize;
-        const tileKey = `sq-${tileSize},${isDarkKey},${dashed ? "d" : "s"}`;
+        const tileKey = `sq-${tileSize},${themeKey},${dashed ? "d" : "s"}`;
         let pat = gridPatternCacheRef.current.get(tileKey);
         if (!pat) {
           const tile = document.createElement("canvas");
           tile.width = tileSize; tile.height = tileSize;
           const tc = tile.getContext("2d")!;
-          tc.strokeStyle = lineColor; tc.lineWidth = 1;
+          tc.strokeStyle = gridColor; tc.lineWidth = 1;
           if (dashed) {
             const du = Math.max(2, tileSize / 16); // 8 cycles/tile → seamless
             tc.setLineDash([du, du]);

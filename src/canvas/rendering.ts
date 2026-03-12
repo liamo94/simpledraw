@@ -11,14 +11,22 @@ export function isDarkTheme(theme: Theme): boolean {
 }
 
 export function getBackgroundColor(theme: Theme): string {
-  if (theme === "midnight") return "#1a1a2e";
+  if (theme === "midnight") return "#15152a";
   if (theme === "dark") return "#06060e";
-  if (theme === "lumber") return "#110e0a";
+  if (theme === "lumber") return "#141404";
   if (theme === "slate") return "#1c2128";
-  if (theme === "journal") return "#f5e2b8";
-  if (theme === "sky") return "#e0ecf6";
-  if (theme === "sand") return "#f5e8dc";
+  if (theme === "journal") return "#fffce0";
+  if (theme === "sky") return "#eaf4fb";
+  if (theme === "sand") return "#f5ede8";
   return "#f5f5f0";
+}
+
+export function getGridColor(theme: Theme): string {
+  if (isDarkTheme(theme)) return "#ffffff";
+  if (theme === "journal") return "#7a5c30";
+  if (theme === "sky") return "#2a6898";
+  if (theme === "sand") return "#7a5840";
+  return "#707070";
 }
 
 // ─── Color utilities ──────────────────────────────────────────────────────────

@@ -1280,13 +1280,13 @@ export default function Menu({
                 {
                   id: "midnight" as const,
                   label: "Midnight",
-                  bg: "#1a1a2e",
+                  bg: "#15152a",
                   text: "#ffffff",
                 },
                 {
                   id: "lumber" as const,
                   label: "Lumber",
-                  bg: "#110e0a",
+                  bg: "#141404",
                   text: "#e8d5c0",
                 },
                 {
@@ -1298,20 +1298,20 @@ export default function Menu({
                 {
                   id: "journal" as const,
                   label: "Journal",
-                  bg: "#f5e2b8",
+                  bg: "#fffce0",
                   text: "#000000",
-                },
-                {
-                  id: "sky" as const,
-                  label: "Sky",
-                  bg: "#e0ecf6",
-                  text: "#1a3a5c",
                 },
                 {
                   id: "sand" as const,
                   label: "Sand",
-                  bg: "#f5e8dc",
+                  bg: "#f5ede8",
                   text: "#4a3520",
+                },
+                {
+                  id: "sky" as const,
+                  label: "Sky",
+                  bg: "#eaf4fb",
+                  text: "#1a3a5c",
                 },
                 {
                   id: "white" as const,

@@ -923,6 +923,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         selectedGroupRef.current = [];
         groupDragRef.current = null;
         strokesCacheRef.current = null;
+        setZCursor(zKeyRef.current ? "default" : null);
         persistStrokes();
         scheduleRedraw();
         return;

@@ -195,7 +195,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       scheduleRedraw();
     }, 530);
     isWritingRef.current = true;
-    setZCursor("default");
+    setZCursor("text");
     scheduleRedraw();
   }, [scheduleRedraw, setZCursor]);
 
@@ -233,7 +233,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     selectedTextRef.current = null;
     selectDragRef.current = null;
     strokesCacheRef.current = null;
-    setZCursor(null);
+    setZCursor("text");
     scheduleRedraw();
   }, [scheduleRedraw, setZCursor]);
 
