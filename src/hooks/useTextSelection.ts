@@ -175,6 +175,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       caretTimerRef.current = null;
     }
     isWritingRef.current = false;
+    window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: false }));
     scheduleRedraw();
   }, [persistStrokes, scheduleRedraw, notifyColorUsed, setZCursor]);
 
@@ -195,6 +196,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       scheduleRedraw();
     }, 530);
     isWritingRef.current = true;
+    window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: true }));
     setZCursor("text");
     scheduleRedraw();
   }, [scheduleRedraw, setZCursor]);
@@ -230,6 +232,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       scheduleRedraw();
     }, 530);
     isWritingRef.current = true;
+    window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: true }));
     selectedTextRef.current = null;
     selectDragRef.current = null;
     strokesCacheRef.current = null;

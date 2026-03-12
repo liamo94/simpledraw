@@ -109,6 +109,7 @@ export default function Menu({
   onImportData,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const isWritingRef = useRef(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -161,10 +162,16 @@ export default function Menu({
   }, []);
 
   useEffect(() => {
+    const onWriting = (e: Event) => { isWritingRef.current = (e as CustomEvent).detail as boolean; };
+    window.addEventListener("drawtool:writing", onWriting);
+    return () => window.removeEventListener("drawtool:writing", onWriting);
+  }, []);
+
+  useEffect(() => {
     if (!open) return;
 
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
+      if (e.key === "Escape" && !isWritingRef.current) {
         setOpen(false);
         setShowInfo(false);
         setShowHelp(false);

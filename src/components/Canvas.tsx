@@ -527,39 +527,6 @@ function Canvas({
       }
     }
 
-    // Write mode indicator (screen-space) — pill badge bottom-right
-    if (isWritingRef.current) {
-      ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const isDark = isDarkTheme(themeRef.current);
-      const label = "Text mode — esc to finish";
-      ctx.font = "500 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
-      ctx.textBaseline = "middle";
-      const tw = ctx.measureText(label).width;
-      const ph = 8, pv = 5;
-      const pillW = tw + ph * 2;
-      const pillH = 11 + pv * 2;
-      const margin = 12;
-      const px = canvas.width - pillW - margin;
-      const py = canvas.height - pillH - margin;
-      const r = pillH / 2;
-      ctx.beginPath();
-      ctx.moveTo(px + r, py);
-      ctx.lineTo(px + pillW - r, py);
-      ctx.arcTo(px + pillW, py, px + pillW, py + r, r);
-      ctx.arcTo(px + pillW, py + pillH, px + pillW - r, py + pillH, r);
-      ctx.lineTo(px + r, py + pillH);
-      ctx.arcTo(px, py + pillH, px, py + pillH - r, r);
-      ctx.arcTo(px, py, px + r, py, r);
-      ctx.closePath();
-      ctx.fillStyle = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)";
-      ctx.fill();
-      ctx.strokeStyle = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)";
-      ctx.lineWidth = 1;
-      ctx.stroke();
-      ctx.fillStyle = isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)";
-      ctx.fillText(label, px + ph, py + pillH / 2);
-      ctx.setTransform(scale, 0, 0, scale, x, y);
-    }
 
     // Draw erase trail with fading tail
     const trail = eraseTrailRef.current;
@@ -1709,6 +1676,34 @@ function Canvas({
     scheduleRedraw();
   }, [scheduleRedraw]);
 
+  // Capture-phase Escape handler — runs before Menu's bubble-phase handler.
+  // Performs the canvas escape action and stops propagation so Menu stays open.
+  useEffect(() => {
+    const onCapture = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (isWritingRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        finishWritingRef.current();
+      } else if (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        selectedTextRef.current = null;
+        hoverTextRef.current = null;
+        selectDragRef.current = null;
+        selectedGroupRef.current = [];
+        groupDragRef.current = null;
+        boxSelectRef.current = null;
+        lastTextTapRef.current = null;
+        zKeyRef.current = false;
+        setZCursor(null);
+        scheduleRedraw();
+      }
+    };
+    window.addEventListener("keydown", onCapture, { capture: true });
+    return () => window.removeEventListener("keydown", onCapture, { capture: true });
+  }, [finishWritingRef, setZCursor, scheduleRedraw]);
+
   // Keyboard shortcuts (keydown/keyup/blur/paste)
   useKeyboardShortcuts(
     {
@@ -2704,7 +2699,12 @@ function Canvas({
       className="block touch-none select-none outline-none"
       tabIndex={-1}
       style={{ cursor }}
-      onPointerDown={handlePointerDownForText}
+      onPointerDown={(e) => {
+        if (e.pointerType === "touch" && window.innerWidth < 768) {
+          window.dispatchEvent(new Event("drawtool:close-menu"));
+        }
+        handlePointerDownForText(e);
+      }}
       onPointerMove={handlePointerMoveGuarded}
       onPointerUp={handlePointerUpGuarded}
       onPointerCancel={onPointerCancel}
