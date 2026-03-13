@@ -202,6 +202,7 @@ export default function Menu({
 
   const palette = [
     isDark ? "#ffffff" : "#000000",
+    isDark ? "#000000" : "#ffffff",
     "#ef4444",
     "#fa8072",
     "#f97316",
@@ -403,7 +404,7 @@ export default function Menu({
                   }
                   aria-label={`Color ${color}`}
                   aria-pressed={settings.lineColor === color}
-                  className="w-5 h-5 shrink-0 rounded-full border-2 transition-transform focus:outline-none"
+                  className="w-[18px] h-[18px] shrink-0 rounded-full border-2 transition-transform focus:outline-none"
                   style={{
                     backgroundColor: color,
                     borderColor:
@@ -411,7 +412,9 @@ export default function Menu({
                         ? isDark
                           ? "white"
                           : "black"
-                        : "transparent",
+                        : (color === "#000000" || color === "#ffffff")
+                          ? isDark ? "#555" : "#bbb"
+                          : "transparent",
                     transform:
                       settings.lineColor === color ? "scale(1.2)" : undefined,
                   }}

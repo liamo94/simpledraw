@@ -626,10 +626,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:center-view"));
       }
-      if (e.key === "[") {
+      if (e.key === "[" && !cmdKey(e)) {
         window.dispatchEvent(new CustomEvent("drawtool:color-cycle", { detail: -1 }));
       }
-      if (e.key === "]") {
+      if (e.key === "]" && !cmdKey(e)) {
         window.dispatchEvent(new CustomEvent("drawtool:color-cycle", { detail: 1 }));
       }
       if ((e.key === "+" || e.key === "=") && !cmdKey(e) && !e.altKey) {
@@ -730,7 +730,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           persistStrokes();
         }
       }
-      if (cmdKey(e) && (e.key === "]" || e.key === "[") && !e.altKey && !isWritingRef.current) {
+      if (cmdKey(e) && (e.code === "BracketRight" || e.code === "BracketLeft") && !e.shiftKey && !isWritingRef.current) {
         e.preventDefault();
         const selection = selectedGroupRef.current.length > 0
           ? selectedGroupRef.current
@@ -741,8 +741,8 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           const selSet = new Set(selection);
           const sel = [...selection].sort((a, b) => strokes.indexOf(a) - strokes.indexOf(b));
           const rest = strokes.filter(s => !selSet.has(s));
-          const forward = e.key === "]";
-          const extreme = e.shiftKey;
+          const forward = e.code === "BracketRight";
+          const extreme = e.altKey;
           const topIdx = strokes.indexOf(sel[sel.length - 1]);
           const insertPos = rest.filter(s => strokes.indexOf(s) < topIdx).length;
           const newInsertPos = extreme

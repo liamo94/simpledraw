@@ -389,6 +389,7 @@ export default function App() {
       const dark = isDarkTheme(settingsRef.current.theme);
       const palette = [
         dark ? "#ffffff" : "#000000",
+        dark ? "#000000" : "#ffffff",
         "#ef4444",
         "#fa8072",
         "#f97316",
