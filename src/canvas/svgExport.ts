@@ -218,6 +218,15 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
       maxX = Math.max(maxX, p.x);
       maxY = Math.max(maxY, p.y);
     }
+    // Cloud bumps protrude beyond the p0/p1 bounding box — expand by bumpR.
+    // Sharp spikes extend ~1.25×bumpR beyond the bbox edge; use 1.4× for safety.
+    if (stroke.shape === "cloud" && stroke.points.length === 2) {
+      const p0 = stroke.points[0], p1 = stroke.points[1];
+      const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
+      const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
+      const extra = bumpR * 1.4;
+      minX -= extra; minY -= extra; maxX += extra; maxY += extra;
+    }
   }
 
   const maxLW = Math.max(...strokes.map(s => s.lineWidth));
@@ -396,7 +405,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
             break;
           }
           case "cloud":
-            roughNode = rc.path(cloudPathSvg(x, y, w, h), opts);
+            roughNode = rc.path(cloudPathSvg(x, y, w, h, stroke.seed, stroke.sharp), opts);
             break;
           case "arrow":
             roughNode = rc.line(p0.x, p0.y, p1.x, p1.y, opts);

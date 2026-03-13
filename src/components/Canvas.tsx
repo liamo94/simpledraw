@@ -1644,8 +1644,10 @@ function Canvas({
     };
   }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 
-  const MIN_SHAPE_SIZE = 6;
-  const MIN_DASH_LENGTH = 6; // world units — discard dashed strokes shorter than this
+  // 6 screen pixels converted to world units — so zooming in doesn't cause
+  // intentional small strokes to be discarded.
+  const MIN_SHAPE_SIZE = 6 / viewRef.current.scale;
+  const MIN_DASH_LENGTH = 6 / viewRef.current.scale;
 
   const discardTinyShape = useCallback(() => {
     if (
