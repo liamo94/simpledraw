@@ -4,29 +4,11 @@ import type { Stroke, Theme } from "./types";
 import { TEXT_SIZE_MAP, smoothPoints, smoothWidths, getFontCss } from "./geometry";
 import {
   cloudArcData, starPoints, regularPolygonPoints, roughPolyPath,
-  hexToRgba, getBackgroundColor, isDarkTheme,
+  hexToRgba, getBackgroundColor,
 } from "./rendering";
 
 const NS = "http://www.w3.org/2000/svg";
 
-/**
- * For transparent export on dark themes, light stroke colors are nearly
- * invisible on any normal background. Darken them by scaling each channel
- * down so the perceived brightness is at most ~25%, preserving hue.
- */
-function adaptColorForTransparent(hex: string): string {
-  if (!hex.startsWith("#") || hex.length < 7) return hex;
-  const r = parseInt(hex.slice(1, 3), 16) / 255;
-  const g = parseInt(hex.slice(3, 5), 16) / 255;
-  const b = parseInt(hex.slice(5, 7), 16) / 255;
-  const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  if (lum <= 0.35) return hex; // already dark enough
-  // Scale channels so the brightest channel becomes 0.25
-  const maxChannel = Math.max(r, g, b);
-  const scale = 0.25 / maxChannel;
-  const toHex = (v: number) => Math.min(255, Math.round(v * scale * 255)).toString(16).padStart(2, "0");
-  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
-}
 
 function svgEl(tag: string, attrs: Record<string, string | number> = {}): Element {
   const e = document.createElementNS(NS, tag);
@@ -212,11 +194,7 @@ function addPatternFill(
 export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Theme): string {
   if (!strokes.length) return "";
 
-  // When exporting transparent from a dark theme, light colors (white, near-white, etc.)
-  // are invisible on most backgrounds. Adapt them to dark equivalents.
-  const adaptColor = transparent && isDarkTheme(theme)
-    ? adaptColorForTransparent
-    : (c: string) => c;
+  const adaptColor = (c: string) => c;
 
   // Compute bounding box
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

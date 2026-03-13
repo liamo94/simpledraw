@@ -1644,8 +1644,8 @@ function Canvas({
     };
   }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 
-  const MIN_SHAPE_SIZE = 8;
-  const MIN_DASH_LENGTH = 10; // world units — discard dashed strokes shorter than this
+  const MIN_SHAPE_SIZE = 6;
+  const MIN_DASH_LENGTH = 6; // world units — discard dashed strokes shorter than this
 
   const discardTinyShape = useCallback(() => {
     if (
