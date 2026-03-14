@@ -1260,6 +1260,14 @@ function Canvas({
         if (p.x > maxX) maxX = p.x;
         if (p.y > maxY) maxY = p.y;
       }
+      // Cloud bumps/spikes protrude beyond the p0/p1 bounding box — expand by bumpR.
+      if (stroke.shape === "cloud" && stroke.points.length === 2) {
+        const p0 = stroke.points[0], p1 = stroke.points[1];
+        const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
+        const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
+        const extra = bumpR * 1.4;
+        minX -= extra; minY -= extra; maxX += extra; maxY += extra;
+      }
     }
     const maxLW = Math.max(...strokes.map((s) => s.lineWidth));
     const pad = 20 + maxLW / 2;

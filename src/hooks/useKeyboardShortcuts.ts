@@ -742,23 +742,23 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           const sel = [...selection].sort((a, b) => strokes.indexOf(a) - strokes.indexOf(b));
           const rest = strokes.filter(s => !selSet.has(s));
           const forward = e.code === "BracketRight";
-          const extreme = e.altKey;
+          const stepwise = e.altKey;
           const topIdx = strokes.indexOf(sel[sel.length - 1]);
           const insertPos = rest.filter(s => strokes.indexOf(s) < topIdx).length;
-          const newInsertPos = extreme
-            ? (forward ? rest.length : 0)
-            : forward
+          const newInsertPos = stepwise
+            ? forward
               ? Math.min(rest.length, insertPos + 1)
-              : Math.max(0, insertPos - 1);
+              : Math.max(0, insertPos - 1)
+            : (forward ? rest.length : 0);
           strokesRef.current = [...rest.slice(0, newInsertPos), ...sel, ...rest.slice(newInsertPos)];
           undoStackRef.current.push({ type: "reorder", before, after: [...strokesRef.current] });
           redoStackRef.current = [];
           strokesCacheRef.current = null;
           persistStrokes();
           scheduleRedraw();
-          const label = extreme
-            ? (forward ? "Brought to front" : "Sent to back")
-            : (forward ? "Brought forward" : "Sent backward");
+          const label = stepwise
+            ? (forward ? "Brought forward" : "Sent backward")
+            : (forward ? "Brought to front" : "Sent to back");
           window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: label }));
         }
         return;

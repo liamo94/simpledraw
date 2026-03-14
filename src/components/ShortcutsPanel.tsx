@@ -203,8 +203,8 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><PasteIcon />Paste</>} kbd={`${mod} + V`} />
         <Row label={<><CutIcon />Cut</>} kbd={`${mod} + X`} />
         <Row label={<><DuplicateIcon />Duplicate</>} kbd={`${mod} + D`} />
-        <Row label={<><LayerIcon />Bring forward / Send back</>} kbd={`${mod} + ] / [`} />
-        <Row label={<><LayerExtremeIcon />To front / To back</>} kbd={`${mod} + ⌥ + ] / [`} />
+        <Row label={<><LayerExtremeIcon />To front / To back</>} kbd={`${mod} + ] / [`} />
+        <Row label={<><LayerIcon />Bring forward / Send back</>} kbd={`${mod} + ⌥ + ] / [`} />
         <Row label={<><DeleteIcon />Delete</>} kbd="Backspace" />
         <Row label={<><NudgeIcon />Nudge</>} kbd="↑ ↓ ← →" />
         <Row label={<><DeselectIcon />Deselect</>} kbd="Escape" />
