@@ -967,17 +967,25 @@ function Canvas({
       const prevIsDark = isDarkTheme(prevThemeRef.current);
       const nowIsDark = isDarkTheme(theme);
       if (prevIsDark !== nowIsDark) {
-        const from = nowIsDark ? "#000000" : "#ffffff";
-        const to = nowIsDark ? "#ffffff" : "#000000";
-        const swapStrokes = (strokes: Stroke[]) => {
-          for (const s of strokes) {
-            if (s.color === from) s.color = to;
-          }
+        // Bidirectional swap: black↔white. This preserves layer relationships —
+        // e.g. a white-on-dark mouth interior becomes black-on-light, and the
+        // black-on-dark teeth become white-on-light, keeping contrast intact.
+        const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
+        // Use a Set to avoid double-swapping strokes that appear in both
+        // strokesRef.current and in undo/redo action references.
+        const swapped = new Set<Stroke>();
+        const swapOne = (s: Stroke) => {
+          if (!swapped.has(s)) { s.color = swapColor(s.color); swapped.add(s); }
         };
+        const swapStrokes = (strokes: Stroke[]) => { for (const s of strokes) swapOne(s); };
         const swapAction = (a: UndoAction) => {
           const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "reshape" ? [a.stroke] : [];
-          for (const s of list) {
-            if (s.color === from) s.color = to;
+          for (const s of list) swapOne(s);
+          // Update stored from/to color values in color-related undo actions
+          if (a.type === "color-change") {
+            a.from = swapColor(a.from); a.to = swapColor(a.to);
+          } else if (a.type === "group-color-change") {
+            a.from = a.from.map(swapColor); a.to = swapColor(a.to);
           }
         };
         // Swap active canvas
@@ -988,6 +996,7 @@ function Canvas({
         // Swap cached (inactive) canvases
         for (const [idx, snapshot] of snapshotCache) {
           if (idx === canvasIndexRef.current) continue;
+          swapped.clear();
           swapStrokes(snapshot.strokes);
           snapshot.undoStack.forEach(swapAction);
           snapshot.redoStack.forEach(swapAction);

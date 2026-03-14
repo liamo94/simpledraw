@@ -977,9 +977,9 @@ export default function App() {
           )}
           <nav
             aria-label="Drawing tools"
-            className={`fixed left-1/2 -translate-x-1/2 z-50 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : "bottom-4"}`}
+            className={`fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : "bottom-4"}`}
           >
-            {/* Undo / Redo / Delete — mobile only: above toolbar right-aligned */}
+            {/* Undo / Redo / Delete — mobile only: above top-right of toolbar. Nav is z-40 so menu (z-50) paints on top. */}
             {!isTablet && <div className="absolute right-1 bottom-full mb-1 flex items-center gap-0.5">
               <button
                 aria-label="Undo"
