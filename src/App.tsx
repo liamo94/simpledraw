@@ -223,6 +223,7 @@ export default function App() {
         | { type: "toggle"; label: string; on: boolean }
         | { type: "fill"; fill: FillStyle }
         | { type: "corners"; corners: "rounded" | "sharp" },
+      duration = 500,
     ) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
       if (toastFadeRef.current) clearTimeout(toastFadeRef.current);
@@ -234,7 +235,7 @@ export default function App() {
           setToast(null);
           setToastFading(false);
         }, 250);
-      }, 500);
+      }, duration);
     },
     [],
   );
@@ -487,8 +488,10 @@ export default function App() {
       );
     };
     const onToast = (e: Event) => {
-      const message = (e as CustomEvent).detail as string;
-      showToast({ type: "text", message });
+      const detail = (e as CustomEvent).detail;
+      const message = typeof detail === "object" ? detail.message : detail as string;
+      const duration = typeof detail === "object" ? detail.duration : undefined;
+      showToast({ type: "text", message }, duration);
     };
     const onToggleGrid = () => {
       const cycle: GridType[] = ["off", "dot", "square"];

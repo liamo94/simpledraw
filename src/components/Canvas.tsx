@@ -1284,9 +1284,10 @@ function Canvas({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "drawtool-transparent.png";
+      a.download = `drawtool-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.png`;
       a.click();
       URL.revokeObjectURL(url);
+      window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported PNG", duration: 1500 } }));
     });
   }, []);
 
@@ -1299,9 +1300,11 @@ function Canvas({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = transparent ? "drawtool-transparent.svg" : "drawtool.svg";
+    const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+    a.download = transparent ? `drawtool-${ts}-transparent.svg` : `drawtool-${ts}.svg`;
     a.click();
     URL.revokeObjectURL(url);
+    window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: transparent ? "Exported transparent SVG" : "Exported SVG", duration: 1500 } }));
   }, [theme]);
 
   const undo = useCallback(() => {
