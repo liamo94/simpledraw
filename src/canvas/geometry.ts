@@ -195,11 +195,23 @@ export function selectBBox(stroke: Stroke): BBox | null {
 export function anyStrokeBBox(stroke: Stroke): BBox {
   const bb = selectBBox(stroke);
   if (bb) return bb;
-  // Freehand: compute AABB from all points
+  // Single-point dot: rendered as filled circle with radius lineWidth * 0.6
+  if (stroke.points.length === 1) {
+    const p = stroke.points[0];
+    const r = stroke.lineWidth * 0.6;
+    return { x: p.x - r, y: p.y - r, w: r * 2, h: r * 2 };
+  }
+  // Freehand: compute AABB from all points, expanded by half the stroke width
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const p of stroke.points) {
     if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
     if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
   }
-  return { x: minX, y: minY, w: Math.max(maxX - minX, 1), h: Math.max(maxY - minY, 1) };
+  // Spray dots have radius lineWidth * 0.35; pressure-sensitive widths can exceed lineWidth
+  const r = stroke.spray
+    ? Math.max(0.5, stroke.lineWidth * 0.35)
+    : stroke.widths
+      ? stroke.lineWidth * Math.max(...stroke.widths) / 2
+      : stroke.lineWidth / 2;
+  return { x: minX - r, y: minY - r, w: Math.max(maxX - minX, 1) + r * 2, h: Math.max(maxY - minY, 1) + r * 2 };
 }

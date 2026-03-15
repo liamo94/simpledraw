@@ -73,6 +73,7 @@ export type KeyboardRefs = {
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   cursorRef: MutableRefObject<string>;
+  lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
 };
 
 // ─── Callback bag type ────────────────────────────────────────────────────────
@@ -112,7 +113,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-    sprayKeyRef,
+    sprayKeyRef, lastCycleRef,
   } = refs;
 
   const {
@@ -495,7 +496,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           undoStackRef.current.push({ type: "erase", strokes: toDelete });
           redoStackRef.current = [];
           selectedGroupRef.current = [];
+          selectDragRef.current = null;
+          hoverTextRef.current = null;
           groupDragRef.current = null;
+          lastCycleRef.current = null;
           strokesCacheRef.current = null;
           setZCursor(zKeyRef.current ? "default" : null);
           persistStrokes();
@@ -908,6 +912,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         selectedGroupRef.current = [];
         groupDragRef.current = null;
         boxSelectRef.current = null;
+        lastCycleRef.current = null;
         lastTextTapRef.current = null;
         zKeyRef.current = false;
         setZCursor(null);
@@ -921,7 +926,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         undoStackRef.current.push({ type: "erase", strokes: toDelete });
         redoStackRef.current = [];
         selectedGroupRef.current = [];
+        selectDragRef.current = null;
+        hoverTextRef.current = null;
         groupDragRef.current = null;
+        lastCycleRef.current = null;
         strokesCacheRef.current = null;
         setZCursor(zKeyRef.current ? "default" : null);
         persistStrokes();

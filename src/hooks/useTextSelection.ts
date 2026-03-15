@@ -19,7 +19,7 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
 }
 
 /** Returns true if (wx, wy) hits the stroke. Arrow/line uses line-proximity; everything else uses bbox. */
-function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
+export function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
   if (stroke.points.length === 0) return false;
   if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length >= 2) {
     const threshold = 8 / scale;
@@ -78,6 +78,7 @@ export type TextSelectionRefs = {
   } | null>;
   boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: Stroke; prevGroup?: Stroke[]; prevSingle?: Stroke | null } | null>;
   zKeyRef: MutableRefObject<boolean>;
+  shiftHeldRef: MutableRefObject<boolean>;
   touchToolRef: MutableRefObject<TouchTool>;
   lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke } | null>;
   lineColorRef: MutableRefObject<string>;
@@ -86,6 +87,7 @@ export type TextSelectionRefs = {
   viewRef: MutableRefObject<{ x: number; y: number; scale: number }>;
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
+  lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
 };
 
 // ─── Callback bag ─────────────────────────────────────────────────────────────
@@ -110,8 +112,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     textUndoRef, textRedoRef, editingStrokeRef, editingOldTextRef,
     isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
     selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
-    zKeyRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-    finishWritingRef, startWritingRef,
+    zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
+    finishWritingRef, startWritingRef, lastCycleRef,
   } = refs;
 
   const {
@@ -350,6 +352,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           selectedGroupRef.current = [];
           groupDragRef.current = null;
           hoverTextRef.current = null;
+          lastCycleRef.current = null;
           strokesCacheRef.current = null;
           if (!zKeyRef.current) {
             if (hitOnClear) {
@@ -483,6 +486,17 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 const s = strokesRef.current[i];
                 if (hitTestStroke(s, wp.x, wp.y, scale)) allHits.push(s);
               }
+              // Merge in any persisted cycle strokes (e.g. a small dot that wasn't
+              // hit at this exact click position but was hit when first selected).
+              const lc = lastCycleRef.current;
+              if (lc?.selectedStroke === curStroke) {
+                for (const s of lc.hits) {
+                  if (!allHits.includes(s) && strokesRef.current.includes(s)) {
+                    allHits.push(s);
+                  }
+                }
+                allHits.sort((a, b) => strokesRef.current.indexOf(b) - strokesRef.current.indexOf(a));
+              }
             }
             selectDragRef.current = {
               mode: "move",
@@ -523,6 +537,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           selectedTextRef.current = null;
           selectDragRef.current = null;
           selectedGroupRef.current = [];
+          lastCycleRef.current = null;
           if (zKeyRef.current || touchToolRef.current === "select") {
             boxSelectRef.current = { start: { ...wp }, end: { ...wp } };
             (e.target as Element).setPointerCapture(e.pointerId);
@@ -554,6 +569,9 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           selectedGroupRef.current = [];
           hoverTextRef.current = null;
           setZCursor("default");
+          // Persist cycle list so the second click can cycle even if it doesn't
+          // land precisely on smaller strokes (e.g. dots) in the stack.
+          lastCycleRef.current = hits.length > 1 ? { selectedStroke: stroke, hits } : null;
           selectDragRef.current = {
             mode: "move",
             startPtr: { ...wp },
@@ -766,18 +784,27 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const pad2 = 8 / scale2;
           setZCursor(wp2.x >= minX - pad2 && wp2.x <= maxX + pad2 && wp2.y >= minY - pad2 && wp2.y <= maxY + pad2 ? "move" : "default");
         } else if (zKeyRef.current) {
-          // V held, no selection: show move cursor on hover
-          const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
-          const { scale } = viewRef.current;
-          let hit: Stroke | null = null;
-          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-            const stroke = strokesRef.current[i];
-            if (hitTestStroke(stroke, wp.x, wp.y, scale)) { hit = stroke; break; }
-          }
-          if (hit !== hoverTextRef.current) {
-            hoverTextRef.current = hit;
-            setZCursor(hit ? "move" : "default");
-            scheduleRedraw();
+          if (shiftHeldRef.current) {
+            // Shift+V: box-select mode — suppress individual hover, show crosshair
+            if (hoverTextRef.current !== null) {
+              hoverTextRef.current = null;
+              scheduleRedraw();
+            }
+            setZCursor("default");
+          } else {
+            // V held, no selection: show move cursor on hover
+            const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+            const { scale } = viewRef.current;
+            let hit: Stroke | null = null;
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              const stroke = strokesRef.current[i];
+              if (hitTestStroke(stroke, wp.x, wp.y, scale)) { hit = stroke; break; }
+            }
+            if (hit !== hoverTextRef.current) {
+              hoverTextRef.current = hit;
+              setZCursor(hit ? "move" : "default");
+              scheduleRedraw();
+            }
           }
         }
       }
@@ -912,6 +939,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             const curIdx = hits.indexOf(stroke);
             const nextStroke = hits[(curIdx + 1) % hits.length];
             selectedTextRef.current = nextStroke;
+            lastCycleRef.current = { selectedStroke: nextStroke, hits };
             dispatchTextStyleSync(nextStroke.bold ?? false, nextStroke.italic ?? false, nextStroke.textAlign ?? "left");
           }
         } else if (stroke.text) {

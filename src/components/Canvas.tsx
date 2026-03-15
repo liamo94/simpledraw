@@ -15,6 +15,28 @@ import {
 import type { Stroke, UndoAction, BBox, TouchTool } from "../canvas/canvasUtils";
 export type { TouchTool } from "../canvas/canvasUtils";
 
+function rgbToHue(r: number, g: number, b: number): number | null {
+  const rn = r / 255, gn = g / 255, bn = b / 255;
+  const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
+  const d = max - min;
+  if (max < 0.001 || d / max < 0.2) return null; // dark, achromatic, or low-HSV-saturation (backgrounds)
+  let h = max === rn ? (gn - bn) / d + (gn < bn ? 6 : 0)
+        : max === gn ? (bn - rn) / d + 2
+        :              (rn - gn) / d + 4;
+  return h * 60;
+}
+
+function sameColorFamily(ar: number, ag: number, ab: number, br: number, bg: number, bb: number): boolean {
+  const hA = rgbToHue(ar, ag, ab);
+  const hB = rgbToHue(br, bg, bb);
+  if (hA === null || hB === null) {
+    // Achromatic: fall back to tight RGB match
+    return Math.abs(ar - br) < 30 && Math.abs(ag - bg) < 30 && Math.abs(ab - bb) < 30;
+  }
+  const diff = Math.abs(hA - hB);
+  return Math.min(diff, 360 - diff) < 60;
+}
+
 function Canvas({
   lineWidth,
   lineColor,
@@ -112,6 +134,9 @@ function Canvas({
   const zoomTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [highlighting, setHighlighting] = useState(false);
   const [zCursor, setZCursor] = useState<string | null>(null);
+  const [overSameColor, setOverSameColor] = useState(false);
+  const overSameColorRef = useRef(false);
+  const lastSameColorCheckRef = useRef(0);
   const highlightKeyRef = useRef(false);
   const laserKeyRef = useRef(false);
   const [lasering, setLasering] = useState(false);
@@ -174,6 +199,7 @@ function Canvas({
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: import("../canvas/types").Stroke; prevGroup?: import("../canvas/types").Stroke[]; prevSingle?: import("../canvas/types").Stroke | null } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
+  const lastCycleRef = useRef<{ selectedStroke: Stroke; hits: Stroke[] } | null>(null);
   const groupDragRef = useRef<{
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
@@ -1732,7 +1758,7 @@ function Canvas({
       canvasRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef, viewRef,
       isWritingRef, writingTextRef, caretPosRef, caretVisibleRef, selectionAnchorRef,
       textUndoRef, textRedoRef, editingStrokeRef, writingBoldRef, writingItalicRef, writingAlignRef,
-      zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef,
+      zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef, lastCycleRef,
       clipboardRef, cursorWorldRef, lastDPressRef, shapeFlashRef,
       textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
       laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
@@ -2191,7 +2217,38 @@ function Canvas({
       }
 
       // Block all drawing/erasing while a stroke or group is selected, or in V-select mode
-      if (selectedTextRef.current || selectedGroupRef.current.length > 0 || zKeyRef.current) return;
+      if (selectedTextRef.current || selectedGroupRef.current.length > 0 || zKeyRef.current) {
+        if (overSameColorRef.current) { overSameColorRef.current = false; setOverSameColor(false); }
+        return;
+      }
+
+      // Same-color glow: read the single pixel under the cursor (O(1), throttled to ~20fps)
+      if (e.pointerType !== "touch" && !isDrawingRef.current) {
+        const now = performance.now();
+        if (now - lastSameColorCheckRef.current > 50) {
+          lastSameColorCheckRef.current = now;
+          const canvas = canvasRef.current;
+          const ctx = canvas?.getContext("2d");
+          if (ctx && canvas) {
+            const rect = canvas.getBoundingClientRect();
+            const cx = Math.round(e.clientX - rect.left);
+            const cy = Math.round(e.clientY - rect.top);
+            const px = ctx.getImageData(cx, cy, 1, 1).data;
+            const col = lineColorRef.current;
+            const ar = parseInt(col.slice(1, 3), 16);
+            const ag = parseInt(col.slice(3, 5), 16);
+            const ab = parseInt(col.slice(5, 7), 16);
+            const same = sameColorFamily(ar, ag, ab, px[0], px[1], px[2]);
+            if (same !== overSameColorRef.current) {
+              overSameColorRef.current = same;
+              setOverSameColor(same);
+            }
+          }
+        }
+      } else if (e.pointerType !== "touch" && overSameColorRef.current) {
+        overSameColorRef.current = false;
+        setOverSameColor(false);
+      }
 
       // --- Determine modifier ---
       let modifier:
@@ -2585,6 +2642,11 @@ function Canvas({
         threeFingerTapRef.current = null;
         tapStartRef.current = null;
         if (isDrawingRef.current) cancelCurrentStroke();
+        // Clean up any in-progress selection drag state
+        selectDragRef.current = null;
+        groupDragRef.current = null;
+        boxSelectRef.current = null;
+        hoverTextRef.current = null;
       }
     },
     [cancelCurrentStroke],
@@ -2612,6 +2674,7 @@ function Canvas({
         activeModifierRef.current = null;
         persistStrokes();
       }
+      if (overSameColorRef.current) { overSameColorRef.current = false; setOverSameColor(false); }
     },
     [persistStrokes, cancelErase, discardTinyShape],
   );
@@ -2659,8 +2722,16 @@ function Canvas({
   const encodedColor = encodeURIComponent(lineColor);
   // Pure black/white can be invisible against the canvas background — inject a
   // feDropShadow filter so the cursor is always readable.
-  const _needsHalo = lineColor === "#000000" || lineColor === "#ffffff";
-  const _haloCol = lineColor === "#000000" ? "white" : "black";
+  // Also glow when hovering over a stroke of the same color as the active color.
+  const _needsHalo = lineColor === "#000000" || lineColor === "#ffffff" || overSameColor;
+  const _haloCol = (() => {
+    if (lineColor === "#000000") return "white";
+    if (lineColor === "#ffffff") return "black";
+    const r = parseInt(lineColor.slice(1, 3), 16) / 255;
+    const g = parseInt(lineColor.slice(3, 5), 16) / 255;
+    const b = parseInt(lineColor.slice(5, 7), 16) / 255;
+    return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.4 ? "black" : "white";
+  })();
   const _of = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeDropShadow dx='0' dy='0' stdDeviation='1.5' flood-color='${_haloCol}' flood-opacity='1'/%3E%3C/filter%3E%3C/defs%3E` : "";
   const _wo = _needsHalo ? "%3Cg filter='url(%23o)'%3E" : "";
   const _wc = _needsHalo ? "%3C/g%3E" : "";
@@ -2711,8 +2782,8 @@ function Canvas({
       textUndoRef, textRedoRef, editingStrokeRef, editingOldTextRef,
       isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
       selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
-      zKeyRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-      finishWritingRef, startWritingRef,
+      zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
+      finishWritingRef, startWritingRef, lastCycleRef,
     },
     {
       scheduleRedraw, persistStrokes, notifyColorUsed, setZCursor,
