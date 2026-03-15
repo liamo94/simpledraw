@@ -137,6 +137,7 @@ function Canvas({
   const [overSameColor, setOverSameColor] = useState(false);
   const overSameColorRef = useRef(false);
   const lastSameColorCheckRef = useRef(0);
+  const lastCursorScreenRef = useRef<{ x: number; y: number } | null>(null);
   const highlightKeyRef = useRef(false);
   const laserKeyRef = useRef(false);
   const [lasering, setLasering] = useState(false);
@@ -292,134 +293,6 @@ function Canvas({
     ctx.fillStyle = getBackgroundColor(themeRef.current);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // --- Grid via tiled patterns ---
-    const themeKey = themeRef.current;
-    const gridColor = getGridColor(themeRef.current);
-    if (gridTypeRef.current === "dot") {
-      const BASE = 12;
-      const DOT_RADIUS = 0.75;
-      const baseAlpha = isDark ? 0.4 : 0.65;
-      const dotColor = gridColor;
-
-      for (let spacing = BASE; spacing < 500000; spacing *= 5) {
-        const screenGap = spacing * scale;
-        if (screenGap < 4) continue;
-        if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
-        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 20));
-        if (opacity <= 0) continue;
-
-        const tileSize = Math.max(Math.round(screenGap), 1);
-        const patternScale = screenGap / tileSize;
-        const tileKey = `${tileSize},${themeKey}`;
-        let pattern = gridPatternCacheRef.current.get(tileKey);
-        if (!pattern) {
-          const tile = document.createElement("canvas");
-          tile.width = tileSize;
-          tile.height = tileSize;
-          const tctx = tile.getContext("2d")!;
-          const half = tileSize / 2;
-          tctx.fillStyle = dotColor;
-          tctx.beginPath();
-          tctx.arc(half, half, DOT_RADIUS, 0, Math.PI * 2);
-          tctx.fill();
-          pattern = ctx.createPattern(tile, "repeat")!;
-          gridPatternCacheRef.current.set(tileKey, pattern);
-        }
-
-        const ox = ((x % screenGap) + screenGap) % screenGap;
-        const oy = ((y % screenGap) + screenGap) % screenGap;
-        pattern.setTransform(
-          new DOMMatrix()
-            .translate(ox - screenGap / 2, oy - screenGap / 2)
-            .scale(patternScale),
-        );
-
-        ctx.globalAlpha = opacity * baseAlpha;
-        ctx.fillStyle = pattern;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      }
-      ctx.globalAlpha = 1;
-    } else if (gridTypeRef.current === "square") {
-      // Adaptive multi-level grid. Each spacing level independently crossfades
-      // between two roles based on its current screen size:
-      //   Minor (dashed):  screenGap ~10–120 px  — inner subdivisions
-      //   Major (solid):   screenGap ~60–600 px  — outer grid lines
-      // The 60–120 px overlap is the crossfade zone where a level transitions
-      // from dashed inner to solid outer as you zoom in, giving seamless adaption.
-      const canvasMax = Math.max(canvas.width, canvas.height);
-
-      const drawSqLevel = (sg: number, dashed: boolean, alpha: number) => {
-        if (alpha < 0.005) return;
-        const tileSize = Math.max(Math.round(sg), 1);
-        const patternScale = sg / tileSize;
-        const tileKey = `sq-${tileSize},${themeKey},${dashed ? "d" : "s"}`;
-        let pat = gridPatternCacheRef.current.get(tileKey);
-        if (!pat) {
-          const tile = document.createElement("canvas");
-          tile.width = tileSize; tile.height = tileSize;
-          const tc = tile.getContext("2d")!;
-          tc.strokeStyle = gridColor; tc.lineWidth = 1;
-          if (dashed) {
-            const du = Math.max(2, tileSize / 16); // 8 cycles/tile → seamless
-            tc.setLineDash([du, du]);
-          }
-          tc.beginPath(); tc.moveTo(tileSize - 0.5, 0); tc.lineTo(tileSize - 0.5, tileSize); tc.stroke();
-          tc.beginPath(); tc.moveTo(0, tileSize - 0.5); tc.lineTo(tileSize, tileSize - 0.5); tc.stroke();
-          pat = ctx.createPattern(tile, "repeat")!;
-          gridPatternCacheRef.current.set(tileKey, pat);
-        }
-        const ox = ((x % sg) + sg) % sg;
-        const oy = ((y % sg) + sg) % sg;
-        pat.setTransform(new DOMMatrix().translate(ox - sg, oy - sg).scale(patternScale));
-        ctx.globalAlpha = alpha;
-        ctx.fillStyle = pat;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
-      };
-
-      // Zoom-responsive global multiplier:
-      //   scale < 0.2  → dims to ~15% ("very far away")
-      //   scale 0.2–3  → normal
-      //   scale > 3    → brightens to 1.5× ("zoomed in close")
-      const zoomAlpha =
-        scale < 0.2  ? Math.max(0.15, scale / 0.2)
-        : scale > 3  ? Math.min(1.5, 1 + (scale - 3) / 6)
-        : 1.0;
-
-      if (scale >= 0.5) {
-        // ≥ 50%: adaptive — grid coarsens automatically to stay comfortable
-        for (let spacing = 12; spacing < 500000; spacing *= 5) {
-          const sg = spacing * scale;
-          if (sg < 4) continue;
-          if (sg > canvasMax * 2) break;
-
-          const minorOp =
-            Math.max(0, Math.min(1, (sg - 10) / 20)) *
-            Math.max(0, Math.min(1, (50 - sg) / 20));
-          const majorOp =
-            Math.max(0, Math.min(1, (sg - 30) / 30)) *
-            Math.max(0, Math.min(1, (600 - sg) / 200));
-
-          const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
-          drawSqLevel(sg, true,  minorOp * zoomAlpha * (isDark ? 0.04 * darkAlphaScale : 0.08));
-          drawSqLevel(sg, false, majorOp * zoomAlpha * (isDark ? 0.07 * darkAlphaScale : 0.12));
-        }
-      } else {
-        // < 50%: fixed world-space levels so squares shrink with zoom,
-        // giving clear visual feedback that you're far out.
-        // At scale=0.5 both branches produce identical output (30px/150px) — seamless.
-        const drawFixed = (spacing: number, dashed: boolean, baseAlpha: number) => {
-          const sg = spacing * scale;
-          if (sg < 2) return;
-          const op = Math.max(0, Math.min(1, (sg - 4) / 16));
-          drawSqLevel(sg, dashed, op * zoomAlpha * baseAlpha);
-        };
-        const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
-        drawFixed(60,  true,  isDark ? 0.04 * darkAlphaScale : 0.08); // dashed inner, shrinks with zoom
-        drawFixed(300, false, isDark ? 0.07 * darkAlphaScale : 0.12); // solid outer, shrinks with zoom
-      }
-      ctx.globalAlpha = 1;
-    }
-
     ctx.setTransform(scale, 0, 0, scale, x, y);
 
     // --- Cached completed strokes (item 8) ---
@@ -474,6 +347,122 @@ function Canvas({
         renderStrokesToCtx(ctx, [activeStroke]);
       }
     }
+
+    // --- Grid via tiled patterns (drawn after strokes so it overlays filled shapes) ---
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    const themeKey = themeRef.current;
+    const gridColor = getGridColor(themeRef.current);
+    if (gridTypeRef.current === "dot") {
+      const BASE = 12;
+      const DOT_RADIUS = 0.75;
+      const baseAlpha = isDark ? 0.4 : 0.65;
+      const dotColor = gridColor;
+
+      for (let spacing = BASE; spacing < 500000; spacing *= 5) {
+        const screenGap = spacing * scale;
+        if (screenGap < 4) continue;
+        if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
+        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 20));
+        if (opacity <= 0) continue;
+
+        const tileSize = Math.max(Math.round(screenGap), 1);
+        const patternScale = screenGap / tileSize;
+        const tileKey = `${tileSize},${themeKey}`;
+        let pattern = gridPatternCacheRef.current.get(tileKey);
+        if (!pattern) {
+          const tile = document.createElement("canvas");
+          tile.width = tileSize;
+          tile.height = tileSize;
+          const tctx = tile.getContext("2d")!;
+          const half = tileSize / 2;
+          tctx.fillStyle = dotColor;
+          tctx.beginPath();
+          tctx.arc(half, half, DOT_RADIUS, 0, Math.PI * 2);
+          tctx.fill();
+          pattern = ctx.createPattern(tile, "repeat")!;
+          gridPatternCacheRef.current.set(tileKey, pattern);
+        }
+
+        const ox = ((x % screenGap) + screenGap) % screenGap;
+        const oy = ((y % screenGap) + screenGap) % screenGap;
+        pattern.setTransform(
+          new DOMMatrix()
+            .translate(ox - screenGap / 2, oy - screenGap / 2)
+            .scale(patternScale),
+        );
+
+        ctx.globalAlpha = opacity * baseAlpha;
+        ctx.fillStyle = pattern;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
+      ctx.globalAlpha = 1;
+    } else if (gridTypeRef.current === "square") {
+      const canvasMax = Math.max(canvas.width, canvas.height);
+
+      const drawSqLevel = (sg: number, dashed: boolean, alpha: number) => {
+        if (alpha < 0.005) return;
+        const tileSize = Math.max(Math.round(sg), 1);
+        const patternScale = sg / tileSize;
+        const tileKey = `sq-${tileSize},${themeKey},${dashed ? "d" : "s"}`;
+        let pat = gridPatternCacheRef.current.get(tileKey);
+        if (!pat) {
+          const tile = document.createElement("canvas");
+          tile.width = tileSize; tile.height = tileSize;
+          const tc = tile.getContext("2d")!;
+          tc.strokeStyle = gridColor; tc.lineWidth = 1;
+          if (dashed) {
+            const du = Math.max(2, tileSize / 16);
+            tc.setLineDash([du, du]);
+          }
+          tc.beginPath(); tc.moveTo(tileSize - 0.5, 0); tc.lineTo(tileSize - 0.5, tileSize); tc.stroke();
+          tc.beginPath(); tc.moveTo(0, tileSize - 0.5); tc.lineTo(tileSize, tileSize - 0.5); tc.stroke();
+          pat = ctx.createPattern(tile, "repeat")!;
+          gridPatternCacheRef.current.set(tileKey, pat);
+        }
+        const ox = ((x % sg) + sg) % sg;
+        const oy = ((y % sg) + sg) % sg;
+        pat.setTransform(new DOMMatrix().translate(ox - sg, oy - sg).scale(patternScale));
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = pat;
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      };
+
+      const zoomAlpha =
+        scale < 0.2  ? Math.max(0.15, scale / 0.2)
+        : scale > 3  ? Math.min(1.5, 1 + (scale - 3) / 6)
+        : 1.0;
+
+      if (scale >= 0.5) {
+        for (let spacing = 12; spacing < 500000; spacing *= 5) {
+          const sg = spacing * scale;
+          if (sg < 4) continue;
+          if (sg > canvasMax * 2) break;
+
+          const minorOp =
+            Math.max(0, Math.min(1, (sg - 10) / 20)) *
+            Math.max(0, Math.min(1, (50 - sg) / 20));
+          const majorOp =
+            Math.max(0, Math.min(1, (sg - 30) / 30)) *
+            Math.max(0, Math.min(1, (600 - sg) / 200));
+
+          const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
+          drawSqLevel(sg, true,  minorOp * zoomAlpha * (isDark ? 0.04 * darkAlphaScale : 0.08));
+          drawSqLevel(sg, false, majorOp * zoomAlpha * (isDark ? 0.07 * darkAlphaScale : 0.12));
+        }
+      } else {
+        const drawFixed = (spacing: number, dashed: boolean, baseAlpha: number) => {
+          const sg = spacing * scale;
+          if (sg < 2) return;
+          const op = Math.max(0, Math.min(1, (sg - 4) / 16));
+          drawSqLevel(sg, dashed, op * zoomAlpha * baseAlpha);
+        };
+        const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
+        drawFixed(60,  true,  isDark ? 0.04 * darkAlphaScale : 0.08);
+        drawFixed(300, false, isDark ? 0.07 * darkAlphaScale : 0.12);
+      }
+      ctx.globalAlpha = 1;
+    }
+    ctx.setTransform(scale, 0, 0, scale, x, y);
 
     // Render live writing text preview + blinking caret
     if (isWritingRef.current || writingTextRef.current) {
@@ -1044,6 +1033,27 @@ function Canvas({
     scheduleRedraw();
   }, [gridType, theme, scheduleRedraw, persistStrokes]);
 
+  // When lineColor changes, immediately re-evaluate the same-color glow at the current cursor position
+  useEffect(() => {
+    lastSameColorCheckRef.current = 0;
+    const screen = lastCursorScreenRef.current;
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!screen || !ctx || !canvas) {
+      if (overSameColorRef.current) { overSameColorRef.current = false; setOverSameColor(false); }
+      return;
+    }
+    const rect = canvas.getBoundingClientRect();
+    const cx = Math.round(screen.x - rect.left);
+    const cy = Math.round(screen.y - rect.top);
+    const px = ctx.getImageData(cx, cy, 1, 1).data;
+    const ar = parseInt(lineColor.slice(1, 3), 16);
+    const ag = parseInt(lineColor.slice(3, 5), 16);
+    const ab = parseInt(lineColor.slice(5, 7), 16);
+    const same = sameColorFamily(ar, ag, ab, px[0], px[1], px[2]);
+    if (same !== overSameColorRef.current) { overSameColorRef.current = same; setOverSameColor(same); }
+  }, [lineColor]);
+
   // Handle resize
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -1394,6 +1404,12 @@ function Canvas({
         action.stroke.points = action.from.map(p => ({ ...p }));
       }
       redoStackRef.current.push(action);
+    }
+    // Abort any in-progress drawing (prevents corrupting the new last stroke on next pointerMove)
+    if (isDrawingRef.current && activeModifierRef.current !== "alt") {
+      if (sprayIntervalRef.current) { clearInterval(sprayIntervalRef.current); sprayIntervalRef.current = null; }
+      isDrawingRef.current = false;
+      activeModifierRef.current = null;
     }
     // Abort any in-progress edit
     if (editingStrokeRef.current) {
@@ -2207,13 +2223,10 @@ function Canvas({
         return;
       }
 
-      // Track cursor world position for desktop dot placement
+      // Track cursor world and screen positions for desktop dot placement and same-color glow
       if (e.pointerType !== "touch") {
-        cursorWorldRef.current = screenToWorld(
-          e.clientX,
-          e.clientY,
-          viewRef.current,
-        );
+        cursorWorldRef.current = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        lastCursorScreenRef.current = { x: e.clientX, y: e.clientY };
       }
 
       // Block all drawing/erasing while a stroke or group is selected, or in V-select mode
@@ -2223,7 +2236,7 @@ function Canvas({
       }
 
       // Same-color glow: read the single pixel under the cursor (O(1), throttled to ~20fps)
-      if (e.pointerType !== "touch" && !isDrawingRef.current) {
+      if (e.pointerType !== "touch") {
         const now = performance.now();
         if (now - lastSameColorCheckRef.current > 50) {
           lastSameColorCheckRef.current = now;
@@ -2245,9 +2258,6 @@ function Canvas({
             }
           }
         }
-      } else if (e.pointerType !== "touch" && overSameColorRef.current) {
-        overSameColorRef.current = false;
-        setOverSameColor(false);
       }
 
       // --- Determine modifier ---
