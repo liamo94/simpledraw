@@ -110,6 +110,8 @@ export default function Menu({
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
+  const [logoAnimate, setLogoAnimate] = useState(false);
+  const hasWavedRef = useRef(false);
   const [showInfo, setShowInfo] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -129,13 +131,23 @@ export default function Menu({
   const alt = isMac ? "⌥" : "Alt";
 
   const isDark = isDarkTheme(settings.theme);
+  const waveStyle = `@keyframes dtWave {
+    0%   { transform: translateY(0) scale(1); }
+    35%  { transform: translateY(-7px) scale(1.2); }
+    65%  { transform: translateY(1px) scale(0.95); }
+    100% { transform: translateY(0) scale(1); }
+  }`;
 
   useEffect(() => {
     window.dispatchEvent(new CustomEvent("drawtool:menu-state", { detail: open }));
   }, [open]);
 
   useEffect(() => {
-    const onToggle = () =>
+    const onToggle = () => {
+      if (!hasWavedRef.current) {
+        hasWavedRef.current = true;
+        setLogoAnimate(true);
+      }
       setOpen((o) => {
         if (o) {
           setShowInfo(false);
@@ -143,9 +155,11 @@ export default function Menu({
           setShowAbout(false);
           setShowExport(false);
           setClearWipe(0);
+          setLogoAnimate(false);
         }
         return !o;
       });
+    };
     const onClose = () => {
       setOpen(false);
       setShowInfo(false);
@@ -226,11 +240,16 @@ export default function Menu({
           aria-label="Menu"
           aria-expanded={open}
           onClick={(e) => {
+            if (!open && !hasWavedRef.current) {
+              hasWavedRef.current = true;
+              setLogoAnimate(true);
+            }
             setOpen((o) => {
               if (o) {
                 setShowInfo(false);
                 setShowAbout(false);
                 setClearWipe(0);
+                setLogoAnimate(false);
               }
               return !o;
             });
@@ -240,25 +259,17 @@ export default function Menu({
         >
           <span className="relative flex items-center justify-center w-full h-full">
             <span
-              className={`absolute transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
+              className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
               style={{ fontFamily: "Pacifico, cursive", fontSize: 15, lineHeight: 1, letterSpacing: "1px" }}
             >
               <span style={{ color: "#3b82f6" }}>d</span><span style={{ color: "#ec4899" }}>t</span>
             </span>
             <span
-              className={`absolute transition-all duration-200 ${open ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
+              className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${open ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
             >
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 14 14"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.75"
-                strokeLinecap="round"
-              >
-                <line x1="3" y1="3" x2="11" y2="11" />
-                <line x1="11" y1="3" x2="3" y2="11" />
+              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#ec4899" strokeWidth="2.5" strokeLinecap="round">
+                <line x1="2" y1="2.5" x2="14" y2="13.5" />
+                <line x1="14" y1="2.5" x2="2" y2="13.5" />
               </svg>
             </span>
           </span>
@@ -278,6 +289,13 @@ export default function Menu({
                 : undefined
             }
           >
+            <style>{waveStyle}</style>
+            <style>{`@keyframes dtWave {
+              0%   { transform: translateY(0) scale(1); }
+              35%  { transform: translateY(-7px) scale(1.2); }
+              65%  { transform: translateY(1px) scale(0.95); }
+              100% { transform: translateY(0) scale(1); }
+            }`}</style>
             <div
               className="text-xl mb-3 text-center select-none"
               style={{ fontFamily: "Pacifico, cursive" }}
@@ -295,17 +313,23 @@ export default function Menu({
                 <span
                   key={i}
                   style={{
-                    color: l.color,
                     display: "inline-block",
                     marginLeft: i === 0 ? 0 : 2,
                     transform: `rotate(${l.rotate}deg)`,
+                  }}
+                ><span style={{
+                    color: l.color,
+                    display: "inline-block",
                     textShadow: isDark
                       ? `0 0 8px ${l.color}44`
                       : `1px 1px 0 ${l.color}22`,
+                    ...(logoAnimate ? {
+                      animation: `dtWave 0.55s ease both ${i * 60}ms`,
+                    } : {}),
                   }}
                 >
                   {l.letter}
-                </span>
+                </span></span>
               ))}
             </div>
             <div className="flex items-center justify-between">

@@ -145,6 +145,7 @@ export default function App() {
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
+
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
