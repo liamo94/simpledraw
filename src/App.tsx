@@ -392,7 +392,7 @@ export default function App() {
         dark ? "#ffffff" : "#000000",
         dark ? "#000000" : "#ffffff",
         "#ef4444",
-        "#fa8072",
+        "#ff7f50",
         "#f97316",
         "#eab308",
         "#84cc16",
@@ -1203,7 +1203,7 @@ export default function App() {
                     {[
                       isDark ? "#ffffff" : "#000000",
                       "#ef4444",
-                      "#fa8072",
+                      "#ff7f50",
                       "#f97316",
                       "#eab308",
                       "#84cc16",
@@ -1706,7 +1706,7 @@ export default function App() {
       )}
       <div
         className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5"
-        style={{ pointerEvents: "auto" }}
+        style={{ pointerEvents: isEditingName ? "auto" : "none" }}
       >
         <div
           className="text-2xl tabular-nums tracking-wider pointer-events-none"

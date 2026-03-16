@@ -204,7 +204,7 @@ export default function Menu({
     isDark ? "#ffffff" : "#000000",
     isDark ? "#000000" : "#ffffff",
     "#ef4444",
-    "#fa8072",
+    "#ff7f50",
     "#f97316",
     "#eab308",
     "#84cc16",
@@ -238,29 +238,30 @@ export default function Menu({
           }}
           className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "bg-white/20 border-white/30 text-white" : "bg-black/20 border-black/30 text-black") : isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
         >
-          <svg
-            width="14"
-            height="14"
-            viewBox="0 0 14 14"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            className={`transition-transform duration-200 ${open ? "rotate-90" : ""}`}
-          >
-            {open ? (
-              <>
+          <span className="relative flex items-center justify-center w-full h-full">
+            <span
+              className={`absolute transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
+              style={{ fontFamily: "Pacifico, cursive", fontSize: 15, lineHeight: 1, letterSpacing: "1px" }}
+            >
+              <span style={{ color: "#3b82f6" }}>d</span><span style={{ color: "#ec4899" }}>t</span>
+            </span>
+            <span
+              className={`absolute transition-all duration-200 ${open ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 14 14"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+              >
                 <line x1="3" y1="3" x2="11" y2="11" />
                 <line x1="11" y1="3" x2="3" y2="11" />
-              </>
-            ) : (
-              <>
-                <line x1="3" y1="3.5" x2="11" y2="3.5" stroke="#3b82f6" />
-                <line x1="3" y1="7" x2="11" y2="7" stroke="#ef4444" />
-                <line x1="3" y1="10.5" x2="11" y2="10.5" stroke="#22c55e" />
-              </>
-            )}
-          </svg>
+              </svg>
+            </span>
+          </span>
         </button>
 
         {open && (
@@ -439,8 +440,8 @@ export default function Menu({
                       className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
                         settings.textSize === size
                           ? isDark
-                            ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                            : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                           : isDark
                             ? "text-white/40 hover:text-white/60"
                             : "text-black/35 hover:text-black/55"
@@ -493,8 +494,8 @@ export default function Menu({
                       className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 relative group ${
                         settings.fontFamily === key
                           ? isDark
-                            ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                            : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                           : isDark
                             ? "text-white/40 hover:text-white/60"
                             : "text-black/35 hover:text-black/55"
@@ -518,8 +519,8 @@ export default function Menu({
                     className={`flex-1 flex items-center justify-center py-1 rounded text-sm font-bold transition-all duration-150 ${
                       settings.textBold
                         ? isDark
-                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                          ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                         : isDark
                           ? "text-white/40 hover:text-white/60"
                           : "text-black/35 hover:text-black/55"
@@ -537,8 +538,8 @@ export default function Menu({
                     className={`flex-1 flex items-center justify-center py-1 rounded text-sm italic transition-all duration-150 ${
                       settings.textItalic
                         ? isDark
-                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                          ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                         : isDark
                           ? "text-white/40 hover:text-white/60"
                           : "text-black/35 hover:text-black/55"
@@ -560,8 +561,8 @@ export default function Menu({
                     className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
                       settings.textAlign === "left"
                         ? isDark
-                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                          ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                         : isDark
                           ? "text-white/40 hover:text-white/60"
                           : "text-black/35 hover:text-black/55"
@@ -592,8 +593,8 @@ export default function Menu({
                     className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
                       settings.textAlign === "center"
                         ? isDark
-                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                          ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                         : isDark
                           ? "text-white/40 hover:text-white/60"
                           : "text-black/35 hover:text-black/55"
@@ -624,8 +625,8 @@ export default function Menu({
                     className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
                       settings.textAlign === "right"
                         ? isDark
-                          ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                          : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                          ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                         : isDark
                           ? "text-white/40 hover:text-white/60"
                           : "text-black/35 hover:text-black/55"
@@ -674,8 +675,8 @@ export default function Menu({
                   className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                     settings.activeShape === s
                       ? isDark
-                        ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
-                        : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                        ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50"
+                        : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
                       : isDark
                         ? "hover:bg-white/10"
                         : "hover:bg-black/10"
@@ -690,8 +691,8 @@ export default function Menu({
                     stroke={
                       settings.activeShape === s
                         ? isDark
-                          ? "#5dd8e8"
-                          : "#00618c"
+                          ? "#93c5fd"
+                          : "#3b82f6"
                         : isDark
                           ? "white"
                           : "black"
@@ -757,8 +758,8 @@ export default function Menu({
                     className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                       settings.shapeFill === f
                         ? isDark
-                          ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
-                          : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                          ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
                         : isDark
                           ? "hover:bg-white/10"
                           : "hover:bg-black/10"
@@ -774,8 +775,8 @@ export default function Menu({
                         stroke={
                           settings.shapeFill === "solid"
                             ? isDark
-                              ? "#5dd8e8"
-                              : "#00618c"
+                              ? "#93c5fd"
+                              : "#3b82f6"
                             : isDark
                               ? "white"
                               : "black"
@@ -793,8 +794,8 @@ export default function Menu({
                           fill={
                             settings.shapeFill === "solid"
                               ? isDark
-                                ? "#5dd8e8"
-                                : "#00618c"
+                                ? "#93c5fd"
+                                : "#3b82f6"
                               : isDark
                                 ? "white"
                                 : "black"
@@ -812,8 +813,8 @@ export default function Menu({
                         stroke={
                           settings.shapeFill === "dots"
                             ? isDark
-                              ? "#5dd8e8"
-                              : "#00618c"
+                              ? "#93c5fd"
+                              : "#3b82f6"
                             : isDark
                               ? "white"
                               : "black"
@@ -830,8 +831,8 @@ export default function Menu({
                           fill={
                             settings.shapeFill === "dots"
                               ? isDark
-                                ? "#5dd8e8"
-                                : "#00618c"
+                                ? "#93c5fd"
+                                : "#3b82f6"
                               : isDark
                                 ? "white"
                                 : "black"
@@ -845,8 +846,8 @@ export default function Menu({
                           fill={
                             settings.shapeFill === "dots"
                               ? isDark
-                                ? "#5dd8e8"
-                                : "#00618c"
+                                ? "#93c5fd"
+                                : "#3b82f6"
                               : isDark
                                 ? "white"
                                 : "black"
@@ -860,8 +861,8 @@ export default function Menu({
                           fill={
                             settings.shapeFill === "dots"
                               ? isDark
-                                ? "#5dd8e8"
-                                : "#00618c"
+                                ? "#93c5fd"
+                                : "#3b82f6"
                               : isDark
                                 ? "white"
                                 : "black"
@@ -875,8 +876,8 @@ export default function Menu({
                           fill={
                             settings.shapeFill === "dots"
                               ? isDark
-                                ? "#5dd8e8"
-                                : "#00618c"
+                                ? "#93c5fd"
+                                : "#3b82f6"
                               : isDark
                                 ? "white"
                                 : "black"
@@ -894,8 +895,8 @@ export default function Menu({
                         stroke={
                           settings.shapeFill === "hatch"
                             ? isDark
-                              ? "#5dd8e8"
-                              : "#00618c"
+                              ? "#93c5fd"
+                              : "#3b82f6"
                             : isDark
                               ? "white"
                               : "black"
@@ -926,8 +927,8 @@ export default function Menu({
                         stroke={
                           settings.shapeFill === "crosshatch"
                             ? isDark
-                              ? "#5dd8e8"
-                              : "#00618c"
+                              ? "#93c5fd"
+                              : "#3b82f6"
                             : isDark
                               ? "white"
                               : "black"
@@ -968,7 +969,7 @@ export default function Menu({
                     updateSettings({ fillOpacity: Number(e.target.value) })
                   }
                   className="flex-1 min-w-0"
-                  style={{ accentColor: isDark ? "#5dd8e8" : "#00618c" }}
+                  style={{ accentColor: isDark ? "#93c5fd" : "#3b82f6" }}
                 />
                 <span
                   className={`text-[10px] tabular-nums w-6 text-right ${isDark ? "text-white/40" : "text-black/40"}`}
@@ -993,8 +994,8 @@ export default function Menu({
                   className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                     settings.shapeCorners === c
                       ? isDark
-                        ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
-                        : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                        ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50"
+                        : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
                       : isDark
                         ? "hover:bg-white/10"
                         : "hover:bg-black/10"
@@ -1009,8 +1010,8 @@ export default function Menu({
                     stroke={
                       settings.shapeCorners === c
                         ? isDark
-                          ? "#5dd8e8"
-                          : "#00618c"
+                          ? "#93c5fd"
+                          : "#3b82f6"
                         : isDark
                           ? "white"
                           : "black"
@@ -1038,8 +1039,8 @@ export default function Menu({
                   className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                     settings.pressureSensitivity === on
                       ? isDark
-                        ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
-                        : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                        ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50"
+                        : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
                       : isDark
                         ? "hover:bg-white/10"
                         : "hover:bg-black/10"
@@ -1059,8 +1060,8 @@ export default function Menu({
                         fill={
                           settings.pressureSensitivity
                             ? isDark
-                              ? "#5dd8e8"
-                              : "#00618c"
+                              ? "#93c5fd"
+                              : "#3b82f6"
                             : isDark
                               ? "white"
                               : "black"
@@ -1072,8 +1073,8 @@ export default function Menu({
                         stroke={
                           !settings.pressureSensitivity
                             ? isDark
-                              ? "#5dd8e8"
-                              : "#00618c"
+                              ? "#93c5fd"
+                              : "#3b82f6"
                             : isDark
                               ? "white"
                               : "black"
@@ -1094,8 +1095,8 @@ export default function Menu({
                 const active = settings.gridType === g;
                 const iconColor = active
                   ? isDark
-                    ? "#5dd8e8"
-                    : "#00618c"
+                    ? "#93c5fd"
+                    : "#3b82f6"
                   : isDark
                     ? "rgba(255,255,255,0.5)"
                     : "rgba(0,0,0,0.4)";
@@ -1107,8 +1108,8 @@ export default function Menu({
                     className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
                       active
                         ? isDark
-                          ? "bg-[#00618c]/20 ring-1 ring-[#00618c]/50"
-                          : "bg-[#00618c]/12 ring-1 ring-[#00618c]/40"
+                          ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
                         : isDark
                           ? "hover:bg-white/10"
                           : "hover:bg-black/10"
@@ -1195,8 +1196,8 @@ export default function Menu({
                   className={`w-8 h-8 flex items-center justify-center rounded text-sm tabular-nums transition-colors focus:outline-none ${
                     activeCanvas === n
                       ? isDark
-                        ? "bg-[#00618c]/20 text-[#5dd8e8] ring-1 ring-[#00618c]/50"
-                        : "bg-[#00618c]/12 text-[#00618c] ring-1 ring-[#00618c]/40"
+                        ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                        : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
                       : isDark
                         ? "text-white/40 hover:text-white/60 hover:bg-white/10"
                         : "text-black/35 hover:text-black/55 hover:bg-black/10"
@@ -1279,7 +1280,7 @@ export default function Menu({
             >
               Theme
             </div>
-            <div className="flex gap-2 mt-1.5">
+            <div className="grid grid-cols-8 gap-2 mt-1.5">
               {[
                 {
                   id: "dark" as const,
@@ -1335,7 +1336,7 @@ export default function Menu({
                   onClick={() => updateSettings({ theme: t.id })}
                   aria-label={`${t.label} theme`}
                   aria-pressed={settings.theme === t.id}
-                  className={`w-7 h-7 rounded-md outline-none transition-[opacity,transform] duration-150 relative group ${
+                  className={`h-7 rounded-md outline-none transition-[opacity,transform] duration-150 relative group ${
                     settings.theme === t.id
                       ? "opacity-100 scale-110"
                       : "opacity-45 hover:opacity-75"
@@ -1405,7 +1406,7 @@ export default function Menu({
                   <span
                     className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
                       settings.showZoomControls
-                        ? "bg-[#00618c]"
+                        ? "bg-[#3b82f6]"
                         : isDark
                           ? "bg-white/15 group-hover:bg-white/25"
                           : "bg-black/12 group-hover:bg-black/20"
@@ -1435,7 +1436,7 @@ export default function Menu({
                 <span
                   className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
                     settings.confirmClear
-                      ? "bg-[#00618c]"
+                      ? "bg-[#3b82f6]"
                       : isDark
                         ? "bg-white/15 group-hover:bg-white/25"
                         : "bg-black/12 group-hover:bg-black/20"
@@ -1519,6 +1520,136 @@ export default function Menu({
                   </div>
                 </AccordionSection>
               )}
+
+              <AccordionSection
+                label="Export"
+                icon={
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M7 2v7" />
+                    <path d="M4.5 7 7 10l2.5-3" />
+                    <line x1="2" y1="12.5" x2="12" y2="12.5" />
+                  </svg>
+                }
+                open={showExport}
+                onToggle={() =>
+                  setShowExport((v) => {
+                    if (!v)
+                      setTimeout(
+                        () =>
+                          exportContentRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "nearest",
+                          }),
+                        0,
+                      );
+                    return !v;
+                  })
+                }
+                isDark={isDark}
+              >
+                <div ref={exportContentRef} className="space-y-3">
+                  {/* Format + transparent + export on one row */}
+                  <div className="flex items-center gap-1.5 pt-1">
+                    {/* Format pills */}
+                    <div className={`flex rounded overflow-hidden border ${isDark ? "border-white/10" : "border-black/10"}`}>
+                      {(["PNG", "SVG"] as const).map((fmt) => {
+                        const active = exportFormat === fmt.toLowerCase();
+                        return (
+                          <button
+                            key={fmt}
+                            onClick={() => onSetExportFormat(fmt.toLowerCase() as "png" | "svg")}
+                            className={`px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none ${
+                              active
+                                ? isDark ? "bg-white/15 text-white" : "bg-black/10 text-black"
+                                : isDark ? "text-white/40 hover:text-white/70" : "text-black/35 hover:text-black/60"
+                            }`}
+                          >
+                            {fmt}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {/* Transparent toggle */}
+                    <button
+                      onClick={() => onSetExportTransparentBg(!exportTransparentBg)}
+                      title="Transparent background"
+                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors focus:outline-none border ${
+                        exportTransparentBg
+                          ? isDark ? "bg-white/15 text-white border-white/20" : "bg-black/10 text-black border-black/15"
+                          : isDark ? "text-white/40 border-white/10 hover:text-white/70" : "text-black/35 border-black/10 hover:text-black/60"
+                      }`}
+                    >
+                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1" y="2" width="12" height="10" rx="1.5" />
+                        <rect x="1" y="2" width="6" height="5" rx="1.5 0 0 0" fill="currentColor" fillOpacity="0.2" stroke="none" />
+                        <rect x="7" y="7" width="6" height="5" rx="0 0 1.5 0" fill="currentColor" fillOpacity="0.2" stroke="none" />
+                        <line x1="1" y1="7" x2="13" y2="7" strokeOpacity="0.3" />
+                        <line x1="7" y1="2" x2="7" y2="12" strokeOpacity="0.3" />
+                      </svg>
+                      <span>Transparent</span>
+                    </button>
+                    {/* Export button */}
+                    <button
+                      onClick={() => onExport(exportFormat, exportTransparentBg)}
+                      className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none bg-[#3b82f6] text-white hover:bg-[#2563eb]"
+                    >
+                      <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M7 2v8" />
+                        <path d="M4.5 8 7 11l2.5-3" />
+                        <line x1="2" y1="13" x2="12" y2="13" />
+                      </svg>
+                      Export
+                    </button>
+                  </div>
+                  {/* Save / Load data row */}
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {(
+                      [
+                        {
+                          label: "Save data",
+                          onClick: onExportData,
+                          icon: (
+                            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M7 2v7" />
+                              <path d="M4.5 7 7 10l2.5-3" />
+                              <line x1="2" y1="12.5" x2="12" y2="12.5" />
+                            </svg>
+                          ),
+                        },
+                        {
+                          label: "Load data",
+                          onClick: onImportData,
+                          icon: (
+                            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M7 9V2" />
+                              <path d="M4.5 4.5 7 2l2.5 2.5" />
+                              <line x1="2" y1="12.5" x2="12" y2="12.5" />
+                            </svg>
+                          ),
+                        },
+                      ] as { label: string; onClick: () => void; icon: React.ReactNode }[]
+                    ).map(({ label, onClick, icon }) => (
+                      <button
+                        key={label}
+                        onClick={onClick}
+                        className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus:outline-none ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
+                      >
+                        {icon}
+                        <span className="text-[10px] leading-none">{label}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </AccordionSection>
 
               <AccordionSection
                 label="Help"
@@ -1718,136 +1849,6 @@ export default function Menu({
                         </li>
                       ))}
                     </ul>
-                  </div>
-                </div>
-              </AccordionSection>
-
-              <AccordionSection
-                label="Export"
-                icon={
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M7 2v7" />
-                    <path d="M4.5 7 7 10l2.5-3" />
-                    <line x1="2" y1="12.5" x2="12" y2="12.5" />
-                  </svg>
-                }
-                open={showExport}
-                onToggle={() =>
-                  setShowExport((v) => {
-                    if (!v)
-                      setTimeout(
-                        () =>
-                          exportContentRef.current?.scrollIntoView({
-                            behavior: "smooth",
-                            block: "nearest",
-                          }),
-                        0,
-                      );
-                    return !v;
-                  })
-                }
-                isDark={isDark}
-              >
-                <div ref={exportContentRef} className="space-y-2">
-                  {/* Format + transparent + export on one row */}
-                  <div className="flex items-center gap-1.5">
-                    {/* Format pills */}
-                    <div className={`flex rounded overflow-hidden border ${isDark ? "border-white/10" : "border-black/10"}`}>
-                      {(["PNG", "SVG"] as const).map((fmt) => {
-                        const active = exportFormat === fmt.toLowerCase();
-                        return (
-                          <button
-                            key={fmt}
-                            onClick={() => onSetExportFormat(fmt.toLowerCase() as "png" | "svg")}
-                            className={`px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none ${
-                              active
-                                ? isDark ? "bg-white/15 text-white" : "bg-black/10 text-black"
-                                : isDark ? "text-white/40 hover:text-white/70" : "text-black/35 hover:text-black/60"
-                            }`}
-                          >
-                            {fmt}
-                          </button>
-                        );
-                      })}
-                    </div>
-                    {/* Transparent toggle */}
-                    <button
-                      onClick={() => onSetExportTransparentBg(!exportTransparentBg)}
-                      title="Transparent background"
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors focus:outline-none border ${
-                        exportTransparentBg
-                          ? isDark ? "bg-white/15 text-white border-white/20" : "bg-black/10 text-black border-black/15"
-                          : isDark ? "text-white/40 border-white/10 hover:text-white/70" : "text-black/35 border-black/10 hover:text-black/60"
-                      }`}
-                    >
-                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="1" y="2" width="12" height="10" rx="1.5" />
-                        <rect x="1" y="2" width="6" height="5" rx="1.5 0 0 0" fill="currentColor" fillOpacity="0.2" stroke="none" />
-                        <rect x="7" y="7" width="6" height="5" rx="0 0 1.5 0" fill="currentColor" fillOpacity="0.2" stroke="none" />
-                        <line x1="1" y1="7" x2="13" y2="7" strokeOpacity="0.3" />
-                        <line x1="7" y1="2" x2="7" y2="12" strokeOpacity="0.3" />
-                      </svg>
-                      <span>Transparent</span>
-                    </button>
-                    {/* Export button */}
-                    <button
-                      onClick={() => onExport(exportFormat, exportTransparentBg)}
-                      className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none ${isDark ? "bg-white/10 text-white hover:bg-white/20" : "bg-black/10 text-black hover:bg-black/15"}`}
-                    >
-                      <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M7 2v8" />
-                        <path d="M4.5 8 7 11l2.5-3" />
-                        <line x1="2" y1="13" x2="12" y2="13" />
-                      </svg>
-                      Export
-                    </button>
-                  </div>
-                  {/* Save / Load data row */}
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        {
-                          label: "Save data",
-                          onClick: onExportData,
-                          icon: (
-                            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M7 2v7" />
-                              <path d="M4.5 7 7 10l2.5-3" />
-                              <line x1="2" y1="12.5" x2="12" y2="12.5" />
-                            </svg>
-                          ),
-                        },
-                        {
-                          label: "Load data",
-                          onClick: onImportData,
-                          icon: (
-                            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
-                              <path d="M7 9V2" />
-                              <path d="M4.5 4.5 7 2l2.5 2.5" />
-                              <line x1="2" y1="12.5" x2="12" y2="12.5" />
-                            </svg>
-                          ),
-                        },
-                      ] as { label: string; onClick: () => void; icon: React.ReactNode }[]
-                    ).map(({ label, onClick, icon }) => (
-                      <button
-                        key={label}
-                        onClick={onClick}
-                        className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus:outline-none ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
-                      >
-                        {icon}
-                        <span className="text-[10px] leading-none">{label}</span>
-                      </button>
-                    ))}
                   </div>
                 </div>
               </AccordionSection>

@@ -1708,7 +1708,7 @@ function Canvas({
 
   // 6 screen pixels converted to world units — so zooming in doesn't cause
   // intentional small strokes to be discarded.
-  const MIN_SHAPE_SIZE = 6 / viewRef.current.scale;
+  const MIN_SHAPE_SIZE = 12 / viewRef.current.scale;
   const MIN_DASH_LENGTH = 6 / viewRef.current.scale;
   const MIN_META_LENGTH = 2 / viewRef.current.scale;
 
