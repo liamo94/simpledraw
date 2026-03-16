@@ -1710,6 +1710,7 @@ function Canvas({
   // intentional small strokes to be discarded.
   const MIN_SHAPE_SIZE = 6 / viewRef.current.scale;
   const MIN_DASH_LENGTH = 6 / viewRef.current.scale;
+  const MIN_META_LENGTH = 2 / viewRef.current.scale;
 
   const discardTinyShape = useCallback(() => {
     if (
@@ -1721,7 +1722,8 @@ function Canvas({
     if (!stroke || stroke.points.length < 2) return;
     const dx = Math.abs(stroke.points[1].x - stroke.points[0].x);
     const dy = Math.abs(stroke.points[1].y - stroke.points[0].y);
-    if (dx < MIN_SHAPE_SIZE && dy < MIN_SHAPE_SIZE) {
+    const minSize = stroke.shape === "arrow" ? 1 / viewRef.current.scale : MIN_SHAPE_SIZE;
+    if (dx < minSize && dy < minSize) {
       strokesRef.current.pop();
       undoStackRef.current.pop();
     }
@@ -2350,7 +2352,8 @@ function Canvas({
                 if (p.x < minX) minX = p.x; if (p.y < minY) minY = p.y;
                 if (p.x > maxX) maxX = p.x; if (p.y > maxY) maxY = p.y;
               }
-              if (maxX - minX < MIN_DASH_LENGTH && maxY - minY < MIN_DASH_LENGTH) {
+              const threshold = activeModifierRef.current === "meta" ? MIN_META_LENGTH : MIN_DASH_LENGTH;
+              if (maxX - minX < threshold && maxY - minY < threshold) {
                 strokesRef.current.pop();
                 undoStackRef.current.pop();
               }

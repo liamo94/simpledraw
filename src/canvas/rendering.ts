@@ -538,7 +538,7 @@ export function renderShape(
     buildShapePath(ctx, shape, x, y, w, h, cx, cy, r, p0, p1);
     ctx.stroke();
     const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-    const headLen = Math.max(22, lineWidth * 4.5);
+    const headLen = lineWidth * 4 + 6;
     const headAngle = Math.PI / 6;
     ctx.setLineDash([]);
     ctx.beginPath();
@@ -797,7 +797,7 @@ export function renderRoughShape(
     case "arrow": {
       rc.line(p0.x, p0.y, p1.x, p1.y, opts);
       const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
-      const headLen = Math.max(22, lineWidth * 4.5);
+      const headLen = lineWidth * 4 + 6;
       const headAngle = Math.PI / 6;
       ctx.beginPath();
       ctx.strokeStyle = color;
@@ -865,7 +865,7 @@ export function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
       const last = pts[pts.length - 1];
       const prev = pts[pts.length - 2];
       const angle = Math.atan2(last.y - prev.y, last.x - prev.x);
-      const headLen = 22;
+      const headLen = stroke.lineWidth * 4 + 6;
       const headAngle = Math.PI / 6;
       return [
         ...pts,
@@ -967,7 +967,7 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
       // If the trailing point hasn't moved yet (duplicate from bend click), use the prior segment direction
       const angleFrom = Math.hypot(last.x - prev.x, last.y - prev.y) < 1 && n >= 3 ? pts[n - 3] : prev;
       const angle = Math.atan2(last.y - angleFrom.y, last.x - angleFrom.x);
-      const headLen = Math.max(22, stroke.lineWidth * 4.5);
+      const headLen = stroke.lineWidth * 4 + 6;
       const headAngle = Math.PI / 6;
       if (stroke.seed !== undefined && stroke.style !== "dashed" && !stroke.sharp) {
         // Dynamic stroke: densify the bezier path and run through perfect-freehand.
