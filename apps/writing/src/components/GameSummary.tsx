@@ -3,6 +3,9 @@ import type { ThemeInfo } from '../lib/themes';
 import type { GameConfig } from './GameSetup';
 import { FONTS, SIZES } from '../lib/fonts';
 import { generateResultsImage } from '../lib/shareImage';
+import ShapeIcon from './ShapeIcon';
+import type { ShapeKind } from '../lib/shapes';
+import { ALL_SHAPES } from '../lib/shapes';
 
 const MODE_LABELS: Record<string, string> = {
   uppercase: 'A–Z', lowercase: 'a–z', numbers: '0–9', words: 'Words', sentences: 'Sentences',
@@ -111,7 +114,7 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
     : 'bg-black/90 text-white hover:bg-black/80';
 
   return (
-    <div className="flex flex-col w-screen h-screen select-none overflow-hidden" style={{ background: theme.bg }}>
+    <div className="flex flex-col w-screen h-dvh select-none overflow-hidden" style={{ background: theme.bg, paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
 
       {/* Top bar */}
       <div className={`flex items-center justify-between px-6 py-3 border-b ${border} shrink-0`}>
@@ -179,7 +182,7 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
           </div>
 
           {/* Game config summary — desktop only */}
-          {config && (() => {
+          {config && !config.shapesMode && (() => {
             const allModeLabels = config.modes.map((m) => MODE_LABELS[m] ?? m);
             const allFontLabels = FONTS.filter((f) => config.fontKeys.includes(f.key)).map((f) => f.label);
             const allSizeLabels = SIZES.filter((s) => config.sizeKeys.includes(s.key)).map((s) => s.label);
@@ -202,7 +205,7 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
         </div>
 
         {/* Game config summary — mobile only */}
-        {config && (() => {
+        {config && !config.shapesMode && (() => {
           const allModeLabels = config.modes.map((m) => MODE_LABELS[m] ?? m);
           const allFontLabels = FONTS.filter((f) => config.fontKeys.includes(f.key)).map((f) => f.label);
           const allSizeLabels = SIZES.filter((s) => config.sizeKeys.includes(s.key)).map((s) => s.label);
@@ -237,12 +240,22 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
 
                 <div className="w-0.5 h-8 rounded-full shrink-0" style={{ background: color, opacity: 0.7 }} />
 
-                <span
-                  className={`font-semibold text-lg leading-none truncate flex-1 min-w-0 ${txt} opacity-85`}
-                  style={{ fontFamily: "'Caveat', cursive" }}
-                >
-                  {r.target}
-                </span>
+                {config?.shapesMode ? (
+                  <div className={`flex items-center gap-1.5 flex-1 min-w-0 ${txt} opacity-85`}>
+                    {r.target.split(' · ').map((k, ki) => {
+                      const kind = k as ShapeKind;
+                      if (!ALL_SHAPES.includes(kind)) return null;
+                      return <ShapeIcon key={ki} kind={kind} size={18} />;
+                    })}
+                  </div>
+                ) : (
+                  <span
+                    className={`font-semibold text-lg leading-none truncate flex-1 min-w-0 ${txt} opacity-85`}
+                    style={{ fontFamily: "'Caveat', cursive" }}
+                  >
+                    {r.target}
+                  </span>
+                )}
 
                 <div
                   className="shrink-0 px-2.5 py-1 rounded-lg text-xs font-bold tabular-nums"

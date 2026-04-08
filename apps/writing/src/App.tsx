@@ -1,5 +1,6 @@
 import { useState, useCallback, useRef, useEffect } from 'react';
 import TraceCanvas from './components/TraceCanvas';
+import ShapeCanvas from './components/ShapeCanvas';
 import ScoreDisplay from './components/ScoreDisplay';
 import HomeScreen from './components/HomeScreen';
 import GameSetup from './components/GameSetup';
@@ -12,8 +13,11 @@ import type { FontKey, SizeKey } from './lib/fonts';
 import { FONTS, SIZES, getFontCss, getLineWidthMult } from './lib/fonts';
 import type { Theme } from './lib/themes';
 import { THEMES, getTheme } from './lib/themes';
-import { scoreAttempt } from './lib/scoring';
+import { scoreAttempt, scoreShapeAttempt } from './lib/scoring';
 import type { Stroke } from './lib/freehand';
+import type { ShapeTarget, ShapeRoundConfig } from './lib/shapes';
+import { SHAPE_SIZE_PX } from './lib/shapes';
+import { getDailyConfig, isDailyDone, markDailyDone, formatDailyDate } from './lib/daily';
 
 type AppScreen = 'home' | 'quickplay' | 'game-setup' | 'game-playing' | 'game-summary';
 type DrawState = 'drawing' | 'scoring' | 'scored';
@@ -51,7 +55,7 @@ const MODE_LABELS: { mode: ContentMode; label: string }[] = [
 
 export default function App() {
   const [screen, setScreen] = useState<AppScreen>(() => pathToScreen(window.location.pathname));
-  const [urlSeed] = useState<number | undefined>(parseSeedFromUrl);
+  const [urlSeed, setUrlSeed] = useState<number | undefined>(parseSeedFromUrl);
 
   const navigate = useCallback((newScreen: AppScreen, seed?: number) => {
     const path = screenToPath(newScreen, seed);
@@ -94,6 +98,9 @@ export default function App() {
   const [gameTraceStrokes, setGameTraceStrokes] = useState<Stroke[]>([]);
   const [gameResults, setGameResults] = useState<RoundResult[]>([]);
   const [gameResetKey, setGameResetKey] = useState(0);
+  // Shapes game state
+  const [gameShapeRoundData, setGameShapeRoundData] = useState<ShapeRoundConfig[]>([]);
+  const [gameCurrentShapeConfig, setGameCurrentShapeConfig] = useState<ShapeRoundConfig | null>(null);
 
   // ── Blind mode ────────────────────────────────────────────────────────────
   const [blindMode, setBlindMode] = useState(() => localStorage.getItem('qp-blind') === 'true');
@@ -109,10 +116,16 @@ export default function App() {
   };
   const themeInfo = getTheme(theme);
 
+  // Sync theme background to document so it fills safe areas (notch, home indicator)
+  useEffect(() => {
+    document.documentElement.style.background = themeInfo.bg;
+  }, [themeInfo.bg]);
+
   // ── Shared ────────────────────────────────────────────────────────────────
   const [canvasH, setCanvasH] = useState(600);
   const containerRef = useRef<HTMLDivElement>(null);
   const timerStartRef = useRef<number | null>(null);
+  const isDailyRef = useRef<'text' | 'shapes' | null>(null);
 
   const handleContainerRef = useCallback((el: HTMLDivElement | null) => {
     (containerRef as React.MutableRefObject<HTMLDivElement | null>).current = el;
@@ -211,8 +224,35 @@ export default function App() {
   function pickWith<T>(rng: () => number, arr: T[]): T { return arr[Math.floor(rng() * arr.length)]; }
 
   const startGame = useCallback((config: GameConfig) => {
+    isDailyRef.current = null;
+    setUrlSeed(undefined);
     const seed = config.seed ?? Math.floor(Math.random() * 1e9);
     const rng = makePrng(seed);
+    const effectiveConfig = { ...config, seed };
+
+    if (config.shapesMode) {
+      const sm = config.shapesMode;
+      const shapeRounds: ShapeRoundConfig[] = [];
+      for (let i = 0; i < config.rounds; i++) {
+        const count = pickWith(rng, sm.counts) as number;
+        const sizePxOptions = sm.sizeKeys.map(k => SHAPE_SIZE_PX[k] ?? 165);
+        shapeRounds.push({ seed: Math.floor(rng() * 0xFFFFFFFF), kinds: sm.kinds, count, sizePxOptions });
+      }
+      setGameConfig(effectiveConfig);
+      setGameShapeRoundData(shapeRounds);
+      setGameCurrentShapeConfig(shapeRounds[0]);
+      setGameRoundData([]);
+      setGameRound(1);
+      setGameTarget('');
+      setGameResults([]);
+      setGameDrawState('drawing');
+      setGameResetKey((k) => k + 1);
+      timerStartRef.current = null;
+      window.history.pushState({}, '', `/game/${seed}`);
+      setScreen('game-playing');
+      return;
+    }
+
     const rounds: { target: string; fontKey: FontKey; sizeKey: SizeKey }[] = [];
     for (let i = 0; i < config.rounds; i++) {
       const mode = pickWith(rng, config.modes);
@@ -226,9 +266,10 @@ export default function App() {
       });
     }
 
-    const effectiveConfig = { ...config, seed };
     setGameConfig(effectiveConfig);
     setGameRoundData(rounds);
+    setGameShapeRoundData([]);
+    setGameCurrentShapeConfig(null);
     setGameRound(1);
     setGameTarget(rounds[0].target);
     setGameRoundFontKey(rounds[0].fontKey);
@@ -240,6 +281,11 @@ export default function App() {
     window.history.pushState({}, '', `/game/${seed}`);
     setScreen('game-playing');
   }, []);
+
+  const startDailyChallenge = useCallback((mode: 'text' | 'shapes') => {
+    isDailyRef.current = mode;
+    startGame(getDailyConfig(mode));
+  }, [startGame]);
 
   const gameSizeMult = SIZES.find((s) => s.key === gameRoundSizeKey)?.mult ?? 1;
   const gameFontCss = getFontCss(gameRoundFontKey);
@@ -261,26 +307,48 @@ export default function App() {
     [gameTarget, gameFont],
   );
 
+  const handleGameShapeScore = useCallback(
+    async (strokes: Stroke[], shapes: ShapeTarget[], cx: number, cy: number, w: number, h: number) => {
+      const elapsed = timerStartRef.current !== null ? performance.now() - timerStartRef.current : null;
+      setGameTimeMs(elapsed);
+      setGameStrokeCount(strokes.length);
+      setGameTraceStrokes([...strokes]);
+      setGameDrawState('scoring');
+      const s = await scoreShapeAttempt(strokes, shapes, cx, cy, w, h);
+      setGameScore(s);
+      setGameTarget(shapes.map((sh) => sh.kind).join(' · '));
+      setGameDrawState('scored');
+    },
+    [],
+  );
+
   const advanceGame = useCallback((result: RoundResult) => {
     if (!gameConfig) return;
     const newResults = [...gameResults, result];
     setGameResults(newResults);
 
     if (newResults.length >= gameConfig.rounds) {
+      if (isDailyRef.current) markDailyDone(isDailyRef.current);
       navigate('game-summary');
     } else {
-      const nextRound = newResults.length; // 0-indexed into gameRoundData
-      const next = gameRoundData[nextRound];
+      const nextRound = newResults.length; // 0-indexed
       setGameRound(nextRound + 1);
-      setGameTarget(next.target);
-      setGameRoundFontKey(next.fontKey);
-      setGameRoundSizeKey(next.sizeKey);
       setGameDrawState('drawing');
       setGameResetKey((k) => k + 1);
       timerStartRef.current = null;
       if (containerRef.current) setCanvasH(containerRef.current.clientHeight);
+
+      if (gameConfig.shapesMode) {
+        setGameCurrentShapeConfig(gameShapeRoundData[nextRound]);
+        setGameTarget('');
+      } else {
+        const next = gameRoundData[nextRound];
+        setGameTarget(next.target);
+        setGameRoundFontKey(next.fontKey);
+        setGameRoundSizeKey(next.sizeKey);
+      }
     }
-  }, [gameConfig, gameResults, gameRoundData]);
+  }, [gameConfig, gameResults, gameRoundData, gameShapeRoundData]);
 
   const handleGameNext = useCallback(() => {
     advanceGame({ target: gameTarget, score: gameScore, timeMs: gameTimeMs, strokeCount: gameStrokeCount });
@@ -346,6 +414,11 @@ export default function App() {
         theme={themeInfo}
         onQuickPlay={startQuickPlay}
         onGameMode={() => navigate('game-setup')}
+        onDailyText={() => startDailyChallenge('text')}
+        onDailyShapes={() => startDailyChallenge('shapes')}
+        dailyTextDone={isDailyDone('text')}
+        dailyShapesDone={isDailyDone('shapes')}
+        dailyDate={formatDailyDate()}
       />
     );
   }
@@ -376,6 +449,7 @@ export default function App() {
 
   // ── Shared canvas rendering (quickplay + game-playing) ────────────────────
   const isGame = screen === 'game-playing';
+  const isShapesGame = isGame && !!gameConfig?.shapesMode;
   const target = isGame ? gameTarget : qpEffectiveTarget;
   const font = isGame ? gameFont : qpFont;
   const lineWidth = isGame ? gameLineWidth : qpLineWidth;
@@ -384,7 +458,7 @@ export default function App() {
   const curTimeMs = isGame ? gameTimeMs : qpTimeMs;
   const curStrokeCount = isGame ? gameStrokeCount : qpStrokeCount;
   const curTraceStrokes = isGame ? gameTraceStrokes : qpTraceStrokes;
-  const curTraceFont = font;
+  const curTraceFont = isShapesGame ? undefined : font;
   const resetKey = isGame ? gameResetKey : qpResetKey;
   const fontKey = isGame ? gameRoundFontKey : qpFontKey;
   const sizeKey = isGame ? gameRoundSizeKey : qpSizeKey;
@@ -407,7 +481,7 @@ export default function App() {
     textWeak:    d ? 'text-white/30 hover:text-white/60'  : 'text-black/35 hover:text-black/70',
     textMid:     d ? 'text-white/40'   : 'text-black/50',
     textFull:    d ? 'text-white'      : 'text-black/85',
-    tabActive:   d ? 'bg-white/15 text-white'            : 'bg-black/10 text-black/85',
+    tabActive:   d ? 'bg-[#3b82f6]/20 text-[#93c5fd]'    : 'bg-[#3b82f6]/12 text-[#3b82f6]',
     tabInactive: d ? 'text-white/40 hover:text-white/70 hover:bg-white/8' : 'text-black/40 hover:text-black/65 hover:bg-black/6',
     swatchRing:  d ? '0 0 0 2px rgba(255,255,255,0.7)'  : '0 0 0 2px rgba(0,0,0,0.5)',
     swatchBorder:d ? '0 0 0 1px rgba(255,255,255,0.15)' : '0 0 0 1px rgba(0,0,0,0.15)',
@@ -417,7 +491,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col w-screen h-screen select-none overflow-hidden" style={{ background: themeInfo.bg, color: themeInfo.isDark ? '#fff' : '#1a1a1a' }}>
+    <div className="flex flex-col w-screen h-dvh select-none overflow-hidden" style={{ background: themeInfo.bg, color: themeInfo.isDark ? '#fff' : '#1a1a1a', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
       {/* Header */}
       <div className={`flex flex-col border-b ${hdr.border} shrink-0`}>
         {isGame ? (
@@ -632,18 +706,31 @@ export default function App() {
 
       {/* Canvas area */}
       <div ref={handleContainerRef} className="relative flex-1 min-h-0">
-        <TraceCanvas
-          key={`${target}-${fontKey}-${sizeKey}-${resetKey}`}
-          target={target}
-          font={font}
-          lineWidth={lineWidth}
-          strokeColor={themeInfo.stroke}
-          ghostColor={themeInfo.stroke}
-          isDark={themeInfo.isDark}
-          blindMode={blindMode}
-          onFirstStroke={handleFirstStroke}
-          onRequestScore={handleScore}
-        />
+        {isShapesGame && gameCurrentShapeConfig ? (
+          <ShapeCanvas
+            key={resetKey}
+            config={gameCurrentShapeConfig}
+            strokeColor={themeInfo.stroke}
+            ghostColor={themeInfo.stroke}
+            isDark={themeInfo.isDark}
+            blindMode={blindMode}
+            onFirstStroke={handleFirstStroke}
+            onRequestScore={handleGameShapeScore}
+          />
+        ) : (
+          <TraceCanvas
+            key={`${target}-${fontKey}-${sizeKey}-${resetKey}`}
+            target={target}
+            font={font}
+            lineWidth={lineWidth}
+            strokeColor={themeInfo.stroke}
+            ghostColor={themeInfo.stroke}
+            isDark={themeInfo.isDark}
+            blindMode={blindMode}
+            onFirstStroke={handleFirstStroke}
+            onRequestScore={handleScore}
+          />
+        )}
 
         {/* Custom text input overlay */}
         {!isGame && showCustomInput && (

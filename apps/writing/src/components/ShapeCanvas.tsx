@@ -1,6 +1,8 @@
 import { useRef, useCallback, useEffect, useState } from 'react';
 import type { Stroke, Pt } from '../lib/freehand';
 import { renderStroke, smoothPoints } from '../lib/freehand';
+import type { ShapeTarget, ShapeRoundConfig } from '../lib/shapes';
+import { layoutShapes, renderShapeGhost, makePrng } from '../lib/shapes';
 
 const ERASER_CURSOR = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='50%25' stop-color='%2389CFF0'/%3E%3Cstop offset='50%25' stop-color='%23FA8072'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='5' width='18' height='12' rx='2.5' transform='rotate(-25 12 11)' fill='url(%23g)' stroke='%23666' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`;
 
@@ -15,25 +17,21 @@ function distToSegment(px: number, py: number, ax: number, ay: number, bx: numbe
 type UndoAction = { type: 'draw'; stroke: Stroke } | { type: 'erase'; strokes: Stroke[] };
 
 type Props = {
-  target: string;
-  font: string;
-  lineWidth?: number;
+  config: ShapeRoundConfig;
   strokeColor?: string;
   ghostColor?: string;
   ghostAlpha?: number;
   isDark?: boolean;
   blindMode?: boolean;
   onFirstStroke: () => void;
-  onRequestScore: (strokes: Stroke[], cx: number, cy: number, w: number, h: number) => void;
+  onRequestScore: (strokes: Stroke[], shapes: ShapeTarget[], cx: number, cy: number, w: number, h: number) => void;
 };
 
-export default function TraceCanvas({
-  target,
-  font,
-  lineWidth = 8,
+export default function ShapeCanvas({
+  config,
   strokeColor = '#ffffff',
   ghostColor = '#ffffff',
-  ghostAlpha = 0.16,
+  ghostAlpha = 0.18,
   isDark = true,
   blindMode = false,
   onFirstStroke,
@@ -42,12 +40,10 @@ export default function TraceCanvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const strokesRef = useRef<Stroke[]>([]);
   const currentRef = useRef<Stroke | null>(null);
-  // 'mouse' = drawing via click+drag, 'cmd' = drawing via cmd+move
   const toolRef = useRef<'mouse' | 'cmd' | null>(null);
   const firstStrokeFiredRef = useRef(false);
   const hasSubmittedRef = useRef(false);
   const rafRef = useRef<number | null>(null);
-  // Center-relative pointer position (origin = canvas center)
   const mousePosRef = useRef<Pt>({ x: 0, y: 0 });
   const undoStackRef = useRef<UndoAction[]>([]);
   const activePointerIdRef = useRef<number | null>(null);
@@ -64,24 +60,25 @@ export default function TraceCanvas({
   const isErasingRef = useRef(false);
   const drainRafRef = useRef<number | null>(null);
 
-  // Blind mode — animated ghost alpha
-  const blindAlphaRef = useRef(ghostAlpha); // animated value used in redraw
+  // Blind mode animated alpha
+  const blindAlphaRef = useRef(ghostAlpha);
+
+  // Shapes — computed once from config + canvas dimensions
+  const shapesRef = useRef<ShapeTarget[]>([]);
 
   // Mirror props to refs
-  const lineWidthRef = useRef(lineWidth);
+  const lineWidthRef = useRef(Math.max(6, Math.max(...config.sizePxOptions) * 0.065));
   const strokeColorRef = useRef(strokeColor);
   const ghostColorRef = useRef(ghostColor);
   const ghostAlphaRef = useRef(ghostAlpha);
-  const fontRef = useRef(font);
-  const targetRef = useRef(target);
+  const configRef = useRef(config);
   const onFirstStrokeRef = useRef(onFirstStroke);
   const onRequestScoreRef = useRef(onRequestScore);
-  lineWidthRef.current = lineWidth;
+  lineWidthRef.current = Math.max(6, Math.max(...config.sizePxOptions) * 0.065);
   strokeColorRef.current = strokeColor;
   ghostColorRef.current = ghostColor;
   ghostAlphaRef.current = ghostAlpha;
-  fontRef.current = font;
-  targetRef.current = target;
+  configRef.current = config;
   onFirstStrokeRef.current = onFirstStroke;
   onRequestScoreRef.current = onRequestScore;
 
@@ -99,39 +96,15 @@ export default function TraceCanvas({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.clearRect(0, 0, cssW, cssH);
 
-      // Ghost text at absolute canvas center (with word-wrap for long text)
+      // Ghost shapes at absolute canvas coords
       ctx.save();
       ctx.globalAlpha = blindAlphaRef.current;
-      ctx.fillStyle = ghostColorRef.current;
-      ctx.font = fontRef.current;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      {
-        const maxW = cssW * 0.88;
-        const text = targetRef.current;
-        const words = text.split(' ');
-        const lines: string[] = [];
-        let line = '';
-        for (const word of words) {
-          const test = line ? line + ' ' + word : word;
-          if (ctx.measureText(test).width > maxW && line) {
-            lines.push(line);
-            line = word;
-          } else {
-            line = test;
-          }
-        }
-        if (line) lines.push(line);
-
-        const metrics = ctx.measureText('M');
-        const lineH = (metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent) * 1.35;
-        const totalH = lineH * lines.length;
-        const startY = cssH / 2 - totalH / 2 + lineH / 2;
-        lines.forEach((l, i) => ctx.fillText(l, cssW / 2, startY + i * lineH));
+      for (const shape of shapesRef.current) {
+        renderShapeGhost(ctx, shape, ghostColorRef.current);
       }
       ctx.restore();
 
-      // Strokes in center-relative coords — translate origin to canvas center
+      // Strokes in center-relative coords
       ctx.save();
       ctx.translate(cssW / 2, cssH / 2);
       ctx.setLineDash([]);
@@ -158,7 +131,7 @@ export default function TraceCanvas({
         renderStroke(ctx, currentRef.current, strokeColorRef.current);
       }
 
-      // Erase trail — fading red path
+      // Erase trail
       const trail = eraseTrailRef.current;
       if (trail.length >= 2) {
         const pts = smoothPoints(smoothPoints(trail));
@@ -181,7 +154,6 @@ export default function TraceCanvas({
     });
   }, []);
 
-  // Start the drain trail animation loop imperatively (no React state)
   const startEraseDrain = useCallback(() => {
     if (drainRafRef.current !== null) return;
     const tick = () => {
@@ -203,9 +175,7 @@ export default function TraceCanvas({
   }, [redraw]);
 
   const stopEraseDrain = useCallback(() => {
-    // Don't cancel immediately — let the loop drain the trail to zero
-    // isErasingRef.current is already false by the time this is called,
-    // so the tick will stop itself once trail.length reaches 0
+    // Drain loop self-terminates when trail is empty and isErasingRef is false
   }, []);
 
   const resizeCanvas = useCallback(() => {
@@ -219,35 +189,21 @@ export default function TraceCanvas({
       canvas.width = w * dpr;
       canvas.height = h * dpr;
     }
+    // Compute shape layout once on first valid canvas size
+    if (shapesRef.current.length === 0 && w > 0 && h > 0) {
+      const cfg = configRef.current;
+      const rng = makePrng(cfg.seed);
+      shapesRef.current = layoutShapes(cfg.kinds, cfg.count, cfg.sizePxOptions, w, h, rng);
+    }
   }, []);
 
   useEffect(() => {
     resizeCanvas();
     redraw();
-    document.fonts.load(fontRef.current, targetRef.current).then(() => { resizeCanvas(); redraw(); });
     const ro = new ResizeObserver(() => { resizeCanvas(); redraw(); });
     if (canvasRef.current) ro.observe(canvasRef.current);
     return () => ro.disconnect();
   }, [resizeCanvas, redraw]);
-
-  useEffect(() => {
-    document.fonts.load(font, target).then(() => redraw());
-    redraw();
-  }, [font, strokeColor, ghostColor, ghostAlpha, target, redraw]);
-
-  useEffect(() => {
-    strokesRef.current = [];
-    currentRef.current = null;
-    toolRef.current = null;
-    firstStrokeFiredRef.current = false;
-    pendingEraseRef.current.clear();
-    eraseTrailRef.current = [];
-    isErasingRef.current = false;
-    undoStackRef.current = [];
-    activePointerIdRef.current = null;
-    setHasStrokes(false);
-    stopEraseDrain();
-  }, [target]);
 
   // Blind mode: wait 1s, then fade ghost out over 0.8s
   useEffect(() => {
@@ -272,9 +228,8 @@ export default function TraceCanvas({
       clearTimeout(tfade);
       cancelAnimationFrame(raf);
     };
-  }, [blindMode, ghostAlpha, target, redraw]);
+  }, [blindMode, ghostAlpha, config, redraw]);
 
-  // Returns position relative to canvas center
   const getCanvasPos = (clientX: number, clientY: number): Pt => {
     const canvas = canvasRef.current!;
     const rect = canvas.getBoundingClientRect();
@@ -347,7 +302,6 @@ export default function TraceCanvas({
       pending.clear();
       if (strokesRef.current.length === 0) setHasStrokes(false);
     }
-    // Cancel any stale pending RAF so the fresh render always fires
     if (rafRef.current !== null) {
       cancelAnimationFrame(rafRef.current);
       rafRef.current = null;
@@ -417,32 +371,25 @@ export default function TraceCanvas({
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      // Cmd+Z undo
       if ((e.metaKey || e.ctrlKey) && e.key === 'z' && !e.shiftKey && !hasSubmittedRef.current) {
         e.preventDefault();
         handleUndo();
         return;
       }
 
-      // Enter submits
       if (e.key === 'Enter' && !e.metaKey && !e.ctrlKey) {
         e.preventDefault();
         if (!hasSubmittedRef.current && strokesRef.current.length > 0 && canvasRef.current) {
           hasSubmittedRef.current = true;
-          const canvas = canvasRef.current;
+          const c = canvasRef.current;
           const dpr = window.devicePixelRatio || 1;
-          onRequestScoreRef.current(
-            strokesRef.current,
-            canvas.width / dpr / 2,
-            canvas.height / dpr / 2,
-            canvas.width / dpr,
-            canvas.height / dpr,
-          );
+          const w = c.width / dpr;
+          const h = c.height / dpr;
+          onRequestScoreRef.current(strokesRef.current, shapesRef.current, w / 2, h / 2, w, h);
         }
         return;
       }
 
-      // '.' places a dot at the current pointer position
       if (e.key === '.' && !e.metaKey && !e.ctrlKey && !isErasingRef.current && !hasSubmittedRef.current) {
         e.preventDefault();
         const dot: Stroke = { points: [{ ...mousePosRef.current }], lineWidth: lineWidthRef.current };
@@ -457,7 +404,6 @@ export default function TraceCanvas({
         return;
       }
 
-      // Escape cancels pending erase
       if (e.key === 'Escape' && isErasingRef.current) {
         stopEraseDrain();
         cancelErase();
@@ -465,13 +411,11 @@ export default function TraceCanvas({
         return;
       }
 
-      // Cursor feedback
       if (e.altKey) canvas.style.cursor = ERASER_CURSOR;
       else if ((e.metaKey || e.ctrlKey) && !isErasingRef.current) canvas.style.cursor = 'crosshair';
 
       if (e.repeat) return;
 
-      // CMD key activates drawing without click
       if ((e.metaKey || e.ctrlKey) && !toolRef.current && !isErasingRef.current && !hasSubmittedRef.current) {
         toolRef.current = 'cmd';
         startStroke(mousePosRef.current);
@@ -491,7 +435,7 @@ export default function TraceCanvas({
       if (e.metaKey || e.ctrlKey) return;
       if (hasSubmittedRef.current) return;
       if ((e.target as HTMLElement)?.closest('[data-no-draw]')) return;
-      if (activePointerIdRef.current !== null) return; // ignore secondary pointers
+      if (activePointerIdRef.current !== null) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
       const rect = canvas.getBoundingClientRect();
@@ -509,9 +453,7 @@ export default function TraceCanvas({
         redraw();
         return;
       }
-
       if (isErasingRef.current) return;
-
       activePointerIdRef.current = e.pointerId;
       toolRef.current = 'mouse';
       startStroke(getCanvasPos(e.clientX, e.clientY));
@@ -522,7 +464,6 @@ export default function TraceCanvas({
       const pt = getCanvasPos(e.clientX, e.clientY);
       mousePosRef.current = pt;
 
-      // If cmd mode is active but key was released while tab was inactive, end the stroke
       if (toolRef.current === 'cmd' && !e.metaKey && !e.ctrlKey) {
         finishStroke();
         return;
@@ -553,18 +494,13 @@ export default function TraceCanvas({
         return;
       }
 
-      // Only track the active pointer for drawing
       if (activePointerIdRef.current !== null && e.pointerId !== activePointerIdRef.current) return;
-
       if (!toolRef.current) return;
-
-      // Mouse tool: stop if button released mid-move
       if (toolRef.current === 'mouse' && (e.buttons & 1) === 0) {
         finishStroke();
         activePointerIdRef.current = null;
         return;
       }
-
       if (!currentRef.current) return;
       currentRef.current.points.push(pt);
       redraw();
@@ -639,13 +575,9 @@ export default function TraceCanvas({
     hasSubmittedRef.current = true;
     const canvas = canvasRef.current!;
     const dpr = window.devicePixelRatio || 1;
-    onRequestScoreRef.current(
-      strokesRef.current,
-      canvas.width / dpr / 2,
-      canvas.height / dpr / 2,
-      canvas.width / dpr,
-      canvas.height / dpr,
-    );
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+    onRequestScoreRef.current(strokesRef.current, shapesRef.current, w / 2, h / 2, w, h);
   }, []);
 
   const d = isDark;
@@ -701,7 +633,6 @@ export default function TraceCanvas({
               ['erase',  'alt + drag'],
               ['undo',   '⌘Z'],
               ['submit', '↵'],
-              ['retry',  'r'],
             ].map(([label, key]) => (
               <div key={label} className="flex items-center gap-3">
                 <span className="w-11 opacity-60">{label}</span>
@@ -743,16 +674,16 @@ export default function TraceCanvas({
                 : btnBase,
             ].join(' ')}
             data-no-draw
-            title="Erase"
+            title="Erase mode (or hold alt)"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
               <defs>
-                <linearGradient id="eg" x1="0" y1="0" x2="1" y2="0">
+                <linearGradient id="eg2" x1="0" y1="0" x2="1" y2="0">
                   <stop offset="50%" stopColor="#89CFF0" />
                   <stop offset="50%" stopColor="#FA8072" />
                 </linearGradient>
               </defs>
-              <rect x="3" y="5" width="18" height="12" rx="2.5" transform="rotate(-25 12 11)" fill="url(#eg)" stroke={d ? '#aaa' : '#666'} strokeWidth="1.5" />
+              <rect x="3" y="5" width="18" height="12" rx="2.5" transform="rotate(-25 12 11)" fill="url(#eg2)" stroke={d ? '#aaa' : '#666'} strokeWidth="1.5" />
             </svg>
           </button>
         </div>

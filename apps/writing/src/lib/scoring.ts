@@ -1,5 +1,7 @@
 import type { Stroke } from './freehand';
 import { smoothPoints } from './freehand';
+import type { ShapeTarget } from './shapes';
+import { buildShapePath } from './shapes';
 
 function renderStrokeToCtx(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   const pts = smoothPoints(stroke.points);
@@ -109,6 +111,63 @@ export async function scoreAttempt(
 
   // coverage^1.5 makes partial coverage much more costly — a scribble on one corner
   // of a letter can't score well, you need to cover most of the target shape.
+  const coveragePow = Math.pow(coverage, 1.2);
+
+  return Math.round(effort * (coveragePow * 0.7 + precision * 0.3) * 100);
+}
+
+export async function scoreShapeAttempt(
+  strokes: Stroke[],
+  shapes: ShapeTarget[],
+  cx: number,
+  cy: number,
+  canvasW: number,
+  canvasH: number,
+): Promise<number> {
+  if (strokes.length === 0) return 0;
+  if (shapes.length === 0) return 0;
+
+  // Target canvas — render all shapes as stroked outlines, matching ghost line widths
+  const targetCanvas = document.createElement('canvas');
+  targetCanvas.width = Math.ceil(canvasW);
+  targetCanvas.height = Math.ceil(canvasH);
+  const tCtx = targetCanvas.getContext('2d')!;
+  tCtx.strokeStyle = '#fff';
+  tCtx.lineCap = 'round';
+  tCtx.lineJoin = 'round';
+  for (const shape of shapes) {
+    tCtx.lineWidth = Math.max(3, shape.w * 0.075);
+    buildShapePath(tCtx, shape.kind, shape.x, shape.y, shape.w, shape.h, shape.angle);
+    tCtx.stroke();
+  }
+
+  // User canvas — render strokes in center-relative coords
+  const userCanvas = document.createElement('canvas');
+  userCanvas.width = Math.ceil(canvasW);
+  userCanvas.height = Math.ceil(canvasH);
+  const uCtx = userCanvas.getContext('2d')!;
+  uCtx.translate(cx, cy);
+  for (const stroke of strokes) {
+    renderStrokeToCtx(uCtx, stroke);
+  }
+
+  const tData = tCtx.getImageData(0, 0, targetCanvas.width, targetCanvas.height).data;
+  const uData = uCtx.getImageData(0, 0, userCanvas.width, userCanvas.height).data;
+
+  let targetPx = 0, covered = 0, userTotal = 0;
+  for (let i = 3; i < tData.length; i += 4) {
+    const inTarget = tData[i] > 100;
+    const inUser = uData[i] > 100;
+    if (inTarget) targetPx++;
+    if (inUser && inTarget) covered++;
+    if (inUser) userTotal++;
+  }
+
+  if (targetPx === 0) return 0;
+
+  const coverage = covered / targetPx;
+  const precision = userTotal > 0 ? covered / userTotal : 0;
+  const effort = Math.min(1, userTotal / (targetPx * 0.3));
   const coveragePow = Math.pow(coverage, 1.2);
 
   return Math.round(effort * (coveragePow * 0.7 + precision * 0.3) * 100);

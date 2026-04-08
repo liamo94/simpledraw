@@ -2,6 +2,8 @@ import type { RoundResult } from '../components/GameSummary';
 import type { GameConfig } from '../components/GameSetup';
 import type { ThemeInfo } from './themes';
 import { FONTS, SIZES } from './fonts';
+import { buildShapePath, ALL_SHAPES } from './shapes';
+import type { ShapeKind } from './shapes';
 
 const MODE_LABELS: Record<string, string> = {
   uppercase: 'A–Z', lowercase: 'a–z', numbers: '0–9', words: 'Words', sentences: 'Sentences', custom: 'Custom',
@@ -92,7 +94,7 @@ export async function generateResultsImage(
   const W = 560;
   const PAD = 28;
   const HEADER_H = 44;
-  const CONFIG_H = config ? 36 : 0;
+  const CONFIG_H = config && !config.shapesMode ? 36 : 0;
   const HERO_H = 84;
   const ROW_H = 44;
   const totalH = HEADER_H + CONFIG_H + HERO_H + results.length * ROW_H + PAD;
@@ -133,7 +135,7 @@ export async function generateResultsImage(
 
   // ── Config row ──
   let nextY = HEADER_H + 1;
-  if (config) {
+  if (config && !config.shapesMode) {
     const modeLabels = config.modes.map((m) => MODE_LABELS[m] ?? m);
     const fontLabels = FONTS.filter((f) => config.fontKeys.includes(f.key)).map((f) => f.label);
     const sizeLabels = SIZES.filter((s) => config.sizeKeys.includes(s.key)).map((s) => s.label);
@@ -253,11 +255,30 @@ export async function generateResultsImage(
     ctx.fill();
     ctx.globalAlpha = 1;
 
-    ctx.fillStyle = fg;
-    ctx.globalAlpha = 0.85;
-    ctx.font = `600 20px Caveat, cursive`;
-    ctx.fillText(r.target, PAD + 36, mid + 1);
-    ctx.globalAlpha = 1;
+    if (config?.shapesMode) {
+      // Draw shape icons for shapes game
+      const kinds = r.target.split(' · ').filter((k) => ALL_SHAPES.includes(k as ShapeKind)) as ShapeKind[];
+      const iconSize = 16;
+      const gap = 6;
+      ctx.strokeStyle = fg;
+      ctx.lineWidth = 1.6;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.globalAlpha = 0.8;
+      kinds.forEach((kind, ki) => {
+        const ix = PAD + 36 + ki * (iconSize + gap);
+        const iy = mid - iconSize / 2;
+        buildShapePath(ctx, kind, ix, iy, iconSize, iconSize);
+        ctx.stroke();
+      });
+      ctx.globalAlpha = 1;
+    } else {
+      ctx.fillStyle = fg;
+      ctx.globalAlpha = 0.85;
+      ctx.font = `600 20px Caveat, cursive`;
+      ctx.fillText(r.target, PAD + 36, mid + 1);
+      ctx.globalAlpha = 1;
+    }
 
     const timeStr = r.timeMs !== null ? fmt(r.timeMs) : '—';
     ctx.fillStyle = fgMid;
