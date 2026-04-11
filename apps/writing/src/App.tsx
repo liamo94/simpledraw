@@ -15,12 +15,22 @@ import type { Theme } from './lib/themes';
 import { THEMES, getTheme } from './lib/themes';
 import { scoreAttempt, scoreShapeAttempt } from './lib/scoring';
 import type { Stroke } from './lib/freehand';
-import type { ShapeTarget, ShapeRoundConfig } from './lib/shapes';
-import { SHAPE_SIZE_PX } from './lib/shapes';
+import type { ShapeTarget, ShapeRoundConfig, ShapeKind } from './lib/shapes';
+import { SHAPE_SIZE_PX, ALL_SHAPES, SHAPE_LABELS } from './lib/shapes';
 import { getDailyConfig, isDailyDone, markDailyDone, formatDailyDate } from './lib/daily';
 
 type AppScreen = 'home' | 'quickplay' | 'game-setup' | 'game-playing' | 'game-summary';
 type DrawState = 'drawing' | 'scoring' | 'scored';
+
+function makeQpShapeConfig(kind: ShapeKind | 'random'): ShapeRoundConfig {
+  const kinds: ShapeKind[] = kind === 'random' ? ALL_SHAPES : [kind];
+  return {
+    seed: Math.floor(Math.random() * 0xFFFFFFFF),
+    kinds,
+    count: 1,
+    sizePxOptions: [SHAPE_SIZE_PX.sm, SHAPE_SIZE_PX.md, SHAPE_SIZE_PX.lg],
+  };
+}
 
 // ── Routing helpers ───────────────────────────────────────────────────────────
 function parseSeedFromUrl(): number | undefined {
@@ -84,6 +94,18 @@ export default function App() {
   const [qpTraceStrokes, setQpTraceStrokes] = useState<Stroke[]>([]);
   const [qpResetKey, setQpResetKey] = useState(0);
 
+  // ── Quick play shapes state ───────────────────────────────────────────────
+  const [qpIsShapes, setQpIsShapes] = useState(() => localStorage.getItem('qp-is-shapes') === 'true');
+  const [qpShapeKind, setQpShapeKind] = useState<ShapeKind | 'random'>(() =>
+    (localStorage.getItem('qp-shape-kind') as ShapeKind | 'random') ?? 'random'
+  );
+  const [qpShapeConfig, setQpShapeConfig] = useState<ShapeRoundConfig | null>(() => {
+    if (localStorage.getItem('qp-is-shapes') !== 'true') return null;
+    const kind = (localStorage.getItem('qp-shape-kind') as ShapeKind | 'random') ?? 'random';
+    return makeQpShapeConfig(kind);
+  });
+  const [qpShapeTarget, setQpShapeTarget] = useState('');
+
   // ── Game mode state ───────────────────────────────────────────────────────
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
   const [gameRoundData, setGameRoundData] = useState<{ target: string; fontKey: FontKey; sizeKey: SizeKey }[]>([]);
@@ -138,7 +160,10 @@ export default function App() {
 
   // ── Quick play ────────────────────────────────────────────────────────────
   const startQuickPlay = useCallback(() => {
-    if (qpMode === 'custom') {
+    if (qpIsShapes) {
+      const cfg = makeQpShapeConfig(qpShapeKind);
+      setQpShapeConfig(cfg);
+    } else if (qpMode === 'custom') {
       setCustomDraft(qpCustomText);
       setShowCustomInput(true);
     } else {
@@ -148,7 +173,7 @@ export default function App() {
     setQpResetKey((k) => k + 1);
     timerStartRef.current = null;
     navigate('quickplay');
-  }, [qpMode, qpCustomText]);
+  }, [qpIsShapes, qpShapeKind, qpMode, qpCustomText]);
 
   const qpEffectiveTarget = qpMode === 'custom' ? qpCustomText : qpTarget;
   const qpSizeMult = SIZES.find((s) => s.key === qpSizeKey)?.mult ?? 1;
@@ -171,7 +196,31 @@ export default function App() {
     [qpTarget, qpFont],
   );
 
+  const handleQpShapeScore = useCallback(
+    async (strokes: Stroke[], shapes: ShapeTarget[], cx: number, cy: number, w: number, h: number) => {
+      const elapsed = timerStartRef.current !== null ? performance.now() - timerStartRef.current : null;
+      setQpTimeMs(elapsed);
+      setQpStrokeCount(strokes.length);
+      setQpTraceStrokes([...strokes]);
+      setQpDrawState('scoring');
+      const s = await scoreShapeAttempt(strokes, shapes, cx, cy, w, h);
+      setQpScore(s);
+      setQpShapeTarget(shapes.map((sh) => SHAPE_LABELS[sh.kind]).join(' · '));
+      setQpDrawState('scored');
+    },
+    [],
+  );
+
   const handleQpNext = useCallback(() => {
+    if (qpIsShapes) {
+      const cfg = makeQpShapeConfig(qpShapeKind);
+      setQpShapeConfig(cfg);
+      setQpDrawState('drawing');
+      setQpResetKey((k) => k + 1);
+      timerStartRef.current = null;
+      if (containerRef.current) setCanvasH(containerRef.current.clientHeight);
+      return;
+    }
     if (qpMode === 'custom') {
       setCustomDraft(qpCustomText);
       setQpDrawState('drawing');
@@ -186,7 +235,7 @@ export default function App() {
     setQpResetKey((k) => k + 1);
     timerStartRef.current = null;
     if (containerRef.current) setCanvasH(containerRef.current.clientHeight);
-  }, [qpMode, qpTarget, qpCustomText]);
+  }, [qpIsShapes, qpShapeKind, qpMode, qpTarget, qpCustomText]);
 
   const handleQpTryAgain = useCallback(() => {
     setQpDrawState('drawing');
@@ -195,6 +244,8 @@ export default function App() {
   }, []);
 
   const handleQpModeChange = useCallback((m: ContentMode) => {
+    setQpIsShapes(false);
+    localStorage.setItem('qp-is-shapes', 'false');
     setQpMode(m);
     localStorage.setItem('qp-mode', m);
     if (m === 'custom') {
@@ -208,6 +259,27 @@ export default function App() {
     setQpResetKey((k) => k + 1);
     timerStartRef.current = null;
   }, [qpCustomText]);
+
+  const handleQpShapesActivate = useCallback(() => {
+    setQpIsShapes(true);
+    localStorage.setItem('qp-is-shapes', 'true');
+    const cfg = makeQpShapeConfig(qpShapeKind);
+    setQpShapeConfig(cfg);
+    setShowCustomInput(false);
+    setQpDrawState('drawing');
+    setQpResetKey((k) => k + 1);
+    timerStartRef.current = null;
+  }, [qpShapeKind]);
+
+  const handleQpShapeKindChange = useCallback((kind: ShapeKind | 'random') => {
+    setQpShapeKind(kind);
+    localStorage.setItem('qp-shape-kind', kind);
+    const cfg = makeQpShapeConfig(kind);
+    setQpShapeConfig(cfg);
+    setQpDrawState('drawing');
+    setQpResetKey((k) => k + 1);
+    timerStartRef.current = null;
+  }, []);
 
   // ── Game mode ─────────────────────────────────────────────────────────────
   // Seeded PRNG (mulberry32)
@@ -450,7 +522,9 @@ export default function App() {
   // ── Shared canvas rendering (quickplay + game-playing) ────────────────────
   const isGame = screen === 'game-playing';
   const isShapesGame = isGame && !!gameConfig?.shapesMode;
+  const isQpShapes = !isGame && qpIsShapes;
   const target = isGame ? gameTarget : qpEffectiveTarget;
+  const displayTarget = isQpShapes ? qpShapeTarget : (isShapesGame ? gameTarget : target);
   const font = isGame ? gameFont : qpFont;
   const lineWidth = isGame ? gameLineWidth : qpLineWidth;
   const drawState = isGame ? gameDrawState : qpDrawState;
@@ -458,7 +532,7 @@ export default function App() {
   const curTimeMs = isGame ? gameTimeMs : qpTimeMs;
   const curStrokeCount = isGame ? gameStrokeCount : qpStrokeCount;
   const curTraceStrokes = isGame ? gameTraceStrokes : qpTraceStrokes;
-  const curTraceFont = isShapesGame ? undefined : font;
+  const curTraceFont = (isShapesGame || isQpShapes) ? undefined : font;
   const resetKey = isGame ? gameResetKey : qpResetKey;
   const fontKey = isGame ? gameRoundFontKey : qpFontKey;
   const sizeKey = isGame ? gameRoundSizeKey : qpSizeKey;
@@ -594,23 +668,36 @@ export default function App() {
               {/* Mode tabs */}
               <div className="flex gap-0.5">
                 {MODE_LABELS.map(({ mode: m, label }) => (
-                  <button key={m} onClick={() => handleQpModeChange(m)} className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${qpMode === m ? hdr.tabActive : hdr.tabInactive}`}>{label}</button>
+                  <button key={m} onClick={() => handleQpModeChange(m)} className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${!qpIsShapes && qpMode === m ? hdr.tabActive : hdr.tabInactive}`}>{label}</button>
                 ))}
+                <button onClick={handleQpShapesActivate} className={`px-2.5 py-1 rounded-lg text-xs transition-colors ${qpIsShapes ? hdr.tabActive : hdr.tabInactive}`}>Shapes</button>
               </div>
               <div className={`w-px h-4 ${hdr.divider} shrink-0`} />
-              {/* Font */}
-              <div className="flex gap-0.5">
-                {FONTS.map((f) => (
-                  <button key={f.key} onClick={() => { setQpFontKey(f.key); localStorage.setItem('qp-font', f.key); setQpResetKey((k) => k + 1); }} className={`px-2 py-0.5 rounded-md text-xs transition-colors ${qpFontKey === f.key ? hdr.tabActive : hdr.tabInactive}`} style={{ fontFamily: f.css }}>{f.label}</button>
-                ))}
-              </div>
-              <div className={`w-px h-4 ${hdr.divider} shrink-0`} />
-              {/* Size */}
-              <div className="flex gap-0.5">
-                {SIZES.map((s) => (
-                  <button key={s.key} onClick={() => { setQpSizeKey(s.key); localStorage.setItem('qp-size', s.key); setQpResetKey((k) => k + 1); }} className={`w-7 h-6 rounded-md text-xs transition-colors ${qpSizeKey === s.key ? hdr.tabActive : hdr.tabInactive}`}>{s.label}</button>
-                ))}
-              </div>
+              {qpIsShapes ? (
+                /* Shape kind picker */
+                <div className="flex gap-0.5 flex-wrap">
+                  <button onClick={() => handleQpShapeKindChange('random')} className={`px-2 py-0.5 rounded-md text-xs transition-colors ${qpShapeKind === 'random' ? hdr.tabActive : hdr.tabInactive}`}>Random</button>
+                  {ALL_SHAPES.map((k) => (
+                    <button key={k} onClick={() => handleQpShapeKindChange(k)} className={`px-2 py-0.5 rounded-md text-xs transition-colors ${qpShapeKind === k ? hdr.tabActive : hdr.tabInactive}`}>{SHAPE_LABELS[k]}</button>
+                  ))}
+                </div>
+              ) : (
+                <>
+                  {/* Font */}
+                  <div className="flex gap-0.5">
+                    {FONTS.map((f) => (
+                      <button key={f.key} onClick={() => { setQpFontKey(f.key); localStorage.setItem('qp-font', f.key); setQpResetKey((k) => k + 1); }} className={`px-2 py-0.5 rounded-md text-xs transition-colors ${qpFontKey === f.key ? hdr.tabActive : hdr.tabInactive}`} style={{ fontFamily: f.css }}>{f.label}</button>
+                    ))}
+                  </div>
+                  <div className={`w-px h-4 ${hdr.divider} shrink-0`} />
+                  {/* Size */}
+                  <div className="flex gap-0.5">
+                    {SIZES.map((s) => (
+                      <button key={s.key} onClick={() => { setQpSizeKey(s.key); localStorage.setItem('qp-size', s.key); setQpResetKey((k) => k + 1); }} className={`w-7 h-6 rounded-md text-xs transition-colors ${qpSizeKey === s.key ? hdr.tabActive : hdr.tabInactive}`}>{s.label}</button>
+                    ))}
+                  </div>
+                </>
+              )}
               {/* Theme swatches */}
               <div className="ml-auto flex items-center gap-1 shrink-0">
                 {THEMES.map((t) => (
@@ -677,27 +764,42 @@ export default function App() {
               {/* Row 2: mode tabs (scrollable) */}
               <div className="flex gap-0.5 px-3 pb-1 overflow-x-auto">
                 {MODE_LABELS.map(({ mode: m, label }) => (
-                  <button key={m} onClick={() => handleQpModeChange(m)} className={`px-2.5 py-1 rounded-lg text-xs transition-colors shrink-0 ${qpMode === m ? hdr.tabActive : hdr.tabInactive}`}>{label}</button>
+                  <button key={m} onClick={() => handleQpModeChange(m)} className={`px-2.5 py-1 rounded-lg text-xs transition-colors shrink-0 ${!qpIsShapes && qpMode === m ? hdr.tabActive : hdr.tabInactive}`}>{label}</button>
                 ))}
+                <button onClick={handleQpShapesActivate} className={`px-2.5 py-1 rounded-lg text-xs transition-colors shrink-0 ${qpIsShapes ? hdr.tabActive : hdr.tabInactive}`}>Shapes</button>
               </div>
-              {/* Row 3: font + size always visible */}
+              {/* Row 3: font/size or shape picker */}
               <div className={`flex flex-col gap-1.5 px-3 pb-2.5 pt-1.5 border-t ${hdr.border} mt-1`}>
-                <div className="flex items-center gap-1.5">
-                  <span className={`${hdr.textMid} text-[10px] tracking-widest uppercase w-8 shrink-0`}>font</span>
-                  <div className="flex gap-0.5 flex-wrap">
-                    {FONTS.map((f) => (
-                      <button key={f.key} onClick={() => { setQpFontKey(f.key); localStorage.setItem('qp-font', f.key); setQpResetKey((k) => k + 1); }} className={`px-2 py-0.5 rounded-md text-xs transition-colors ${qpFontKey === f.key ? hdr.tabActive : hdr.tabInactive}`} style={{ fontFamily: f.css }}>{f.label}</button>
-                    ))}
+                {qpIsShapes ? (
+                  <div className="flex items-center gap-1.5">
+                    <span className={`${hdr.textMid} text-[10px] tracking-widest uppercase w-8 shrink-0`}>shape</span>
+                    <div className="flex gap-0.5 flex-wrap overflow-x-auto">
+                      <button onClick={() => handleQpShapeKindChange('random')} className={`px-2 py-0.5 rounded-md text-xs transition-colors shrink-0 ${qpShapeKind === 'random' ? hdr.tabActive : hdr.tabInactive}`}>Random</button>
+                      {ALL_SHAPES.map((k) => (
+                        <button key={k} onClick={() => handleQpShapeKindChange(k)} className={`px-2 py-0.5 rounded-md text-xs transition-colors shrink-0 ${qpShapeKind === k ? hdr.tabActive : hdr.tabInactive}`}>{SHAPE_LABELS[k]}</button>
+                      ))}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <span className={`${hdr.textMid} text-[10px] tracking-widest uppercase w-8 shrink-0`}>size</span>
-                  <div className="flex gap-0.5">
-                    {SIZES.map((s) => (
-                      <button key={s.key} onClick={() => { setQpSizeKey(s.key); localStorage.setItem('qp-size', s.key); setQpResetKey((k) => k + 1); }} className={`w-9 h-6 rounded-md text-xs transition-colors ${qpSizeKey === s.key ? hdr.tabActive : hdr.tabInactive}`}>{s.label}</button>
-                    ))}
-                  </div>
-                </div>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`${hdr.textMid} text-[10px] tracking-widest uppercase w-8 shrink-0`}>font</span>
+                      <div className="flex gap-0.5 flex-wrap">
+                        {FONTS.map((f) => (
+                          <button key={f.key} onClick={() => { setQpFontKey(f.key); localStorage.setItem('qp-font', f.key); setQpResetKey((k) => k + 1); }} className={`px-2 py-0.5 rounded-md text-xs transition-colors ${qpFontKey === f.key ? hdr.tabActive : hdr.tabInactive}`} style={{ fontFamily: f.css }}>{f.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1.5">
+                      <span className={`${hdr.textMid} text-[10px] tracking-widest uppercase w-8 shrink-0`}>size</span>
+                      <div className="flex gap-0.5">
+                        {SIZES.map((s) => (
+                          <button key={s.key} onClick={() => { setQpSizeKey(s.key); localStorage.setItem('qp-size', s.key); setQpResetKey((k) => k + 1); }} className={`w-9 h-6 rounded-md text-xs transition-colors ${qpSizeKey === s.key ? hdr.tabActive : hdr.tabInactive}`}>{s.label}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </div>
           </>
@@ -716,6 +818,17 @@ export default function App() {
             blindMode={blindMode}
             onFirstStroke={handleFirstStroke}
             onRequestScore={handleGameShapeScore}
+          />
+        ) : isQpShapes && qpShapeConfig ? (
+          <ShapeCanvas
+            key={resetKey}
+            config={qpShapeConfig}
+            strokeColor={themeInfo.stroke}
+            ghostColor={themeInfo.stroke}
+            isDark={themeInfo.isDark}
+            blindMode={blindMode}
+            onFirstStroke={handleFirstStroke}
+            onRequestScore={handleQpShapeScore}
           />
         ) : (
           <TraceCanvas
@@ -798,7 +911,7 @@ export default function App() {
         {drawState === 'scored' && (
           <ScoreDisplay
             score={score}
-            target={target}
+            target={displayTarget}
             timeMs={curTimeMs}
             strokeCount={curStrokeCount}
             traceStrokes={curTraceStrokes}
