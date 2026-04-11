@@ -683,6 +683,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistView();
+        window.dispatchEvent(new Event("drawtool:panned"));
       }
       if (e.key === "ArrowDown" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
@@ -690,6 +691,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistView();
+        window.dispatchEvent(new Event("drawtool:panned"));
       }
       if (e.key === "ArrowLeft" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
@@ -697,6 +699,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistView();
+        window.dispatchEvent(new Event("drawtool:panned"));
       }
       if (e.key === "ArrowRight" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
@@ -704,6 +707,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         strokesCacheRef.current = null;
         scheduleRedraw();
         persistView();
+        window.dispatchEvent(new Event("drawtool:panned"));
       }
       if (cmdKey(e) && e.key === "d" && !isWritingRef.current) {
         e.preventDefault();
@@ -1019,26 +1023,39 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         if (activeModifierRef.current === "laser") {
           isDrawingRef.current = false;
           activeModifierRef.current = null;
+          window.dispatchEvent(new Event("drawtool:laser-used"));
         }
       }
       if (e.key === "w" || e.key === "h") {
         highlightKeyRef.current = false;
         setHighlighting(false);
         if (activeModifierRef.current === "highlight") {
+          const _committed = strokesRef.current[strokesRef.current.length - 1];
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           strokesCacheRef.current = null;
           persistStrokes();
+          if (_committed?.highlight) {
+            window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+              detail: { shape: _committed.shape, style: _committed.style, color: _committed.color, fill: _committed.fill, text: _committed.text, fontFamily: _committed.fontFamily, sharp: _committed.sharp, highlight: _committed.highlight, spray: _committed.spray, points: _committed.points.length },
+            }));
+          }
         }
       }
       if (e.key === "b") {
         sprayKeyRef.current = false;
         setSpraying(false);
         if (activeModifierRef.current === "spray") {
+          const _committed = strokesRef.current[strokesRef.current.length - 1];
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           strokesCacheRef.current = null;
           persistStrokes();
+          if (_committed?.spray) {
+            window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+              detail: { shape: _committed.shape, style: _committed.style, color: _committed.color, fill: _committed.fill, text: _committed.text, fontFamily: _committed.fontFamily, sharp: _committed.sharp, highlight: _committed.highlight, spray: _committed.spray, points: _committed.points.length },
+            }));
+          }
         }
       }
       if (e.key === "Shift") {
@@ -1054,11 +1071,17 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
               stroke.points.pop();
             }
           }
+          const _lineCommitted = strokesRef.current[strokesRef.current.length - 1];
           discardTinyShape();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           strokesCacheRef.current = null;
           persistStrokes();
+          if (_lineCommitted && strokesRef.current[strokesRef.current.length - 1] === _lineCommitted) {
+            window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+              detail: { shape: _lineCommitted.shape, style: _lineCommitted.style, color: _lineCommitted.color, fill: _lineCommitted.fill, text: _lineCommitted.text, fontFamily: _lineCommitted.fontFamily, sharp: _lineCommitted.sharp, highlight: _lineCommitted.highlight, spray: _lineCommitted.spray, points: _lineCommitted.points.length },
+            }));
+          }
           scheduleRedraw();
         }
         if (keyShapeRef.current) {
@@ -1078,11 +1101,17 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
               stroke.points.pop();
             }
           }
+          const _lineCommitted = strokesRef.current[strokesRef.current.length - 1];
           discardTinyShape();
           isDrawingRef.current = false;
           activeModifierRef.current = null;
           strokesCacheRef.current = null;
           persistStrokes();
+          if (_lineCommitted && strokesRef.current[strokesRef.current.length - 1] === _lineCommitted) {
+            window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+              detail: { shape: _lineCommitted.shape, style: _lineCommitted.style, color: _lineCommitted.color, fill: _lineCommitted.fill, text: _lineCommitted.text, fontFamily: _lineCommitted.fontFamily, sharp: _lineCommitted.sharp, highlight: _lineCommitted.highlight, spray: _lineCommitted.spray, points: _lineCommitted.points.length },
+            }));
+          }
           scheduleRedraw();
         }
       }
@@ -1112,6 +1141,12 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           activeModifierRef.current = null;
           strokesCacheRef.current = null;
           persistStrokes();
+          const _committed = strokesRef.current[strokesRef.current.length - 1];
+          if (_committed?.shape) {
+            window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+              detail: { shape: _committed.shape, style: _committed.style, color: _committed.color, fill: _committed.fill, text: _committed.text, fontFamily: _committed.fontFamily, sharp: _committed.sharp, highlight: _committed.highlight, spray: _committed.spray, points: _committed.points.length },
+            }));
+          }
           scheduleRedraw();
         }
       }

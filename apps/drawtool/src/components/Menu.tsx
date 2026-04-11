@@ -90,6 +90,7 @@ type Props = {
   onResetView: () => void;
   onExportData: () => void;
   onImportData: () => void;
+  onStartTraining: () => void;
 };
 
 export default function Menu({
@@ -107,6 +108,7 @@ export default function Menu({
   onResetView,
   onExportData,
   onImportData,
+  onStartTraining,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
@@ -296,9 +298,10 @@ export default function Menu({
               65%  { transform: translateY(1px) scale(0.95); }
               100% { transform: translateY(0) scale(1); }
             }`}</style>
-            <div
-              className="text-xl mb-3 text-center select-none"
-              style={{ fontFamily: "Pacifico, cursive" }}
+            <a
+              href="/"
+              className="text-xl mb-3 text-center select-none block"
+              style={{ fontFamily: "Pacifico, cursive", textDecoration: "none" }}
             >
               {[
                 { letter: "d", color: "#3b82f6", rotate: -6 },
@@ -331,7 +334,7 @@ export default function Menu({
                   {l.letter}
                 </span></span>
               ))}
-            </div>
+            </a>
             <div className="flex items-center justify-between">
               <span
                 className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
@@ -1942,6 +1945,39 @@ export default function Menu({
                   </ul>
                 </div>
               </AccordionSection>
+            </div>
+
+            <div className="mt-4 space-y-1.5">
+              <button
+                onClick={() => { onStartTraining(); closeMenu(); }}
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${isDark ? "bg-white/5 hover:bg-white/9" : "bg-black/4 hover:bg-black/7"}`}
+              >
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+                  {/* board */}
+                  <path d="M8 2.5 L14.5 5.5 L8 8.5 L1.5 5.5 Z" stroke="#3b82f6" />
+                  {/* cap body */}
+                  <path d="M4.5 7.5 L4.5 11.5 Q4.5 13.5 8 13.5 Q11.5 13.5 11.5 11.5 L11.5 7.5" stroke="#ec4899" />
+                  {/* tassel cord + bob */}
+                  <line x1="14.5" y1="5.5" x2="14.5" y2="9.5" stroke="#ec4899" />
+                  <circle cx="14.5" cy="10.2" r="0.9" fill="#ec4899" />
+                </svg>
+                <div>
+                  <div className={`text-xs font-medium leading-snug ${isDark ? "text-white/80" : "text-black/75"}`}>Training</div>
+                  <div className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}>Learn the shortcuts and how to use drawtool</div>
+                </div>
+              </button>
+              <a
+                href="https://writing.drawtool.io"
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${isDark ? "bg-white/5 hover:bg-white/9" : "bg-black/4 hover:bg-black/7"}`}
+              >
+                <img src="/writing-icon.png" alt="" width="16" height="16" className="mt-0.5 shrink-0 rounded-[3px]" />
+                <div>
+                  <div className={`text-xs font-medium leading-snug ${isDark ? "text-white/80" : "text-black/75"}`}>Writing practice</div>
+                  <div className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}>Improve your freehand drawing on canvas</div>
+                </div>
+              </a>
             </div>
 
             <div

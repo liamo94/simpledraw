@@ -262,6 +262,7 @@ function Canvas({
       undoStackRef.current.push({ type: "erase", strokes: erased });
       redoStackRef.current = [];
       pending.clear();
+      window.dispatchEvent(new CustomEvent("drawtool:stroke-erased"));
     }
   }, []);
 
@@ -1429,6 +1430,7 @@ function Canvas({
     strokesCacheRef.current = null;
     setZCursor(zKeyRef.current ? "default" : null);
     persistStrokes();
+    if (action) window.dispatchEvent(new Event("drawtool:did-undo"));
     scheduleRedraw();
   }, [persistStrokes, scheduleRedraw, setZCursor]);
 
@@ -2029,6 +2031,9 @@ function Canvas({
               redoStackRef.current = [];
               strokesCacheRef.current = null;
               persistStrokes();
+              window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+                detail: { shape: dot.shape, style: dot.style, color: dot.color, fill: dot.fill, text: dot.text, fontFamily: dot.fontFamily, sharp: dot.sharp, highlight: dot.highlight, spray: dot.spray, points: dot.points.length, dynamic: pressureSensitivityRef.current },
+              }));
               scheduleRedraw();
               tapStartRef.current = null;
               return;
@@ -2042,14 +2047,26 @@ function Canvas({
               strokesCacheRef.current = null;
               scheduleRedraw();
             }
-            if (activeModifierRef.current === "laser") {
+            const _wasLaser = activeModifierRef.current === "laser";
+            if (_wasLaser) {
               setLasering(false);
             }
+            const _commitCandidate =
+              activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser"
+                ? strokesRef.current[strokesRef.current.length - 1]
+                : null;
             discardTinyShape();
             isDrawingRef.current = false;
             activeModifierRef.current = null;
             strokesCacheRef.current = null;
             persistStrokes();
+            if (_wasLaser) {
+              window.dispatchEvent(new Event("drawtool:laser-used"));
+            } else if (_commitCandidate && strokesRef.current[strokesRef.current.length - 1] === _commitCandidate) {
+              window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+                detail: { shape: _commitCandidate.shape, style: _commitCandidate.style, color: _commitCandidate.color, fill: _commitCandidate.fill, text: _commitCandidate.text, fontFamily: _commitCandidate.fontFamily, sharp: _commitCandidate.sharp, highlight: _commitCandidate.highlight, spray: _commitCandidate.spray, points: _commitCandidate.points.length, dynamic: pressureSensitivityRef.current },
+              }));
+            }
             scheduleRedraw();
           }
         }
@@ -2110,6 +2127,11 @@ function Canvas({
             undoStackRef.current.pop();
           }
         }
+        const _wasLaser = activeModifierRef.current === "laser";
+        const _commitCandidate =
+          activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser"
+            ? strokesRef.current[strokesRef.current.length - 1]
+            : null;
         discardTinyShape();
         // Discard dashed freehand strokes that are too short to show a dash
         if (activeModifierRef.current === "shift") {
@@ -2130,6 +2152,13 @@ function Canvas({
         activeModifierRef.current = null;
         strokesCacheRef.current = null;
         persistStrokes();
+        if (_wasLaser) {
+          window.dispatchEvent(new Event("drawtool:laser-used"));
+        } else if (_commitCandidate && strokesRef.current[strokesRef.current.length - 1] === _commitCandidate) {
+          window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+            detail: { shape: _commitCandidate.shape, style: _commitCandidate.style, color: _commitCandidate.color, fill: _commitCandidate.fill, text: _commitCandidate.text, fontFamily: _commitCandidate.fontFamily, sharp: _commitCandidate.sharp, highlight: _commitCandidate.highlight, spray: _commitCandidate.spray, dynamic: pressureSensitivityRef.current },
+          }));
+        }
         scheduleRedraw();
       }
     },
@@ -2217,8 +2246,13 @@ function Canvas({
       }
       if (isPanningRef.current) {
         const view = viewRef.current;
-        view.x += e.clientX - panLastRef.current.x;
-        view.y += e.clientY - panLastRef.current.y;
+        const dx = e.clientX - panLastRef.current.x;
+        const dy = e.clientY - panLastRef.current.y;
+        if (dx !== 0 || dy !== 0) {
+          view.x += dx;
+          view.y += dy;
+          window.dispatchEvent(new Event("drawtool:panned"));
+        }
         panLastRef.current = { x: e.clientX, y: e.clientY };
         strokesCacheRef.current = null;
         scheduleRedraw();
@@ -2342,6 +2376,10 @@ function Canvas({
             clearInterval(sprayIntervalRef.current);
             sprayIntervalRef.current = null;
           }
+          const _commitCandidate =
+            activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser"
+              ? strokesRef.current[strokesRef.current.length - 1]
+              : null;
           discardTinyShape();
           // Discard tiny freehand strokes — catches phantom strokes from brief modifier-key holds
           if (activeModifierRef.current === "shift" || activeModifierRef.current === "meta") {
@@ -2363,6 +2401,11 @@ function Canvas({
           activeModifierRef.current = null;
           strokesCacheRef.current = null;
           persistStrokes();
+          if (_commitCandidate && strokesRef.current[strokesRef.current.length - 1] === _commitCandidate) {
+            window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+              detail: { shape: _commitCandidate.shape, style: _commitCandidate.style, color: _commitCandidate.color, fill: _commitCandidate.fill, text: _commitCandidate.text, fontFamily: _commitCandidate.fontFamily, sharp: _commitCandidate.sharp, highlight: _commitCandidate.highlight, spray: _commitCandidate.spray, dynamic: pressureSensitivityRef.current },
+            }));
+          }
           scheduleRedraw();
         }
         return;
@@ -2682,10 +2725,22 @@ function Canvas({
           clearInterval(sprayIntervalRef.current);
           sprayIntervalRef.current = null;
         }
+        const _leaveLaser = activeModifierRef.current === "laser";
+        const _leaveCandidate =
+          !_leaveLaser
+            ? strokesRef.current[strokesRef.current.length - 1]
+            : null;
         discardTinyShape();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
         persistStrokes();
+        if (_leaveLaser) {
+          window.dispatchEvent(new Event("drawtool:laser-used"));
+        } else if (_leaveCandidate && strokesRef.current[strokesRef.current.length - 1] === _leaveCandidate) {
+          window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+            detail: { shape: _leaveCandidate.shape, style: _leaveCandidate.style, color: _leaveCandidate.color, fill: _leaveCandidate.fill, text: _leaveCandidate.text, fontFamily: _leaveCandidate.fontFamily, sharp: _leaveCandidate.sharp, highlight: _leaveCandidate.highlight, spray: _leaveCandidate.spray, points: _leaveCandidate.points.length, dynamic: pressureSensitivityRef.current },
+          }));
+        }
       }
       if (overSameColorRef.current) { overSameColorRef.current = false; setOverSameColor(false); }
     },
@@ -2722,6 +2777,9 @@ function Canvas({
         // Two-finger swipe on trackpad or mouse scroll = pan
         view.x -= e.deltaX;
         view.y -= e.deltaY;
+        if (e.deltaX !== 0 || e.deltaY !== 0) {
+          window.dispatchEvent(new Event("drawtool:panned"));
+        }
       }
       strokesCacheRef.current = null;
       scheduleRedraw();

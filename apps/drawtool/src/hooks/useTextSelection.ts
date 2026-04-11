@@ -161,6 +161,9 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       redoStackRef.current = [];
       strokesCacheRef.current = null;
       persistStrokes();
+      window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+        detail: { shape: stroke.shape, style: stroke.style, color: stroke.color, fill: stroke.fill, text: stroke.text, fontFamily: stroke.fontFamily, sharp: stroke.sharp, highlight: stroke.highlight, spray: stroke.spray, points: stroke.points.length },
+      }));
       // Auto-select the new text stroke
       selectedTextRef.current = stroke;
       selectedGroupRef.current = [];
@@ -257,6 +260,18 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const pad = 8 / viewRef.current.scale;
           if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
               wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+            // Double-click inside editing stroke → select all
+            const now = performance.now();
+            const last = lastTextTapRef.current;
+            if (last && last.stroke === editStroke && now - last.time < 300) {
+              lastTextTapRef.current = null;
+              caretPosRef.current = (editStroke.text ?? "").length;
+              selectionAnchorRef.current = 0;
+              caretVisibleRef.current = true;
+              scheduleRedraw();
+              return;
+            }
+            lastTextTapRef.current = { time: now, stroke: editStroke };
             // Click inside editing stroke → reposition cursor
             caretPosRef.current = computeCaretPosFromClick(editStroke, wp);
             selectionAnchorRef.current = null;
@@ -900,6 +915,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           });
           redoStackRef.current = [];
           persistStrokes();
+          window.dispatchEvent(new Event("drawtool:selection-moved"));
         }
         groupDragRef.current = null;
         setZCursor("default");
@@ -924,6 +940,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             });
             redoStackRef.current = [];
             persistStrokes();
+            window.dispatchEvent(new Event("drawtool:selection-moved"));
           } else if (drag.pendingBend && (stroke.shape === "arrow" || stroke.shape === "line")) {
             // No drag — insert a bend point at the click position
             const from = drag.startPoints.map(p => ({ ...p }));

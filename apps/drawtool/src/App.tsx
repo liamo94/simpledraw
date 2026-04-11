@@ -9,6 +9,7 @@ import {
 import Canvas from "./components/Canvas";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
+import Training from "./components/Training";
 import useSettings, {
   type ShapeKind,
   type Theme,
@@ -51,6 +52,12 @@ const isMac = navigator.platform.toUpperCase().includes("MAC");
     localStorage.removeItem(oldKey);
   }
 })();
+
+// Detect /training route
+let _trainingRoute = false;
+if (window.location.pathname === "/training") {
+  _trainingRoute = true;
+}
 
 // Compute /new routing before first render
 let _newRouteCanvas: number | null = null;
@@ -111,11 +118,13 @@ export default function App() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [contentOffScreen, setContentOffScreen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
-  const [exportFormat, setExportFormat] = useState<"png" | "svg">(() =>
-    (localStorage.getItem("drawtool-export-format") as "png" | "svg") ?? "png"
+  const [exportFormat, setExportFormat] = useState<"png" | "svg">(
+    () =>
+      (localStorage.getItem("drawtool-export-format") as "png" | "svg") ??
+      "png",
   );
-  const [exportTransparentBg, setExportTransparentBg] = useState(() =>
-    localStorage.getItem("drawtool-export-transparent") === "1"
+  const [exportTransparentBg, setExportTransparentBg] = useState(
+    () => localStorage.getItem("drawtool-export-transparent") === "1",
   );
   const exportFormatRef = useRef(exportFormat);
   const exportTransparentBgRef = useRef(exportTransparentBg);
@@ -134,7 +143,9 @@ export default function App() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
-  const [lastMarkTool, setLastMarkTool] = useState<"highlight" | "laser" | "spray">("highlight");
+  const [lastMarkTool, setLastMarkTool] = useState<
+    "highlight" | "laser" | "spray"
+  >("highlight");
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
@@ -150,7 +161,9 @@ export default function App() {
   const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
-  const highlightLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const highlightLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
+    null,
+  );
   const longPressFiredRef = useRef(false);
   const handLastTapRef = useRef<number>(0);
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
@@ -191,6 +204,26 @@ export default function App() {
     }
   }, [settings.theme, updateSettings]);
 
+  const [showTraining, setShowTraining] = useState(_trainingRoute);
+
+  // Sync training state with URL (back/forward navigation)
+  useEffect(() => {
+    const onPopState = () => {
+      setShowTraining(window.location.pathname === "/training");
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, []);
+
+  // Sandbox: clear training canvas (slot 0) each time training opens
+  useEffect(() => {
+    if (showTraining) {
+      localStorage.removeItem("drawtool-strokes-0");
+      localStorage.removeItem("drawtool-view-0");
+      window.dispatchEvent(new Event("drawtool:reset-view"));
+      setZoom(1);
+    }
+  }, [showTraining]);
   const [confirmingClear, setConfirmingClear] = useState(false);
   const [newCanvasDialogOpen, setNewCanvasDialogOpen] =
     useState(_newRouteAllOccupied);
@@ -490,7 +523,8 @@ export default function App() {
     };
     const onToast = (e: Event) => {
       const detail = (e as CustomEvent).detail;
-      const message = typeof detail === "object" ? detail.message : detail as string;
+      const message =
+        typeof detail === "object" ? detail.message : (detail as string);
       const duration = typeof detail === "object" ? detail.duration : undefined;
       showToast({ type: "text", message }, duration);
     };
@@ -528,7 +562,8 @@ export default function App() {
       showToast({ type: "fill", fill: next });
     };
     const onExportShortcut = () => {
-      if (exportFormatRef.current === "svg") exportSvgFn(exportTransparentBgRef.current);
+      if (exportFormatRef.current === "svg")
+        exportSvgFn(exportTransparentBgRef.current);
       else if (exportTransparentBgRef.current) exportTransparent();
       else exportPng();
     };
@@ -659,7 +694,9 @@ export default function App() {
   }, []);
 
   const exportSvgFn = useCallback((transparent: boolean) => {
-    window.dispatchEvent(new CustomEvent("drawtool:export-svg", { detail: { transparent } }));
+    window.dispatchEvent(
+      new CustomEvent("drawtool:export-svg", { detail: { transparent } }),
+    );
   }, []);
 
   const zoomIn = useCallback(() => {
@@ -881,8 +918,16 @@ export default function App() {
         }}
         exportFormat={exportFormat}
         exportTransparentBg={exportTransparentBg}
-        onSetExportFormat={(f) => { setExportFormat(f); exportFormatRef.current = f; localStorage.setItem("drawtool-export-format", f); }}
-        onSetExportTransparentBg={(v) => { setExportTransparentBg(v); exportTransparentBgRef.current = v; localStorage.setItem("drawtool-export-transparent", v ? "1" : "0"); }}
+        onSetExportFormat={(f) => {
+          setExportFormat(f);
+          exportFormatRef.current = f;
+          localStorage.setItem("drawtool-export-format", f);
+        }}
+        onSetExportTransparentBg={(v) => {
+          setExportTransparentBg(v);
+          exportTransparentBgRef.current = v;
+          localStorage.setItem("drawtool-export-transparent", v ? "1" : "0");
+        }}
         hasTouch={hasTouch}
         activeCanvas={activeCanvas}
         onSwitchCanvas={(n) => {
@@ -893,6 +938,10 @@ export default function App() {
         onResetView={resetView}
         onExportData={exportData}
         onImportData={importData}
+        onStartTraining={() => {
+          history.pushState(null, "", "/training");
+          setShowTraining(true);
+        }}
       />
       <input
         ref={importFileRef}
@@ -914,7 +963,8 @@ export default function App() {
         fillOpacity={settings.fillOpacity}
         shapeDashed={settings.shapeDashed}
         shapeCorners={settings.shapeCorners}
-        canvasIndex={activeCanvas}
+        key={showTraining ? "training" : String(activeCanvas)}
+        canvasIndex={showTraining ? 0 : activeCanvas}
         textSize={settings.textSize}
         fontFamily={settings.fontFamily}
         textBold={settings.textBold}
@@ -942,9 +992,18 @@ export default function App() {
                 aria-label="Undo"
                 disabled={!canUndo}
                 onClick={() => window.dispatchEvent(new Event("drawtool:undo"))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M4 8.5H12C14.5 8.5 16.5 10.5 16.5 13S14.5 17.5 12 17.5H7" />
                   <path d="M7 5.5L4 8.5l3 3" />
                 </svg>
@@ -953,9 +1012,18 @@ export default function App() {
                 aria-label="Redo"
                 disabled={!canRedo}
                 onClick={() => window.dispatchEvent(new Event("drawtool:redo"))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M16 8.5H8C5.5 8.5 3.5 10.5 3.5 13S5.5 17.5 8 17.5H13" />
                   <path d="M13 5.5L16 8.5l-3 3" />
                 </svg>
@@ -963,10 +1031,26 @@ export default function App() {
               <button
                 aria-label="Delete selection"
                 disabled={!hasSelection}
-                onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
+                onClick={() =>
+                  window.dispatchEvent(
+                    new KeyboardEvent("keydown", {
+                      key: "Backspace",
+                      bubbles: true,
+                    }),
+                  )
+                }
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <path d="M2.5 5.5h15" />
                   <path d="M7.5 5.5V3.5h5v2" />
                   <path d="M5 5.5l1 13h8l1-13" />
@@ -981,44 +1065,84 @@ export default function App() {
             className={`fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : "bottom-4"}`}
           >
             {/* Undo / Redo / Delete — mobile only: above top-right of toolbar. Nav is z-40 so menu (z-50) paints on top. */}
-            {!isTablet && <div className="absolute right-1 bottom-full mb-1 flex items-center gap-0.5">
-              <button
-                aria-label="Undo"
-                disabled={!canUndo}
-                onClick={() => window.dispatchEvent(new Event("drawtool:undo"))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 8.5H12C14.5 8.5 16.5 10.5 16.5 13S14.5 17.5 12 17.5H7" />
-                  <path d="M7 5.5L4 8.5l3 3" />
-                </svg>
-              </button>
-              <button
-                aria-label="Redo"
-                disabled={!canRedo}
-                onClick={() => window.dispatchEvent(new Event("drawtool:redo"))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M16 8.5H8C5.5 8.5 3.5 10.5 3.5 13S5.5 17.5 8 17.5H13" />
-                  <path d="M13 5.5L16 8.5l-3 3" />
-                </svg>
-              </button>
-              <button
-                aria-label="Delete selection"
-                disabled={!hasSelection}
-                onClick={() => window.dispatchEvent(new KeyboardEvent("keydown", { key: "Backspace", bubbles: true }))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black" : isDark ? "text-white/20" : "text-black/15"}`}
-              >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M2.5 5.5h15" />
-                  <path d="M7.5 5.5V3.5h5v2" />
-                  <path d="M5 5.5l1 13h8l1-13" />
-                  <path d="M8.5 9v6" />
-                  <path d="M11.5 9v6" />
-                </svg>
-              </button>
-            </div>}
+            {!isTablet && (
+              <div className="absolute right-1 bottom-full mb-1 flex items-center gap-0.5">
+                <button
+                  aria-label="Undo"
+                  disabled={!canUndo}
+                  onClick={() =>
+                    window.dispatchEvent(new Event("drawtool:undo"))
+                  }
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 8.5H12C14.5 8.5 16.5 10.5 16.5 13S14.5 17.5 12 17.5H7" />
+                    <path d="M7 5.5L4 8.5l3 3" />
+                  </svg>
+                </button>
+                <button
+                  aria-label="Redo"
+                  disabled={!canRedo}
+                  onClick={() =>
+                    window.dispatchEvent(new Event("drawtool:redo"))
+                  }
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M16 8.5H8C5.5 8.5 3.5 10.5 3.5 13S5.5 17.5 8 17.5H13" />
+                    <path d="M13 5.5L16 8.5l-3 3" />
+                  </svg>
+                </button>
+                <button
+                  aria-label="Delete selection"
+                  disabled={!hasSelection}
+                  onClick={() =>
+                    window.dispatchEvent(
+                      new KeyboardEvent("keydown", {
+                        key: "Backspace",
+                        bubbles: true,
+                      }),
+                    )
+                  }
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                >
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M2.5 5.5h15" />
+                    <path d="M7.5 5.5V3.5h5v2" />
+                    <path d="M5 5.5l1 13h8l1-13" />
+                    <path d="M8.5 9v6" />
+                    <path d="M11.5 9v6" />
+                  </svg>
+                </button>
+              </div>
+            )}
             <div
               className="relative flex items-center gap-0.5 sm:gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
@@ -1052,7 +1176,8 @@ export default function App() {
                     aria-label={t.label}
                     aria-pressed={
                       touchTool === t.id ||
-                      (t.id === "highlight" && (touchTool === "laser" || touchTool === "spray"))
+                      (t.id === "highlight" &&
+                        (touchTool === "laser" || touchTool === "spray"))
                     }
                     onClick={() => {
                       window.dispatchEvent(new Event("drawtool:close-menu"));
@@ -1072,7 +1197,11 @@ export default function App() {
                         longPressFiredRef.current = false;
                         return;
                       }
-                      if (!showShapePicker && !showThicknessPicker && !showHighlightPicker) {
+                      if (
+                        !showShapePicker &&
+                        !showThicknessPicker &&
+                        !showHighlightPicker
+                      ) {
                         if (t.id === "hand") {
                           const now = Date.now();
                           if (now - handLastTapRef.current < 350) {
@@ -1083,7 +1212,9 @@ export default function App() {
                             setTouchTool("hand");
                           }
                         } else {
-                          setTouchTool(t.id === "highlight" ? lastMarkTool : t.id);
+                          setTouchTool(
+                            t.id === "highlight" ? lastMarkTool : t.id,
+                          );
                         }
                       }
                       setShowShapePicker(false);
@@ -1158,7 +1289,9 @@ export default function App() {
                       }
                     }}
                     className={`flex items-center gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
-                      (touchTool === t.id || (t.id === "highlight" && (touchTool === "laser" || touchTool === "spray")))
+                      touchTool === t.id ||
+                      (t.id === "highlight" &&
+                        (touchTool === "laser" || touchTool === "spray"))
                         ? isDark
                           ? "bg-white/20 text-white"
                           : "bg-black/20 text-black"
@@ -1168,22 +1301,69 @@ export default function App() {
                     }`}
                   >
                     {t.id === "highlight" && lastMarkTool === "laser" ? (
-                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
-                        <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <circle
+                          cx="8"
+                          cy="8"
+                          r="3"
+                          fill="#ff3030"
+                          fillOpacity="0.9"
+                        />
+                        <circle
+                          cx="8"
+                          cy="8"
+                          r="5.5"
+                          stroke="#ff3030"
+                          strokeWidth="1"
+                          strokeOpacity="0.4"
+                        />
                       </svg>
                     ) : t.id === "highlight" && lastMarkTool === "spray" ? (
-                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="1.5" cy="3.5" r="0.85" fill={settings.lineColor} stroke="none" />
-                        <circle cx="0.5" cy="6.5" r="0.75" fill={settings.lineColor} stroke="none" />
-                        <circle cx="1.5" cy="9.5" r="0.75" fill={settings.lineColor} stroke="none" />
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle
+                          cx="1.5"
+                          cy="3.5"
+                          r="0.85"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
+                        <circle
+                          cx="0.5"
+                          cy="6.5"
+                          r="0.75"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
+                        <circle
+                          cx="1.5"
+                          cy="9.5"
+                          r="0.75"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
                         <g transform="rotate(-12 9.5 10)">
                           <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
                           <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
                           <line x1="7.5" y1="5.5" x2="5" y2="5.5" />
                         </g>
                       </svg>
-                    ) : t.icon}
+                    ) : (
+                      t.icon
+                    )}
                   </button>
                 );
               })}
@@ -1556,8 +1736,12 @@ export default function App() {
               <div
                 className={`absolute p-1.5 rounded-lg border backdrop-blur-sm flex gap-1 ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                 style={{
-                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
-                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                  background: isDark
+                    ? "rgba(0,0,0,0.85)"
+                    : "rgba(255,255,255,0.85)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(0,0,0,0.15)",
                   left: "50%",
                   transform: "translateX(-50%)",
                 }}
@@ -1566,7 +1750,13 @@ export default function App() {
                 {(["highlight", "laser", "spray"] as const).map((tool) => (
                   <button
                     key={tool}
-                    aria-label={tool === "highlight" ? "Mark" : tool === "laser" ? "Laser" : "Spray"}
+                    aria-label={
+                      tool === "highlight"
+                        ? "Mark"
+                        : tool === "laser"
+                          ? "Laser"
+                          : "Spray"
+                    }
                     aria-pressed={touchTool === tool}
                     onClick={() => {
                       setTouchTool(tool);
@@ -1575,26 +1765,84 @@ export default function App() {
                     }}
                     className={`flex items-center justify-center px-3 py-2.5 rounded transition-colors ${
                       touchTool === tool
-                        ? isDark ? "bg-white/20 text-white" : "bg-black/20 text-black"
-                        : isDark ? "text-white/60 hover:bg-white/10" : "text-black/60 hover:bg-black/10"
+                        ? isDark
+                          ? "bg-white/20 text-white"
+                          : "bg-black/20 text-black"
+                        : isDark
+                          ? "text-white/60 hover:bg-white/10"
+                          : "text-black/60 hover:bg-black/10"
                     }`}
                   >
                     {tool === "highlight" && (
-                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="3" strokeLinecap="round" strokeOpacity="0.4">
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeWidth="3"
+                        strokeLinecap="round"
+                        strokeOpacity="0.4"
+                      >
                         <line x1="2" y1="8" x2="14" y2="8" />
                       </svg>
                     )}
                     {tool === "laser" && (
-                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none">
-                        <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
-                        <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                      >
+                        <circle
+                          cx="8"
+                          cy="8"
+                          r="3"
+                          fill="#ff3030"
+                          fillOpacity="0.9"
+                        />
+                        <circle
+                          cx="8"
+                          cy="8"
+                          r="5.5"
+                          stroke="#ff3030"
+                          strokeWidth="1"
+                          strokeOpacity="0.4"
+                        />
                       </svg>
                     )}
                     {tool === "spray" && (
-                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke={settings.lineColor} strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="1.5" cy="3.5" r="0.85" fill={settings.lineColor} stroke="none" />
-                        <circle cx="0.5" cy="6.5" r="0.75" fill={settings.lineColor} stroke="none" />
-                        <circle cx="1.5" cy="9.5" r="0.75" fill={settings.lineColor} stroke="none" />
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke={settings.lineColor}
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle
+                          cx="1.5"
+                          cy="3.5"
+                          r="0.85"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
+                        <circle
+                          cx="0.5"
+                          cy="6.5"
+                          r="0.75"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
+                        <circle
+                          cx="1.5"
+                          cy="9.5"
+                          r="0.75"
+                          fill={settings.lineColor}
+                          stroke="none"
+                        />
                         <g transform="rotate(-12 9.5 10)">
                           <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
                           <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
@@ -2164,6 +2412,17 @@ export default function App() {
             </svg>
           )}
         </div>
+      )}
+      {showTraining && (
+        <Training
+          settings={settings}
+          isDark={isDark}
+          hasTouch={hasTouch}
+          onExit={() => {
+            history.pushState(null, "", "/");
+            setShowTraining(false);
+          }}
+        />
       )}
       {showImportModal && (
         <div
