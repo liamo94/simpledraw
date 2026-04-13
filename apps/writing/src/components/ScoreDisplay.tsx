@@ -1,6 +1,8 @@
 import { useRef, useEffect, useState } from 'react';
 import type { Stroke } from '../lib/freehand';
 import { smoothPoints } from '../lib/freehand';
+import type { ShapeTarget } from '../lib/shapes';
+import { renderShapeGhost } from '../lib/shapes';
 
 type Props = {
   score: number;
@@ -9,6 +11,8 @@ type Props = {
   strokeCount?: number | null;
   traceStrokes?: Stroke[];
   traceFont?: string;
+  traceShapes?: ShapeTarget[];
+  traceCanvasW?: number;
   traceCanvasH?: number;
   isDark?: boolean;
   nextLabel?: string;
@@ -74,6 +78,8 @@ export default function ScoreDisplay({
   strokeCount,
   traceStrokes,
   traceFont,
+  traceShapes,
+  traceCanvasW,
   traceCanvasH,
   isDark = true,
   nextLabel = 'Next →',
@@ -183,6 +189,56 @@ export default function ScoreDisplay({
     }
     ctx.restore();
   }, [traceStrokes, traceFont, traceCanvasH, target, isDark]);
+
+  useEffect(() => {
+    const canvas = previewRef.current;
+    if (!canvas || !traceShapes?.length || !traceCanvasW || !traceCanvasH) return;
+
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = CARD_W * dpr;
+    canvas.height = PREVIEW_H * dpr;
+    const ctx = canvas.getContext('2d')!;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, CARD_W, PREVIEW_H);
+
+    // Bounding box of all shapes (absolute canvas coords)
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const s of traceShapes) {
+      minX = Math.min(minX, s.x); minY = Math.min(minY, s.y);
+      maxX = Math.max(maxX, s.x + s.w); maxY = Math.max(maxY, s.y + s.h);
+    }
+
+    const FIT_PAD = 28;
+    const bboxW = maxX - minX;
+    const bboxH = maxY - minY;
+    const scale = Math.min((CARD_W - FIT_PAD * 2) / bboxW, (PREVIEW_H - FIT_PAD * 2) / bboxH);
+    const bboxCx = (minX + maxX) / 2;
+    const bboxCy = (minY + maxY) / 2;
+    const offsetX = CARD_W / 2 - bboxCx * scale;
+    const offsetY = PREVIEW_H / 2 - bboxCy * scale;
+
+    const ghostColor = isDark ? '#ffffff' : '#000000';
+
+    // Ghost shapes
+    ctx.save();
+    ctx.globalAlpha = 0.13;
+    for (const shape of traceShapes) {
+      renderShapeGhost(ctx, { ...shape, x: shape.x * scale + offsetX, y: shape.y * scale + offsetY, w: shape.w * scale, h: shape.h * scale }, ghostColor);
+    }
+    ctx.restore();
+
+    // User strokes (center-relative → absolute → scale)
+    if (traceStrokes?.length) {
+      const strokeColor = isDark ? '#ffffff' : '#1a1a1a';
+      ctx.save();
+      ctx.translate(offsetX + (traceCanvasW / 2) * scale, offsetY + (traceCanvasH / 2) * scale);
+      ctx.scale(scale, scale);
+      for (const stroke of traceStrokes) {
+        renderStrokeToCtx(ctx, stroke, strokeColor);
+      }
+      ctx.restore();
+    }
+  }, [traceShapes, traceCanvasW, traceCanvasH, traceStrokes, isDark]);
 
   const d = isDark;
   const scrim   = d ? 'bg-black/50'    : 'bg-black/20';

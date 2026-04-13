@@ -205,6 +205,10 @@ export default function ShapeCanvas({
     return () => ro.disconnect();
   }, [resizeCanvas, redraw]);
 
+  useEffect(() => {
+    redraw();
+  }, [strokeColor, ghostColor, ghostAlpha, redraw]);
+
   // Blind mode: wait 1s, then fade ghost out over 0.8s
   useEffect(() => {
     blindAlphaRef.current = ghostAlpha;

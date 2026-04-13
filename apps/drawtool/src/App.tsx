@@ -206,6 +206,27 @@ export default function App() {
 
   const [showTraining, setShowTraining] = useState(_trainingRoute);
 
+  // Training nudge notification
+  const MAX_NUDGES = 3;
+  const NUDGE_KEY = "drawtool-training-nudge-count";
+  const [showTrainingNudge, setShowTrainingNudge] = useState(false);
+  useEffect(() => {
+    if (showTraining) return;
+    const count = parseInt(localStorage.getItem(NUDGE_KEY) ?? "0", 10);
+    if (count >= MAX_NUDGES) return;
+    const delay = 10000 + Math.random() * 20000; // 10–30s
+    const t = setTimeout(() => {
+      setShowTrainingNudge(true);
+      localStorage.setItem(NUDGE_KEY, String(count + 1));
+    }, delay);
+    return () => clearTimeout(t);
+  }, [showTraining]);
+
+  const dismissNudge = (permanent: boolean) => {
+    setShowTrainingNudge(false);
+    if (permanent) localStorage.setItem(NUDGE_KEY, String(MAX_NUDGES));
+  };
+
   // Sync training state with URL (back/forward navigation)
   useEffect(() => {
     const onPopState = () => {
@@ -2414,6 +2435,43 @@ export default function App() {
         </div>
       )}
       {showTraining && (
+        <div
+          className="fixed top-2 left-1/2 -translate-x-1/2 z-30 rounded-full border backdrop-blur-md flex items-center"
+          style={{
+            background: isDark ? "rgba(0,0,0,0.75)" : "rgba(255,255,255,0.85)",
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+          }}
+        >
+          <div className="px-3 py-1 flex items-center pointer-events-none" style={{ fontFamily: "Pacifico, cursive", fontSize: 13 }}>
+            {([
+              { letter: "d", color: "#3b82f6", rotate: -6 },
+              { letter: "r", color: "#ef4444", rotate: 3 },
+              { letter: "a", color: "#22c55e", rotate: -4 },
+              { letter: "w", color: "#eab308", rotate: 5 },
+              { letter: "t", color: "#ec4899", rotate: -3 },
+              { letter: "o", color: "#f97316", rotate: 4 },
+              { letter: "o", color: "#8b5cf6", rotate: -5 },
+              { letter: "l", color: "#06b6d4", rotate: 3 },
+            ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
+              <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
+                <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22` }}>
+                  {l.letter}
+                </span>
+              </span>
+            ))}
+            <span className="ml-2 text-[11px]" style={{ fontFamily: "ui-monospace, monospace", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}>training mode</span>
+          </div>
+          <div className="self-stretch w-px" style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
+          <button
+            onClick={() => { history.pushState(null, "", "/"); setShowTraining(false); }}
+            className="px-3 py-1 text-[11px] rounded-r-full transition-colors"
+            style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)" }}
+          >
+            Exit
+          </button>
+        </div>
+      )}
+      {showTraining && (
         <Training
           settings={settings}
           isDark={isDark}
@@ -2423,6 +2481,62 @@ export default function App() {
             setShowTraining(false);
           }}
         />
+      )}
+      {showTrainingNudge && !showTraining && (
+        <div
+          className={`fixed ${hasTouch ? "bottom-24" : "bottom-4"} right-4 z-30 w-64 rounded-xl border backdrop-blur-md shadow-lg overflow-hidden animate-toast-in`}
+          style={{
+            background: isDark ? "rgba(0,0,0,0.88)" : "rgba(255,255,255,0.92)",
+            borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+          }}
+        >
+          {/* gradient top bar */}
+          <div className="h-0.5" style={{ background: "linear-gradient(90deg, #3b82f6, #ec4899)" }} />
+          <div className="p-3.5">
+            <div className="flex items-start justify-between gap-2 mb-2">
+              <div className="flex items-center" style={{ fontFamily: "Pacifico, cursive", fontSize: 13 }}>
+                {([
+                  { letter: "d", color: "#3b82f6", rotate: -6 },
+                  { letter: "r", color: "#ef4444", rotate: 3 },
+                  { letter: "a", color: "#22c55e", rotate: -4 },
+                  { letter: "w", color: "#eab308", rotate: 5 },
+                  { letter: "t", color: "#ec4899", rotate: -3 },
+                  { letter: "o", color: "#f97316", rotate: 4 },
+                  { letter: "o", color: "#8b5cf6", rotate: -5 },
+                  { letter: "l", color: "#06b6d4", rotate: 3 },
+                ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
+                  <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
+                    <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22` }}>{l.letter}</span>
+                  </span>
+                ))}
+                <span className="text-[11px] font-mono ml-1.5" style={{ fontFamily: "ui-monospace, monospace", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}>training</span>
+              </div>
+              <button
+                onClick={() => dismissNudge(true)}
+                className="shrink-0 mt-0.5 transition-opacity opacity-30 hover:opacity-60"
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                  <line x1="1" y1="1" x2="9" y2="9" />
+                  <line x1="9" y1="1" x2="1" y2="9" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-[11px] leading-relaxed mb-3" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)" }}>
+              Learn all the tools and shortcuts with step-by-step challenges.
+            </p>
+            <button
+              onClick={() => {
+                dismissNudge(true);
+                history.pushState(null, "", "/training");
+                setShowTraining(true);
+              }}
+              className="w-full py-1.5 rounded-lg text-[11px] font-medium transition-colors"
+              style={{ background: "linear-gradient(90deg, #3b82f620, #ec489920)", color: isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.65)", border: "1px solid #3b82f630" }}
+            >
+              Start training →
+            </button>
+          </div>
+        </div>
       )}
       {showImportModal && (
         <div

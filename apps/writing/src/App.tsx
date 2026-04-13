@@ -105,6 +105,8 @@ export default function App() {
     return makeQpShapeConfig(kind);
   });
   const [qpShapeTarget, setQpShapeTarget] = useState('');
+  const [qpScoredShapes, setQpScoredShapes] = useState<ShapeTarget[]>([]);
+  const [qpShapeCanvasW, setQpShapeCanvasW] = useState(0);
 
   // ── Game mode state ───────────────────────────────────────────────────────
   const [gameConfig, setGameConfig] = useState<GameConfig | null>(null);
@@ -123,6 +125,8 @@ export default function App() {
   // Shapes game state
   const [gameShapeRoundData, setGameShapeRoundData] = useState<ShapeRoundConfig[]>([]);
   const [gameCurrentShapeConfig, setGameCurrentShapeConfig] = useState<ShapeRoundConfig | null>(null);
+  const [gameScoredShapes, setGameScoredShapes] = useState<ShapeTarget[]>([]);
+  const [gameShapeCanvasW, setGameShapeCanvasW] = useState(0);
 
   // ── Blind mode ────────────────────────────────────────────────────────────
   const [blindMode, setBlindMode] = useState(() => localStorage.getItem('qp-blind') === 'true');
@@ -202,6 +206,8 @@ export default function App() {
       setQpTimeMs(elapsed);
       setQpStrokeCount(strokes.length);
       setQpTraceStrokes([...strokes]);
+      setQpScoredShapes([...shapes]);
+      setQpShapeCanvasW(w);
       setQpDrawState('scoring');
       const s = await scoreShapeAttempt(strokes, shapes, cx, cy, w, h);
       setQpScore(s);
@@ -385,6 +391,8 @@ export default function App() {
       setGameTimeMs(elapsed);
       setGameStrokeCount(strokes.length);
       setGameTraceStrokes([...strokes]);
+      setGameScoredShapes([...shapes]);
+      setGameShapeCanvasW(w);
       setGameDrawState('scoring');
       const s = await scoreShapeAttempt(strokes, shapes, cx, cy, w, h);
       setGameScore(s);
@@ -533,6 +541,8 @@ export default function App() {
   const curStrokeCount = isGame ? gameStrokeCount : qpStrokeCount;
   const curTraceStrokes = isGame ? gameTraceStrokes : qpTraceStrokes;
   const curTraceFont = (isShapesGame || isQpShapes) ? undefined : font;
+  const curTraceShapes = (isShapesGame || isQpShapes) ? (isGame ? gameScoredShapes : qpScoredShapes) : undefined;
+  const curShapeCanvasW = isGame ? gameShapeCanvasW : qpShapeCanvasW;
   const resetKey = isGame ? gameResetKey : qpResetKey;
   const fontKey = isGame ? gameRoundFontKey : qpFontKey;
   const sizeKey = isGame ? gameRoundSizeKey : qpSizeKey;
@@ -713,13 +723,11 @@ export default function App() {
                 </svg>
                 blind
               </button>
-              {/* Home */}
-              <button onClick={() => navigate('home')} className={`${hdr.textWeak} text-xs transition-colors shrink-0`}>← home</button>
             </div>
 
             {/* ── Mobile: two rows (visible below lg) ── */}
             <div className="lg:hidden">
-              {/* Row 1: branding + theme + settings toggle + home */}
+              {/* Row 1: branding + theme + blind toggle */}
               <div className="flex items-center gap-2 px-3 py-2">
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => navigate('home')} className={`${hdr.textMid} text-xs font-medium`}>writing</button>
@@ -741,11 +749,11 @@ export default function App() {
                     ))}
                   </a>
                 </div>
-                <div className="ml-auto flex items-center gap-2">
+                <div className="ml-auto flex items-center gap-2.5">
                   {/* Theme swatches */}
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1.5">
                     {THEMES.map((t) => (
-                      <button key={t.key} title={t.label} onClick={() => setTheme(t.key)} style={{ background: t.bg, boxShadow: theme === t.key ? hdr.swatchRing : hdr.swatchBorder }} className="w-3.5 h-3.5 rounded-full transition-all" />
+                      <button key={t.key} title={t.label} onClick={() => setTheme(t.key)} style={{ background: t.bg, boxShadow: theme === t.key ? hdr.swatchRing : hdr.swatchBorder }} className="w-4 h-4 rounded-full transition-all" />
                     ))}
                   </div>
                   {/* Blind mode toggle */}
@@ -757,8 +765,6 @@ export default function App() {
                     </svg>
                     blind
                   </button>
-                  {/* Home */}
-                  <button onClick={() => navigate('home')} className={`${hdr.textWeak} text-xs transition-colors shrink-0`}>← home</button>
                 </div>
               </div>
               {/* Row 2: mode tabs (scrollable) */}
@@ -771,9 +777,9 @@ export default function App() {
               {/* Row 3: font/size or shape picker */}
               <div className={`flex flex-col gap-1.5 px-3 pb-2.5 pt-1.5 border-t ${hdr.border} mt-1`}>
                 {qpIsShapes ? (
-                  <div className="flex items-center gap-1.5">
-                    <span className={`${hdr.textMid} text-[10px] tracking-widest uppercase w-8 shrink-0`}>shape</span>
-                    <div className="flex gap-0.5 flex-wrap overflow-x-auto">
+                  <div className="flex items-center gap-3">
+                    <span className={`${hdr.textMid} text-[10px] tracking-widest uppercase shrink-0`}>shape</span>
+                    <div className="flex gap-0.5 overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
                       <button onClick={() => handleQpShapeKindChange('random')} className={`px-2 py-0.5 rounded-md text-xs transition-colors shrink-0 ${qpShapeKind === 'random' ? hdr.tabActive : hdr.tabInactive}`}>Random</button>
                       {ALL_SHAPES.map((k) => (
                         <button key={k} onClick={() => handleQpShapeKindChange(k)} className={`px-2 py-0.5 rounded-md text-xs transition-colors shrink-0 ${qpShapeKind === k ? hdr.tabActive : hdr.tabInactive}`}>{SHAPE_LABELS[k]}</button>
@@ -916,6 +922,8 @@ export default function App() {
             strokeCount={curStrokeCount}
             traceStrokes={curTraceStrokes}
             traceFont={curTraceFont}
+            traceShapes={curTraceShapes}
+            traceCanvasW={curShapeCanvasW}
             traceCanvasH={canvasH}
             isDark={themeInfo.isDark}
             nextLabel={nextLabel}

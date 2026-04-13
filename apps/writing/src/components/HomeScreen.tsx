@@ -29,7 +29,7 @@ export default function HomeScreen({ theme, onQuickPlay, onGameMode, onDailyText
 
   return (
     <div
-      className="flex flex-col w-screen h-dvh items-center justify-center gap-8 sm:gap-10 select-none"
+      className="flex flex-col w-screen h-dvh items-center justify-center gap-6 sm:gap-10 select-none"
       style={{ background: theme.bg, color: theme.isDark ? '#fff' : '#1a1a1a', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       <div className="flex flex-col items-center gap-3">
@@ -57,14 +57,14 @@ export default function HomeScreen({ theme, onQuickPlay, onGameMode, onDailyText
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 w-full px-6 sm:px-0 sm:w-[432px]">
+      <div className="flex flex-col gap-3 sm:gap-4 w-full px-6 sm:px-0 sm:w-[432px]">
         {/* Quick play + game mode row */}
-        <div className="flex flex-col sm:flex-row gap-4">
+        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
           <button
             onClick={onQuickPlay}
-            className={`flex flex-col items-start gap-3 sm:w-52 px-6 py-5 rounded-2xl border transition-all text-left ${cardBg}`}
+            className={`flex flex-row items-center gap-4 sm:flex-col sm:items-start sm:gap-3 sm:w-52 px-5 py-4 sm:px-6 sm:py-5 rounded-2xl border transition-all text-left ${cardBg}`}
           >
-            <div className="text-2xl">✏️</div>
+            <div className="text-2xl shrink-0">✏️</div>
             <div>
               <div className={`${cardTxt} text-base font-medium`}>Quick Play</div>
               <div className={`${cardSub} text-sm mt-0.5`}>Draw freely, no pressure</div>
@@ -73,9 +73,9 @@ export default function HomeScreen({ theme, onQuickPlay, onGameMode, onDailyText
 
           <button
             onClick={onGameMode}
-            className={`flex flex-col items-start gap-3 sm:w-52 px-6 py-5 rounded-2xl border transition-all text-left ${cardBg}`}
+            className={`flex flex-row items-center gap-4 sm:flex-col sm:items-start sm:gap-3 sm:w-52 px-5 py-4 sm:px-6 sm:py-5 rounded-2xl border transition-all text-left ${cardBg}`}
           >
-            <div className="text-2xl">🎯</div>
+            <div className="text-2xl shrink-0">🎯</div>
             <div>
               <div className={`${cardTxt} text-base font-medium`}>Game Mode</div>
               <div className={`${cardSub} text-sm mt-0.5`}>Set rounds, track your score</div>
