@@ -205,6 +205,14 @@ export default function App() {
   }, [settings.theme, updateSettings]);
 
   const [showTraining, setShowTraining] = useState(_trainingRoute);
+  const [trainingFlash, setTrainingFlash] = useState(_trainingRoute);
+
+  const openTraining = useCallback(() => {
+    history.pushState(null, "", "/training");
+    setShowTraining(true);
+    setTrainingFlash(true);
+    setTimeout(() => setTrainingFlash(false), 1200);
+  }, []);
 
   // Training nudge notification
   const MAX_NUDGES = 3;
@@ -230,7 +238,12 @@ export default function App() {
   // Sync training state with URL (back/forward navigation)
   useEffect(() => {
     const onPopState = () => {
-      setShowTraining(window.location.pathname === "/training");
+      const isTraining = window.location.pathname === "/training";
+      setShowTraining(isTraining);
+      if (isTraining) {
+        setTrainingFlash(true);
+        setTimeout(() => setTrainingFlash(false), 1200);
+      }
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
@@ -959,10 +972,7 @@ export default function App() {
         onResetView={resetView}
         onExportData={exportData}
         onImportData={importData}
-        onStartTraining={() => {
-          history.pushState(null, "", "/training");
-          setShowTraining(true);
-        }}
+        onStartTraining={openTraining}
       />
       <input
         ref={importFileRef}
@@ -2434,6 +2444,34 @@ export default function App() {
           )}
         </div>
       )}
+      {trainingFlash && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center pointer-events-none animate-training-flash"
+          style={{ background: isDark ? "rgba(0,0,0,0.72)" : "rgba(255,255,255,0.82)" }}
+        >
+          <div className="flex items-center gap-2 mb-2" style={{ fontFamily: "Pacifico, cursive", fontSize: 32 }}>
+            {([
+              { letter: "d", color: "#3b82f6", rotate: -6 },
+              { letter: "r", color: "#ef4444", rotate: 3 },
+              { letter: "a", color: "#22c55e", rotate: -4 },
+              { letter: "w", color: "#eab308", rotate: 5 },
+              { letter: "t", color: "#ec4899", rotate: -3 },
+              { letter: "o", color: "#f97316", rotate: 4 },
+              { letter: "o", color: "#8b5cf6", rotate: -5 },
+              { letter: "l", color: "#06b6d4", rotate: 3 },
+            ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
+              <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 4, transform: `rotate(${l.rotate}deg)` }}>
+                <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 16px ${l.color}66` : `2px 2px 0 ${l.color}22` }}>
+                  {l.letter}
+                </span>
+              </span>
+            ))}
+          </div>
+          <div className="text-sm font-mono tracking-widest uppercase" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)", letterSpacing: "0.25em" }}>
+            training mode
+          </div>
+        </div>
+      )}
       {showTraining && (
         <div
           className="fixed top-2 left-1/2 -translate-x-1/2 z-30 rounded-full border backdrop-blur-md flex items-center"
@@ -2527,8 +2565,7 @@ export default function App() {
             <button
               onClick={() => {
                 dismissNudge(true);
-                history.pushState(null, "", "/training");
-                setShowTraining(true);
+                openTraining();
               }}
               className="w-full py-1.5 rounded-lg text-[11px] font-medium transition-colors"
               style={{ background: "linear-gradient(90deg, #3b82f620, #ec489920)", color: isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.65)", border: "1px solid #3b82f630" }}
