@@ -139,7 +139,8 @@ export const CHALLENGES: Challenge[] = [
     title: "Change line thickness",
     description: "Change the stroke thickness setting.",
     hint: {
-      desktop: "Press [ to decrease or ] to increase the thickness.",
+      desktop:
+        "Press {shift} and [ to decrease or ] to increase the thickness.",
       mobile:
         "Tap the Draw tool button in the toolbar to open the thickness picker.",
     },
@@ -261,10 +262,11 @@ export const CHALLENGES: Challenge[] = [
   },
   {
     id: "cloud",
-    title: "Draw a cloud",
-    description: "Place a cloud shape on the canvas.",
+    title: "Draw a rounded edge cloud",
+    description: "Place a rounded edge cloud shape on the canvas.",
     hint: {
-      desktop: "Press S till you select cloud, then hold {ctrl} and drag.",
+      desktop:
+        "Press S till you select cloud, then hold {ctrl} and drag. Ensure you enable rounded corners (E)",
       mobile: "Tap the shape tool icon and select cloud, then drag.",
     },
     validation: { type: "stroke", predicate: (s) => s.shape === "cloud" },
@@ -317,7 +319,7 @@ export const CHALLENGES: Challenge[] = [
     description: "Draw a straight line with at least two bends.",
     hint: {
       desktop:
-        "Hold {mod}+{shift} and drag to start a line. Tap to lock in a bend and keep drawing. Release to finish.",
+        "Hold {mod}+{shift} and drag to start a line. Click to lock in a bend and keep drawing. Release to finish.",
       mobile:
         "Not available on touchscreen — this is a keyboard shortcut for desktop only.",
     },
@@ -332,7 +334,7 @@ export const CHALLENGES: Challenge[] = [
     description: "Draw an arrow with at least two smooth, curved bends.",
     hint: {
       desktop:
-        "Hold A while dragging. Make sure sharp corners are off (E to toggle). Tap mid-drag to add bends — add at least two before releasing.",
+        "Hold A while dragging. Make sure sharp corners are off (E to toggle). Click mid-drag to add bends — add at least two before releasing.",
       mobile:
         "Tap the arrow shape tool. Ensure sharp corners are off in shape options. Tap mid-drag to add bends.",
     },
@@ -408,7 +410,7 @@ export const CHALLENGES: Challenge[] = [
     title: "Dashed filled circle",
     description: "Draw a circle that is both filled and dashed.",
     hint: {
-      desktop: "Hold C, F and {shift}.",
+      desktop: "Hold C, F and {shift} then drag.",
       mobile:
         "Select circle in the shape tool. Enable fill and dashed in shape options. Then drag.",
     },
