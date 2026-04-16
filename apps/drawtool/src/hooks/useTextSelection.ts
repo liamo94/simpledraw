@@ -758,7 +758,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 }
               }
               if (cur === "default" && hitTestStroke(selStroke, wp.x, wp.y, scale)) {
-                cur = "crosshair"; // shaft: click to add another bend
+                cur = "move"; // shaft: drag to move, click without drag adds a bend
               }
             } else {
               const cornerCenters = [
@@ -784,6 +784,13 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad
           ) {
             cur = "move";
+          }
+          // If not hovering over the selected stroke, check if hovering over a different stroke
+          if (cur === "default") {
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              const s = strokesRef.current[i];
+              if (s !== selStroke && hitTestStroke(s, wp.x, wp.y, scale)) { cur = "move"; break; }
+            }
           }
           setZCursor(cur);
         } else if (selectedGroupRef.current.length > 0) {
