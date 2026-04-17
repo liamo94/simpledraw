@@ -137,6 +137,7 @@ export default function App() {
     | { type: "toggle"; label: string; on: boolean }
     | { type: "fill"; fill: FillStyle }
     | { type: "corners"; corners: "rounded" | "sharp" }
+    | { type: "challenge"; message: string }
     | null
   >(null);
   const [toastFading, setToastFading] = useState(false);
@@ -205,7 +206,7 @@ export default function App() {
   }, [settings.theme, updateSettings]);
 
   const [showTraining, setShowTraining] = useState(_trainingRoute);
-  const [trainingFlash, setTrainingFlash] = useState(_trainingRoute);
+  const [trainingFlash, setTrainingFlash] = useState(false);
 
   const openTraining = useCallback(() => {
     history.pushState(null, "", "/training");
@@ -290,7 +291,8 @@ export default function App() {
         | { type: "shape"; shape: ShapeKind }
         | { type: "toggle"; label: string; on: boolean }
         | { type: "fill"; fill: FillStyle }
-        | { type: "corners"; corners: "rounded" | "sharp" },
+        | { type: "corners"; corners: "rounded" | "sharp" }
+        | { type: "challenge"; message: string },
       duration = 500,
     ) => {
       if (toastTimeoutRef.current) clearTimeout(toastTimeoutRef.current);
@@ -560,7 +562,8 @@ export default function App() {
       const message =
         typeof detail === "object" ? detail.message : (detail as string);
       const duration = typeof detail === "object" ? detail.duration : undefined;
-      showToast({ type: "text", message }, duration);
+      const isChallenge = typeof detail === "object" && detail.challenge;
+      showToast({ type: isChallenge ? "challenge" : "text", message }, duration);
     };
     const onToggleGrid = () => {
       const cycle: GridType[] = ["off", "dot", "square"];
@@ -2251,7 +2254,29 @@ export default function App() {
           </div>
         </div>
       )}
-      {toast && (
+      {toast?.type === "challenge" && (
+        <div
+          role="status"
+          aria-live="polite"
+          className={`fixed top-4 right-14 z-40 flex items-center gap-2.5 px-3 py-2 rounded-xl pointer-events-none ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
+          style={{
+            background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+            boxShadow: "0 6px 24px rgba(34,197,94,0.45), 0 2px 8px rgba(0,0,0,0.2)",
+            color: "#fff",
+          }}
+        >
+          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,0.22)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <polyline points="4,12 9,18 20,6" />
+            </svg>
+          </div>
+          <div>
+            <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.75, letterSpacing: "0.07em", textTransform: "uppercase", lineHeight: 1 }}>Challenge complete</div>
+            <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, lineHeight: 1.2 }}>{toast.message}</div>
+          </div>
+        </div>
+      )}
+      {toast && toast.type !== "challenge" && (
         <div
           role="status"
           aria-live="polite"

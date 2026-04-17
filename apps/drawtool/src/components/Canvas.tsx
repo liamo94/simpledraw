@@ -1218,6 +1218,7 @@ function Canvas({
       strokesCacheRef.current = null;
       scheduleRedraw();
       broadcastZoom();
+      window.dispatchEvent(new CustomEvent("drawtool:user-zoom"));
       persistView();
     },
     [scheduleRedraw, broadcastZoom, persistView],
@@ -2218,6 +2219,7 @@ function Canvas({
           pinchRef.current = { dist, cx, cy };
           strokesCacheRef.current = null;
           broadcastZoom();
+          window.dispatchEvent(new CustomEvent("drawtool:user-zoom"));
           scheduleRedraw();
           return;
         }
@@ -2773,6 +2775,7 @@ function Canvas({
         view.y = e.clientY - ratio * (e.clientY - view.y);
         view.scale = newScale;
         broadcastZoom();
+        window.dispatchEvent(new CustomEvent("drawtool:user-zoom"));
       } else {
         // Two-finger swipe on trackpad or mouse scroll = pan
         view.x -= e.deltaX;

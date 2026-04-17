@@ -54,6 +54,9 @@ export default function TraceCanvas({
   const [hasStrokes, setHasStrokes] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [eraseMode, setEraseMode] = useState(false);
+  const [showTraceHint] = useState(() => !localStorage.getItem('writing-trace-hint-seen'));
+  const [traceHintVisible, setTraceHintVisible] = useState(false);
+  const traceHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const eraseModeRef = useRef(false);
   eraseModeRef.current = eraseMode;
 
@@ -273,6 +276,28 @@ export default function TraceCanvas({
       cancelAnimationFrame(raf);
     };
   }, [blindMode, ghostAlpha, target, redraw]);
+
+  // Trace hint: fade in after mount, auto-dismiss after 4s or on first stroke
+  useEffect(() => {
+    if (!showTraceHint) return;
+    const showTimer = setTimeout(() => setTraceHintVisible(true), 300);
+    traceHintTimerRef.current = setTimeout(() => {
+      setTraceHintVisible(false);
+      localStorage.setItem('writing-trace-hint-seen', '1');
+    }, 4000);
+    return () => {
+      clearTimeout(showTimer);
+      if (traceHintTimerRef.current) clearTimeout(traceHintTimerRef.current);
+    };
+  }, [showTraceHint]);
+
+  useEffect(() => {
+    if (hasStrokes && traceHintVisible) {
+      if (traceHintTimerRef.current) clearTimeout(traceHintTimerRef.current);
+      setTraceHintVisible(false);
+      localStorage.setItem('writing-trace-hint-seen', '1');
+    }
+  }, [hasStrokes, traceHintVisible]);
 
   // Returns position relative to canvas center
   const getCanvasPos = (clientX: number, clientY: number): Pt => {
@@ -663,6 +688,21 @@ export default function TraceCanvas({
         style={{ touchAction: 'none', cursor: 'crosshair', userSelect: 'none' }}
         onContextMenu={(e) => e.preventDefault()}
       />
+
+      {/* First-time trace hint */}
+      {showTraceHint && (
+        <div
+          className="absolute inset-0 flex items-center justify-center pointer-events-none transition-opacity duration-500"
+          style={{ opacity: traceHintVisible ? 1 : 0, paddingTop: '60%' }}
+        >
+          <div className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm backdrop-blur-sm border ${d ? 'bg-black/30 border-white/10 text-white/50' : 'bg-white/50 border-black/8 text-black/40'}`}>
+            <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M11 2l3 3-8 8H3v-3L11 2z"/>
+            </svg>
+            trace the outline
+          </div>
+        </div>
+      )}
 
       {/* Submit button */}
       <button

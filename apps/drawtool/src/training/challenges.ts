@@ -178,7 +178,7 @@ export const CHALLENGES: Challenge[] = [
         "Pinch on a trackpad, or hold {mod} and scroll. You can also press + and − keys.",
       mobile: "Pinch with two fingers to zoom in or out.",
     },
-    validation: { type: "event", name: "drawtool:zoom" },
+    validation: { type: "event", name: "drawtool:user-zoom" },
   },
   {
     id: "canvas-2",

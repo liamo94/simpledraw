@@ -64,7 +64,7 @@ export default function Training({
     // Toast via app's existing toast system
     window.dispatchEvent(
       new CustomEvent("drawtool:toast", {
-        detail: { message: `✓ ${title}`, duration: 2200 },
+        detail: { message: title, duration: 2200, challenge: true },
       }),
     );
     // Advance to next incomplete challenge if this was the current one
@@ -240,7 +240,7 @@ export default function Training({
   return (
     <>
       <div
-        className="fixed bottom-24 right-4 z-30 w-72 rounded-xl border backdrop-blur-md shadow-lg overflow-hidden"
+        className={`fixed ${hasTouch ? "bottom-24" : "bottom-4"} right-4 z-30 w-72 rounded-xl border backdrop-blur-md shadow-lg overflow-hidden`}
         style={{
           background: isDark ? "rgba(0,0,0,0.88)" : "rgba(255,255,255,0.92)",
           borderColor: border,
