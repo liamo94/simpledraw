@@ -597,7 +597,7 @@ function Canvas({
     }
 
     // Draw text select hover/selection overlay (world space)
-    const drawOverlayStroke = (stroke: Stroke, isSelected: boolean) => {
+    const drawOverlayStroke = (stroke: Stroke, isSelected: boolean, noHandles = false) => {
       if (stroke.points.length === 0) return;
       const lw = 1.5 / scale;
 
@@ -617,8 +617,17 @@ function Canvas({
           ctx.beginPath();
           if (n > 2) smoothArrowPath(ctx, pts); else { ctx.moveTo(pts[0].x, pts[0].y); ctx.lineTo(pts[1].x, pts[1].y); }
           ctx.stroke();
+          if (noHandles) {
+            // Group member: draw a bounding box instead of handles
+            const bb = anyStrokeBBox(stroke);
+            const pad = 6 / scale;
+            ctx.beginPath();
+            ctx.rect(bb.x - pad, bb.y - pad, bb.w + pad * 2, bb.h + pad * 2);
+            ctx.stroke();
+          }
           const hr = 4.5 / scale;
-          for (const hp of handlePoints) {
+          const dotPoints = noHandles ? [pts[0], pts[n - 1]] : handlePoints;
+          for (const hp of dotPoints) {
             ctx.beginPath();
             ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
             ctx.fillStyle = "#ffffff"; ctx.fill();
@@ -662,8 +671,8 @@ function Canvas({
         ctx.setLineDash([]);
         ctx.stroke();
 
-        // Square corner handles (only for shapes and text, not freehand)
-        if (stroke.shape || stroke.text) {
+        // Square corner handles (only for shapes and text, not freehand, not group members)
+        if (!noHandles && (stroke.shape || stroke.text)) {
           const hr = 4.5 / scale;
           const corners = [
             { x: rx,      y: ry },
@@ -720,7 +729,7 @@ function Canvas({
     if (selectedGroupRef.current.length > 0) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const stroke of selectedGroupRef.current) {
-        drawOverlayStroke(stroke, false);
+        drawOverlayStroke(stroke, true, true);
         const bb = anyStrokeBBox(stroke);
         minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
         maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);

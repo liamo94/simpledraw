@@ -314,6 +314,30 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         lastTextTapRef.current = null;
       }
 
+      // Shift+click (no V): toggle stroke in/out of group selection, only when something is already selected
+      const hasExistingSelection = selectedGroupRef.current.length > 0 || selectedTextRef.current !== null;
+      if (e.shiftKey && !zKeyRef.current && e.pointerType !== "touch" && hasExistingSelection) {
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        const { scale } = viewRef.current;
+        let hit: Stroke | null = null;
+        for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+          if (hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+        }
+        if (hit) {
+          const current = selectedGroupRef.current.length > 0
+            ? [...selectedGroupRef.current]
+            : selectedTextRef.current ? [selectedTextRef.current] : [];
+          const idx = current.indexOf(hit);
+          const newGroup = idx >= 0 ? current.filter(s => s !== hit) : [...current, hit];
+          selectedGroupRef.current = newGroup;
+          selectedTextRef.current = null;
+          selectDragRef.current = null;
+          (e.target as Element).setPointerCapture(e.pointerId);
+          scheduleRedraw();
+          return;
+        }
+      }
+
       // Shift+V: always start a containment box select so dragging inside a large element works.
       // Click-toggle (tiny drag) is resolved on pointerup via clickHit.
       // Don't clear selection on pointerdown — preserve it so click-toggle can build on it.
@@ -655,12 +679,12 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           // Arrow/line: endpoint handles reshape, midpoint handle translates
           if (stroke.shape === "arrow" || stroke.shape === "line") {
             if (drag.startPoints.length === 2) {
-              // 2-point arrow: ci=1 (midpoint) translates; ci=0/2 move endpoints
+              // 2-point arrow: ci=1 (midpoint) inserts a bend; ci=0/2 move endpoints
               if (ci === 1) {
-                const dx = wp.x - drag.startPtr.x;
-                const dy = wp.y - drag.startPtr.y;
-                for (let i = 0; i < drag.startPoints.length; i++) {
-                  stroke.points[i] = { x: drag.startPoints[i].x + dx, y: drag.startPoints[i].y + dy };
+                if (stroke.points.length === 2) {
+                  stroke.points.splice(1, 0, { ...wp });
+                } else {
+                  stroke.points[1] = { ...wp };
                 }
               } else {
                 const ptIdx = ci === 0 ? 0 : 1;
@@ -742,17 +766,17 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 // 2-point: 3 inline handles — start, mid, end
                 const p0 = pts[0], p1 = pts[1];
                 const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
-                for (const [i, hp] of [[0, p0], [1, mid], [2, p1]] as [number, {x:number;y:number}][]) {
+                for (const [, hp] of [[0, p0], [1, mid], [2, p1]] as [number, {x:number;y:number}][]) {
                   if (Math.hypot(wp.x - hp.x, wp.y - hp.y) <= hs) {
-                    cur = i === 1 ? "move" : "crosshair";
+                    cur = "pointer";
                     break;
                   }
                 }
               } else {
-                // N-point: handle at each actual point
+                // N-point: endpoints get crosshair, intermediate bend points get grab
                 for (let i = 0; i < n; i++) {
                   if (Math.hypot(wp.x - pts[i].x, wp.y - pts[i].y) <= hs) {
-                    cur = "crosshair";
+                    cur = "pointer";
                     break;
                   }
                 }
@@ -923,6 +947,16 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           redoStackRef.current = [];
           persistStrokes();
           window.dispatchEvent(new Event("drawtool:selection-moved"));
+        } else {
+          // Click without drag inside group — select the clicked item, or deselect if none
+          const { scale } = viewRef.current;
+          const wp = groupDragRef.current.startPtr;
+          let hit: Stroke | null = null;
+          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+            if (hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+          }
+          selectedGroupRef.current = [];
+          selectedTextRef.current = hit ?? null;
         }
         groupDragRef.current = null;
         setZCursor("default");
@@ -981,6 +1015,16 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             redoStackRef.current = [];
             persistStrokes();
           }
+        } else if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length > drag.startPoints.length) {
+          // Midpoint handle drag inserted a bend — commit as reshape
+          undoStackRef.current.push({
+            type: "reshape",
+            stroke,
+            from: drag.startPoints.map(p => ({ ...p })),
+            to: stroke.points.map(p => ({ ...p })),
+          });
+          redoStackRef.current = [];
+          persistStrokes();
         } else {
           // Shape resize — only point positions changed, use "move" undo
           const anyChanged = drag.startPoints.some((p, i) =>
