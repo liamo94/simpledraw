@@ -3,6 +3,7 @@ import TraceCanvas from './components/TraceCanvas';
 import ShapeCanvas from './components/ShapeCanvas';
 import ScoreDisplay from './components/ScoreDisplay';
 import HomeScreen from './components/HomeScreen';
+import AimTrainer from './components/AimTrainer';
 import GameSetup from './components/GameSetup';
 import type { GameConfig } from './components/GameSetup';
 import GameSummary from './components/GameSummary';
@@ -19,7 +20,7 @@ import type { ShapeTarget, ShapeRoundConfig, ShapeKind } from './lib/shapes';
 import { SHAPE_SIZE_PX, ALL_SHAPES, SHAPE_LABELS } from './lib/shapes';
 import { getDailyConfig, isDailyDone, markDailyDone, formatDailyDate } from './lib/daily';
 
-type AppScreen = 'home' | 'quickplay' | 'game-setup' | 'game-playing' | 'game-summary';
+type AppScreen = 'home' | 'quickplay' | 'game-setup' | 'game-playing' | 'game-summary' | 'aim-trainer';
 type DrawState = 'drawing' | 'scoring' | 'scored';
 
 function makeQpShapeConfig(kind: ShapeKind | 'random'): ShapeRoundConfig {
@@ -43,12 +44,14 @@ function parseSeedFromUrl(): number | undefined {
 
 function pathToScreen(pathname: string): AppScreen {
   if (pathname === '/quick') return 'quickplay';
+  if (pathname === '/aim') return 'aim-trainer';
   if (pathname.startsWith('/game')) return 'game-setup';
   return 'home';
 }
 
 function screenToPath(screen: AppScreen, seed?: number): string {
   if (screen === 'quickplay') return '/quick';
+  if (screen === 'aim-trainer') return '/aim';
   if (screen === 'game-setup' || screen === 'game-playing' || screen === 'game-summary')
     return seed !== undefined ? `/game/${seed}` : '/game';
   return '/';
@@ -494,6 +497,7 @@ export default function App() {
         theme={themeInfo}
         onQuickPlay={startQuickPlay}
         onGameMode={() => navigate('game-setup')}
+        onAimTrainer={() => navigate('aim-trainer')}
         onDailyText={() => startDailyChallenge('text')}
         onDailyShapes={() => startDailyChallenge('shapes')}
         dailyTextDone={isDailyDone('text')}
@@ -501,6 +505,10 @@ export default function App() {
         dailyDate={formatDailyDate()}
       />
     );
+  }
+
+  if (screen === 'aim-trainer') {
+    return <AimTrainer theme={themeInfo} onHome={() => navigate('home')} />;
   }
 
   if (screen === 'game-setup') {

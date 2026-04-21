@@ -4,6 +4,7 @@ type Props = {
   theme: ThemeInfo;
   onQuickPlay: () => void;
   onGameMode: () => void;
+  onAimTrainer: () => void;
   onDailyText: () => void;
   onDailyShapes: () => void;
   dailyTextDone: boolean;
@@ -11,7 +12,7 @@ type Props = {
   dailyDate: string;
 };
 
-export default function HomeScreen({ theme, onQuickPlay, onGameMode, onDailyText, onDailyShapes, dailyTextDone, dailyShapesDone, dailyDate }: Props) {
+export default function HomeScreen({ theme, onQuickPlay, onGameMode, onAimTrainer, onDailyText, onDailyShapes, dailyTextDone, dailyShapesDone, dailyDate }: Props) {
   const d = theme.isDark;
   const txt     = d ? 'text-white/90'  : 'text-black/80';
   const txtMid  = d ? 'text-white/35'  : 'text-black/35';
@@ -82,6 +83,18 @@ export default function HomeScreen({ theme, onQuickPlay, onGameMode, onDailyText
             </div>
           </button>
         </div>
+
+        {/* Aim trainer card */}
+        <button
+          onClick={onAimTrainer}
+          className={`flex flex-row items-center gap-4 px-5 py-4 rounded-2xl border transition-all text-left ${cardBg}`}
+        >
+          <div className="text-2xl shrink-0">🖱️</div>
+          <div className="flex-1">
+            <div className={`${cardTxt} text-base font-medium`}>Aim Trainer</div>
+            <div className={`${cardSub} text-sm mt-0.5`}>Mouse warm-up · hit the circles fast &amp; accurately</div>
+          </div>
+        </button>
 
         {/* Daily challenge card */}
         <div
