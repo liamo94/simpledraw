@@ -187,6 +187,10 @@ export function shapeBBox(stroke: Stroke): BBox {
 }
 
 export function selectBBox(stroke: Stroke): BBox | null {
+  if (stroke.imageId) {
+    const a = stroke.points[0];
+    return { x: a.x, y: a.y, w: stroke.imageW ?? 0, h: stroke.imageH ?? 0 };
+  }
   if (stroke.text) return textBBox(stroke);
   if (stroke.shape && stroke.points.length === 2) return shapeBBox(stroke);
   return null;

@@ -427,8 +427,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         if (selectedTextRef.current) {
           const bb = anyStrokeBBox(selectedTextRef.current);
           const selShape = selectedTextRef.current.shape;
-          // Check handles first (only for shapes and text, not freehand)
-          if (selShape || selectedTextRef.current.text) {
+          // Check handles first (only for shapes, text, and images, not freehand)
+          if (selShape || selectedTextRef.current.text || selectedTextRef.current.imageId) {
             if (selShape === "arrow" || selShape === "line") {
               const pts = selectedTextRef.current.points;
               const n = pts.length;
@@ -722,6 +722,21 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               const relY = bb.y - opp.y;
               stroke.points[0] = { x: opp.x + relX * actualRatio, y: opp.y + relY * actualRatio };
             }
+          } else if (stroke.imageId) {
+            // Image resize: scale imageW/imageH proportionally, keep opposite corner anchored
+            const startDist = Math.hypot(drag.startPtr.x - opp.x, drag.startPtr.y - opp.y);
+            const currDist  = Math.hypot(wp.x - opp.x, wp.y - opp.y);
+            if (startDist > 1e-6) {
+              const ratio = currDist / startDist;
+              const minSize = 20 / viewRef.current.scale;
+              const newW = Math.max(minSize, bb.w * ratio);
+              const actualRatio = newW / bb.w;
+              stroke.imageW = newW;
+              stroke.imageH = (bb.h / bb.w) * newW;
+              const relX = bb.x - opp.x;
+              const relY = bb.y - opp.y;
+              stroke.points[0] = { x: opp.x + relX * actualRatio, y: opp.y + relY * actualRatio };
+            }
           } else {
             // Shape resize: move both defining points to new bbox corners
             const p0IsLeft = drag.startPoints[0].x <= drag.startPoints[1].x;
@@ -757,7 +772,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const hs = 7 / scale;
           const selStroke = selectedTextRef.current;
           let cur = "default";
-          if (selStroke.shape || selStroke.text) {
+          if (selStroke.shape || selStroke.text || selStroke.imageId) {
             const selShape = selStroke.shape;
             if ((selShape === "arrow" || selShape === "line") && selStroke.points.length >= 2) {
               const pts = selStroke.points;
@@ -1009,6 +1024,26 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               stroke,
               fromScale: drag.startScale,
               toScale: newScale,
+              fromPoints: drag.startPoints.map(p => ({ ...p })),
+              toPoints: [{ ...stroke.points[0] }],
+            });
+            redoStackRef.current = [];
+            persistStrokes();
+          }
+        } else if (stroke.imageId) {
+          // Image resize — imageW/imageH + anchor changed
+          const fromW = drag.bbox.w;
+          const toW = stroke.imageW ?? fromW;
+          if (Math.abs(toW - fromW) > 0.1) {
+            undoStackRef.current.push({
+              type: "resize",
+              stroke,
+              fromScale: 1,
+              toScale: 1,
+              fromW,
+              toW,
+              fromH: drag.bbox.h,
+              toH: stroke.imageH ?? drag.bbox.h,
               fromPoints: drag.startPoints.map(p => ({ ...p })),
               toPoints: [{ ...stroke.points[0] }],
             });

@@ -6,6 +6,7 @@ import {
   cloudArcData, starPoints, regularPolygonPoints, roughPolyPath,
   hexToRgba, getBackgroundColor,
 } from "./rendering";
+import { getImageDataUrl } from "./imageStore";
 
 const NS = "http://www.w3.org/2000/svg";
 
@@ -199,6 +200,14 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
   // Compute bounding box
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const stroke of strokes) {
+    if (stroke.imageId) {
+      const a = stroke.points[0];
+      minX = Math.min(minX, a.x);
+      minY = Math.min(minY, a.y);
+      maxX = Math.max(maxX, a.x + (stroke.imageW ?? 0));
+      maxY = Math.max(maxY, a.y + (stroke.imageH ?? 0));
+      continue;
+    }
     if (stroke.text) {
       const anchor = stroke.points[0];
       const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
@@ -255,6 +264,21 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
   let clipIndex = 0;
 
   for (const stroke of strokes) {
+    // ── Image ─────────────────────────────────────────────────────────────────
+    if (stroke.imageId) {
+      const dataUrl = getImageDataUrl(stroke.imageId);
+      if (dataUrl) {
+        const a = stroke.points[0];
+        mainG.appendChild(svgEl("image", {
+          href: dataUrl,
+          x: n(a.x), y: n(a.y),
+          width: stroke.imageW ?? 0,
+          height: stroke.imageH ?? 0,
+          preserveAspectRatio: "none",
+        }));
+      }
+      continue;
+    }
     // ── Text ──────────────────────────────────────────────────────────────────
     if (stroke.text) {
       const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];

@@ -3,6 +3,7 @@ import rough from "roughjs";
 import type { ShapeKind, Theme, FillStyle } from "../hooks/useSettings";
 import type { Stroke } from "./types";
 import { smoothPoints, smoothWidths, buildFont, TEXT_SIZE_MAP } from "./geometry";
+import { getImageEl } from "./imageStore";
 
 // ─── Theme helpers ────────────────────────────────────────────────────────────
 
@@ -901,6 +902,15 @@ export function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
 export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (stroke.points.length === 0) continue;
+    // Image stroke rendering
+    if (stroke.imageId) {
+      const img = getImageEl(stroke.imageId);
+      if (img?.complete && img.naturalWidth > 0) {
+        const a = stroke.points[0];
+        ctx.drawImage(img, a.x, a.y, stroke.imageW ?? img.naturalWidth, stroke.imageH ?? img.naturalHeight);
+      }
+      continue;
+    }
     // Text stroke rendering
     if (stroke.text) {
       const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);

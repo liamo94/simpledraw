@@ -11,6 +11,7 @@ import {
   shapeToSegments,
   textBBox, anyStrokeBBox,
   renderStrokesToCtx, snapshotCache, smoothArrowPath,
+  loadImages, storeImage, processImageFile, gcImages,
 } from "../canvas/canvasUtils";
 import type { Stroke, UndoAction, BBox, TouchTool } from "../canvas/canvasUtils";
 export type { TouchTool } from "../canvas/canvasUtils";
@@ -245,6 +246,30 @@ function Canvas({
     }, 500);
   }, []);
 
+  // Collect every imageId still referenced by strokes + undo/redo stacks
+  const gcDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const scheduleImageGC = useCallback(() => {
+    if (gcDebounceRef.current) clearTimeout(gcDebounceRef.current);
+    gcDebounceRef.current = setTimeout(() => {
+      gcDebounceRef.current = null;
+      const live = new Set<string>();
+      const addIds = (strokes: Stroke[]) => strokes.forEach((s) => s.imageId && live.add(s.imageId));
+      // Current canvas in-memory state (includes undo/redo stacks)
+      addIds(strokesRef.current);
+      for (const action of [...undoStackRef.current, ...redoStackRef.current]) {
+        if ("stroke" in action) addIds([action.stroke]);
+        if ("strokes" in action) addIds(action.strokes);
+        if ("before" in action) addIds(action.before);
+        if ("after" in action) addIds(action.after);
+      }
+      // All other canvas slots persisted in localStorage
+      for (let i = 1; i <= 9; i++) {
+        if (i !== canvasIndexRef.current) addIds(loadStrokes(i));
+      }
+      gcImages(live);
+    }, 5000);
+  }, []);
+
   const notifyColorUsed = useCallback((color: string) => {
     window.dispatchEvent(new CustomEvent("drawtool:color-used", { detail: color }));
   }, []);
@@ -263,8 +288,9 @@ function Canvas({
       redoStackRef.current = [];
       pending.clear();
       window.dispatchEvent(new CustomEvent("drawtool:stroke-erased"));
+      scheduleImageGC();
     }
-  }, []);
+  }, [scheduleImageGC]);
 
   // --- Dot grid pattern tile cache (item 7) ---
   // Key: `${Math.ceil(screenGap)},${isDark}` → tiny tile canvas pattern.
@@ -671,8 +697,8 @@ function Canvas({
         ctx.setLineDash([]);
         ctx.stroke();
 
-        // Square corner handles (only for shapes and text, not freehand, not group members)
-        if (!noHandles && (stroke.shape || stroke.text)) {
+        // Square corner handles (only for shapes, text, and images, not freehand, not group members)
+        if (!noHandles && (stroke.shape || stroke.text || stroke.imageId)) {
           const hr = 4.5 / scale;
           const corners = [
             { x: rx,      y: ry },
@@ -820,6 +846,16 @@ function Canvas({
       }
     });
   }, [redraw, checkContentOffScreen]);
+
+  // Load images from IndexedDB on mount, then re-render once they're ready
+  useEffect(() => {
+    const ids = strokesRef.current.filter((s) => s.imageId).map((s) => s.imageId!);
+    if (ids.length === 0) return;
+    loadImages(ids).then(() => {
+      strokesCacheRef.current = null;
+      scheduleRedraw();
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Cancel pending RAF on unmount
   useEffect(() => {
@@ -983,7 +1019,8 @@ function Canvas({
     strokesCacheRef.current = null;
     persistStrokes();
     scheduleRedraw();
-  }, [scheduleRedraw, persistStrokes]);
+    scheduleImageGC();
+  }, [scheduleRedraw, persistStrokes, scheduleImageGC]);
 
   // Swap default stroke colors when switching between dark/light themes, then redraw
   const prevThemeRef = useRef(theme);
@@ -1168,6 +1205,15 @@ function Canvas({
     pendingEraseRef.current.clear();
     gridPatternCacheRef.current.clear();
     strokesCacheRef.current = null;
+
+    // Load any images referenced by the new canvas's strokes
+    const imageIds = strokesRef.current.filter((s) => s.imageId).map((s) => s.imageId!);
+    if (imageIds.length > 0) {
+      loadImages(imageIds).then(() => {
+        strokesCacheRef.current = null;
+        scheduleRedraw();
+      });
+    }
 
     canvasIndexRef.current = canvasIndex;
     broadcastZoom();
@@ -1375,6 +1421,7 @@ function Canvas({
         action.from.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.fromScale;
+        if (action.fromW !== undefined) { action.stroke.imageW = action.fromW; action.stroke.imageH = action.fromH; }
         action.fromPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.oldText;
@@ -1458,6 +1505,7 @@ function Canvas({
         action.to.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.toScale;
+        if (action.toW !== undefined) { action.stroke.imageW = action.toW; action.stroke.imageH = action.toH; }
         action.toPoints.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
       } else if (action.type === "edit") {
         action.stroke.text = action.newText;
@@ -1848,6 +1896,16 @@ function Canvas({
     for (const stroke of strokesRef.current) {
       if (pendingEraseRef.current.has(stroke)) continue;
       let hit = false;
+      // For image strokes, test against bounding box
+      if (stroke.imageId) {
+        const a = stroke.points[0];
+        const iw = stroke.imageW ?? 0, ih = stroke.imageH ?? 0;
+        if (x >= a.x - radius && x <= a.x + iw + radius && y >= a.y - radius && y <= a.y + ih + radius) {
+          hit = true;
+        }
+        if (hit) pendingEraseRef.current.add(stroke);
+        continue;
+      }
       // For text strokes, test against bounding box
       if (stroke.text) {
         const bb = textBBox(stroke);
@@ -1900,6 +1958,55 @@ function Canvas({
       if (hit) pendingEraseRef.current.add(stroke);
     }
   }, []);
+
+  const handleImageDrop = useCallback(
+    async (e: React.DragEvent<HTMLCanvasElement>) => {
+      e.preventDefault();
+      const file = Array.from(e.dataTransfer.files).find((f) =>
+        f.type.startsWith("image/"),
+      );
+      if (!file) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      const rect = canvas.getBoundingClientRect();
+      const screenX = e.clientX - rect.left;
+      const screenY = e.clientY - rect.top;
+      let result: { dataUrl: string; naturalW: number; naturalH: number };
+      try {
+        result = await processImageFile(file);
+      } catch {
+        return;
+      }
+      const { dataUrl, naturalW, naturalH } = result;
+      const id = crypto.randomUUID();
+      await storeImage(id, dataUrl);
+      const view = viewRef.current;
+      const MAX_SCREEN_W = 600;
+      const worldW = Math.min(naturalW, MAX_SCREEN_W / view.scale);
+      const worldH = naturalH * (worldW / naturalW);
+      const worldCenter = screenToWorld(screenX, screenY, view);
+      const anchor = { x: worldCenter.x - worldW / 2, y: worldCenter.y - worldH / 2 };
+      const stroke: Stroke = {
+        points: [anchor],
+        style: "solid",
+        lineWidth: 1,
+        color: "#000000",
+        imageId: id,
+        imageW: worldW,
+        imageH: worldH,
+      };
+      strokesRef.current.push(stroke);
+      undoStackRef.current.push({ type: "draw", stroke });
+      redoStackRef.current = [];
+      selectedTextRef.current = stroke;
+      selectedGroupRef.current = [];
+      setZCursor("default");
+      strokesCacheRef.current = null;
+      persistStrokes();
+      scheduleRedraw();
+    },
+    [scheduleRedraw, persistStrokes, setZCursor],
+  );
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
@@ -2893,6 +3000,8 @@ function Canvas({
       onPointerCancel={onPointerCancel}
       onPointerLeave={onPointerLeave}
       onContextMenu={(e) => e.preventDefault()}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleImageDrop}
     />
   );
 }

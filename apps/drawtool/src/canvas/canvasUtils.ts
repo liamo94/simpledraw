@@ -4,3 +4,4 @@ export * from "./types";
 export * from "./storage";
 export * from "./geometry";
 export * from "./rendering";
+export * from "./imageStore";

@@ -4,6 +4,7 @@ import type { ShapeKind, TextSize, FontFamily, TextAlign, FillStyle } from "./us
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import { cmdKey, isMac, textBBox, anyStrokeBBox, FONT_FAMILIES } from "../canvas/geometry";
 import { strokesKey } from "../canvas/storage";
+import { storeImage, processImageFile } from "../canvas/imageStore";
 
 // ─── Ref bag type ─────────────────────────────────────────────────────────────
 
@@ -492,6 +493,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         if (selectedGroupRef.current.length > 0 && !isWritingRef.current) {
           const toDelete = selectedGroupRef.current;
           clipboardRef.current = toDelete.map(s => ({ ...s, points: s.points.map(p => ({ ...p })), widths: s.widths ? [...s.widths] : undefined }));
+          navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
           strokesRef.current = strokesRef.current.filter(s => !toDelete.includes(s));
           undoStackRef.current.push({ type: "erase", strokes: toDelete });
           redoStackRef.current = [];
@@ -507,6 +509,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         } else if (selectedTextRef.current && !isWritingRef.current) {
           const stroke = selectedTextRef.current;
           clipboardRef.current = [stroke];
+          navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
           strokesRef.current = strokesRef.current.filter(s => s !== stroke);
           undoStackRef.current.push({ type: "erase", strokes: [stroke] });
           redoStackRef.current = [];
@@ -544,48 +547,13 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       if (cmdKey(e) && e.key === "c") {
         if (selectedGroupRef.current.length > 0) {
           clipboardRef.current = selectedGroupRef.current.map(s => ({ ...s, points: s.points.map(p => ({ ...p })), widths: s.widths ? [...s.widths] : undefined }));
+          navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
         } else if (selectedTextRef.current) {
           clipboardRef.current = [selectedTextRef.current];
+          navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
         }
       }
-      if (cmdKey(e) && e.key === "v" && !e.shiftKey && clipboardRef.current) {
-        e.preventDefault();
-        const srcs = clipboardRef.current;
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const s of srcs) {
-          const bb = anyStrokeBBox(s);
-          minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
-          maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
-        }
-        const cx = (minX + maxX) / 2;
-        const cy = (minY + maxY) / 2;
-        const cursor = cursorWorldRef.current;
-        const dx = cursor.x - cx;
-        const dy = cursor.y - cy;
-        const newStrokes: Stroke[] = srcs.map(src => ({
-          ...src,
-          points: src.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
-          widths: src.widths ? [...src.widths] : undefined,
-        }));
-        strokesRef.current.push(...newStrokes);
-        if (newStrokes.length === 1) {
-          undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });
-        } else {
-          undoStackRef.current.push({ type: "multi-draw", strokes: newStrokes });
-        }
-        redoStackRef.current = [];
-        if (newStrokes.length === 1) {
-          selectedTextRef.current = newStrokes[0];
-          selectedGroupRef.current = [];
-        } else {
-          selectedGroupRef.current = newStrokes;
-          selectedTextRef.current = null;
-        }
-        setZCursor("default");
-        strokesCacheRef.current = null;
-        scheduleRedraw();
-        persistStrokes();
-      }
+      // Cmd+V: let the paste event handle it so image clipboard takes priority over internal stroke clipboard
       if (e.key === "u" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -1207,16 +1175,100 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     };
 
     const onPaste = (e: ClipboardEvent) => {
-      if (!isWritingRef.current) return;
-      e.preventDefault();
-      const pasted = e.clipboardData?.getData("text/plain");
-      if (pasted) {
-        const text = writingTextRef.current;
-        const pos = caretPosRef.current;
-        writingTextRef.current = text.slice(0, pos) + pasted + text.slice(pos);
-        caretPosRef.current = pos + pasted.length;
-        caretVisibleRef.current = true;
+      if (isWritingRef.current) {
+        e.preventDefault();
+        const pasted = e.clipboardData?.getData("text/plain");
+        if (pasted) {
+          const text = writingTextRef.current;
+          const pos = caretPosRef.current;
+          writingTextRef.current = text.slice(0, pos) + pasted + text.slice(pos);
+          caretPosRef.current = pos + pasted.length;
+          caretVisibleRef.current = true;
+          scheduleRedraw();
+        }
+        return;
+      }
+
+      const clipboardText = e.clipboardData?.getData("text/plain") ?? "";
+      const hasDrawtoolClip = clipboardText === "drawtool-clip";
+
+      // If our sentinel is in the system clipboard, the last copy was a shape — use internal clipboard
+      if (hasDrawtoolClip && clipboardRef.current) {
+        e.preventDefault();
+        const srcs = clipboardRef.current;
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (const s of srcs) {
+          const bb = anyStrokeBBox(s);
+          minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+          maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+        }
+        const cx = (minX + maxX) / 2;
+        const cy = (minY + maxY) / 2;
+        const cursor = cursorWorldRef.current;
+        const dx = cursor.x - cx;
+        const dy = cursor.y - cy;
+        const newStrokes: Stroke[] = srcs.map(src => ({
+          ...src,
+          points: src.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
+          widths: src.widths ? [...src.widths] : undefined,
+        }));
+        strokesRef.current.push(...newStrokes);
+        if (newStrokes.length === 1) {
+          undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });
+        } else {
+          undoStackRef.current.push({ type: "multi-draw", strokes: newStrokes });
+        }
+        redoStackRef.current = [];
+        if (newStrokes.length === 1) {
+          selectedTextRef.current = newStrokes[0];
+          selectedGroupRef.current = [];
+        } else {
+          selectedGroupRef.current = newStrokes;
+          selectedTextRef.current = null;
+        }
+        setZCursor("default");
+        strokesCacheRef.current = null;
         scheduleRedraw();
+        persistStrokes();
+        return;
+      }
+
+      // No sentinel (or no internal clipboard) — check for image in system clipboard
+      const items = e.clipboardData?.items;
+      const imageItem = items ? Array.from(items).find(item => item.type.startsWith("image/")) : null;
+      if (imageItem) {
+        const blob = imageItem.getAsFile();
+        if (blob) {
+          e.preventDefault();
+          processImageFile(blob).then(async ({ dataUrl, naturalW, naturalH }) => {
+            const id = crypto.randomUUID();
+            await storeImage(id, dataUrl);
+            const view = viewRef.current;
+            const MAX_SCREEN_W = 600;
+            const worldW = Math.min(naturalW, MAX_SCREEN_W / view.scale);
+            const worldH = naturalH * (worldW / naturalW);
+            const cursor = cursorWorldRef.current;
+            const anchor = { x: cursor.x - worldW / 2, y: cursor.y - worldH / 2 };
+            const stroke: import("../canvas/types").Stroke = {
+              points: [anchor],
+              style: "solid",
+              lineWidth: 1,
+              color: "#000000",
+              imageId: id,
+              imageW: worldW,
+              imageH: worldH,
+            };
+            strokesRef.current.push(stroke);
+            undoStackRef.current.push({ type: "draw", stroke });
+            redoStackRef.current = [];
+            selectedTextRef.current = stroke;
+            selectedGroupRef.current = [];
+            setZCursor("default");
+            strokesCacheRef.current = null;
+            persistStrokes();
+            scheduleRedraw();
+          }).catch(() => {/* ignore */});
+        }
       }
     };
 
