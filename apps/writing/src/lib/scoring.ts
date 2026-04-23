@@ -101,7 +101,7 @@ export async function scoreAttempt(
     if (inUser) userTotal++;
   }
 
-  if (targetPx === 0) return 0;
+  if (targetPx === 0 || covered === 0) return 0;
 
   const coverage = covered / targetPx;
   const precision = userTotal > 0 ? covered / userTotal : 0;
@@ -163,7 +163,7 @@ export async function scoreShapeAttempt(
     if (inUser) userTotal++;
   }
 
-  if (targetPx === 0) return 0;
+  if (targetPx === 0 || covered === 0) return 0;
 
   const coverage = covered / targetPx;
   const precision = userTotal > 0 ? covered / userTotal : 0;

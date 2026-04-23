@@ -37,11 +37,11 @@ function resultColor(score: number): string {
   return '#ef4444';
 }
 
-function resultLabel(score: number): string {
-  if (score >= 85) return 'Sharp!';
-  if (score >= 70) return 'Nice hit!';
-  if (score >= 50) return 'Good aim';
-  if (score >= 30) return 'Off target';
+function resultLabel(accuracyPct: number): string {
+  if (accuracyPct >= 85) return 'Sharp!';
+  if (accuracyPct >= 70) return 'Nice hit!';
+  if (accuracyPct >= 50) return 'Good aim';
+  if (accuracyPct >= 25) return 'Off target';
   return 'Miss!';
 }
 
@@ -62,11 +62,10 @@ type Props = {
 export default function AimTrainer({ theme, onHome }: Props) {
   const d = theme.isDark;
 
-  const [requireDrag, setRequireDrag] = useState(() => localStorage.getItem('aim-require-drag') === 'true');
-
-  const toggleRequireDrag = useCallback(() => {
-    setRequireDrag(v => { localStorage.setItem('aim-require-drag', String(!v)); return !v; });
-  }, []);
+  const [minStrokePx, setMinStrokePx] = useState(() => {
+    const saved = localStorage.getItem('aim-min-stroke-px');
+    return saved !== null ? Math.min(30, Number(saved)) : 0;
+  });
 
   const [roundMode, setRoundMode] = useState<RoundMode>(() => {
     const saved = localStorage.getItem('aim-round-mode');
@@ -169,7 +168,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
     const avgAccuracy = avg(results.map(r => r.accuracyPct));
     const bestScore = Math.max(...results.map(r => r.score));
     const color = resultColor(avgScore);
-    const label = resultLabel(avgScore);
+    const label = resultLabel(avgAccuracy);
     const cardBg = d ? 'bg-[#111118] border-white/8' : 'bg-white border-black/8';
     const divider = d ? 'bg-white/8' : 'bg-black/8';
     const statBg = d ? 'bg-white/5 border-white/8' : 'bg-black/4 border-black/8';
@@ -182,7 +181,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
 
     return (
       <div className="flex flex-col w-screen h-dvh select-none overflow-hidden" style={{ background: theme.bg, paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}>
-        <div className={`flex items-center gap-2 px-4 py-2 border-b ${hdrBorder} shrink-0`}>
+        <div className={`flex items-center gap-2 px-3 h-11 border-b ${hdrBorder} shrink-0`}>
           <div className="flex items-center gap-1 shrink-0 mr-1">
             <button onClick={onHome} className={`${hdrTextMid} text-xs font-medium`}>writing</button>
             <span className={`${hdrTextMid} text-xs hidden sm:inline`}>by</span>
@@ -278,7 +277,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
       style={{ background: theme.bg, color: d ? '#fff' : '#1a1a1a', paddingTop: 'env(safe-area-inset-top)', paddingBottom: 'env(safe-area-inset-bottom)' }}
     >
       {/* Header */}
-      <div className={`flex items-center gap-1.5 px-3 py-2 border-b ${hdrBorder} shrink-0 overflow-hidden`}>
+      <div className={`flex items-center gap-1.5 px-3 h-11 border-b ${hdrBorder} shrink-0 overflow-hidden`}>
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={handleQuit} className={`${hdrTextMid} text-xs font-medium`}>writing</button>
           <span className={`${hdrTextMid} text-xs hidden sm:inline`}>by</span>
@@ -313,17 +312,28 @@ export default function AimTrainer({ theme, onHome }: Props) {
           ))}
         </div>
         <div className={`w-px h-4 ${hdrDivider} shrink-0`} />
-        {/* Drag toggle */}
-        <button
-          onClick={toggleRequireDrag}
-          title="Require minimum drag distance to register a hit"
-          className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border transition-colors ${requireDrag ? tabActive : tabInactive}`}
-        >
-          <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M8 2v12M2 8l6 6 6-6"/>
-          </svg>
-          <span className="hidden sm:inline">drag</span>
-        </button>
+        {/* Min stroke slider */}
+        <div className="flex items-center gap-1.5 shrink-0">
+          <span className={`text-[10px] hidden sm:inline ${hdrTextMid}`}>drag</span>
+          <input
+            type="range"
+            min={0}
+            max={30}
+            step={2}
+            value={minStrokePx}
+            onChange={e => {
+              const v = Number(e.target.value);
+              setMinStrokePx(v);
+              localStorage.setItem('aim-min-stroke-px', String(v));
+            }}
+            className="w-16"
+            style={{ accentColor: '#ec4899' }}
+            title={`Min drag distance: ${minStrokePx === 0 ? 'off' : `${minStrokePx}px`}`}
+          />
+          <span className={`text-[10px] tabular-nums w-6 ${d ? 'text-white/40' : 'text-black/40'}`}>
+            {minStrokePx === 0 ? 'off' : `${minStrokePx}`}
+          </span>
+        </div>
         {/* Round progress (finite modes only) */}
         {totalRounds !== null && (<>
         <div className={`w-px h-4 ${hdrDivider} shrink-0`} />
@@ -385,7 +395,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
           circleRadius={circle.radius}
           strokeColor={theme.stroke}
           isDark={d}
-          minStrokePx={requireDrag ? 6 : 0}
+          minStrokePx={minStrokePx}
           onComplete={handleRoundComplete}
         />
 
@@ -404,7 +414,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
               <div className="text-5xl font-black tabular-nums leading-none" style={{ color: resultColor(lastResult.score) }}>
                 {lastResult.score}
               </div>
-              <div className={`text-sm font-semibold ${hdrTextFull}`}>{resultLabel(lastResult.score)}</div>
+              <div className={`text-sm font-semibold ${hdrTextFull}`}>{resultLabel(lastResult.accuracyPct)}</div>
               <div className={`flex items-center gap-2.5 text-xs ${hdrTextMid}`}>
                 <span className="tabular-nums">{formatMs(lastResult.reactionMs)}</span>
                 <span className={d ? 'text-white/20' : 'text-black/20'}>·</span>

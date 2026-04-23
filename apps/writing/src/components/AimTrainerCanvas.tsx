@@ -19,6 +19,7 @@ type Props = {
 };
 
 function calcScore(reactionMs: number, accuracyPct: number): number {
+  if (accuracyPct === 0) return 0;
   // Speed: 100 at ≤300ms, 0 at ≥3000ms
   const speed = Math.max(0, Math.min(100, 100 * (1 - Math.max(0, reactionMs - 300) / 2700)));
   return Math.round(speed * 0.6 + accuracyPct * 0.4);
@@ -248,8 +249,8 @@ export default function AimTrainerCanvas({
       if (hasCompletedRef.current) return;
       if ((e.metaKey || e.ctrlKey) && !toolRef.current) {
         toolRef.current = 'cmd';
-        recordReaction();
-        pointsRef.current.push({ ...mousePosRef.current });
+        // Don't record reaction or push points here — Cmd alone could be Cmd+Tab.
+        // Wait for actual mouse movement before starting the stroke.
       }
     };
 
@@ -302,6 +303,7 @@ export default function AimTrainerCanvas({
       }
 
       if (toolRef.current === 'cmd') {
+        recordReaction();
         const prev = pointsRef.current[pointsRef.current.length - 1];
         if (prev) {
           const dx = pt.x - prev.x, dy = pt.y - prev.y;
@@ -341,12 +343,22 @@ export default function AimTrainerCanvas({
       tryComplete();
     };
 
+    const onBlur = () => {
+      // Window lost focus (e.g. Cmd+Tab) — cancel any in-progress stroke
+      toolRef.current = null;
+      activePointerRef.current = null;
+      pointsRef.current = [];
+      currentStrokeLenRef.current = 0;
+      reactionMsRef.current = null;
+    };
+
     window.addEventListener('keydown', onKeyDown);
     window.addEventListener('keyup', onKeyUp);
     window.addEventListener('pointerdown', onDown);
     window.addEventListener('pointermove', onMove);
     window.addEventListener('pointerup', onUp);
     window.addEventListener('pointercancel', onCancel);
+    window.addEventListener('blur', onBlur);
     return () => {
       window.removeEventListener('keydown', onKeyDown);
       window.removeEventListener('keyup', onKeyUp);
@@ -354,6 +366,7 @@ export default function AimTrainerCanvas({
       window.removeEventListener('pointermove', onMove);
       window.removeEventListener('pointerup', onUp);
       window.removeEventListener('pointercancel', onCancel);
+      window.removeEventListener('blur', onBlur);
     };
   }, [complete, getCanvasPos, recordReaction]);
 
