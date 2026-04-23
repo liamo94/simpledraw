@@ -1,5 +1,5 @@
 import { useRef, useEffect, useCallback, useState, memo } from "react";
-import type { ShapeKind, Theme, TextSize, GridType, FontFamily, TextAlign } from "../hooks/useSettings";
+import type { ShapeKind, Theme, TextSize, GridType, FontFamily, TextAlign, ClickTool } from "../hooks/useSettings";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useTextSelection } from "../hooks/useTextSelection";
 import { generateSvg } from "../canvas/svgExport";
@@ -58,6 +58,8 @@ function Canvas({
   textItalic,
   textAlign,
   pressureSensitivity,
+  leftClickTool,
+  rightClickTool,
   onContentOffScreen,
 }: {
   lineWidth: number;
@@ -79,6 +81,8 @@ function Canvas({
   textItalic: boolean;
   textAlign: TextAlign;
   pressureSensitivity: boolean;
+  leftClickTool: ClickTool;
+  rightClickTool: ClickTool;
   onContentOffScreen?: (offScreen: boolean) => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -123,6 +127,10 @@ function Canvas({
   shapeDashedRef.current = shapeDashed;
   const pressureSensitivityRef = useRef(pressureSensitivity);
   pressureSensitivityRef.current = pressureSensitivity;
+  const leftClickToolRef = useRef(leftClickTool);
+  leftClickToolRef.current = leftClickTool;
+  const rightClickToolRef = useRef(rightClickTool);
+  rightClickToolRef.current = rightClickTool;
   const lastDrawPointRef = useRef<{ x: number; y: number; t: number } | null>(null);
   const prevWidthRef = useRef(1);
   const isPanningRef = useRef(false);
@@ -2057,9 +2065,11 @@ function Canvas({
         }
       } else if (
         e.button === 1 ||
-        (spaceDownRef.current && e.button === 0)
+        (spaceDownRef.current && e.button === 0) ||
+        (e.button === 0 && leftClickToolRef.current === "pan") ||
+        (e.button === 2 && rightClickToolRef.current === "pan")
       ) {
-        // Mouse: middle-click or space+left-click = pan
+        // Mouse: middle-click, space+left-click, or click-tool pan = pan
         isPanningRef.current = true;
         panLastRef.current = { x: e.clientX, y: e.clientY };
         setPanning(true);
@@ -2079,7 +2089,7 @@ function Canvas({
         }
       }
       if (e.button === 0 || e.button === 2) pointerButtonDownRef.current = true;
-      if (e.button === 2) rightClickHeldRef.current = true;
+      if (e.button === 2 && rightClickToolRef.current === "dashed") rightClickHeldRef.current = true;
       (e.target as Element).setPointerCapture(e.pointerId);
     },
     [cancelCurrentStroke],
@@ -2226,6 +2236,7 @@ function Canvas({
           }
         }
         if (activeModifierRef.current === "alt") {
+          setErasing(false);
           confirmErase();
           strokesCacheRef.current = null;
           scheduleRedraw();
@@ -2270,6 +2281,7 @@ function Canvas({
         strokesCacheRef.current = null;
         persistStrokes();
         if (_wasLaser) {
+          setLasering(false);
           window.dispatchEvent(new Event("drawtool:laser-used"));
         } else if (_commitCandidate && strokesRef.current[strokesRef.current.length - 1] === _commitCandidate) {
           window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
@@ -2279,7 +2291,7 @@ function Canvas({
         scheduleRedraw();
       }
     },
-    [confirmErase, discardTinyShape, persistStrokes, persistView, scheduleRedraw, notifyColorUsed, setLasering],
+    [confirmErase, discardTinyShape, persistStrokes, persistView, scheduleRedraw, notifyColorUsed, setLasering, setErasing],
   );
 
   const onPointerMove = useCallback(
@@ -2477,18 +2489,22 @@ function Canvas({
                       : e.shiftKey
                         ? "shift"
                         : (e.buttons & 2) !== 0
-                          ? "shift"
+                          ? (rightClickToolRef.current === "draw" ? "meta" : rightClickToolRef.current === "dashed" ? "shift" : rightClickToolRef.current === "laser" ? "laser" : rightClickToolRef.current === "erase" ? "alt" : null)
                           : (e.buttons & 1) !== 0
-                            ? "meta"
+                            ? (leftClickToolRef.current === "draw" ? "meta" : leftClickToolRef.current === "dashed" ? "shift" : leftClickToolRef.current === "laser" ? "laser" : leftClickToolRef.current === "erase" ? "alt" : null)
                             : null;
       }
 
       if (!modifier) {
         if (isDrawingRef.current) {
           if (activeModifierRef.current === "alt") {
+            setErasing(false);
             confirmErase();
             strokesCacheRef.current = null;
             scheduleRedraw();
+          }
+          if (activeModifierRef.current === "laser") {
+            setLasering(false);
           }
           if (sprayIntervalRef.current) {
             clearInterval(sprayIntervalRef.current);
@@ -2533,6 +2549,7 @@ function Canvas({
 
       // Flush erase buffer when switching away from erasing
       if (modifier !== "alt" && activeModifierRef.current === "alt") {
+        setErasing(false);
         confirmErase();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
@@ -2802,6 +2819,7 @@ function Canvas({
       notifyColorUsed,
       cancelCurrentStroke,
       setLasering,
+      setErasing,
     ],
   );
 
@@ -2835,6 +2853,7 @@ function Canvas({
       }
       if (isDrawingRef.current) {
         if (activeModifierRef.current === "alt") {
+          setErasing(false);
           cancelErase();
           return;
         }
@@ -2853,6 +2872,7 @@ function Canvas({
         activeModifierRef.current = null;
         persistStrokes();
         if (_leaveLaser) {
+          setLasering(false);
           window.dispatchEvent(new Event("drawtool:laser-used"));
         } else if (_leaveCandidate && strokesRef.current[strokesRef.current.length - 1] === _leaveCandidate) {
           window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
@@ -2862,7 +2882,7 @@ function Canvas({
       }
       if (overSameColorRef.current) { overSameColorRef.current = false; setOverSameColor(false); }
     },
-    [persistStrokes, cancelErase, discardTinyShape],
+    [persistStrokes, cancelErase, discardTinyShape, setErasing, setLasering],
   );
 
   // Wheel: pan (scroll) and zoom (Ctrl/Cmd + scroll)

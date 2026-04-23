@@ -7,6 +7,7 @@ import type {
   FontFamily,
   TextAlign,
   FillStyle,
+  ClickTool,
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
 
@@ -24,6 +25,131 @@ function isDarkTheme(theme: Theme): boolean {
     theme === "midnight" ||
     theme === "lumber" ||
     theme === "slate"
+  );
+}
+
+const CLICK_TOOL_OPTIONS: { value: ClickTool; label: string; icon: React.ReactNode }[] = [
+  {
+    value: "draw",
+    label: "Draw",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
+      </svg>
+    ),
+  },
+  {
+    value: "dashed",
+    label: "Dashed",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2.5">
+        <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
+      </svg>
+    ),
+  },
+  {
+    value: "pan",
+    label: "Pan",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5,8 L2,8 M14,8 L11,8 M8,5 L8,2 M8,14 L8,11" />
+        <path d="M3,8 L5,6.5 M3,8 L5,9.5 M13,8 L11,6.5 M13,8 L11,9.5 M8,3 L6.5,5 M8,3 L9.5,5 M8,13 L6.5,11 M8,13 L9.5,11" />
+      </svg>
+    ),
+  },
+  {
+    value: "laser",
+    label: "Laser",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+        <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
+        <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+      </svg>
+    ),
+  },
+  {
+    value: "erase",
+    label: "Erase",
+    icon: (
+      <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+        <defs>
+          <linearGradient id="eg-mb" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="50%" stopColor="#89CFF0" />
+            <stop offset="50%" stopColor="#FA8072" />
+          </linearGradient>
+        </defs>
+        <rect x="2" y="4" width="12" height="8" rx="1.5" transform="rotate(-15 8 8)" fill="url(#eg-mb)" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+      </svg>
+    ),
+  },
+];
+
+function ClickToolPicker({
+  value,
+  onChange,
+  isDark,
+}: {
+  value: ClickTool;
+  onChange: (tool: ClickTool) => void;
+  isDark: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const current = CLICK_TOOL_OPTIONS.find((o) => o.value === value)!;
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        className={`flex items-center gap-1 text-xs rounded-md px-1.5 py-1 transition-colors ${
+          isDark
+            ? "bg-white/10 text-white/80 hover:bg-white/[0.15]"
+            : "bg-black/[0.07] text-black/70 hover:bg-black/[0.11]"
+        }`}
+      >
+        {current.icon}
+        <span className="leading-none">{current.label}</span>
+        <svg width="7" height="5" viewBox="0 0 7 5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40 ml-0.5">
+          <path d="M1 1L3.5 3.5L6 1" />
+        </svg>
+      </button>
+      {open && (
+        <div
+          className={`absolute bottom-full mb-1.5 right-0 z-50 rounded-lg py-1 min-w-[110px] shadow-xl border ${
+            isDark ? "bg-[#1e1e1e] border-white/10" : "bg-white border-black/[0.08]"
+          }`}
+        >
+          {CLICK_TOOL_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              className={`flex items-center gap-2 w-full px-2.5 py-1.5 text-xs transition-colors ${
+                opt.value === value
+                  ? isDark
+                    ? "bg-white/[0.10] text-white"
+                    : "bg-black/[0.06] text-black"
+                  : isDark
+                    ? "text-white/55 hover:bg-white/[0.06] hover:text-white/80"
+                    : "text-black/50 hover:bg-black/[0.04] hover:text-black/70"
+              }`}
+            >
+              {opt.icon}
+              <span>{opt.label}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
   );
 }
 
@@ -1480,6 +1606,25 @@ export default function Menu({
                   />
                 </span>
               </button>
+              {!hasTouch && (
+                <div className="flex items-center justify-between w-full text-sm">
+                  <span>Mouse buttons</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className={`text-[10px] ${isDark ? "text-white/35" : "text-black/35"}`}>L</span>
+                    <ClickToolPicker
+                      value={settings.leftClickTool}
+                      onChange={(v) => updateSettings({ leftClickTool: v })}
+                      isDark={isDark}
+                    />
+                    <span className={`text-[10px] ml-0.5 ${isDark ? "text-white/35" : "text-black/35"}`}>R</span>
+                    <ClickToolPicker
+                      value={settings.rightClickTool}
+                      onChange={(v) => updateSettings({ rightClickTool: v })}
+                      isDark={isDark}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="mt-4 space-y-1.5">

@@ -24,6 +24,8 @@ export type TextAlign = "left" | "center" | "right";
 
 export type FillStyle = "solid" | "dots" | "hatch" | "crosshatch";
 
+export type ClickTool = "draw" | "dashed" | "pan" | "laser" | "erase";
+
 export type Settings = {
   lineWidth: number;
   lineColor: string;
@@ -44,6 +46,8 @@ export type Settings = {
   textItalic: boolean;
   textAlign: TextAlign;
   pressureSensitivity: boolean;
+  leftClickTool: ClickTool;
+  rightClickTool: ClickTool;
 };
 
 const STORAGE_KEY = "drawtool-settings";
@@ -75,6 +79,8 @@ function getDefaults(): Settings {
     textItalic: false,
     textAlign: "left" as TextAlign,
     pressureSensitivity: false,
+    leftClickTool: "draw" as ClickTool,
+    rightClickTool: "dashed" as ClickTool,
   };
 }
 

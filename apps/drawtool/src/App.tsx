@@ -1005,6 +1005,8 @@ export default function App() {
         textItalic={settings.textItalic}
         textAlign={settings.textAlign}
         pressureSensitivity={settings.pressureSensitivity}
+        leftClickTool={settings.leftClickTool}
+        rightClickTool={settings.rightClickTool}
         onContentOffScreen={setContentOffScreen}
       />
       {hasTouch ? (
