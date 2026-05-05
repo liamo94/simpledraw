@@ -2069,10 +2069,17 @@ function Canvas({
         (e.button === 0 && leftClickToolRef.current === "pan") ||
         (e.button === 2 && rightClickToolRef.current === "pan")
       ) {
-        // Mouse: middle-click, space+left-click, or click-tool pan = pan
-        isPanningRef.current = true;
-        panLastRef.current = { x: e.clientX, y: e.clientY };
-        setPanning(true);
+        // Skip pan activation when a line/arrow bend is in progress — clicks add bend points.
+        const inBend =
+          isDrawingRef.current &&
+          (activeModifierRef.current === "line" ||
+            (activeModifierRef.current === "shape" && keyShapeRef.current === "arrow"));
+        if (!inBend) {
+          // Mouse: middle-click, space+left-click, or click-tool pan = pan
+          isPanningRef.current = true;
+          panLastRef.current = { x: e.clientX, y: e.clientY };
+          setPanning(true);
+        }
       }
       shapeJustCommittedRef.current = false;
       // Re-evaluate dashed state for any in-progress hover shape at actual button press time.
@@ -2945,6 +2952,13 @@ function Canvas({
   const _of = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeDropShadow dx='0' dy='0' stdDeviation='1.5' flood-color='${_haloCol}' flood-opacity='1'/%3E%3C/filter%3E%3C/defs%3E` : "";
   const _wo = _needsHalo ? "%3Cg filter='url(%23o)'%3E" : "";
   const _wc = _needsHalo ? "%3C/g%3E" : "";
+  // Stronger blur for semi-transparent/sparse cursors: feDropShadow alpha is clipped to
+  // source alpha, so a 0.4-opacity stroke needs a larger stdDeviation to read as a visible glow.
+  // filterUnits='userSpaceOnUse' with fixed px coords avoids the default objectBoundingBox mode,
+  // which would make the region too small for a short/thin bounding box like the highlight bar.
+  const _sof = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' filterUnits='userSpaceOnUse' x='-4' y='-4' width='32' height='32'%3E%3CfeDropShadow dx='0' dy='0' stdDeviation='3' flood-color='${_haloCol}' flood-opacity='1'/%3E%3C/filter%3E%3C/defs%3E` : "";
+  const _sow = _needsHalo ? "%3Cg filter='url(%23o)'%3E" : "";
+  const _soc = _needsHalo ? "%3C/g%3E" : "";
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E${_of}${_wo}%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E${_wc}%3C/svg%3E") 12 12, crosshair`;
   const eraserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='0'%3E%3Cstop offset='50%25' stop-color='%2389CFF0'/%3E%3Cstop offset='50%25' stop-color='%23FA8072'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect x='3' y='5' width='18' height='12' rx='2.5' transform='rotate(-25 12 11)' fill='url(%23g)' stroke='%23666' stroke-width='1.5'/%3E%3C/svg%3E") 12 12, crosshair`;
   const shapeCursors: Record<ShapeKind, string> = {
@@ -2959,9 +2973,9 @@ function Canvas({
     diamond: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E${_of}${_wo}%3Cpolygon points='12,2 22,12 12,22 2,12' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linejoin='round'/%3E${_wc}%3C/svg%3E") 12 12, crosshair`,
     cloud: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24'%3E${_of}${_wo}%3Cpath d='M7.2 18 H16.8 C19.4 18 21.5 16.2 21.5 13.9 C21.5 11.9 20 10.3 18 10.1 C17.4 7.8 15.4 6.2 12.9 6.2 C10.7 6.2 8.8 7.5 8.0 9.5 C5.6 9.7 3.8 11.5 3.8 13.8 C3.8 16.2 5.6 18 7.2 18 Z' fill='none' stroke='${encodedColor}' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'/%3E${_wc}%3C/svg%3E") 12 12, crosshair`,
   };
-  const highlightCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E${_of}${_wo}%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='6' stroke-linecap='round' stroke-opacity='0.4'/%3E${_wc}%3C/svg%3E") 12 12, crosshair`;
+  const highlightCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E${_sof}${_sow}%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='6' stroke-linecap='round' stroke-opacity='0.4'/%3E${_soc}%3C/svg%3E") 12 12, crosshair`;
   const laserCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Ccircle cx='12' cy='12' r='4' fill='%23ff3030' fill-opacity='0.9'/%3E%3Ccircle cx='12' cy='12' r='7' fill='none' stroke='%23ff3030' stroke-width='1' stroke-opacity='0.4'/%3E%3C/svg%3E") 12 12, crosshair`;
-  const sprayCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E${_of}${_wo}%3Ccircle cx='2' cy='5' r='1.2' fill='${encodedColor}'/%3E%3Ccircle cx='1' cy='9' r='1' fill='${encodedColor}'/%3E%3Ccircle cx='2.5' cy='13' r='1' fill='${encodedColor}'/%3E%3Cg transform='rotate(-12 12 14)'%3E%3Crect x='8' y='9' width='9' height='11' rx='2' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Crect x='10' y='5' width='5' height='4' rx='1' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3Cline x1='10' y1='7' x2='6' y2='7' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/g%3E${_wc}%3C/svg%3E") 2 9, crosshair`;
+  const sprayCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E${_sof}${_sow}%3Ccircle cx='2' cy='5' r='1.2' fill='${encodedColor}'/%3E%3Ccircle cx='1' cy='9' r='1' fill='${encodedColor}'/%3E%3Ccircle cx='2.5' cy='13' r='1' fill='${encodedColor}'/%3E%3Cg transform='rotate(-12 12 14)'%3E%3Crect x='8' y='9' width='9' height='11' rx='2' fill='none' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Crect x='10' y='5' width='5' height='4' rx='1' fill='none' stroke='${encodedColor}' stroke-width='1.5'/%3E%3Cline x1='10' y1='7' x2='6' y2='7' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3C/g%3E${_soc}%3C/svg%3E") 2 9, crosshair`;
   const cursor = zCursor !== null
       ? zCursor
       : panning
