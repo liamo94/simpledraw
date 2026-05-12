@@ -3065,19 +3065,17 @@ function Canvas({
     <>
       <textarea
         ref={hiddenInputRef}
-        style={{ position: "fixed", left: "-9999px", top: "-9999px", opacity: 0, pointerEvents: "none", width: "1px", height: "1px" }}
+        style={{ position: "fixed", bottom: 0, left: 0, width: "1px", height: "1px", fontSize: "16px", opacity: 0.01, pointerEvents: "none", resize: "none", border: "none", padding: 0, margin: 0, overflow: "hidden" }}
         autoComplete="off"
         autoCorrect="off"
         autoCapitalize="none"
         spellCheck={false}
-        readOnly={false}
       />
       <canvas
         ref={canvasRef}
         role="img"
         aria-label="Drawing canvas"
-        className="block touch-none select-none outline-none"
-        tabIndex={-1}
+        className="block touch-none select-none"
         style={{ cursor }}
         onPointerDown={(e) => {
           if (e.pointerType === "touch" || e.pointerType === "pen") {
