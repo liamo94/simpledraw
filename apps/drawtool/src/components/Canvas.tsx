@@ -85,6 +85,7 @@ function Canvas({
   rightClickTool: ClickTool;
   onContentOffScreen?: (offScreen: boolean) => void;
 }) {
+  const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const canvasIndexRef = useRef(canvasIndex);
   const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
@@ -2073,7 +2074,7 @@ function Canvas({
       } else if (
         e.button === 1 ||
         (spaceDownRef.current && e.button === 0) ||
-        (e.button === 0 && e.pointerType !== "pen" && leftClickToolRef.current === "pan") ||
+        (e.button === 0 && (e.pointerType !== "pen" || !isTouchDevice) && leftClickToolRef.current === "pan") ||
         (e.button === 2 && rightClickToolRef.current === "pan")
       ) {
         // Skip pan activation when a line/arrow bend is in progress — clicks add bend points.
@@ -2483,8 +2484,8 @@ function Canvas({
                             ? "spray"
                             : null;
         }
-      } else if (e.pointerType === "pen") {
-        // Apple Pencil: follow touchTool like a finger, but always draw in hand/select mode
+      } else if (e.pointerType === "pen" && isTouchDevice) {
+        // Apple Pencil on iPad: follow touchTool like a finger, but always draw in hand/select mode
         const down = (e.buttons & 1) !== 0;
         if (!down) {
           modifier = null;
@@ -2698,7 +2699,7 @@ function Canvas({
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
-          const isTouch = e.pointerType === "touch" || e.pointerType === "pen";
+          const isTouch = e.pointerType === "touch" || (e.pointerType === "pen" && isTouchDevice);
           const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (isTouch ? shapeDashedRef.current : (shiftHeldRef.current || rightClickHeldRef.current));
           const fill = isTouch ? (shapeFillEnabledRef.current ? shapeFillRef.current : undefined) : (fKeyHeldRef.current ? shapeFillRef.current : undefined);
           const stroke: Stroke = {

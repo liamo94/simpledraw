@@ -142,6 +142,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       selectedGroupRef.current = [];
       setZCursor("default");
       dispatchTextStyleSync(stroke.bold ?? false, stroke.italic ?? false, stroke.textAlign ?? "left");
+      window.dispatchEvent(new Event("drawtool:text-placed"));
     } else if (raw.trim()) {
       notifyColorUsed(lineColorRef.current);
       const stroke: Stroke = {
@@ -169,6 +170,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       selectedGroupRef.current = [];
       setZCursor("default");
       dispatchTextStyleSync(stroke.bold ?? false, stroke.italic ?? false, stroke.textAlign ?? "left");
+      window.dispatchEvent(new Event("drawtool:text-placed"));
     } else {
       setZCursor(zKeyRef.current ? "default" : null);
     }

@@ -144,6 +144,7 @@ export default function App() {
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const toastFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
+  const [showTextPicker, setShowTextPicker] = useState(false);
   const [lastMarkTool, setLastMarkTool] = useState<
     "highlight" | "laser" | "spray"
   >("highlight");
@@ -165,6 +166,7 @@ export default function App() {
   const highlightLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,
   );
+  const textLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
   const handLastTapRef = useRef<number>(0);
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
@@ -645,6 +647,8 @@ export default function App() {
     window.addEventListener("drawtool:text-style-sync", onTextStyleSync);
     window.addEventListener("drawtool:toast", onToast);
     window.addEventListener("drawtool:cycle-theme", onCycleTheme);
+    const onTextPlaced = () => { if (hasTouch) setTouchTool("select"); };
+    window.addEventListener("drawtool:text-placed", onTextPlaced);
     return () => {
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
@@ -675,6 +679,7 @@ export default function App() {
       window.removeEventListener("drawtool:text-style-sync", onTextStyleSync);
       window.removeEventListener("drawtool:toast", onToast);
       window.removeEventListener("drawtool:cycle-theme", onCycleTheme);
+      window.removeEventListener("drawtool:text-placed", onTextPlaced);
     };
   }, [updateSettings, requestClear, showToast, toggleFullscreen, exportPng]);
 
@@ -830,6 +835,23 @@ export default function App() {
           ),
         },
         {
+          id: "line",
+          label: "Line",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke={settings.lineColor}
+              strokeWidth="1.75"
+              strokeLinecap="round"
+            >
+              <line x1="4" y1="16" x2="16" y2="4" />
+            </svg>
+          ),
+        },
+        {
           id: "shape",
           label: "Shape",
           icon: (
@@ -939,6 +961,26 @@ export default function App() {
             </svg>
           ),
         },
+        {
+          id: "text",
+          label: "Text",
+          icon: (
+            <svg
+              width="17"
+              height="17"
+              viewBox="0 0 20 20"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="4" y1="5" x2="16" y2="5" />
+              <line x1="10" y1="5" x2="10" y2="16" />
+              <line x1="7" y1="16" x2="13" y2="16" />
+            </svg>
+          ),
+        },
       ],
       [settings.lineColor, settings.activeShape],
     );
@@ -1011,13 +1053,14 @@ export default function App() {
       />
       {hasTouch ? (
         <>
-          {(showShapePicker || showThicknessPicker || showHighlightPicker) && (
+          {(showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker) && (
             <div
               className="fixed inset-0 z-40"
               onPointerDown={() => {
                 setShowShapePicker(false);
                 setShowThicknessPicker(null);
                 setShowHighlightPicker(false);
+                setShowTextPicker(false);
               }}
             />
           )}
@@ -1196,7 +1239,8 @@ export default function App() {
                   t.id === "draw" ||
                   t.id === "dashed" ||
                   t.id === "line" ||
-                  t.id === "highlight";
+                  t.id === "highlight" ||
+                  t.id === "text";
                 const buttonRef =
                   t.id === "shape"
                     ? shapeButtonRef
@@ -1229,6 +1273,10 @@ export default function App() {
                         clearTimeout(highlightLongPressRef.current);
                         highlightLongPressRef.current = null;
                       }
+                      if (textLongPressRef.current) {
+                        clearTimeout(textLongPressRef.current);
+                        textLongPressRef.current = null;
+                      }
                       if (longPressFiredRef.current) {
                         longPressFiredRef.current = false;
                         return;
@@ -1236,7 +1284,8 @@ export default function App() {
                       if (
                         !showShapePicker &&
                         !showThicknessPicker &&
-                        !showHighlightPicker
+                        !showHighlightPicker &&
+                        !showTextPicker
                       ) {
                         if (t.id === "hand") {
                           const now = Date.now();
@@ -1256,6 +1305,7 @@ export default function App() {
                       setShowShapePicker(false);
                       setShowThicknessPicker(null);
                       setShowHighlightPicker(false);
+                      setShowTextPicker(false);
                     }}
                     onPointerDown={
                       hasLongPress
@@ -1288,8 +1338,19 @@ export default function App() {
                                 );
                                 setShowShapePicker(false);
                                 setShowHighlightPicker(false);
+                                setShowTextPicker(false);
                                 setTouchTool(t.id);
                                 thicknessLongPressRef.current = null;
+                                longPressFiredRef.current = true;
+                              }, 400);
+                            } else if (t.id === "text") {
+                              textLongPressRef.current = setTimeout(() => {
+                                setShowTextPicker(true);
+                                setShowThicknessPicker(null);
+                                setShowShapePicker(false);
+                                setShowHighlightPicker(false);
+                                setTouchTool("text");
+                                textLongPressRef.current = null;
                                 longPressFiredRef.current = true;
                               }, 400);
                             }
@@ -1309,6 +1370,10 @@ export default function App() {
                         clearTimeout(highlightLongPressRef.current);
                         highlightLongPressRef.current = null;
                       }
+                      if (textLongPressRef.current) {
+                        clearTimeout(textLongPressRef.current);
+                        textLongPressRef.current = null;
+                      }
                     }}
                     onPointerLeave={() => {
                       if (shapeLongPressRef.current) {
@@ -1322,6 +1387,10 @@ export default function App() {
                       if (highlightLongPressRef.current) {
                         clearTimeout(highlightLongPressRef.current);
                         highlightLongPressRef.current = null;
+                      }
+                      if (textLongPressRef.current) {
+                        clearTimeout(textLongPressRef.current);
+                        textLongPressRef.current = null;
                       }
                     }}
                     className={`flex items-center gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
@@ -1888,6 +1957,110 @@ export default function App() {
                     )}
                   </button>
                 ))}
+              </div>
+            )}
+            {showTextPicker && (
+              <div
+                className={`absolute p-3 rounded-lg border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
+                style={{
+                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
+                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                  minWidth: "14rem",
+                  maxWidth: "calc(100vw - 2rem)",
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {/* Size row */}
+                <div className="flex items-center gap-1">
+                  {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => updateSettings({ textSize: size })}
+                      aria-label={`Text size ${size.toUpperCase()}`}
+                      aria-pressed={settings.textSize === size}
+                      className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
+                        settings.textSize === size
+                          ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                      }`}
+                    >
+                      {size.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                {/* Font row */}
+                <div className="flex items-center gap-1 mt-2">
+                  {(
+                    [
+                      { key: "caveat", css: "'Caveat', cursive" },
+                      { key: "comic", css: "'Bangers', cursive" },
+                      { key: "cartoon", css: "'Boogaloo', cursive" },
+                      { key: "sans", css: "system-ui, -apple-system, sans-serif" },
+                      { key: "serif", css: "Georgia, serif" },
+                      { key: "mono", css: "ui-monospace, 'Courier New', monospace" },
+                    ] as { key: FontFamily; css: string }[]
+                  ).map(({ key, css }) => (
+                    <button
+                      key={key}
+                      onClick={() => window.dispatchEvent(new CustomEvent("drawtool:font-family", { detail: key }))}
+                      aria-label={`Font ${key}`}
+                      aria-pressed={settings.fontFamily === key}
+                      style={{ fontFamily: css }}
+                      className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 ${
+                        settings.fontFamily === key
+                          ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                      }`}
+                    >
+                      Aa
+                    </button>
+                  ))}
+                </div>
+                {/* Bold / Italic / Alignment row */}
+                <div className="flex items-center gap-1 mt-2">
+                  <button
+                    onClick={() => window.dispatchEvent(new Event("drawtool:text-bold"))}
+                    aria-label="Bold"
+                    aria-pressed={settings.textBold}
+                    className={`flex-1 flex items-center justify-center py-1 rounded text-sm font-bold transition-all duration-150 ${
+                      settings.textBold
+                        ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                        : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                    }`}
+                  >B</button>
+                  <button
+                    onClick={() => window.dispatchEvent(new Event("drawtool:text-italic"))}
+                    aria-label="Italic"
+                    aria-pressed={settings.textItalic}
+                    className={`flex-1 flex items-center justify-center py-1 rounded text-sm italic transition-all duration-150 ${
+                      settings.textItalic
+                        ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                        : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                    }`}
+                  >I</button>
+                  {(["left", "center", "right"] as TextAlign[]).map((align) => (
+                    <button
+                      key={align}
+                      onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: align }))}
+                      aria-label={`Align ${align}`}
+                      aria-pressed={settings.textAlign === align}
+                      className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
+                        settings.textAlign === align
+                          ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                      }`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                        <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
+                        {align === "left" && <><rect x="1" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="1" y="9" width="10" height="1.5" rx="0.75" /></>}
+                        {align === "center" && <><rect x="3" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="2" y="9" width="10" height="1.5" rx="0.75" /></>}
+                        {align === "right" && <><rect x="5" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="3" y="9" width="10" height="1.5" rx="0.75" /></>}
+                      </svg>
+                    </button>
+                  ))}
+                </div>
               </div>
             )}
           </nav>
