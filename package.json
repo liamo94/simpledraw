@@ -1,11 +1,14 @@
 {
   "name": "drawtool-monorepo",
   "private": true,
-  "workspaces": ["apps/*"],
+  "packageManager": "pnpm@10.28.1",
+  "pnpm": {
+    "onlyBuiltDependencies": ["esbuild"]
+  },
   "scripts": {
-    "dev:drawtool": "npm run dev -w apps/drawtool",
-    "dev:writing": "npm run dev -w apps/writing",
-    "build:drawtool": "npm run build -w apps/drawtool",
-    "build:writing": "npm run build -w apps/writing"
+    "dev:drawtool": "pnpm --filter drawtool dev",
+    "dev:writing": "pnpm --filter writing dev",
+    "build:drawtool": "pnpm --filter drawtool build",
+    "build:writing": "pnpm --filter writing build"
   }
 }

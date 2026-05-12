@@ -9,8 +9,10 @@ Built with React 19 + TypeScript + Vite + Tailwind v4.
 ## Monorepo structure
 
 ```
-/                               # npm workspace root
-  package.json                  # workspaces: ["apps/*"]
+/                               # pnpm workspace root
+  package.json
+  pnpm-workspace.yaml           # workspaces: ["apps/*"]
+  .npmrc                        # prefer-offline=true
   apps/
     drawtool/                   # drawtool.io
     writing/                    # writing.drawtool.io
@@ -18,16 +20,16 @@ Built with React 19 + TypeScript + Vite + Tailwind v4.
 
 ## Dev commands
 
-> Do not run `npm run dev` — the user runs the dev server themselves.
+> Do not run `pnpm dev` — the user runs the dev server themselves.
 
 ```bash
 # From root (convenience scripts)
-npm run build:drawtool
-npm run build:writing
+pnpm build:drawtool
+pnpm build:writing
 
 # Or from each app dir
-cd apps/drawtool && npm run build
-cd apps/writing  && npm run build
+cd apps/drawtool && pnpm build
+cd apps/writing  && pnpm build
 ```
 
 ## Cloudflare Pages deployment
