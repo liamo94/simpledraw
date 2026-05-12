@@ -87,6 +87,7 @@ function Canvas({
 }) {
   const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const hiddenInputRef = useRef<HTMLTextAreaElement | null>(null);
   const canvasIndexRef = useRef(canvasIndex);
   const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
   const strokesRef = useRef<Stroke[]>(loadedStrokes);
@@ -3052,7 +3053,7 @@ function Canvas({
       isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
       selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
       zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-      finishWritingRef, startWritingRef, lastCycleRef,
+      finishWritingRef, startWritingRef, lastCycleRef, hiddenInputRef,
     },
     {
       scheduleRedraw, persistStrokes, notifyColorUsed, setZCursor,
@@ -3061,27 +3062,38 @@ function Canvas({
   );
 
   return (
-    <canvas
-      ref={canvasRef}
-      role="img"
-      aria-label="Drawing canvas"
-      className="block touch-none select-none outline-none"
-      tabIndex={-1}
-      style={{ cursor }}
-      onPointerDown={(e) => {
-        if (e.pointerType === "touch" || e.pointerType === "pen") {
-          window.dispatchEvent(new Event("drawtool:close-menu"));
-        }
-        handlePointerDownForText(e);
-      }}
-      onPointerMove={handlePointerMoveGuarded}
-      onPointerUp={handlePointerUpGuarded}
-      onPointerCancel={onPointerCancel}
-      onPointerLeave={onPointerLeave}
-      onContextMenu={(e) => e.preventDefault()}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={handleImageDrop}
-    />
+    <>
+      <textarea
+        ref={hiddenInputRef}
+        style={{ position: "fixed", left: "-9999px", top: "-9999px", opacity: 0, pointerEvents: "none", width: "1px", height: "1px" }}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="none"
+        spellCheck={false}
+        readOnly={false}
+      />
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label="Drawing canvas"
+        className="block touch-none select-none outline-none"
+        tabIndex={-1}
+        style={{ cursor }}
+        onPointerDown={(e) => {
+          if (e.pointerType === "touch" || e.pointerType === "pen") {
+            window.dispatchEvent(new Event("drawtool:close-menu"));
+          }
+          handlePointerDownForText(e);
+        }}
+        onPointerMove={handlePointerMoveGuarded}
+        onPointerUp={handlePointerUpGuarded}
+        onPointerCancel={onPointerCancel}
+        onPointerLeave={onPointerLeave}
+        onContextMenu={(e) => e.preventDefault()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleImageDrop}
+      />
+    </>
   );
 }
 
