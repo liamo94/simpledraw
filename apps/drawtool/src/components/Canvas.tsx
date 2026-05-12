@@ -158,6 +158,8 @@ function Canvas({
   const keyShapeDashedRef = useRef(false);
   const fKeyHeldRef = useRef(false);
   const pointerButtonDownRef = useRef(false);
+  const penActiveRef = useRef(false); // true while Apple Pencil (or any "pen" pointer) is touching the screen
+  const ghostTouchIdsRef = useRef(new Set<number>()); // touch pointerIds rejected due to pen being active
   const shiftHeldRef = useRef(false); // own shift tracking — e.shiftKey can get stuck on Mac
   const rightClickHeldRef = useRef(false);
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
@@ -2018,7 +2020,12 @@ function Canvas({
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.pointerType === "pen") penActiveRef.current = true;
       if (e.pointerType === "touch") {
+        if (penActiveRef.current) {
+          ghostTouchIdsRef.current.add(e.pointerId); // track so it stays ignored after pen lifts
+          return;
+        }
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointersRef.current.size === 2) {
           // Cancel any in-progress drawing/pan and start pinch
@@ -2066,7 +2073,7 @@ function Canvas({
       } else if (
         e.button === 1 ||
         (spaceDownRef.current && e.button === 0) ||
-        (e.button === 0 && leftClickToolRef.current === "pan") ||
+        (e.button === 0 && e.pointerType !== "pen" && leftClickToolRef.current === "pan") ||
         (e.button === 2 && rightClickToolRef.current === "pan")
       ) {
         // Skip pan activation when a line/arrow bend is in progress — clicks add bend points.
@@ -2104,7 +2111,12 @@ function Canvas({
 
   const onPointerUp = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.pointerType === "pen") penActiveRef.current = false;
       if (e.pointerType === "touch") {
+        if (penActiveRef.current || ghostTouchIdsRef.current.has(e.pointerId)) {
+          ghostTouchIdsRef.current.delete(e.pointerId);
+          return;
+        }
         pointersRef.current.delete(e.pointerId);
         // Check for three-finger tap (redo gesture)
         if (
@@ -2305,6 +2317,7 @@ function Canvas({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       // --- Multi-touch pan/zoom ---
       if (e.pointerType === "touch") {
+        if (penActiveRef.current || ghostTouchIdsRef.current.has(e.pointerId)) return; // palm rejection
         pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
         if (pointersRef.current.size >= 2 && pinchRef.current) {
           const pts = [...pointersRef.current.values()];
@@ -2469,6 +2482,30 @@ function Canvas({
                           : tool === "spray"
                             ? "spray"
                             : null;
+        }
+      } else if (e.pointerType === "pen") {
+        // Apple Pencil: follow touchTool like a finger, but always draw in hand/select mode
+        const down = (e.buttons & 1) !== 0;
+        if (!down) {
+          modifier = null;
+        } else {
+          const tool = touchToolRef.current;
+          modifier =
+            tool === "dashed"
+              ? "shift"
+              : tool === "line"
+                ? "line"
+                : tool === "erase"
+                  ? "alt"
+                  : tool === "shape"
+                    ? "shape"
+                    : tool === "highlight"
+                      ? "highlight"
+                      : tool === "laser"
+                        ? "laser"
+                        : tool === "spray"
+                          ? "spray"
+                          : "meta"; // draw, hand, select, text → freehand
         }
       } else {
         modifier = isZoomingRef.current
@@ -2661,7 +2698,7 @@ function Canvas({
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
-          const isTouch = e.pointerType === "touch";
+          const isTouch = e.pointerType === "touch" || e.pointerType === "pen";
           const dashed = keyShapeRef.current ? keyShapeDashedRef.current : (isTouch ? shapeDashedRef.current : (shiftHeldRef.current || rightClickHeldRef.current));
           const fill = isTouch ? (shapeFillEnabledRef.current ? shapeFillRef.current : undefined) : (fKeyHeldRef.current ? shapeFillRef.current : undefined);
           const stroke: Stroke = {
@@ -2832,7 +2869,13 @@ function Canvas({
 
   const onPointerCancel = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      if (e.pointerType === "pen") {
+        penActiveRef.current = false;
+        if (isDrawingRef.current) cancelCurrentStroke();
+        return;
+      }
       if (e.pointerType !== "touch") return;
+      ghostTouchIdsRef.current.delete(e.pointerId);
       pointersRef.current.delete(e.pointerId);
       if (pointersRef.current.size === 0) {
         isPanningRef.current = false;
@@ -2854,6 +2897,7 @@ function Canvas({
   const onPointerLeave = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.pointerType === "touch") return; // handled by pointerUp with capture
+      if (e.pointerType === "pen") penActiveRef.current = false;
       if (isPanningRef.current) {
         isPanningRef.current = false;
         setPanning(false);
@@ -3024,7 +3068,7 @@ function Canvas({
       tabIndex={-1}
       style={{ cursor }}
       onPointerDown={(e) => {
-        if (e.pointerType === "touch" && window.innerWidth < 768) {
+        if (e.pointerType === "touch" || e.pointerType === "pen") {
           window.dispatchEvent(new Event("drawtool:close-menu"));
         }
         handlePointerDownForText(e);
