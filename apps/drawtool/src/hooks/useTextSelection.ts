@@ -1,5 +1,5 @@
-import { useCallback, useEffect } from "react";
-import type { MutableRefObject, RefObject } from "react";
+import { useCallback } from "react";
+import type { MutableRefObject } from "react";
 import type { TextAlign } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import {
@@ -88,7 +88,6 @@ export type TextSelectionRefs = {
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
-  hiddenInputRef: RefObject<HTMLTextAreaElement | null>;
 };
 
 // ─── Callback bag ─────────────────────────────────────────────────────────────
@@ -114,7 +113,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
     selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
     zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-    finishWritingRef, startWritingRef, lastCycleRef, hiddenInputRef,
+    finishWritingRef, startWritingRef, lastCycleRef,
   } = refs;
 
   const {
@@ -184,7 +183,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     }
     isWritingRef.current = false;
     window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: false }));
-    hiddenInputRef.current?.blur();
     scheduleRedraw();
   }, [persistStrokes, scheduleRedraw, notifyColorUsed, setZCursor]);
 
@@ -206,7 +204,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     }, 530);
     isWritingRef.current = true;
     window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: true }));
-    if (hiddenInputRef.current) { hiddenInputRef.current.value = ""; hiddenInputRef.current.focus(); }
     setZCursor("text");
     scheduleRedraw();
   }, [scheduleRedraw, setZCursor]);
@@ -243,7 +240,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     }, 530);
     isWritingRef.current = true;
     window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: true }));
-    if (hiddenInputRef.current) { hiddenInputRef.current.value = ""; hiddenInputRef.current.focus(); }
     selectedTextRef.current = null;
     selectDragRef.current = null;
     strokesCacheRef.current = null;
@@ -1093,61 +1089,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     },
     [onPointerUp, persistStrokes, scheduleRedraw, setZCursor],
   );
-
-  // Mobile keyboard input: on touch devices keydown.key is "Unidentified" for printable chars,
-  // so we listen to the input event on the hidden textarea for those.
-  useEffect(() => {
-    const el = hiddenInputRef.current;
-    if (!el) return;
-    const onInput = (e: Event) => {
-      if (!isWritingRef.current) return;
-      const ie = e as InputEvent;
-      const text = writingTextRef.current;
-      const pos = caretPosRef.current;
-      const hasSel = selectionAnchorRef.current !== null;
-      const selStart = hasSel ? Math.min(selectionAnchorRef.current!, pos) : pos;
-      const selEnd = hasSel ? Math.max(selectionAnchorRef.current!, pos) : pos;
-      const replaceSelection = (insert: string) => {
-        textUndoRef.current.push(text);
-        textRedoRef.current = [];
-        writingTextRef.current = text.slice(0, selStart) + insert + text.slice(selEnd);
-        caretPosRef.current = selStart + insert.length;
-        selectionAnchorRef.current = null;
-        caretVisibleRef.current = true;
-      };
-      if (ie.inputType === "insertText" && ie.data) {
-        replaceSelection(ie.data);
-      } else if (ie.inputType === "deleteContentBackward") {
-        if (hasSel) {
-          replaceSelection("");
-        } else if (pos > 0) {
-          textUndoRef.current.push(text);
-          textRedoRef.current = [];
-          writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
-          caretPosRef.current = pos - 1;
-          selectionAnchorRef.current = null;
-          caretVisibleRef.current = true;
-        }
-      } else if (ie.inputType === "insertLineBreak" || ie.inputType === "insertParagraph") {
-        replaceSelection("\n");
-      } else if (ie.inputType === "deleteContentForward") {
-        if (hasSel) {
-          replaceSelection("");
-        } else if (pos < text.length) {
-          textUndoRef.current.push(text);
-          textRedoRef.current = [];
-          writingTextRef.current = text.slice(0, pos) + text.slice(pos + 1);
-          caretPosRef.current = pos;
-          selectionAnchorRef.current = null;
-          caretVisibleRef.current = true;
-        }
-      }
-      el.value = "";
-      scheduleRedraw();
-    };
-    el.addEventListener("input", onInput);
-    return () => el.removeEventListener("input", onInput);
-  }, [scheduleRedraw]);
 
   return {
     finishWriting,

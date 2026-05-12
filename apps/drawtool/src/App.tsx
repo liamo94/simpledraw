@@ -961,26 +961,6 @@ export default function App() {
             </svg>
           ),
         },
-        {
-          id: "text",
-          label: "Text",
-          icon: (
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <line x1="4" y1="5" x2="16" y2="5" />
-              <line x1="10" y1="5" x2="10" y2="16" />
-              <line x1="7" y1="16" x2="13" y2="16" />
-            </svg>
-          ),
-        },
       ],
       [settings.lineColor, settings.activeShape],
     );

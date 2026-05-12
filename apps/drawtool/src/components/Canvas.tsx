@@ -87,7 +87,6 @@ function Canvas({
 }) {
   const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const hiddenInputRef = useRef<HTMLTextAreaElement | null>(null);
   const canvasIndexRef = useRef(canvasIndex);
   const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
   const strokesRef = useRef<Stroke[]>(loadedStrokes);
@@ -3040,20 +3039,6 @@ function Canvas({
 
   cursorRef.current = cursor;
 
-  // iOS requires focus() to be called from a native touchstart event to reliably open the keyboard.
-  // pointerdown (React synthetic) is not always trusted by iOS for keyboard invocation.
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const onTouchStart = () => {
-      if (touchToolRef.current === "text" || isWritingRef.current) {
-        hiddenInputRef.current?.focus();
-      }
-    };
-    canvas.addEventListener("touchstart", onTouchStart, { passive: true });
-    return () => canvas.removeEventListener("touchstart", onTouchStart);
-  }, []);
-
   const {
     handlePointerDownForText,
     handlePointerMoveGuarded,
@@ -3067,7 +3052,7 @@ function Canvas({
       isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
       selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
       zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-      finishWritingRef, startWritingRef, lastCycleRef, hiddenInputRef,
+      finishWritingRef, startWritingRef, lastCycleRef,
     },
     {
       scheduleRedraw, persistStrokes, notifyColorUsed, setZCursor,
@@ -3076,36 +3061,26 @@ function Canvas({
   );
 
   return (
-    <>
-      <textarea
-        ref={hiddenInputRef}
-        style={{ position: "fixed", bottom: 0, left: 0, width: "1px", height: "1px", fontSize: "16px", opacity: 0.01, pointerEvents: "none", resize: "none", border: "none", padding: 0, margin: 0, overflow: "hidden" }}
-        autoComplete="off"
-        autoCorrect="off"
-        autoCapitalize="none"
-        spellCheck={false}
-      />
-      <canvas
-        ref={canvasRef}
-        role="img"
-        aria-label="Drawing canvas"
-        className="block touch-none select-none"
-        style={{ cursor }}
-        onPointerDown={(e) => {
-          if (e.pointerType === "touch" || e.pointerType === "pen") {
-            window.dispatchEvent(new Event("drawtool:close-menu"));
-          }
-          handlePointerDownForText(e);
-        }}
-        onPointerMove={handlePointerMoveGuarded}
-        onPointerUp={handlePointerUpGuarded}
-        onPointerCancel={onPointerCancel}
-        onPointerLeave={onPointerLeave}
-        onContextMenu={(e) => e.preventDefault()}
-        onDragOver={(e) => e.preventDefault()}
-        onDrop={handleImageDrop}
-      />
-    </>
+    <canvas
+      ref={canvasRef}
+      role="img"
+      aria-label="Drawing canvas"
+      className="block touch-none select-none"
+      style={{ cursor }}
+      onPointerDown={(e) => {
+        if (e.pointerType === "touch" || e.pointerType === "pen") {
+          window.dispatchEvent(new Event("drawtool:close-menu"));
+        }
+        handlePointerDownForText(e);
+      }}
+      onPointerMove={handlePointerMoveGuarded}
+      onPointerUp={handlePointerUpGuarded}
+      onPointerCancel={onPointerCancel}
+      onPointerLeave={onPointerLeave}
+      onContextMenu={(e) => e.preventDefault()}
+      onDragOver={(e) => e.preventDefault()}
+      onDrop={handleImageDrop}
+    />
   );
 }
 
