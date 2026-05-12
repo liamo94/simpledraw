@@ -259,6 +259,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
   const handlePointerDownForText = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (isWritingRef.current) {
+        // Prevent canvas from stealing focus from the hidden textarea (which would close the keyboard)
+        e.preventDefault();
         const editStroke = editingStrokeRef.current;
         if (editStroke) {
           const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
@@ -290,6 +292,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         return;
       }
       if (touchToolRef.current === "text") {
+        // Prevent canvas from stealing focus so the keyboard stays open
+        e.preventDefault();
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         startWriting(wp);
         return;
