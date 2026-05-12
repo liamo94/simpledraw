@@ -3040,6 +3040,20 @@ function Canvas({
 
   cursorRef.current = cursor;
 
+  // iOS requires focus() to be called from a native touchstart event to reliably open the keyboard.
+  // pointerdown (React synthetic) is not always trusted by iOS for keyboard invocation.
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const onTouchStart = () => {
+      if (touchToolRef.current === "text" || isWritingRef.current) {
+        hiddenInputRef.current?.focus();
+      }
+    };
+    canvas.addEventListener("touchstart", onTouchStart, { passive: true });
+    return () => canvas.removeEventListener("touchstart", onTouchStart);
+  }, []);
+
   const {
     handlePointerDownForText,
     handlePointerMoveGuarded,
