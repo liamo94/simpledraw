@@ -58,14 +58,19 @@ function getSystemTheme(): Theme {
     : "white";
 }
 
+function isDarkTheme(theme: Theme): boolean {
+  return theme === "dark" || theme === "midnight";
+}
+
 function getDefaults(): Settings {
+  const theme = getSystemTheme();
   return {
     lineWidth: 4,
-    lineColor: "#ffffff",
+    lineColor: isDarkTheme(theme) ? "#ffffff" : "#000000",
     dashGap: 4,
     showZoomControls: true,
     gridType: "off" as GridType,
-    theme: getSystemTheme(),
+    theme,
     confirmClear: true,
     activeShape: "rectangle" as const,
     shapeFill: "solid" as FillStyle,
