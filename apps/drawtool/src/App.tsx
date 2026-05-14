@@ -20,7 +20,7 @@ import useSettings, {
   type FillStyle,
 } from "./hooks/useSettings";
 
-import { isDarkTheme, getBackgroundColor } from "./canvas/canvasUtils";
+import { isDarkTheme, getBackgroundColor, CONFIRM_CLEAR_STROKE_THRESHOLD } from "./canvas/canvasUtils";
 import {
   loadStrokes,
   saveStrokes,
@@ -278,7 +278,7 @@ export default function App() {
       window.dispatchEvent(
         new CustomEvent("drawtool:query-stroke-count", { detail }),
       );
-      if (detail.count > 10) {
+      if (detail.count > CONFIRM_CLEAR_STROKE_THRESHOLD) {
         setConfirmingClear(true);
         return;
       }

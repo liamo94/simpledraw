@@ -10,6 +10,7 @@ import type {
   ClickTool,
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
+import { CONFIRM_CLEAR_STROKE_THRESHOLD } from "../canvas/canvasUtils";
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -27,6 +28,7 @@ function isDarkTheme(theme: Theme): boolean {
     theme === "slate"
   );
 }
+
 
 const CLICK_TOOL_OPTIONS: { value: ClickTool; label: string; icon: React.ReactNode }[] = [
   {
@@ -1437,7 +1439,7 @@ export default function Menu({
                     new CustomEvent("drawtool:query-stroke-count", { detail }),
                   );
                   const needsConfirm =
-                    settings.confirmClear && detail.count > 10;
+                    settings.confirmClear && detail.count > CONFIRM_CLEAR_STROKE_THRESHOLD;
                   if (needsConfirm) {
                     setClearConfirming(true);
                     clearConfirmTimerRef.current = setTimeout(() => {
