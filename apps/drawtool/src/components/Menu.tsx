@@ -160,6 +160,7 @@ function AccordionSection({
   onToggle,
   isDark,
   children,
+  action,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -167,35 +168,39 @@ function AccordionSection({
   onToggle: () => void;
   isDark: boolean;
   children: React.ReactNode;
+  action?: React.ReactNode;
 }) {
   return (
     <div>
-      <button
-        onClick={onToggle}
-        className={`w-full flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-          isDark
-            ? `${open ? "bg-white/[0.08] text-white/80" : "bg-white/5 text-white/55"} hover:bg-white/[0.11] hover:text-white/85`
-            : `${open ? "bg-black/[0.07] text-black/70" : "bg-black/[0.04] text-black/50"} hover:bg-black/[0.09] hover:text-black/75`
-        }`}
-      >
-        <span className="flex items-center gap-2">
-          {icon}
-          {label}
-        </span>
-        <svg
-          width="10"
-          height="10"
-          viewBox="0 0 10 10"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className={`transition-transform ${open ? "rotate-90" : ""}`}
+      <div className="flex items-center gap-1">
+        <button
+          onClick={onToggle}
+          className={`flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
+            isDark
+              ? `${open ? "bg-white/[0.08] text-white/80" : "bg-white/5 text-white/55"} hover:bg-white/[0.11] hover:text-white/85`
+              : `${open ? "bg-black/[0.07] text-black/70" : "bg-black/[0.04] text-black/50"} hover:bg-black/[0.09] hover:text-black/75`
+          }`}
         >
-          <path d="M3.5 1.5L7 5L3.5 8.5" />
-        </svg>
-      </button>
+          <span className="flex items-center gap-2">
+            {icon}
+            {label}
+          </span>
+          <svg
+            width="10"
+            height="10"
+            viewBox="0 0 10 10"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            className={`transition-transform ${open ? "rotate-90" : ""}`}
+          >
+            <path d="M3.5 1.5L7 5L3.5 8.5" />
+          </svg>
+        </button>
+        {action}
+      </div>
       {open && <div className="mt-1.5 px-1 pb-1">{children}</div>}
     </div>
   );
@@ -241,6 +246,7 @@ export default function Menu({
   const [logoAnimate, setLogoAnimate] = useState(false);
   const hasWavedRef = useRef(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [showKeysModal, setShowKeysModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -295,11 +301,21 @@ export default function Menu({
       setShowAbout(false);
       setShowExport(false);
     };
+    const onOpenShortcuts = () => {
+      setOpen(false);
+      setShowInfo(false);
+      setShowHelp(false);
+      setShowAbout(false);
+      setShowExport(false);
+      setShowKeysModal(true);
+    };
     window.addEventListener("drawtool:toggle-menu", onToggle);
     window.addEventListener("drawtool:close-menu", onClose);
+    window.addEventListener("drawtool:open-shortcuts", onOpenShortcuts);
     return () => {
       window.removeEventListener("drawtool:toggle-menu", onToggle);
       window.removeEventListener("drawtool:close-menu", onClose);
+      window.removeEventListener("drawtool:open-shortcuts", onOpenShortcuts);
     };
   }, []);
 
@@ -308,6 +324,17 @@ export default function Menu({
     window.addEventListener("drawtool:writing", onWriting);
     return () => window.removeEventListener("drawtool:writing", onWriting);
   }, []);
+
+  useEffect(() => {
+    if (!showKeysModal) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setShowKeysModal(false);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showKeysModal]);
 
   useEffect(() => {
     if (!open) return;
@@ -360,6 +387,39 @@ export default function Menu({
 
   return (
     <>
+      {showKeysModal && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50 backdrop-blur-sm"
+            onClick={() => setShowKeysModal(false)}
+          />
+          <div
+            className={`relative z-10 rounded-xl border w-[90vw] max-w-[1400px] p-6 ${
+              settings.theme === "midnight"
+                ? "bg-[rgba(15,15,30,0.97)] border-white/15"
+                : isDark
+                  ? "bg-black/97 border-white/15"
+                  : "bg-white/97 border-black/15"
+            }`}
+          >
+            <div className="flex items-center justify-between mb-4">
+              <span className={`text-[10px] uppercase tracking-widest font-semibold ${isDark ? "text-white/30" : "text-black/30"}`}>
+                Keyboard shortcuts
+              </span>
+              <button
+                onClick={() => setShowKeysModal(false)}
+                className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white/50 hover:text-white/80 hover:bg-white/10" : "text-black/40 hover:text-black/70 hover:bg-black/[0.07]"}`}
+              >
+                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                  <line x1="1" y1="1" x2="9" y2="9" />
+                  <line x1="9" y1="1" x2="1" y2="9" />
+                </svg>
+              </button>
+            </div>
+            <ShortcutsPanel isDark={isDark} modal />
+          </div>
+        </div>
+      )}
       <div
         ref={menuRef}
         className="fixed top-4 right-4 z-50 flex flex-col items-end"
@@ -1686,6 +1746,19 @@ export default function Menu({
                     })
                   }
                   isDark={isDark}
+                  action={
+                    <button
+                      onClick={(e) => { e.stopPropagation(); closeMenu(); setShowKeysModal(true); }}
+                      title="Open in modal"
+                      className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
+                    >
+                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M4.5 1H1v9h9V6.5" />
+                        <path d="M6.5 1H10v3.5" />
+                        <line x1="10" y1="1" x2="5.5" y2="5.5" />
+                      </svg>
+                    </button>
+                  }
                 >
                   <div ref={infoRef}>
                     <ShortcutsPanel isDark={isDark} />

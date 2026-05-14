@@ -1,8 +1,8 @@
 import React from "react";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
-const mod = isMac ? "\u2318" : "Ctrl";
-const alt = isMac ? "\u2325" : "Alt";
+const mod = isMac ? "⌘" : "Ctrl";
+const alt = isMac ? "⌥" : "Alt";
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 
@@ -106,14 +106,14 @@ const SprayIcon = () => (
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
-export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
+export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; modal?: boolean }) {
   const kbdClass = isDark
-    ? "shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-white/50"
-    : "shrink-0 font-mono text-[10px] px-1.5 py-0.5 rounded border border-black/10 bg-black/[0.04] text-black/50";
+    ? "shrink-0 font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-white/50"
+    : "shrink-0 font-mono px-1.5 py-0.5 rounded border border-black/10 bg-black/[0.04] text-black/50";
 
   const headingClass = isDark
-    ? "text-[9px] font-semibold uppercase tracking-widest mt-3 mb-1.5 text-white/25"
-    : "text-[9px] font-semibold uppercase tracking-widest mt-3 mb-1.5 text-black/25";
+    ? "font-semibold uppercase tracking-widest mb-2 text-white/25"
+    : "font-semibold uppercase tracking-widest mb-2 text-black/25";
 
   const rowClass = isDark ? "text-white/55" : "text-black/55";
 
@@ -124,10 +124,14 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
     </div>
   );
 
-  return (
-    <div className="text-xs">
-      <div className={headingClass}>Navigation</div>
-      <div className="space-y-1">
+  const sectionClass = modal ? "text-[9px]" : "text-[9px]";
+  const textClass = modal ? "text-sm" : "text-xs";
+  const kbdSizeClass = modal ? "text-[11px]" : "text-[10px]";
+
+  const sections = [
+    <div key="nav" style={{ breakInside: "avoid" }} className={modal ? "mb-6" : ""}>
+      <div className={`${headingClass} ${sectionClass}`}>Navigation</div>
+      <div className={`space-y-1.5 ${textClass}`}>
         <Row label={<><PanIcon />Pan</>} kbd="Space + drag / Arrows" />
         <Row label={<><ZoomIcon />Zoom</>} kbd={`Pinch / ${mod} + scroll`} />
         <Row label={<><ZoomInIcon />Zoom in</>} kbd="+" />
@@ -136,9 +140,11 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><FitIcon />Fit to content</>} kbd="⇧ + 2" />
         <Row label={<><PanIcon />Reset view to origin</>} kbd="⇧ + 3" />
       </div>
+    </div>,
 
-      <div className={headingClass}>Drawing</div>
-      <div className="space-y-1">
+    <div key="drawing" style={{ breakInside: "avoid" }} className={modal ? "mb-6" : ""}>
+      <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Drawing</div>
+      <div className={`space-y-1.5 ${textClass}`}>
         <Row label={<><DrawIcon />Draw</>} kbd={`Click / ${mod} + drag`} />
         <Row label={<><DashedDrawIcon />Draw dashed</>} kbd="Right-click / ⇧ + drag" />
         <Row label={<><LineIcon />Straight line</>} kbd={`${mod} + ⇧ + drag`} />
@@ -149,9 +155,11 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><ThicknessIcon />Thicker / Thinner</>} kbd="{ / }" />
         <Row label={<><DotIcon />Place dot</>} kbd="." />
       </div>
+    </div>,
 
-      <div className={headingClass}>Shapes</div>
-      <div className="space-y-1">
+    <div key="shapes" style={{ breakInside: "avoid" }} className={modal ? "mb-6" : ""}>
+      <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Shapes</div>
+      <div className={`space-y-1.5 ${textClass}`}>
         <Row label="Draw shape" kbd={`${isMac ? "Ctrl" : `${alt} + ⇧`} + drag`} />
         <Row label="Cycle shape" kbd="S" />
         <Row label={<><RectIcon />Rectangle</>} kbd="R + drag" />
@@ -162,9 +170,11 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><FilledRectIcon />Cycle fill style</>} kbd={`${alt} + F`} />
         <Row label={<><CornersIcon />Rounded / sharp edges</>} kbd="E" />
       </div>
+    </div>,
 
-      <div className={headingClass}>Text</div>
-      <div className="space-y-1">
+    <div key="text" style={{ breakInside: "avoid" }} className={modal ? "mb-6" : ""}>
+      <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Text</div>
+      <div className={`space-y-1.5 ${textClass}`}>
         <Row label={<><TextIcon />Write text</>} kbd="T" />
         <Row label={<><TextSizeIcon />Cycle text size</>} kbd="⇧ + T" />
         <Row label={<><FontIcon />Cycle font</>} kbd="⇧ + Y" />
@@ -173,9 +183,11 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><UndoIcon />Undo typing</>} kbd={`${mod} + Z`} />
         <Row label={<><RedoIcon />Redo typing</>} kbd={`${mod} + ⇧Z`} />
       </div>
+    </div>,
 
-      <div className={headingClass}>Tools</div>
-      <div className="space-y-1">
+    <div key="tools" style={{ breakInside: "avoid" }} className={modal ? "mb-6" : ""}>
+      <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Tools</div>
+      <div className={`space-y-1.5 ${textClass}`}>
         <Row label={<><LaserIcon />Laser pointer</>} kbd="Q/L + drag" />
         <Row label={<><UndoIcon />Undo</>} kbd={`U / ${mod} + Z`} />
         <Row label={<><RedoIcon />Redo</>} kbd={`⇧ + U / ${mod} + ⇧ + Z`} />
@@ -191,9 +203,11 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><GridIcon />Cycle grid</>} kbd="G" />
         <Row label="Cycle theme" kbd="D D" />
       </div>
+    </div>,
 
-      <div className={headingClass}>Selection</div>
-      <div className="space-y-1">
+    <div key="selection" style={{ breakInside: "avoid" }} className={modal ? "mb-6" : ""}>
+      <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Selection</div>
+      <div className={`space-y-1.5 ${textClass}`}>
         <Row label={<><SelectIcon />Select / move / resize</>} kbd="V + hold" />
         <Row label={<><BoxSelectIcon />Box select</>} kbd="V + drag" />
         <Row label={<><AddSelectIcon />Add / remove from selection</>} kbd="⇧ + V + click" />
@@ -209,6 +223,19 @@ export default function ShortcutsPanel({ isDark }: { isDark: boolean }) {
         <Row label={<><NudgeIcon />Nudge</>} kbd="↑ ↓ ← →" />
         <Row label={<><DeselectIcon />Deselect</>} kbd="Escape" />
       </div>
-    </div>
-  );
+    </div>,
+  ];
+
+  if (modal) {
+    return (
+      <div
+        className={kbdSizeClass}
+        style={{ columns: "220px", columnGap: "2.5rem" }}
+      >
+        {sections}
+      </div>
+    );
+  }
+
+  return <div className="text-xs">{sections}</div>;
 }

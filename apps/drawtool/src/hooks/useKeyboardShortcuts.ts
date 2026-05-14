@@ -401,6 +401,11 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         // Ignore other keys (Shift, Ctrl, etc.)
         return;
       }
+      if (e.key === "?" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:open-shortcuts"));
+        return;
+      }
       if (e.key === "t" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
         startWritingRef.current({ ...cursorWorldRef.current });
