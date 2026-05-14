@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://writing.drawtool.io/sitemap.xml
