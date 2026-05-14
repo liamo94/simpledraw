@@ -118,9 +118,9 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
   const rowClass = isDark ? "text-white/55" : "text-black/55";
 
   const Row = ({ label, kbd }: { label: React.ReactNode; kbd: string }) => (
-    <div className={`flex items-center justify-between gap-4 ${rowClass}`}>
-      <span className="flex items-center gap-1.5 min-w-0">{label}</span>
-      <kbd className={kbdClass}>{kbd}</kbd>
+    <div className={`flex items-start justify-between gap-4 ${rowClass}`}>
+      <span className="flex items-center gap-1.5 min-w-0 leading-5">{label}</span>
+      <kbd className={`${kbdClass} leading-5`}>{kbd}</kbd>
     </div>
   );
 
@@ -230,7 +230,7 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
     return (
       <div
         className={kbdSizeClass}
-        style={{ columns: "220px", columnGap: "2.5rem" }}
+        style={{ columns: "260px", columnGap: "2.5rem" }}
       >
         {sections}
       </div>
