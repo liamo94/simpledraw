@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import type { MutableRefObject, RefObject } from "react";
 import type { ShapeKind, TextSize, FontFamily, TextAlign, FillStyle } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
@@ -30,11 +30,12 @@ export type KeyboardRefs = {
   selectedTextRef: MutableRefObject<Stroke | null>;
   hoverTextRef: MutableRefObject<Stroke | null>;
   selectDragRef: MutableRefObject<{
-    mode: "move" | "corner";
+    mode: "move" | "corner" | "rotate";
     corner?: number;
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[];
     startScale: number;
+    startRotation?: number;
     bbox: BBox;
     cycleHits?: Stroke[];
     pendingBend?: { segmentIdx: number };
@@ -122,6 +123,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     undo, redo, confirmErase, cancelErase, cancelCurrentStroke, discardTinyShape, notifyColorUsed,
     setZCursor, setPanning, setErasing, setShapeActive, setHighlighting, setLasering, setSpraying,
   } = callbacks;
+
+  // Internal state for select-mode lock (double-tap V) — not part of the ref bag
+  const selectLockedRef = useRef(false);
+  const lastVPressRef = useRef(0);
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
@@ -412,6 +417,16 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         return;
       }
       if ((e.key === "v" || e.key === "V") && !e.repeat && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        const now = performance.now();
+        if (now - lastVPressRef.current < 400) {
+          selectLockedRef.current = !selectLockedRef.current;
+          lastVPressRef.current = 0;
+          window.dispatchEvent(new CustomEvent("drawtool:toast", {
+            detail: selectLockedRef.current ? "Select mode locked" : "Select mode unlocked",
+          }));
+        } else {
+          lastVPressRef.current = now;
+        }
         zKeyRef.current = true;
         setZCursor("default");
       }
@@ -541,6 +556,41 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         if (all.length > 0) setZCursor("default");
         scheduleRedraw();
       }
+      // Cmd+Shift+H / Cmd+Shift+V → flip selected strokes horizontally / vertically
+      if (cmdKey(e) && e.shiftKey && (e.key === "h" || e.key === "v") && !isWritingRef.current) {
+        const axis = e.key === "h" ? "h" : "v";
+        const srcs = selectedGroupRef.current.length > 0
+          ? selectedGroupRef.current
+          : selectedTextRef.current ? [selectedTextRef.current] : [];
+        if (srcs.length > 0) {
+          e.preventDefault();
+          // Compute combined bbox center as flip pivot
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const s of srcs) {
+            const bb = anyStrokeBBox(s);
+            minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+            maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+          }
+          const flipCx = (minX + maxX) / 2, flipCy = (minY + maxY) / 2;
+          const fromPoints = srcs.map(s => s.points.map(p => ({ ...p })));
+          const fromRotations = srcs.map(s => s.rotation);
+          for (const s of srcs) {
+            if (s.text || s.imageId) continue;
+            for (const p of s.points) {
+              if (axis === "h") p.x = 2 * flipCx - p.x;
+              else p.y = 2 * flipCy - p.y;
+            }
+            if (s.rotation) s.rotation = -s.rotation;
+          }
+          const toPoints = srcs.map(s => s.points.map(p => ({ ...p })));
+          const toRotations = srcs.map(s => s.rotation);
+          undoStackRef.current.push({ type: "flip", strokes: srcs, fromPoints, toPoints, fromRotations, toRotations });
+          redoStackRef.current = [];
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+        }
+      }
       if (cmdKey(e) && e.key === "z" && !e.shiftKey) {
         e.preventDefault();
         undo();
@@ -603,6 +653,13 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:center-view"));
       }
+      if (e.shiftKey && e.code === "Digit4" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+        const hasSel = !!(selectedTextRef.current || selectedGroupRef.current.length > 0);
+        if (hasSel) {
+          e.preventDefault();
+          window.dispatchEvent(new Event("drawtool:zoom-to-selection"));
+        }
+      }
       if (e.key === "[" && !cmdKey(e)) {
         window.dispatchEvent(new CustomEvent("drawtool:color-cycle", { detail: -1 }));
       }
@@ -633,6 +690,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           if (!e.repeat) {
             undoStackRef.current.push({ type: "group-move", strokes: selectedGroupRef.current, from, to });
             redoStackRef.current = [];
+          } else {
+            const last = undoStackRef.current[undoStackRef.current.length - 1];
+            if (last?.type === "group-move") last.to = to;
           }
         } else if (selectedTextRef.current) {
           const stroke = selectedTextRef.current;
@@ -642,11 +702,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           if (!e.repeat) {
             undoStackRef.current.push({ type: "move", stroke, from, to });
             redoStackRef.current = [];
+          } else {
+            const last = undoStackRef.current[undoStackRef.current.length - 1];
+            if (last?.type === "move" && last.stroke === stroke) last.to = to;
           }
         }
         strokesCacheRef.current = null;
         scheduleRedraw();
-        if (!e.repeat) persistStrokes();
+        persistStrokes();
         return;
       }
       const panAmount = e.shiftKey ? 200 : 50;
@@ -881,7 +944,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           );
         }
       }
-      if (e.key === "Escape" && (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current)) {
+      if (e.key === "Escape" && (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current || selectLockedRef.current)) {
         e.preventDefault();
         selectedTextRef.current = null;
         hoverTextRef.current = null;
@@ -891,6 +954,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         boxSelectRef.current = null;
         lastCycleRef.current = null;
         lastTextTapRef.current = null;
+        selectLockedRef.current = false;
         zKeyRef.current = false;
         setZCursor(null);
         scheduleRedraw();
@@ -960,14 +1024,16 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
 
     const onKeyUp = (e: KeyboardEvent) => {
       if (e.key === "v" || e.key === "V") {
-        zKeyRef.current = false;
-        if (hoverTextRef.current) {
-          hoverTextRef.current = null;
-          scheduleRedraw();
-        }
-        // Keep arrow cursor if something is still selected
-        if (!selectedTextRef.current && selectedGroupRef.current.length === 0) {
-          setZCursor(null);
+        if (!selectLockedRef.current) {
+          zKeyRef.current = false;
+          if (hoverTextRef.current) {
+            hoverTextRef.current = null;
+            scheduleRedraw();
+          }
+          // Keep arrow cursor if something is still selected
+          if (!selectedTextRef.current && selectedGroupRef.current.length === 0) {
+            setZCursor(null);
+          }
         }
       }
       if (e.key === " ") {
@@ -1126,6 +1192,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     };
 
     const onBlur = () => {
+      selectLockedRef.current = false;
       zKeyRef.current = false;
       if (hoverTextRef.current) {
         hoverTextRef.current = null;
@@ -1209,7 +1276,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         }
         const cx = (minX + maxX) / 2;
         const cy = (minY + maxY) / 2;
-        const cursor = cursorWorldRef.current;
+        const rawCursor = cursorWorldRef.current;
+        const cursor = (rawCursor.x !== 0 || rawCursor.y !== 0) ? rawCursor : (() => {
+          const view = viewRef.current;
+          const canvas = canvasRef.current;
+          const w = canvas ? canvas.offsetWidth : window.innerWidth;
+          const h = canvas ? canvas.offsetHeight : window.innerHeight;
+          return { x: (w / 2 - view.x) / view.scale, y: (h / 2 - view.y) / view.scale };
+        })();
         const dx = cursor.x - cx;
         const dy = cursor.y - cy;
         const newStrokes: Stroke[] = srcs.map(src => ({
@@ -1252,7 +1326,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             const MAX_SCREEN_W = 600;
             const worldW = Math.min(naturalW, MAX_SCREEN_W / view.scale);
             const worldH = naturalH * (worldW / naturalW);
-            const cursor = cursorWorldRef.current;
+            const rawCursor = cursorWorldRef.current;
+            const cursor = (rawCursor.x !== 0 || rawCursor.y !== 0) ? rawCursor : (() => {
+              const view = viewRef.current;
+              const canvas = canvasRef.current;
+              const w = canvas ? canvas.offsetWidth : window.innerWidth;
+              const h = canvas ? canvas.offsetHeight : window.innerHeight;
+              return { x: (w / 2 - view.x) / view.scale, y: (h / 2 - view.y) / view.scale };
+            })();
             const anchor = { x: cursor.x - worldW / 2, y: cursor.y - worldH / 2 };
             const stroke: import("../canvas/types").Stroke = {
               points: [anchor],

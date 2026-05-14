@@ -696,7 +696,16 @@ function Canvas({
       const rx = bb.x - pad, ry = bb.y - pad;
       const rw = bb.w + pad * 2, rh = bb.h + pad * 2;
 
+      // Apply rotation transform for the entire overlay (handles appear in rotated frame)
+      const overlayRotation = stroke.rotation ?? 0;
       ctx.save();
+      if (overlayRotation) {
+        const ocx = bb.x + bb.w / 2, ocy = bb.y + bb.h / 2;
+        ctx.translate(ocx, ocy);
+        ctx.rotate(overlayRotation);
+        ctx.translate(-ocx, -ocy);
+      }
+
       ctx.beginPath();
       ctx.rect(rx, ry, rw, rh);
 
@@ -726,6 +735,20 @@ function Canvas({
             ctx.strokeStyle = "#4895ef";
             ctx.stroke();
           }
+        }
+
+        // Rotate handle (all types except arrow/line, single selection only)
+        if (!noHandles && stroke.shape !== "arrow" && stroke.shape !== "line") {
+          const handleOffset = 28 / scale;
+          const hr = 5 / scale;
+          const hx = rx + rw / 2, hy = ry - handleOffset;
+          ctx.lineWidth = lw;
+          ctx.setLineDash([]);
+          ctx.strokeStyle = "#4895ef";
+          ctx.beginPath(); ctx.moveTo(hx, ry); ctx.lineTo(hx, hy); ctx.stroke();
+          ctx.beginPath(); ctx.arc(hx, hy, hr, 0, Math.PI * 2);
+          ctx.fillStyle = "#ffffff"; ctx.fill();
+          ctx.strokeStyle = "#4895ef"; ctx.stroke();
         }
       } else {
         // Hover — solid outline with subtle fill
@@ -1290,6 +1313,35 @@ function Canvas({
     [scheduleRedraw, broadcastZoom, persistView],
   );
 
+  const zoomToSelection = useCallback(() => {
+    const group = selectedGroupRef.current;
+    const single = selectedTextRef.current;
+    const sel = group.length > 0 ? group : single ? [single] : [];
+    if (sel.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const stroke of sel) {
+      const bb = anyStrokeBBox(stroke);
+      if (stroke.rotation) {
+        const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+        const hw = bb.w / 2, hh = bb.h / 2;
+        const cos = Math.cos(stroke.rotation), sin = Math.sin(stroke.rotation);
+        const aw = Math.abs(hw * cos) + Math.abs(hh * sin);
+        const ah = Math.abs(hw * sin) + Math.abs(hh * cos);
+        minX = Math.min(minX, cx - aw); minY = Math.min(minY, cy - ah);
+        maxX = Math.max(maxX, cx + aw); maxY = Math.max(maxY, cy + ah);
+      } else {
+        minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+        maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+      }
+    }
+    const pad = 80;
+    const w = maxX - minX, h = maxY - minY;
+    const vw = window.innerWidth - pad * 2, vh = window.innerHeight - pad * 2;
+    const targetScale = w === 0 && h === 0 ? 2 : Math.min(10, Math.max(0.1, Math.min(vw / (w || 1), vh / (h || 1))));
+    const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+    animateView({ x: window.innerWidth / 2 - cx * targetScale, y: window.innerHeight / 2 - cy * targetScale, scale: targetScale });
+  }, [animateView]);
+
   const centerView = useCallback(() => {
     const strokes = strokesRef.current;
     if (strokes.length === 0) return;
@@ -1471,6 +1523,13 @@ function Canvas({
         strokesRef.current = [...action.before];
       } else if (action.type === "reshape") {
         action.stroke.points = action.from.map(p => ({ ...p }));
+      } else if (action.type === "rotate") {
+        action.stroke.rotation = action.from || undefined;
+      } else if (action.type === "flip") {
+        for (let i = 0; i < action.strokes.length; i++) {
+          action.strokes[i].points = action.fromPoints[i].map(p => ({ ...p }));
+          action.strokes[i].rotation = action.fromRotations[i];
+        }
       }
       redoStackRef.current.push(action);
     }
@@ -1552,6 +1611,13 @@ function Canvas({
         strokesRef.current = [...action.after];
       } else if (action.type === "reshape") {
         action.stroke.points = action.to.map(p => ({ ...p }));
+      } else if (action.type === "rotate") {
+        action.stroke.rotation = action.to || undefined;
+      } else if (action.type === "flip") {
+        for (let i = 0; i < action.strokes.length; i++) {
+          action.strokes[i].points = action.toPoints[i].map(p => ({ ...p }));
+          action.strokes[i].rotation = action.toRotations[i];
+        }
       }
       undoStackRef.current.push(action);
     }
@@ -1582,6 +1648,7 @@ function Canvas({
     const onResetView = () => resetView();
     const onResetViewOrigin = () => resetViewOrigin();
     const onCenterView = () => centerView();
+    const onZoomToSelection = () => zoomToSelection();
     const onZoomStep = (e: Event) =>
       zoomBy((e as CustomEvent).detail as number);
     const onQueryCount = (e: Event) => {
@@ -1626,6 +1693,7 @@ function Canvas({
     window.addEventListener("drawtool:reset-view", onResetView);
     window.addEventListener("drawtool:reset-view-origin", onResetViewOrigin);
     window.addEventListener("drawtool:center-view", onCenterView);
+    window.addEventListener("drawtool:zoom-to-selection", onZoomToSelection);
     window.addEventListener("drawtool:zoom-step", onZoomStep);
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
     window.addEventListener("drawtool:export-transparent", onExportTransparent);
@@ -1762,6 +1830,7 @@ function Canvas({
       window.removeEventListener("drawtool:reset-view", onResetView);
       window.removeEventListener("drawtool:reset-view-origin", onResetViewOrigin);
       window.removeEventListener("drawtool:center-view", onCenterView);
+      window.removeEventListener("drawtool:zoom-to-selection", onZoomToSelection);
       window.removeEventListener("drawtool:zoom-step", onZoomStep);
       window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
       window.removeEventListener("drawtool:export-transparent", onExportTransparent);
@@ -1775,7 +1844,7 @@ function Canvas({
       window.removeEventListener("drawtool:undo", onUndoEvent);
       window.removeEventListener("drawtool:redo", onRedoEvent);
     };
-  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
+  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomToSelection, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 
   // 6 screen pixels converted to world units — so zooming in doesn't cause
   // intentional small strokes to be discarded.
@@ -1907,11 +1976,21 @@ function Canvas({
     for (const stroke of strokesRef.current) {
       if (pendingEraseRef.current.has(stroke)) continue;
       let hit = false;
+      // Un-rotate eraser point into the stroke's local frame if the stroke is rotated
+      let ex = x, ey = y;
+      if (stroke.rotation) {
+        const bb = anyStrokeBBox(stroke);
+        const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+        const cos = Math.cos(-stroke.rotation), sin = Math.sin(-stroke.rotation);
+        const rdx = x - rcx, rdy = y - rcy;
+        ex = rcx + rdx * cos - rdy * sin;
+        ey = rcy + rdx * sin + rdy * cos;
+      }
       // For image strokes, test against bounding box
       if (stroke.imageId) {
         const a = stroke.points[0];
         const iw = stroke.imageW ?? 0, ih = stroke.imageH ?? 0;
-        if (x >= a.x - radius && x <= a.x + iw + radius && y >= a.y - radius && y <= a.y + ih + radius) {
+        if (ex >= a.x - radius && ex <= a.x + iw + radius && ey >= a.y - radius && ey <= a.y + ih + radius) {
           hit = true;
         }
         if (hit) pendingEraseRef.current.add(stroke);
@@ -1921,10 +2000,10 @@ function Canvas({
       if (stroke.text) {
         const bb = textBBox(stroke);
         if (
-          x >= bb.x - radius &&
-          x <= bb.x + bb.w + radius &&
-          y >= bb.y - radius &&
-          y <= bb.y + bb.h + radius
+          ex >= bb.x - radius &&
+          ex <= bb.x + bb.w + radius &&
+          ey >= bb.y - radius &&
+          ey <= bb.y + bb.h + radius
         ) {
           hit = true;
         }
@@ -1937,8 +2016,8 @@ function Canvas({
           ? shapeToSegments(stroke)
           : stroke.points;
       for (const p of pts) {
-        const dx = p.x - x;
-        const dy = p.y - y;
+        const dx = p.x - ex;
+        const dy = p.y - ey;
         if (dx * dx + dy * dy < radius * radius) {
           hit = true;
           break;
@@ -1948,7 +2027,7 @@ function Canvas({
         for (let i = 1; i < pts.length; i++) {
           const a = pts[i - 1];
           const b = pts[i];
-          if (distToSegment(x, y, a.x, a.y, b.x, b.y) < radius) {
+          if (distToSegment(ex, ey, a.x, a.y, b.x, b.y) < radius) {
             hit = true;
             break;
           }
@@ -1960,7 +2039,7 @@ function Canvas({
         for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
           const xi = pts[i].x, yi = pts[i].y;
           const xj = pts[j].x, yj = pts[j].y;
-          if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) {
+          if ((yi > ey) !== (yj > ey) && ex < ((xj - xi) * (ey - yi)) / (yj - yi) + xi) {
             inside = !inside;
           }
         }

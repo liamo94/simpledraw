@@ -91,6 +91,11 @@ const LayerExtremeIcon = () => <I><rect x="2" y="6" width="8" height="8" rx="1" 
 const DeleteIcon = () => <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I>;
 const NudgeIcon = () => <I><path d="M8 3v10M3 8h10" /></I>;
 const DeselectIcon = () => <I><path d="M3 8h10M8 3v10" strokeOpacity="0.4" /><circle cx="8" cy="8" r="3" /></I>;
+const RotateIcon = () => <I><path d="M4 8a4 4 0 1 0 4-4" /><path d="M8 2v3M8 5l2-1.5M8 5l-2-1.5" /></I>;
+const ZoomSelIcon = () => <I><rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" /><path d="M8 5v6M5 8h6" strokeWidth="1.4" /><path d="M12 12l2.5 2.5" strokeWidth="1.2" /></I>;
+const FlipHIcon = () => <I><line x1="8" y1="3" x2="8" y2="13" /><path d="M5 6l-3 2 3 2" /><path d="M11 6l3 2-3 2" strokeOpacity="0.45" /></I>;
+const FlipVIcon = () => <I><line x1="3" y1="8" x2="13" y2="8" /><path d="M6 5l2-3 2 3" /><path d="M6 11l2 3 2-3" strokeOpacity="0.45" /></I>;
+const LockSelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" /><circle cx="8" cy="8" r="2.5" /></I>;
 const SprayIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="1.5" cy="3.5" r="0.85" fill="currentColor" stroke="none" />
@@ -139,6 +144,7 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
         <Row label={<><ResetZoomIcon />Reset zoom</>} kbd="⇧ + 1" />
         <Row label={<><FitIcon />Fit to content</>} kbd="⇧ + 2" />
         <Row label={<><PanIcon />Reset view to origin</>} kbd="⇧ + 3" />
+        <Row label={<><ZoomSelIcon />Zoom to selection</>} kbd="⇧ + 4" />
       </div>
     </div>,
 
@@ -209,6 +215,7 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
       <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Selection</div>
       <div className={`space-y-1.5 ${textClass}`}>
         <Row label={<><SelectIcon />Select / move / resize</>} kbd="V + hold" />
+        <Row label={<><LockSelectIcon />Lock select mode</>} kbd="V V" />
         <Row label={<><BoxSelectIcon />Box select</>} kbd="V + drag" />
         <Row label={<><AddSelectIcon />Add / remove from selection</>} kbd="⇧ + V + click" />
         <Row label={<><CycleIcon />Cycle overlapping</>} kbd="Click again" />
@@ -220,7 +227,11 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
         <Row label={<><LayerExtremeIcon />To front / To back</>} kbd={`${mod} + ] / [`} />
         <Row label={<><LayerIcon />Bring forward / Send back</>} kbd={`${mod} + ⌥ + ] / [`} />
         <Row label={<><DeleteIcon />Delete</>} kbd="Backspace" />
+        <Row label={<><RotateIcon />Rotate</>} kbd="Drag rotate handle" />
+        <Row label={<><FlipHIcon />Flip horizontal</>} kbd={`${mod} + ⇧ + H`} />
+        <Row label={<><FlipVIcon />Flip vertical</>} kbd={`${mod} + ⇧ + V`} />
         <Row label={<><NudgeIcon />Nudge</>} kbd="↑ ↓ ← →" />
+        <Row label={<><ZoomSelIcon />Zoom to selection</>} kbd="⇧ + 4" />
         <Row label={<><DeselectIcon />Deselect</>} kbd="Escape" />
       </div>
     </div>,

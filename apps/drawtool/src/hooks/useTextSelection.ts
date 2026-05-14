@@ -10,6 +10,18 @@ import type { TouchTool } from "../canvas/types";
 
 // ─── Hit-testing helpers ───────────────────────────────────────────────────────
 
+/** Returns the axis-aligned bounding box of a stroke after its rotation is applied. */
+function rotatedAABB(stroke: Stroke): BBox {
+  const bb = anyStrokeBBox(stroke);
+  if (!stroke.rotation) return bb;
+  const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+  const cos = Math.abs(Math.cos(stroke.rotation));
+  const sin = Math.abs(Math.sin(stroke.rotation));
+  const hw = bb.w / 2 * cos + bb.h / 2 * sin;
+  const hh = bb.w / 2 * sin + bb.h / 2 * cos;
+  return { x: cx - hw, y: cy - hh, w: hw * 2, h: hh * 2 };
+}
+
 function distToSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
   const dx = x2 - x1, dy = y2 - y1;
   const lenSq = dx * dx + dy * dy;
@@ -21,6 +33,15 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
 /** Returns true if (wx, wy) hits the stroke. Arrow/line uses line-proximity; everything else uses bbox. */
 export function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
   if (stroke.points.length === 0) return false;
+  // Un-rotate the test point into the stroke's local frame before testing
+  if (stroke.rotation) {
+    const bb = anyStrokeBBox(stroke);
+    const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+    const cos = Math.cos(-stroke.rotation), sin = Math.sin(-stroke.rotation);
+    const dx = wx - cx, dy = wy - cy;
+    wx = cx + dx * cos - dy * sin;
+    wy = cy + dx * sin + dy * cos;
+  }
   if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length >= 2) {
     const threshold = 8 / scale;
     const pts = stroke.points;
@@ -62,11 +83,12 @@ export type TextSelectionRefs = {
   selectedTextRef: MutableRefObject<Stroke | null>;
   selectedGroupRef: MutableRefObject<Stroke[]>;
   selectDragRef: MutableRefObject<{
-    mode: "move" | "corner";
+    mode: "move" | "corner" | "rotate";
     corner?: number;
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[];
     startScale: number;
+    startRotation?: number;
     bbox: BBox;
     cycleHits?: Stroke[];
     pendingBend?: { segmentIdx: number };
@@ -241,6 +263,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     isWritingRef.current = true;
     window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: true }));
     selectedTextRef.current = null;
+    selectedGroupRef.current = [];
     selectDragRef.current = null;
     strokesCacheRef.current = null;
     setZCursor("text");
@@ -429,6 +452,35 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         if (selectedTextRef.current) {
           const bb = anyStrokeBBox(selectedTextRef.current);
           const selShape = selectedTextRef.current.shape;
+          const strokeRotation = selectedTextRef.current.rotation ?? 0;
+          // For rotated strokes, un-rotate the hit point into the stroke's local frame
+          let twp = wp;
+          if (strokeRotation) {
+            const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+            const cos = Math.cos(-strokeRotation), sin = Math.sin(-strokeRotation);
+            const dx = wp.x - rcx, dy = wp.y - rcy;
+            twp = { x: rcx + dx * cos - dy * sin, y: rcy + dx * sin + dy * cos };
+          }
+          // Check rotate handle first (all types except arrows/lines)
+          if (selShape !== "arrow" && selShape !== "line") {
+            const rotPad = 3 / scale;
+            const handleOffset = 28 / scale;
+            const rotHs = 7 / scale;
+            const handleX = bb.x + bb.w / 2;
+            const handleY = bb.y - rotPad - handleOffset;
+            if (Math.hypot(twp.x - handleX, twp.y - handleY) <= rotHs) {
+              selectDragRef.current = {
+                mode: "rotate",
+                startPtr: { ...wp },
+                startPoints: [],
+                startScale: 1,
+                startRotation: strokeRotation,
+                bbox: bb,
+              };
+              (e.target as Element).setPointerCapture(e.pointerId);
+              return;
+            }
+          }
           // Check handles first (only for shapes, text, and images, not freehand)
           if (selShape || selectedTextRef.current.text || selectedTextRef.current.imageId) {
             if (selShape === "arrow" || selShape === "line") {
@@ -479,7 +531,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               ];
               for (let ci = 0; ci < 4; ci++) {
                 const cc = cornerCenters[ci];
-                if (Math.abs(wp.x - cc.x) <= hs + pad && Math.abs(wp.y - cc.y) <= hs + pad) {
+                if (Math.abs(twp.x - cc.x) <= hs + pad && Math.abs(twp.y - cc.y) <= hs + pad) {
                   selectDragRef.current = {
                     mode: "corner",
                     corner: ci,
@@ -667,7 +719,18 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         const drag = selectDragRef.current;
         const stroke = selectedTextRef.current;
 
-        if (drag.mode === "move") {
+        if (drag.mode === "rotate") {
+          const bb = anyStrokeBBox(stroke);
+          const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+          const startAngle = Math.atan2(drag.startPtr.y - cy, drag.startPtr.x - cx);
+          const currentAngle = Math.atan2(wp.y - cy, wp.x - cx);
+          let newRotation = (drag.startRotation ?? 0) + (currentAngle - startAngle);
+          if (e.shiftKey) {
+            const snap = (15 * Math.PI) / 180;
+            newRotation = Math.round(newRotation / snap) * snap;
+          }
+          stroke.rotation = newRotation || undefined;
+        } else if (drag.mode === "move") {
           const dx = wp.x - drag.startPtr.x;
           const dy = wp.y - drag.startPtr.y;
           for (let i = 0; i < drag.startPoints.length; i++) {
@@ -703,6 +766,19 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             return;
           }
 
+          // For rotated strokes, un-rotate wp and startPtr into the unrotated bbox frame
+          // so all resize math can work in local (unrotated) coordinates
+          let resizeWp = wp;
+          let resizeStartPtr = drag.startPtr;
+          if (stroke.rotation) {
+            const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+            const cos = Math.cos(-stroke.rotation), sin = Math.sin(-stroke.rotation);
+            const dx = wp.x - rcx, dy = wp.y - rcy;
+            resizeWp = { x: rcx + dx * cos - dy * sin, y: rcy + dx * sin + dy * cos };
+            const sdx = drag.startPtr.x - rcx, sdy = drag.startPtr.y - rcy;
+            resizeStartPtr = { x: rcx + sdx * cos - sdy * sin, y: rcy + sdx * sin + sdy * cos };
+          }
+
           const oppCorners = [
             { x: bb.x + bb.w, y: bb.y + bb.h }, // TL drag → BR fixed
             { x: bb.x,        y: bb.y + bb.h }, // TR drag → BL fixed
@@ -713,8 +789,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
           if (stroke.text) {
             // Text resize: scale fontScale, keep opposite corner anchored
-            const startDist = Math.hypot(drag.startPtr.x - opp.x, drag.startPtr.y - opp.y);
-            const currDist  = Math.hypot(wp.x - opp.x, wp.y - opp.y);
+            const startDist = Math.hypot(resizeStartPtr.x - opp.x, resizeStartPtr.y - opp.y);
+            const currDist  = Math.hypot(resizeWp.x - opp.x, resizeWp.y - opp.y);
             if (startDist > 1e-6) {
               const ratio = currDist / startDist;
               const newScale = Math.min(5, Math.max(0.3, drag.startScale * ratio));
@@ -726,8 +802,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             }
           } else if (stroke.imageId) {
             // Image resize: scale imageW/imageH proportionally, keep opposite corner anchored
-            const startDist = Math.hypot(drag.startPtr.x - opp.x, drag.startPtr.y - opp.y);
-            const currDist  = Math.hypot(wp.x - opp.x, wp.y - opp.y);
+            const startDist = Math.hypot(resizeStartPtr.x - opp.x, resizeStartPtr.y - opp.y);
+            const currDist  = Math.hypot(resizeWp.x - opp.x, resizeWp.y - opp.y);
             if (startDist > 1e-6) {
               const ratio = currDist / startDist;
               const minSize = 20 / viewRef.current.scale;
@@ -744,10 +820,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             const p0IsLeft = drag.startPoints[0].x <= drag.startPoints[1].x;
             const p0IsTop  = drag.startPoints[0].y <= drag.startPoints[1].y;
             const minSize = 10 / viewRef.current.scale;
-            const newLeft   = Math.min(opp.x, wp.x);
-            const newTop    = Math.min(opp.y, wp.y);
-            const newRight  = Math.max(opp.x, wp.x, newLeft + minSize);
-            const newBottom = Math.max(opp.y, wp.y, newTop  + minSize);
+            const newLeft   = Math.min(opp.x, resizeWp.x);
+            const newTop    = Math.min(opp.y, resizeWp.y);
+            const newRight  = Math.max(opp.x, resizeWp.x, newLeft + minSize);
+            const newBottom = Math.max(opp.y, resizeWp.y, newTop  + minSize);
             stroke.points[0] = {
               x: p0IsLeft ? newLeft  : newRight,
               y: p0IsTop  ? newTop   : newBottom,
@@ -773,8 +849,25 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const pad = 3 / scale;
           const hs = 7 / scale;
           const selStroke = selectedTextRef.current;
+          const selRotation = selStroke.rotation ?? 0;
+          // Un-rotate hover point for handle cursor checks
+          let cwp = wp;
+          if (selRotation) {
+            const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+            const cos = Math.cos(-selRotation), sin = Math.sin(-selRotation);
+            const dx = wp.x - rcx, dy = wp.y - rcy;
+            cwp = { x: rcx + dx * cos - dy * sin, y: rcy + dx * sin + dy * cos };
+          }
           let cur = "default";
-          if (selStroke.shape || selStroke.text || selStroke.imageId) {
+          // Check rotate handle first (non-arrow/line strokes)
+          if (selStroke.shape !== "arrow" && selStroke.shape !== "line") {
+            const handleOffset = 28 / scale;
+            const handleX = bb.x + bb.w / 2, handleY = bb.y - pad - handleOffset;
+            if (Math.hypot(cwp.x - handleX, cwp.y - handleY) <= hs) {
+              cur = "grab";
+            }
+          }
+          if (cur === "default" && (selStroke.shape || selStroke.text || selStroke.imageId)) {
             const selShape = selStroke.shape;
             if ((selShape === "arrow" || selShape === "line") && selStroke.points.length >= 2) {
               const pts = selStroke.points;
@@ -809,21 +902,21 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 { x: bb.x - pad,        y: bb.y + bb.h + pad },
               ];
               for (const cc of cornerCenters) {
-                if (Math.abs(wp.x - cc.x) <= hs + pad && Math.abs(wp.y - cc.y) <= hs + pad) {
+                if (Math.abs(cwp.x - cc.x) <= hs + pad && Math.abs(cwp.y - cc.y) <= hs + pad) {
                   cur = "nwse-resize";
                   break;
                 }
               }
               if (cur === "default" &&
-                  wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
-                  wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+                  cwp.x >= bb.x - pad && cwp.x <= bb.x + bb.w + pad &&
+                  cwp.y >= bb.y - pad && cwp.y <= bb.y + bb.h + pad) {
                 cur = "move";
               }
             }
-          } else if (
-            wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
-            wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad
-          ) {
+          } else if (cur === "default" && (
+            cwp.x >= bb.x - pad && cwp.x <= bb.x + bb.w + pad &&
+            cwp.y >= bb.y - pad && cwp.y <= bb.y + bb.h + pad
+          )) {
             cur = "move";
           }
           // If not hovering over the selected stroke, check if hovering over a different stroke
@@ -916,7 +1009,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         if (selW > 2 / scale && selH > 2 / scale) {
           const containOnly = boxSelectRef.current?.containOnly ?? false;
           const hits = strokesRef.current.filter(stroke => {
-            const bb = anyStrokeBBox(stroke);
+            const bb = rotatedAABB(stroke);
             if (containOnly) {
               // Shift+V: stroke must be fully inside the selection box
               return bb.x >= selX && bb.x + bb.w <= selX + selW &&
@@ -986,7 +1079,18 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         const drag = selectDragRef.current;
         const stroke = selectedTextRef.current;
 
-        if (drag.mode === "move") {
+        if (drag.mode === "rotate") {
+          const startRot = drag.startRotation ?? 0;
+          const endRot = stroke.rotation ?? 0;
+          if (Math.abs(endRot - startRot) > 0.0001) {
+            undoStackRef.current.push({ type: "rotate", stroke, from: startRot, to: endRot });
+            redoStackRef.current = [];
+            persistStrokes();
+          }
+          selectDragRef.current = null;
+          scheduleRedraw();
+          return;
+        } else if (drag.mode === "move") {
           const anyMoved = drag.startPoints.some((p, i) =>
             p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
           if (anyMoved) {
@@ -1052,6 +1156,21 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             redoStackRef.current = [];
             persistStrokes();
           }
+        } else if (
+          (stroke.shape === "arrow" || stroke.shape === "line") &&
+          drag.corner === 1 &&
+          drag.startPoints.length === 2 &&
+          stroke.points.length === 2
+        ) {
+          // 2-point arrow midpoint handle single-click (no drag) — insert bend at midpoint
+          const from = drag.startPoints.map(p => ({ ...p }));
+          const p0 = drag.startPoints[0], p1 = drag.startPoints[1];
+          stroke.points.splice(1, 0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 });
+          const to = stroke.points.map(p => ({ ...p }));
+          undoStackRef.current.push({ type: "reshape", stroke, from, to });
+          redoStackRef.current = [];
+          strokesCacheRef.current = null;
+          persistStrokes();
         } else if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length > drag.startPoints.length) {
           // Midpoint handle drag inserted a bend — commit as reshape
           undoStackRef.current.push({

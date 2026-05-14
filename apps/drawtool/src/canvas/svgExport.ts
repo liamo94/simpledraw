@@ -1,7 +1,7 @@
 import { getStroke } from "perfect-freehand";
 import rough from "roughjs";
 import type { Stroke, Theme } from "./types";
-import { TEXT_SIZE_MAP, smoothPoints, smoothWidths, getFontCss } from "./geometry";
+import { TEXT_SIZE_MAP, smoothPoints, smoothWidths, getFontCss, anyStrokeBBox } from "./geometry";
 import {
   cloudArcData, starPoints, regularPolygonPoints, roughPolyPath,
   hexToRgba, getBackgroundColor,
@@ -238,6 +238,21 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
     }
   }
 
+  // Expand bounds for rotated strokes (rotation changes the visual AABB)
+  for (const stroke of strokes) {
+    if (!stroke.rotation) continue;
+    const bb = anyStrokeBBox(stroke);
+    const bcx = bb.x + bb.w / 2, bcy = bb.y + bb.h / 2;
+    const cos = Math.abs(Math.cos(stroke.rotation));
+    const sin = Math.abs(Math.sin(stroke.rotation));
+    const newHW = bb.w / 2 * cos + bb.h / 2 * sin;
+    const newHH = bb.w / 2 * sin + bb.h / 2 * cos;
+    minX = Math.min(minX, bcx - newHW);
+    minY = Math.min(minY, bcy - newHH);
+    maxX = Math.max(maxX, bcx + newHW);
+    maxY = Math.max(maxY, bcy + newHH);
+  }
+
   const maxLW = Math.max(...strokes.map(s => s.lineWidth));
   const pad = 20 + maxLW / 2;
   const svgW = Math.ceil(maxX - minX + pad * 2);
@@ -264,12 +279,23 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
   let clipIndex = 0;
 
   for (const stroke of strokes) {
+    // If rotated, wrap all stroke elements in a rotation group
+    let strokeG: Element = mainG;
+    if (stroke.rotation) {
+      const bb = anyStrokeBBox(stroke);
+      const bcx = bb.x + bb.w / 2, bcy = bb.y + bb.h / 2;
+      const deg = stroke.rotation * 180 / Math.PI;
+      const rotG = svgEl("g", { transform: `rotate(${n(deg)},${n(bcx)},${n(bcy)})` });
+      mainG.appendChild(rotG);
+      strokeG = rotG;
+    }
+
     // ── Image ─────────────────────────────────────────────────────────────────
     if (stroke.imageId) {
       const dataUrl = getImageDataUrl(stroke.imageId);
       if (dataUrl) {
         const a = stroke.points[0];
-        mainG.appendChild(svgEl("image", {
+        strokeG.appendChild(svgEl("image", {
           href: dataUrl,
           x: n(a.x), y: n(a.y),
           width: stroke.imageW ?? 0,
@@ -304,10 +330,10 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
           x: anchor.x,
           y: anchor.y + i * lineHeight,
         });
-        tspan.textContent = lines[i] || "\u00A0";
+        tspan.textContent = lines[i] || " ";
         textEl.appendChild(tspan);
       }
-      mainG.appendChild(textEl);
+      strokeG.appendChild(textEl);
       continue;
     }
 
@@ -320,7 +346,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
 
     // ── Single dot ────────────────────────────────────────────────────────────
     if (stroke.points.length === 1 && !stroke.shape) {
-      mainG.appendChild(svgEl("circle", {
+      strokeG.appendChild(svgEl("circle", {
         cx: stroke.points[0].x, cy: stroke.points[0].y,
         r: stroke.lineWidth * 0.6,
         fill: color,
@@ -333,7 +359,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
       const dotR = Math.max(0.5, stroke.lineWidth * 0.35);
       const g = svgEl("g", { fill: color });
       for (const p of stroke.points) g.appendChild(svgEl("circle", { cx: p.x, cy: p.y, r: dotR }));
-      mainG.appendChild(g);
+      strokeG.appendChild(g);
       continue;
     }
 
@@ -348,7 +374,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
         fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round",
       });
       if (dashArr) el2.setAttribute("stroke-dasharray", dashArr);
-      mainG.appendChild(el2);
+      strokeG.appendChild(el2);
       continue;
     }
 
@@ -376,7 +402,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
       if (dashArr) bodyEl.setAttribute("stroke-dasharray", dashArr);
       g.appendChild(bodyEl);
       g.appendChild(svgEl("path", { d: ahd }));
-      mainG.appendChild(g);
+      strokeG.appendChild(g);
       continue;
     }
 
@@ -411,7 +437,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
 
         // Hatch/dots fill via clipPath (same as canvas rendering)
         if (hasFill && (f_fill === "dots" || f_fill === "hatch") && stroke.shape !== "cloud") {
-          clipIndex = addPatternFill(defs, mainG, stroke.shape, x, y, w, h, cx2, cy2, r, p0, p1, f_fill, color, stroke.lineWidth, undefined, stroke.fillOpacity, clipIndex);
+          clipIndex = addPatternFill(defs, strokeG, stroke.shape, x, y, w, h, cx2, cy2, r, p0, p1, f_fill, color, stroke.lineWidth, undefined, stroke.fillOpacity, clipIndex);
         }
 
         let roughNode: Element | null = null;
@@ -437,13 +463,13 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
         }
 
         if (roughNode) {
-          mainG.appendChild(roughNode);
+          strokeG.appendChild(roughNode);
           if (stroke.shape === "arrow") {
             const angle = Math.atan2(p1.y - p0.y, p1.x - p0.x);
             const headLen = Math.max(22, stroke.lineWidth * 4.5);
             const headAngle = Math.PI / 6;
             const ahd = `M${n(p1.x)},${n(p1.y)}L${n(p1.x - headLen * Math.cos(angle - headAngle))},${n(p1.y - headLen * Math.sin(angle - headAngle))}M${n(p1.x)},${n(p1.y)}L${n(p1.x - headLen * Math.cos(angle + headAngle))},${n(p1.y - headLen * Math.sin(angle + headAngle))}`;
-            mainG.appendChild(svgEl("path", { d: ahd, stroke: color, "stroke-width": stroke.lineWidth, fill: "none", "stroke-linecap": "round" }));
+            strokeG.appendChild(svgEl("path", { d: ahd, stroke: color, "stroke-width": stroke.lineWidth, fill: "none", "stroke-linecap": "round" }));
           }
         }
       } else {
@@ -461,26 +487,26 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
           if (dashArr) bodyEl.setAttribute("stroke-dasharray", dashArr);
           g.appendChild(bodyEl);
           g.appendChild(svgEl("path", { d: ahd }));
-          mainG.appendChild(g);
+          strokeG.appendChild(g);
         } else if (stroke.shape === "circle") {
           const fillAttr = f_fill === "solid" ? hexToRgba(color, stroke.fillOpacity ?? 0.2) : "none";
           if (hasFill && f_fill !== "solid") {
-            clipIndex = addPatternFill(defs, mainG, stroke.shape, x, y, w, h, cx2, cy2, r, p0, p1, f_fill, color, stroke.lineWidth, stroke.seed, stroke.fillOpacity, clipIndex);
+            clipIndex = addPatternFill(defs, strokeG, stroke.shape, x, y, w, h, cx2, cy2, r, p0, p1, f_fill, color, stroke.lineWidth, stroke.seed, stroke.fillOpacity, clipIndex);
           }
           const el2 = svgEl("ellipse", { cx: cx2, cy: cy2, rx: w / 2, ry: h / 2, ...commonStroke, fill: fillAttr });
           if (dashArr) el2.setAttribute("stroke-dasharray", dashArr);
-          mainG.appendChild(el2);
+          strokeG.appendChild(el2);
         } else {
           const pathD = buildShapePathSvg(stroke.shape, x, y, w, h, cx2, cy2, r, p0, p1, stroke.seed, stroke.sharp);
           if (pathD) {
             const isLineShape = stroke.shape === "line";
             const fillAttr = isLineShape ? "none" : (f_fill === "solid" ? hexToRgba(color, stroke.fillOpacity ?? 0.2) : "none");
             if (hasFill && f_fill !== "solid") {
-              clipIndex = addPatternFill(defs, mainG, stroke.shape, x, y, w, h, cx2, cy2, r, p0, p1, f_fill, color, stroke.lineWidth, stroke.seed, stroke.fillOpacity, clipIndex);
+              clipIndex = addPatternFill(defs, strokeG, stroke.shape, x, y, w, h, cx2, cy2, r, p0, p1, f_fill, color, stroke.lineWidth, stroke.seed, stroke.fillOpacity, clipIndex);
             }
             const el2 = svgEl("path", { d: pathD, ...commonStroke, fill: fillAttr });
             if (dashArr) el2.setAttribute("stroke-dasharray", dashArr);
-            mainG.appendChild(el2);
+            strokeG.appendChild(el2);
           }
         }
       }
@@ -501,7 +527,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
         simulatePressure: false, last: true,
       });
       if (outline.length < 2) continue;
-      mainG.appendChild(svgEl("path", { d: strokePathFromOutline(outline), fill: color }));
+      strokeG.appendChild(svgEl("path", { d: strokePathFromOutline(outline), fill: color }));
     } else {
       // Uniform width stroke
       const d = smoothPolyPath(pts);
@@ -511,7 +537,7 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
         fill: "none", "stroke-linecap": "round", "stroke-linejoin": "round",
       });
       if (dashArr) el2.setAttribute("stroke-dasharray", dashArr);
-      mainG.appendChild(el2);
+      strokeG.appendChild(el2);
     }
   }
 

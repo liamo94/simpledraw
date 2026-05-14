@@ -26,6 +26,7 @@ export type Stroke = {
   imageId?: string;
   imageW?: number;
   imageH?: number;
+  rotation?: number; // radians, clockwise
 };
 
 export type UndoAction =
@@ -46,7 +47,9 @@ export type UndoAction =
   | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] }
   | { type: "multi-draw"; strokes: Stroke[] }
   | { type: "reorder"; before: Stroke[]; after: Stroke[] }
-  | { type: "reshape"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] };
+  | { type: "reshape"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
+  | { type: "rotate"; stroke: Stroke; from: number; to: number }
+  | { type: "flip"; strokes: Stroke[]; fromPoints: { x: number; y: number }[][]; toPoints: { x: number; y: number }[][]; fromRotations: (number | undefined)[]; toRotations: (number | undefined)[] };
 
 export type TouchTool =
   | "draw"

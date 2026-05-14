@@ -2,7 +2,7 @@ import { getStroke } from "perfect-freehand";
 import rough from "roughjs";
 import type { ShapeKind, Theme, FillStyle } from "../hooks/useSettings";
 import type { Stroke } from "./types";
-import { smoothPoints, smoothWidths, buildFont, TEXT_SIZE_MAP } from "./geometry";
+import { smoothPoints, smoothWidths, buildFont, TEXT_SIZE_MAP, anyStrokeBBox } from "./geometry";
 import { getImageEl } from "./imageStore";
 
 // ─── Theme helpers ────────────────────────────────────────────────────────────
@@ -899,59 +899,137 @@ export function shapeToSegments(stroke: Stroke): { x: number; y: number }[] {
 
 // ─── Full stroke rendering ────────────────────────────────────────────────────
 
-export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
-  for (const stroke of strokes) {
-    if (stroke.points.length === 0) continue;
-    // Image stroke rendering
-    if (stroke.imageId) {
-      const img = getImageEl(stroke.imageId);
-      if (img?.complete && img.naturalWidth > 0) {
-        const a = stroke.points[0];
-        ctx.drawImage(img, a.x, a.y, stroke.imageW ?? img.naturalWidth, stroke.imageH ?? img.naturalHeight);
-      }
-      continue;
+function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
+  // Image stroke rendering
+  if (stroke.imageId) {
+    const img = getImageEl(stroke.imageId);
+    if (img?.complete && img.naturalWidth > 0) {
+      const a = stroke.points[0];
+      ctx.drawImage(img, a.x, a.y, stroke.imageW ?? img.naturalWidth, stroke.imageH ?? img.naturalHeight);
     }
-    // Text stroke rendering
-    if (stroke.text) {
-      const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
-      ctx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
-      ctx.fillStyle = stroke.color;
-      ctx.textBaseline = "top";
-      ctx.textAlign = stroke.textAlign ?? "left";
-      const lines = stroke.text.split("\n");
-      const lineHeight = basePx * 1.2;
-      const anchor = stroke.points[0];
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);
-      }
-      ctx.textAlign = "left";
-      continue;
+    return;
+  }
+  // Text stroke rendering
+  if (stroke.text) {
+    const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
+    ctx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
+    ctx.fillStyle = stroke.color;
+    ctx.textBaseline = "top";
+    ctx.textAlign = stroke.textAlign ?? "left";
+    const lines = stroke.text.split("\n");
+    const lineHeight = basePx * 1.2;
+    const anchor = stroke.points[0];
+    for (let i = 0; i < lines.length; i++) {
+      ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);
     }
-    const color = stroke.highlight
-      ? hexToRgba(stroke.color, 0.4)
-      : stroke.color;
-    if (stroke.points.length === 1) {
-      const p = stroke.points[0];
+    ctx.textAlign = "left";
+    return;
+  }
+  const color = stroke.highlight
+    ? hexToRgba(stroke.color, 0.4)
+    : stroke.color;
+  if (stroke.points.length === 1) {
+    const p = stroke.points[0];
+    ctx.beginPath();
+    ctx.fillStyle = color;
+    ctx.arc(p.x, p.y, stroke.lineWidth * 0.6, 0, Math.PI * 2);
+    ctx.fill();
+    return;
+  }
+  // Spray stroke: individual dots, not connected
+  if (stroke.spray) {
+    ctx.fillStyle = color;
+    const dotR = Math.max(0.5, stroke.lineWidth * 0.35);
+    for (const p of stroke.points) {
       ctx.beginPath();
-      ctx.fillStyle = color;
-      ctx.arc(p.x, p.y, stroke.lineWidth * 0.6, 0, Math.PI * 2);
+      ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
       ctx.fill();
-      continue;
     }
-    // Spray stroke: individual dots, not connected
-    if (stroke.spray) {
-      ctx.fillStyle = color;
-      const dotR = Math.max(0.5, stroke.lineWidth * 0.35);
-      for (const p of stroke.points) {
+    return;
+  }
+  // Multi-point line (3+ bend points, no arrowhead)
+  if (stroke.shape === "line" && stroke.points.length > 2) {
+    const pts = stroke.points;
+    ctx.strokeStyle = color;
+    ctx.lineWidth = stroke.lineWidth;
+    ctx.lineCap = "round";
+    ctx.lineJoin = "round";
+    const dashScale = stroke.lineWidth / 4;
+    ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
+    ctx.beginPath();
+    if (stroke.sharp) {
+      ctx.moveTo(pts[0].x, pts[0].y);
+      for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+    } else {
+      smoothArrowPath(ctx, pts);
+    }
+    ctx.stroke();
+    return;
+  }
+  // Multi-point arrow (3+ bend points)
+  if (stroke.shape === "arrow" && stroke.points.length > 2) {
+    const pts = stroke.points;
+    const n = pts.length;
+    const last = pts[n - 1];
+    const prev = pts[n - 2];
+    // If the trailing point hasn't moved yet (duplicate from bend click), use the prior segment direction
+    const angleFrom = Math.hypot(last.x - prev.x, last.y - prev.y) < 1 && n >= 3 ? pts[n - 3] : prev;
+    const angle = Math.atan2(last.y - angleFrom.y, last.x - angleFrom.x);
+    const headLen = stroke.lineWidth * 4 + 6;
+    const headAngle = Math.PI / 6;
+    if (stroke.seed !== undefined && stroke.style !== "dashed" && !stroke.sharp) {
+      // Dynamic stroke: densify the bezier path and run through perfect-freehand.
+      // Trim the body to stop before the arrowhead tip so the V lines are clearly visible.
+      const sampled = densifySmoothedPath(pts);
+
+      // Walk backwards from the end and drop points until we've cleared headLen * 0.5
+      let cumulLen = 0;
+      let bodyEnd = sampled.length - 1;
+      for (let i = sampled.length - 1; i > 0; i--) {
+        cumulLen += Math.hypot(sampled[i].x - sampled[i - 1].x, sampled[i].y - sampled[i - 1].y);
+        if (cumulLen >= headLen * 0.5) { bodyEnd = i; break; }
+      }
+      const bodyPath = sampled.slice(0, bodyEnd + 1);
+
+      const ns = bodyPath.length;
+      const pfPts = bodyPath.map((p, i) => {
+        // straight → 0.7 (85% of lineWidth), sharp bend → 0.8 (90% of lineWidth).
+        let pressure = 0.7;
+        if (i > 0 && i < ns - 1) {
+          const sp = bodyPath[i - 1], sn = bodyPath[i + 1];
+          const ax = p.x - sp.x, ay = p.y - sp.y;
+          const bx = sn.x - p.x, by = sn.y - p.y;
+          const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
+          if (la > 1e-6 && lb > 1e-6) {
+            const cos = (ax * bx + ay * by) / (la * lb);
+            pressure = 0.7 + (1 - Math.max(-1, Math.min(1, cos))) * 0.05;
+          }
+        }
+        return [p.x, p.y, pressure] as [number, number, number];
+      });
+      const outline = getStroke(pfPts, {
+        size: stroke.lineWidth,
+        thinning: 0.5,
+        smoothing: 0.5,
+        streamline: 0,
+        simulatePressure: false,
+        last: true,
+        end: { cap: true },
+      });
+      if (outline.length >= 2) {
         ctx.beginPath();
-        ctx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
+        ctx.moveTo(outline[0][0], outline[0][1]);
+        for (let i = 1; i < outline.length - 1; i++) {
+          const mx = (outline[i][0] + outline[i + 1][0]) / 2;
+          const my = (outline[i][1] + outline[i + 1][1]) / 2;
+          ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
+        }
+        ctx.lineTo(outline[outline.length - 1][0], outline[outline.length - 1][1]);
+        ctx.closePath();
+        ctx.fillStyle = color;
         ctx.fill();
       }
-      continue;
-    }
-    // Multi-point line (3+ bend points, no arrowhead)
-    if (stroke.shape === "line" && stroke.points.length > 2) {
-      const pts = stroke.points;
+    } else {
       ctx.strokeStyle = color;
       ctx.lineWidth = stroke.lineWidth;
       ctx.lineCap = "round";
@@ -966,209 +1044,146 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
         smoothArrowPath(ctx, pts);
       }
       ctx.stroke();
-      continue;
-    }
-    // Multi-point arrow (3+ bend points)
-    if (stroke.shape === "arrow" && stroke.points.length > 2) {
-      const pts = stroke.points;
-      const n = pts.length;
-      const last = pts[n - 1];
-      const prev = pts[n - 2];
-      // If the trailing point hasn't moved yet (duplicate from bend click), use the prior segment direction
-      const angleFrom = Math.hypot(last.x - prev.x, last.y - prev.y) < 1 && n >= 3 ? pts[n - 3] : prev;
-      const angle = Math.atan2(last.y - angleFrom.y, last.x - angleFrom.x);
-      const headLen = stroke.lineWidth * 4 + 6;
-      const headAngle = Math.PI / 6;
-      if (stroke.seed !== undefined && stroke.style !== "dashed" && !stroke.sharp) {
-        // Dynamic stroke: densify the bezier path and run through perfect-freehand.
-        // Trim the body to stop before the arrowhead tip so the V lines are clearly visible.
-        const sampled = densifySmoothedPath(pts);
-
-        // Walk backwards from the end and drop points until we've cleared headLen * 0.5
-        let cumulLen = 0;
-        let bodyEnd = sampled.length - 1;
-        for (let i = sampled.length - 1; i > 0; i--) {
-          cumulLen += Math.hypot(sampled[i].x - sampled[i - 1].x, sampled[i].y - sampled[i - 1].y);
-          if (cumulLen >= headLen * 0.5) { bodyEnd = i; break; }
-        }
-        const bodyPath = sampled.slice(0, bodyEnd + 1);
-
-        const ns = bodyPath.length;
-        const pfPts = bodyPath.map((p, i) => {
-          // straight → 0.7 (85% of lineWidth), sharp bend → 0.8 (90% of lineWidth).
-          let pressure = 0.7;
-          if (i > 0 && i < ns - 1) {
-            const sp = bodyPath[i - 1], sn = bodyPath[i + 1];
-            const ax = p.x - sp.x, ay = p.y - sp.y;
-            const bx = sn.x - p.x, by = sn.y - p.y;
-            const la = Math.hypot(ax, ay), lb = Math.hypot(bx, by);
-            if (la > 1e-6 && lb > 1e-6) {
-              const cos = (ax * bx + ay * by) / (la * lb);
-              pressure = 0.7 + (1 - Math.max(-1, Math.min(1, cos))) * 0.05;
-            }
-          }
-          return [p.x, p.y, pressure] as [number, number, number];
-        });
-        const outline = getStroke(pfPts, {
-          size: stroke.lineWidth,
-          thinning: 0.5,
-          smoothing: 0.5,
-          streamline: 0,
-          simulatePressure: false,
-          last: true,
-          end: { cap: true },
-        });
-        if (outline.length >= 2) {
-          ctx.beginPath();
-          ctx.moveTo(outline[0][0], outline[0][1]);
-          for (let i = 1; i < outline.length - 1; i++) {
-            const mx = (outline[i][0] + outline[i + 1][0]) / 2;
-            const my = (outline[i][1] + outline[i + 1][1]) / 2;
-            ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
-          }
-          ctx.lineTo(outline[outline.length - 1][0], outline[outline.length - 1][1]);
-          ctx.closePath();
-          ctx.fillStyle = color;
-          ctx.fill();
-        }
-      } else {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = stroke.lineWidth;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        const dashScale = stroke.lineWidth / 4;
-        ctx.setLineDash(stroke.style === "dashed" ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale] : []);
-        ctx.beginPath();
-        if (stroke.sharp) {
-          ctx.moveTo(pts[0].x, pts[0].y);
-          for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
-        } else {
-          smoothArrowPath(ctx, pts);
-        }
-        ctx.stroke();
-        ctx.setLineDash([]);
-      }
-      // Arrowhead (same for both paths)
       ctx.setLineDash([]);
+    }
+    // Arrowhead (same for both paths)
+    ctx.setLineDash([]);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = stroke.lineWidth;
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(last.x - headLen * Math.cos(angle - headAngle), last.y - headLen * Math.sin(angle - headAngle));
+    ctx.moveTo(last.x, last.y);
+    ctx.lineTo(last.x - headLen * Math.cos(angle + headAngle), last.y - headLen * Math.sin(angle + headAngle));
+    ctx.stroke();
+    return;
+  }
+  if (stroke.shape && stroke.points.length === 2) {
+    if (Math.abs(stroke.points[1].x - stroke.points[0].x) < 0.5 &&
+        Math.abs(stroke.points[1].y - stroke.points[0].y) < 0.5) return;
+    if (stroke.seed !== undefined) {
+      // rough.js uses ctx.save()/restore() per path but only sets lineDash when strokeLineDash
+      // is provided (i.e. for dashed shapes). For solid shapes it inherits whatever lineDash is
+      // currently on the canvas — so reset it here to prevent contamination from previous strokes.
+      ctx.setLineDash([]);
+      renderRoughShape(
+        ctx,
+        stroke.points[0],
+        stroke.points[1],
+        stroke.shape,
+        stroke.lineWidth,
+        stroke.style,
+        stroke.dashGap,
+        stroke.seed,
+        color,
+        stroke.fill,
+        stroke.fillOpacity,
+        stroke.sharp,
+      );
+    } else {
       ctx.strokeStyle = color;
       ctx.lineWidth = stroke.lineWidth;
       ctx.lineCap = "round";
-      ctx.beginPath();
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(last.x - headLen * Math.cos(angle - headAngle), last.y - headLen * Math.sin(angle - headAngle));
-      ctx.moveTo(last.x, last.y);
-      ctx.lineTo(last.x - headLen * Math.cos(angle + headAngle), last.y - headLen * Math.sin(angle + headAngle));
-      ctx.stroke();
-      continue;
+      ctx.lineJoin = "round";
+      const dashScale = stroke.lineWidth / 4;
+      ctx.setLineDash(
+        stroke.style === "dashed"
+          ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
+          : [],
+      );
+      renderShape(
+        ctx,
+        stroke.points[0],
+        stroke.points[1],
+        stroke.shape,
+        stroke.lineWidth,
+        color,
+        stroke.fill,
+        undefined,
+        stroke.fillOpacity,
+        stroke.sharp,
+      );
     }
-    if (stroke.shape && stroke.points.length === 2) {
-      if (Math.abs(stroke.points[1].x - stroke.points[0].x) < 0.5 &&
-          Math.abs(stroke.points[1].y - stroke.points[0].y) < 0.5) continue;
-      if (stroke.seed !== undefined) {
-        // rough.js uses ctx.save()/restore() per path but only sets lineDash when strokeLineDash
-        // is provided (i.e. for dashed shapes). For solid shapes it inherits whatever lineDash is
-        // currently on the canvas — so reset it here to prevent contamination from previous strokes.
-        ctx.setLineDash([]);
-        renderRoughShape(
-          ctx,
-          stroke.points[0],
-          stroke.points[1],
-          stroke.shape,
-          stroke.lineWidth,
-          stroke.style,
-          stroke.dashGap,
-          stroke.seed,
-          color,
-          stroke.fill,
-          stroke.fillOpacity,
-          stroke.sharp,
-        );
-      } else {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = stroke.lineWidth;
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-        const dashScale = stroke.lineWidth / 4;
-        ctx.setLineDash(
-          stroke.style === "dashed"
-            ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
-            : [],
-        );
-        renderShape(
-          ctx,
-          stroke.points[0],
-          stroke.points[1],
-          stroke.shape,
-          stroke.lineWidth,
-          color,
-          stroke.fill,
-          undefined,
-          stroke.fillOpacity,
-          stroke.sharp,
-        );
-      }
-      continue;
+    return;
+  }
+  const baseWidth = stroke.highlight
+    ? stroke.lineWidth * 2.5
+    : stroke.lineWidth;
+  ctx.strokeStyle = color;
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const dashScale = stroke.lineWidth / 4;
+  ctx.setLineDash(
+    stroke.style === "dashed"
+      ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
+      : [],
+  );
+  const pts = smoothPoints(stroke.points);
+  if (stroke.widths && stroke.widths.length >= pts.length) {
+    const sw = smoothWidths(stroke.widths);
+    if (pts.length < 2) return;
+
+    const pfPts = pts.map((p, i) => [p.x, p.y, sw[i] / 2] as [number, number, number]);
+    const outline = getStroke(pfPts, {
+      size: baseWidth,
+      thinning: 1,
+      smoothing: 0.5,
+      streamline: 0.4,
+      simulatePressure: false,
+      last: true,
+    });
+
+    if (outline.length < 2) return;
+
+    ctx.beginPath();
+    ctx.setLineDash([]);
+    // Render outline with quadratic bezier curves (midpoint method) for smooth corners
+    const n = outline.length;
+    const startMx = (outline[n - 1][0] + outline[0][0]) / 2;
+    const startMy = (outline[n - 1][1] + outline[0][1]) / 2;
+    ctx.moveTo(startMx, startMy);
+    for (let i = 0; i < n; i++) {
+      const next = outline[(i + 1) % n];
+      const mx = (outline[i][0] + next[0]) / 2;
+      const my = (outline[i][1] + next[1]) / 2;
+      ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
     }
-    const baseWidth = stroke.highlight
-      ? stroke.lineWidth * 2.5
-      : stroke.lineWidth;
-    ctx.strokeStyle = color;
-    ctx.lineCap = "round";
-    ctx.lineJoin = "round";
-    const dashScale = stroke.lineWidth / 4;
-    ctx.setLineDash(
-      stroke.style === "dashed"
-        ? [10 * dashScale, (stroke.dashGap ?? 8) * 5 * dashScale]
-        : [],
-    );
-    const pts = smoothPoints(stroke.points);
-    if (stroke.widths && stroke.widths.length >= pts.length) {
-      const sw = smoothWidths(stroke.widths);
-      if (pts.length < 2) continue;
-
-      const pfPts = pts.map((p, i) => [p.x, p.y, sw[i] / 2] as [number, number, number]);
-      const outline = getStroke(pfPts, {
-        size: baseWidth,
-        thinning: 1,
-        smoothing: 0.5,
-        streamline: 0.4,
-        simulatePressure: false,
-        last: true,
-      });
-
-      if (outline.length < 2) continue;
-
-      ctx.beginPath();
-      ctx.setLineDash([]);
-      // Render outline with quadratic bezier curves (midpoint method) for smooth corners
-      const n = outline.length;
-      const startMx = (outline[n - 1][0] + outline[0][0]) / 2;
-      const startMy = (outline[n - 1][1] + outline[0][1]) / 2;
-      ctx.moveTo(startMx, startMy);
-      for (let i = 0; i < n; i++) {
-        const next = outline[(i + 1) % n];
-        const mx = (outline[i][0] + next[0]) / 2;
-        const my = (outline[i][1] + next[1]) / 2;
-        ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
-      }
-      ctx.closePath();
-      ctx.fillStyle = color;
-      ctx.fill();
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+  } else {
+    ctx.beginPath();
+    ctx.lineWidth = baseWidth;
+    ctx.moveTo(pts[0].x, pts[0].y);
+    if (pts.length === 2) {
+      ctx.lineTo(pts[1].x, pts[1].y);
     } else {
-      ctx.beginPath();
-      ctx.lineWidth = baseWidth;
-      ctx.moveTo(pts[0].x, pts[0].y);
-      if (pts.length === 2) {
-        ctx.lineTo(pts[1].x, pts[1].y);
-      } else {
-        for (let i = 1; i < pts.length - 1; i++) {
-          const mx = (pts[i].x + pts[i + 1].x) / 2;
-          const my = (pts[i].y + pts[i + 1].y) / 2;
-          ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
-        }
-        ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+      for (let i = 1; i < pts.length - 1; i++) {
+        const mx = (pts[i].x + pts[i + 1].x) / 2;
+        const my = (pts[i].y + pts[i + 1].y) / 2;
+        ctx.quadraticCurveTo(pts[i].x, pts[i].y, mx, my);
       }
-      ctx.stroke();
+      ctx.lineTo(pts[pts.length - 1].x, pts[pts.length - 1].y);
+    }
+    ctx.stroke();
+  }
+}
+
+export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
+  for (const stroke of strokes) {
+    if (stroke.points.length === 0) continue;
+    if (stroke.rotation) {
+      const bb = anyStrokeBBox(stroke);
+      const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(stroke.rotation);
+      ctx.translate(-cx, -cy);
+      renderOneStroke(ctx, stroke);
+      ctx.restore();
+    } else {
+      renderOneStroke(ctx, stroke);
     }
   }
 }
