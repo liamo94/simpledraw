@@ -342,7 +342,7 @@ function Canvas({
 
     if (isErasing) {
       // During erase mode, render all strokes directly (need per-stroke opacity)
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       renderStrokesToCtx(
         ctx,
         strokesRef.current.filter((s) => !pending.has(s)),
@@ -388,6 +388,7 @@ function Canvas({
 
     // --- Grid via tiled patterns (drawn after strokes so it overlays filled shapes) ---
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+    if (gridPatternCacheRef.current.size > 120) gridPatternCacheRef.current.clear();
     const themeKey = themeRef.current;
     const gridColor = getGridColor(themeRef.current);
     if (gridTypeRef.current === "dot") {
@@ -584,7 +585,7 @@ function Canvas({
     // Draw erase trail with fading tail
     const trail = eraseTrailRef.current;
     if (trail.length >= 2) {
-      const pts = smoothPoints(smoothPoints(trail));
+      const pts = smoothPoints(trail);
       const len = pts.length;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -603,7 +604,7 @@ function Canvas({
     // Draw laser pointer trail (screen-space thickness)
     const laser = laserTrailRef.current;
     if (laser.length >= 2) {
-      const pts = smoothPoints(smoothPoints(laser));
+      const pts = smoothPoints(laser);
       const len = pts.length;
       ctx.lineCap = "round";
       ctx.lineJoin = "round";
@@ -811,48 +812,47 @@ function Canvas({
 
   // --- Content off-screen detection ---
   const contentOffScreenRef = useRef(false);
+  const strokesBBoxRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
   const checkContentOffScreen = useCallback(() => {
     const cb = onContentOffScreenRef.current;
     if (!cb) return;
     const strokes = strokesRef.current;
     if (strokes.length === 0) {
-      if (contentOffScreenRef.current) {
-        contentOffScreenRef.current = false;
-        cb(false);
-      }
+      strokesBBoxRef.current = null;
+      if (contentOffScreenRef.current) { contentOffScreenRef.current = false; cb(false); }
       return;
     }
-    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-    for (const stroke of strokes) {
-      if (stroke.text) {
-        const anchor = stroke.points[0];
-        const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
-        const lines = stroke.text.split("\n");
-        const maxLineLen = Math.max(...lines.map((l) => l.length));
-        const textW = maxLineLen * basePx * 0.6;
-        const textH = lines.length * basePx * 1.2;
-        if (anchor.x < minX) minX = anchor.x;
-        if (anchor.y < minY) minY = anchor.y;
-        if (anchor.x + textW > maxX) maxX = anchor.x + textW;
-        if (anchor.y + textH > maxY) maxY = anchor.y + textH;
-        continue;
+    // Recompute world-space bbox only when invalidated (strokesCacheRef null clears it too)
+    if (!strokesBBoxRef.current) {
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const stroke of strokes) {
+        if (stroke.text) {
+          const anchor = stroke.points[0];
+          const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
+          const lines = stroke.text.split("\n");
+          const maxLineLen = Math.max(...lines.map((l) => l.length));
+          const textW = maxLineLen * basePx * 0.6;
+          const textH = lines.length * basePx * 1.2;
+          if (anchor.x < minX) minX = anchor.x;
+          if (anchor.y < minY) minY = anchor.y;
+          if (anchor.x + textW > maxX) maxX = anchor.x + textW;
+          if (anchor.y + textH > maxY) maxY = anchor.y + textH;
+          continue;
+        }
+        for (const p of stroke.points) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        }
       }
-      for (const p of stroke.points) {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      }
+      strokesBBoxRef.current = { minX, minY, maxX, maxY };
     }
+    const { minX, minY, maxX, maxY } = strokesBBoxRef.current;
     const { x, y, scale } = viewRef.current;
-    const screenMinX = minX * scale + x;
-    const screenMinY = minY * scale + y;
-    const screenMaxX = maxX * scale + x;
-    const screenMaxY = maxY * scale + y;
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
     const offScreen =
-      screenMaxX < 0 || screenMinX > vw || screenMaxY < 0 || screenMinY > vh;
+      maxX * scale + x < 0 || minX * scale + x > window.innerWidth ||
+      maxY * scale + y < 0 || minY * scale + y > window.innerHeight;
     if (offScreen !== contentOffScreenRef.current) {
       contentOffScreenRef.current = offScreen;
       cb(offScreen);
@@ -886,7 +886,7 @@ function Canvas({
     const ids = strokesRef.current.filter((s) => s.imageId).map((s) => s.imageId!);
     if (ids.length === 0) return;
     loadImages(ids).then(() => {
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       scheduleRedraw();
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
@@ -918,7 +918,7 @@ function Canvas({
     undoStackRef.current.push({ type: "fill-style-change", strokes: targets, from: targets.map(s => s.fill), to: shapeFill });
     redoStackRef.current = [];
     targets.forEach(s => { s.fill = shapeFill; });
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
     persistStrokes();
     scheduleRedraw();
   }, [shapeFill, persistStrokes, scheduleRedraw]);
@@ -935,7 +935,7 @@ function Canvas({
     undoStackRef.current.push({ type: "fill-opacity-change", strokes: targets, from: targets.map(s => s.fillOpacity), to: fillOpacity / 100 });
     redoStackRef.current = [];
     targets.forEach(s => { s.fillOpacity = fillOpacity / 100; });
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
     persistStrokes();
     scheduleRedraw();
   }, [fillOpacity, persistStrokes, scheduleRedraw]);
@@ -953,7 +953,7 @@ function Canvas({
     undoStackRef.current.push({ type: "corners-change", strokes: targets, from: targets.map(s => s.sharp), to: toSharp });
     redoStackRef.current = [];
     targets.forEach(s => { s.sharp = toSharp; });
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
     persistStrokes();
     scheduleRedraw();
   }, [shapeCorners, persistStrokes, scheduleRedraw]);
@@ -978,7 +978,7 @@ function Canvas({
       selectDragRef.current = null;
       groupDragRef.current = null;
       hoverTextRef.current = null;
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       setZCursor(null);
       scheduleRedraw();
     } else if (touchTool === "select") {
@@ -1050,7 +1050,7 @@ function Canvas({
     strokesRef.current = [];
     undoStackRef.current = [];
     redoStackRef.current = [];
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
     persistStrokes();
     scheduleRedraw();
     scheduleImageGC();
@@ -1110,7 +1110,7 @@ function Canvas({
       }
       prevThemeRef.current = theme;
     }
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
     scheduleRedraw();
   }, [gridType, theme, scheduleRedraw, persistStrokes]);
 
@@ -1144,7 +1144,7 @@ function Canvas({
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       gridPatternCacheRef.current.clear();
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       redraw(); // immediate — must paint now
     };
 
@@ -1153,7 +1153,7 @@ function Canvas({
 
     // Redraw after fonts load to ensure text renders correctly
     document.fonts.ready.then(() => {
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       scheduleRedraw();
     });
 
@@ -1238,13 +1238,13 @@ function Canvas({
     laserTrailRef.current = [];
     pendingEraseRef.current.clear();
     gridPatternCacheRef.current.clear();
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
 
     // Load any images referenced by the new canvas's strokes
     const imageIds = strokesRef.current.filter((s) => s.imageId).map((s) => s.imageId!);
     if (imageIds.length > 0) {
       loadImages(imageIds).then(() => {
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         scheduleRedraw();
       });
     }
@@ -1266,7 +1266,7 @@ function Canvas({
         viewRef.current.x = start.x + (target.x - start.x) * ease;
         viewRef.current.y = start.y + (target.y - start.y) * ease;
         viewRef.current.scale = start.scale + (target.scale - start.scale) * ease;
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; // view changed, re-blit strokes; bbox stays valid (strokes unchanged)
         scheduleRedraw();
         broadcastZoom();
         if (t < 1) {
@@ -1304,7 +1304,7 @@ function Canvas({
       view.x = cx - ratio * (cx - view.x);
       view.y = cy - ratio * (cy - view.y);
       view.scale = newScale;
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       scheduleRedraw();
       broadcastZoom();
       window.dispatchEvent(new CustomEvent("drawtool:user-zoom"));
@@ -1554,7 +1554,7 @@ function Canvas({
     if (!action || action.type !== "group-move") selectedGroupRef.current = [];
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
     setZCursor(zKeyRef.current ? "default" : null);
     persistStrokes();
     if (action) window.dispatchEvent(new Event("drawtool:did-undo"));
@@ -1636,7 +1636,7 @@ function Canvas({
     if (!action || action.type !== "group-move") selectedGroupRef.current = [];
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
-    strokesCacheRef.current = null;
+    strokesCacheRef.current = null; strokesBBoxRef.current = null;
     setZCursor(zKeyRef.current ? "default" : null);
     persistStrokes();
     scheduleRedraw();
@@ -1663,7 +1663,7 @@ function Canvas({
         undoStackRef.current.push({ type: "font-change", stroke: sel, from: sel.fontFamily, to: key });
         redoStackRef.current = [];
         sel.fontFamily = key;
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
         scheduleRedraw();
       }
@@ -1677,14 +1677,14 @@ function Canvas({
         undoStackRef.current.push({ type: "group-color-change", strokes: group, from: group.map(s => s.color), to: color });
         redoStackRef.current = [];
         group.forEach(s => { s.color = color; });
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
         scheduleRedraw();
       } else if (single) {
         undoStackRef.current.push({ type: "color-change", stroke: single, from: single.color, to: color });
         redoStackRef.current = [];
         single.color = color;
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
         scheduleRedraw();
       }
@@ -1708,7 +1708,7 @@ function Canvas({
           redoStackRef.current = [];
           editStroke.bold = newBold || undefined;
           writingBoldRef.current = newBold;
-          strokesCacheRef.current = null;
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
         } else {
           writingBoldRef.current = !writingBoldRef.current;
         }
@@ -1725,7 +1725,7 @@ function Canvas({
         const toAnchor = { ...sel.points[0] };
         undoStackRef.current.push({ type: "bold-change", stroke: sel, from: fromBold, to: newBold, fromAnchor, toAnchor });
         redoStackRef.current = [];
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
         scheduleRedraw();
         dispatchTextStyleSync(newBold, sel.italic ?? false, sel.textAlign ?? "left");
@@ -1743,7 +1743,7 @@ function Canvas({
           redoStackRef.current = [];
           editStroke.italic = newItalic || undefined;
           writingItalicRef.current = newItalic;
-          strokesCacheRef.current = null;
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
         } else {
           writingItalicRef.current = !writingItalicRef.current;
         }
@@ -1760,7 +1760,7 @@ function Canvas({
         const toAnchor = { ...sel.points[0] };
         undoStackRef.current.push({ type: "italic-change", stroke: sel, from: fromItalic, to: newItalic, fromAnchor, toAnchor });
         redoStackRef.current = [];
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
         scheduleRedraw();
         dispatchTextStyleSync(sel.bold ?? false, newItalic, sel.textAlign ?? "left");
@@ -1779,7 +1779,7 @@ function Canvas({
             undoStackRef.current.push({ type: "align-change", stroke: editStroke, from: oldAlign, to: newAlign });
             redoStackRef.current = [];
             editStroke.textAlign = newAlign !== "left" ? newAlign : undefined;
-            strokesCacheRef.current = null;
+            strokesCacheRef.current = null; strokesBBoxRef.current = null;
           }
         }
         writingAlignRef.current = newAlign;
@@ -1796,7 +1796,7 @@ function Canvas({
           const toAnchor = { ...sel.points[0] };
           undoStackRef.current.push({ type: "align-change", stroke: sel, from: oldAlign, to: newAlign, fromAnchor, toAnchor });
           redoStackRef.current = [];
-          strokesCacheRef.current = null;
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
           persistStrokes();
           scheduleRedraw();
         }
@@ -1815,7 +1815,7 @@ function Canvas({
       strokesRef.current = strokes;
       undoStackRef.current = strokes.map((stroke) => ({ type: "draw" as const, stroke }));
       redoStackRef.current = [];
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       selectedTextRef.current = null;
       selectedGroupRef.current = [];
       scheduleRedraw();
@@ -2091,7 +2091,7 @@ function Canvas({
       selectedTextRef.current = stroke;
       selectedGroupRef.current = [];
       setZCursor("default");
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       persistStrokes();
       scheduleRedraw();
     },
@@ -2255,7 +2255,7 @@ function Canvas({
               strokesRef.current.push(dot);
               undoStackRef.current.push({ type: "draw", stroke: dot });
               redoStackRef.current = [];
-              strokesCacheRef.current = null;
+              strokesCacheRef.current = null; strokesBBoxRef.current = null;
               persistStrokes();
               window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
                 detail: { shape: dot.shape, style: dot.style, color: dot.color, fill: dot.fill, text: dot.text, fontFamily: dot.fontFamily, sharp: dot.sharp, highlight: dot.highlight, spray: dot.spray, points: dot.points.length, dynamic: pressureSensitivityRef.current },
@@ -2270,7 +2270,7 @@ function Canvas({
             if (activeModifierRef.current === "alt") {
               setErasing(false);
               confirmErase();
-              strokesCacheRef.current = null;
+              strokesCacheRef.current = null; strokesBBoxRef.current = null;
               scheduleRedraw();
             }
             const _wasLaser = activeModifierRef.current === "laser";
@@ -2284,7 +2284,7 @@ function Canvas({
             discardTinyShape();
             isDrawingRef.current = false;
             activeModifierRef.current = null;
-            strokesCacheRef.current = null;
+            strokesCacheRef.current = null; strokesBBoxRef.current = null;
             persistStrokes();
             if (_wasLaser) {
               window.dispatchEvent(new Event("drawtool:laser-used"));
@@ -2317,7 +2317,7 @@ function Canvas({
           if (stroke?.shape === "line") {
             const lastPt = stroke.points[stroke.points.length - 1];
             stroke.points.push({ ...lastPt }); // trailing point for next segment
-            strokesCacheRef.current = null;
+            strokesCacheRef.current = null; strokesBBoxRef.current = null;
             scheduleRedraw();
             return;
           }
@@ -2329,7 +2329,7 @@ function Canvas({
           if (stroke?.shape === "arrow") {
             const lastPt = stroke.points[stroke.points.length - 1];
             stroke.points.push({ ...lastPt }); // trailing point for the next segment
-            strokesCacheRef.current = null;
+            strokesCacheRef.current = null; strokesBBoxRef.current = null;
             scheduleRedraw();
             return;
           }
@@ -2337,7 +2337,7 @@ function Canvas({
         if (activeModifierRef.current === "alt") {
           setErasing(false);
           confirmErase();
-          strokesCacheRef.current = null;
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
           scheduleRedraw();
         }
         if (activeModifierRef.current === "shape") shapeJustCommittedRef.current = true;
@@ -2377,7 +2377,7 @@ function Canvas({
         }
         isDrawingRef.current = false;
         activeModifierRef.current = null;
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
         if (_wasLaser) {
           setLasering(false);
@@ -2445,7 +2445,7 @@ function Canvas({
           view.y = cy - ratio * (cy - view.y);
           view.scale = newScale;
           pinchRef.current = { dist, cx, cy };
-          strokesCacheRef.current = null;
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
           broadcastZoom();
           window.dispatchEvent(new CustomEvent("drawtool:user-zoom"));
           scheduleRedraw();
@@ -2484,7 +2484,6 @@ function Canvas({
           window.dispatchEvent(new Event("drawtool:panned"));
         }
         panLastRef.current = { x: e.clientX, y: e.clientY };
-        strokesCacheRef.current = null;
         scheduleRedraw();
         return;
       }
@@ -2502,7 +2501,8 @@ function Canvas({
       }
 
       // Same-color glow: read the single pixel under the cursor (O(1), throttled to ~20fps)
-      if (e.pointerType !== "touch") {
+      // Skip during active drawing — cursor glow is invisible while drawing anyway
+      if (e.pointerType !== "touch" && !isDrawingRef.current) {
         const now = performance.now();
         if (now - lastSameColorCheckRef.current > 50) {
           lastSameColorCheckRef.current = now;
@@ -2624,7 +2624,7 @@ function Canvas({
           if (activeModifierRef.current === "alt") {
             setErasing(false);
             confirmErase();
-            strokesCacheRef.current = null;
+            strokesCacheRef.current = null; strokesBBoxRef.current = null;
             scheduleRedraw();
           }
           if (activeModifierRef.current === "laser") {
@@ -2657,7 +2657,7 @@ function Canvas({
           }
           isDrawingRef.current = false;
           activeModifierRef.current = null;
-          strokesCacheRef.current = null;
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
           persistStrokes();
           if (_commitCandidate && strokesRef.current[strokesRef.current.length - 1] === _commitCandidate) {
             window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
@@ -2677,7 +2677,7 @@ function Canvas({
         confirmErase();
         isDrawingRef.current = false;
         activeModifierRef.current = null;
-        strokesCacheRef.current = null;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
       }
 
@@ -3051,7 +3051,7 @@ function Canvas({
           window.dispatchEvent(new Event("drawtool:panned"));
         }
       }
-      strokesCacheRef.current = null;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
       scheduleRedraw();
       persistView();
     };
