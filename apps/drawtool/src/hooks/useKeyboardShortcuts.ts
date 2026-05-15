@@ -71,11 +71,12 @@ export type KeyboardRefs = {
   fKeyHeldRef: MutableRefObject<boolean>;
   shapeFillRef: MutableRefObject<FillStyle>;
   fillOpacityRef: MutableRefObject<number>;
-  lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke } | null>;
+  lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke; count: number } | null>;
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   cursorRef: MutableRefObject<string>;
   lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
+  textareaRef?: MutableRefObject<HTMLTextAreaElement | null>;
 };
 
 // ─── Callback bag type ────────────────────────────────────────────────────────
@@ -115,7 +116,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-    sprayKeyRef, lastCycleRef,
+    sprayKeyRef, lastCycleRef, textareaRef,
   } = refs;
 
   const {
@@ -143,6 +144,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         const hasSel = selectionAnchorRef.current !== null;
         const selStart = hasSel ? Math.min(selectionAnchorRef.current!, pos) : pos;
         const selEnd   = hasSel ? Math.max(selectionAnchorRef.current!, pos) : pos;
+        const syncToTextarea = () => {
+          const ta = textareaRef?.current;
+          if (!ta) return;
+          ta.value = writingTextRef.current;
+          const anch = selectionAnchorRef.current;
+          const caret = caretPosRef.current;
+          ta.setSelectionRange(anch !== null ? Math.min(anch, caret) : caret, caret);
+        };
         // Helper: replace selection (or nothing) with a string, clear selection
         const replaceSelection = (insert: string) => {
           textUndoRef.current.push(text);
@@ -151,6 +160,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           caretPosRef.current = selStart + insert.length;
           selectionAnchorRef.current = null;
           caretVisibleRef.current = true;
+          syncToTextarea();
           scheduleRedraw();
         };
         // Cmd+Z → text undo
@@ -161,6 +171,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             writingTextRef.current = textUndoRef.current.pop()!;
             caretPosRef.current = writingTextRef.current.length;
             selectionAnchorRef.current = null;
+            syncToTextarea();
             scheduleRedraw();
           }
           return;
@@ -173,6 +184,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             writingTextRef.current = textRedoRef.current.pop()!;
             caretPosRef.current = writingTextRef.current.length;
             selectionAnchorRef.current = null;
+            syncToTextarea();
             scheduleRedraw();
           }
           return;
@@ -234,6 +246,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           e.preventDefault();
           selectionAnchorRef.current = 0;
           caretPosRef.current = text.length;
+          syncToTextarea();
           scheduleRedraw();
           return;
         }
@@ -253,6 +266,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
               writingTextRef.current = text.slice(0, lineStart) + text.slice(pos);
               caretPosRef.current = lineStart;
             }
+            syncToTextarea();
             scheduleRedraw();
           }
           return;
@@ -270,6 +284,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
             writingTextRef.current = text.slice(0, i) + text.slice(pos);
             caretPosRef.current = i;
+            syncToTextarea();
             scheduleRedraw();
           }
           return;
@@ -284,6 +299,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             textRedoRef.current = [];
             writingTextRef.current = text.slice(0, pos - 1) + text.slice(pos);
             caretPosRef.current = pos - 1;
+            syncToTextarea();
             scheduleRedraw();
           }
           return;
@@ -297,11 +313,12 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             textUndoRef.current.push(text);
             textRedoRef.current = [];
             writingTextRef.current = text.slice(0, pos) + text.slice(pos + 1);
+            syncToTextarea();
             scheduleRedraw();
           }
           return;
         }
-        // Enter → replace selection or insert newline
+        // Enter → insert newline
         if (e.key === "Enter") {
           e.preventDefault();
           replaceSelection("\n");
@@ -330,6 +347,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             if (!e.shiftKey) selectionAnchorRef.current = null;
           }
           caretVisibleRef.current = true;
+          syncToTextarea();
           scheduleRedraw();
           return;
         }
@@ -357,6 +375,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             if (!e.shiftKey) selectionAnchorRef.current = null;
           }
           caretVisibleRef.current = true;
+          syncToTextarea();
           scheduleRedraw();
           return;
         }
@@ -382,28 +401,52 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             newPos += Math.min(curCol, lines[targetLine].length);
             caretPosRef.current = newPos;
             caretVisibleRef.current = true;
+            syncToTextarea();
             scheduleRedraw();
           }
           if (!e.shiftKey) selectionAnchorRef.current = null;
           return;
         }
-        // Ignore other modifier combos (Cmd+C, Cmd+V handled elsewhere)
+        // Cmd+C → copy selected text to clipboard
+        if (cmdKey(e) && e.key === "c") {
+          e.preventDefault();
+          if (selectionAnchorRef.current !== null) {
+            const copied = text.slice(
+              Math.min(selectionAnchorRef.current, pos),
+              Math.max(selectionAnchorRef.current, pos),
+            );
+            navigator.clipboard?.writeText(copied).catch(() => {});
+          }
+          return;
+        }
+        // Cmd+X → cut selected text
+        if (cmdKey(e) && e.key === "x" && selectionAnchorRef.current !== null) {
+          e.preventDefault();
+          const copied = text.slice(
+            Math.min(selectionAnchorRef.current, pos),
+            Math.max(selectionAnchorRef.current, pos),
+          );
+          navigator.clipboard?.writeText(copied).catch(() => {});
+          replaceSelection("");
+          return;
+        }
+        // Ignore other modifier combos (Cmd+V handled elsewhere)
         if (e.metaKey || e.ctrlKey || e.altKey) {
           return;
         }
-        // Tab → replace selection or insert spaces
+        // Tab → insert spaces (prevent focus change)
         if (e.key === "Tab") {
           e.preventDefault();
           replaceSelection("  ");
           return;
         }
-        // Printable character → replace selection or insert at caret
+        // Printable character — handled by keydown on desktop (preventDefault prevents double-insert
+        // if textarea also has focus); mobile soft keyboard sends input events instead
         if (e.key.length === 1) {
           e.preventDefault();
           replaceSelection(e.key);
           return;
         }
-        // Ignore other keys (Shift, Ctrl, etc.)
         return;
       }
       if (e.key === "?" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
@@ -1248,14 +1291,24 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
 
     const onPaste = (e: ClipboardEvent) => {
       if (isWritingRef.current) {
+        // Primary handler is on the textarea element (fires when textarea has focus + stops propagation).
+        // This window-level fallback handles the case where focus drifted away from the textarea.
         e.preventDefault();
         const pasted = e.clipboardData?.getData("text/plain");
         if (pasted) {
           const text = writingTextRef.current;
           const pos = caretPosRef.current;
-          writingTextRef.current = text.slice(0, pos) + pasted + text.slice(pos);
-          caretPosRef.current = pos + pasted.length;
+          const anch = selectionAnchorRef.current;
+          const selStart = anch !== null ? Math.min(anch, pos) : pos;
+          const selEnd = anch !== null ? Math.max(anch, pos) : pos;
+          textUndoRef.current.push(text);
+          textRedoRef.current = [];
+          writingTextRef.current = text.slice(0, selStart) + pasted + text.slice(selEnd);
+          caretPosRef.current = selStart + pasted.length;
+          selectionAnchorRef.current = null;
           caretVisibleRef.current = true;
+          const ta = textareaRef?.current;
+          if (ta) { ta.value = writingTextRef.current; const c = caretPosRef.current; ta.setSelectionRange(c, c); }
           scheduleRedraw();
         }
         return;

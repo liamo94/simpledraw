@@ -8,6 +8,31 @@ import {
 } from "../canvas/geometry";
 import type { TouchTool } from "../canvas/types";
 
+// ─── Text selection helpers ────────────────────────────────────────────────────
+
+function getWordBounds(text: string, pos: number): [number, number] {
+  const isWord = (ch: string) => /\w/.test(ch);
+  const atWord = (pos > 0 && isWord(text[pos - 1])) || (pos < text.length && isWord(text[pos]));
+  if (atWord) {
+    let start = pos, end = pos;
+    while (start > 0 && isWord(text[start - 1])) start--;
+    while (end < text.length && isWord(text[end])) end++;
+    return [start, end];
+  }
+  // Not in a word — select adjacent non-whitespace token
+  let start = pos, end = pos;
+  while (start > 0 && text[start - 1] !== " " && text[start - 1] !== "\n") start--;
+  while (end < text.length && text[end] !== " " && text[end] !== "\n") end++;
+  if (start === end) end = Math.min(text.length, pos + 1);
+  return [start, end];
+}
+
+function getLineBounds(text: string, pos: number): [number, number] {
+  const start = text.lastIndexOf("\n", pos > 0 ? pos - 1 : 0) + 1;
+  const endIdx = text.indexOf("\n", pos);
+  return [start, endIdx === -1 ? text.length : endIdx];
+}
+
 // ─── Hit-testing helpers ───────────────────────────────────────────────────────
 
 /** Returns the axis-aligned bounding box of a stroke after its rotation is applied. */
@@ -102,7 +127,8 @@ export type TextSelectionRefs = {
   zKeyRef: MutableRefObject<boolean>;
   shiftHeldRef: MutableRefObject<boolean>;
   touchToolRef: MutableRefObject<TouchTool>;
-  lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke } | null>;
+  lastTextTapRef: MutableRefObject<{ time: number; stroke: Stroke; count: number } | null>;
+  textareaRef?: MutableRefObject<HTMLTextAreaElement | null>;
   lineColorRef: MutableRefObject<string>;
   textSizeRef: MutableRefObject<import("./useSettings").TextSize>;
   fontFamilyRef: MutableRefObject<import("./useSettings").FontFamily>;
@@ -110,6 +136,7 @@ export type TextSelectionRefs = {
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
+  textSelectDragAnchorRef: MutableRefObject<number | null>;
 };
 
 // ─── Callback bag ─────────────────────────────────────────────────────────────
@@ -135,7 +162,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
     selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
     zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-    finishWritingRef, startWritingRef, lastCycleRef,
+    finishWritingRef, startWritingRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
   } = refs;
 
   const {
@@ -285,21 +312,40 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const pad = 8 / viewRef.current.scale;
           if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
               wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
-            // Double-click inside editing stroke → select all
             const now = performance.now();
             const last = lastTextTapRef.current;
-            if (last && last.stroke === editStroke && now - last.time < 300) {
-              lastTextTapRef.current = null;
-              caretPosRef.current = (editStroke.text ?? "").length;
-              selectionAnchorRef.current = 0;
-              caretVisibleRef.current = true;
-              scheduleRedraw();
-              return;
+            const isQuick = last !== null && last.stroke === editStroke && now - last.time < 400;
+            const count = isQuick ? Math.min(last.count + 1, 3) : 1;
+            const clickPos = computeCaretPosFromClick(editStroke, wp);
+            const text = editStroke.text ?? "";
+            lastTextTapRef.current = { time: now, stroke: editStroke, count };
+
+            if (count === 2) {
+              // Double-click → select word
+              const [wordStart, wordEnd] = getWordBounds(text, clickPos);
+              selectionAnchorRef.current = wordStart;
+              caretPosRef.current = wordEnd;
+              textSelectDragAnchorRef.current = null;
+            } else if (count === 3) {
+              // Triple-click → select line
+              const [lineStart, lineEnd] = getLineBounds(text, clickPos);
+              selectionAnchorRef.current = lineStart;
+              caretPosRef.current = lineEnd;
+              textSelectDragAnchorRef.current = null;
+            } else {
+              // Single click → place cursor and start drag-select
+              caretPosRef.current = clickPos;
+              selectionAnchorRef.current = null;
+              textSelectDragAnchorRef.current = clickPos;
+              (e.target as Element).setPointerCapture(e.pointerId);
             }
-            lastTextTapRef.current = { time: now, stroke: editStroke };
-            // Click inside editing stroke → reposition cursor
-            caretPosRef.current = computeCaretPosFromClick(editStroke, wp);
-            selectionAnchorRef.current = null;
+            // Sync selection to textarea so Cmd+C etc. work on the right range
+            const ta = textareaRef?.current;
+            if (ta) {
+              const anch = selectionAnchorRef.current;
+              const caret = caretPosRef.current;
+              ta.setSelectionRange(anch !== null ? Math.min(anch, caret) : caret, caret);
+            }
             caretVisibleRef.current = true;
             scheduleRedraw();
             return;
@@ -332,7 +378,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               startEditingStroke(stroke, undefined, true);
               return;
             }
-            lastTextTapRef.current = { time: now, stroke };
+            lastTextTapRef.current = { time: now, stroke, count: 1 };
             return; // block drawing on first tap — wait for potential double-click
           }
         }
@@ -558,7 +604,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 startEditingStroke(curStroke, undefined, true);
                 return;
               }
-              lastTextTapRef.current = { time: now, stroke: curStroke };
+              lastTextTapRef.current = { time: now, stroke: curStroke, count: 1 };
             }
             const isArrow = curStroke.shape === "arrow" || curStroke.shape === "line";
             let pendingBend: { segmentIdx: number } | undefined;
@@ -686,7 +732,26 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
   const handlePointerMoveGuarded = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (isWritingRef.current) return;
+      if (isWritingRef.current) {
+        if (textSelectDragAnchorRef.current !== null && editingStrokeRef.current) {
+          const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+          const newPos = computeCaretPosFromClick(editingStrokeRef.current, wp);
+          caretPosRef.current = newPos;
+          const anchor = textSelectDragAnchorRef.current;
+          selectionAnchorRef.current = newPos !== anchor ? anchor : null;
+          caretVisibleRef.current = true;
+          scheduleRedraw();
+        }
+        if (editingStrokeRef.current && e.pointerType !== "touch") {
+          const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+          const bb = textBBox(editingStrokeRef.current);
+          const pad = 8 / viewRef.current.scale;
+          const inside = wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
+                         wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad;
+          setZCursor(inside ? "text" : "default");
+        }
+        return;
+      }
 
       // Handle box selection drag
       if (boxSelectRef.current) {
@@ -972,7 +1037,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
   const handlePointerUpGuarded = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (isWritingRef.current) return;
+      if (isWritingRef.current) {
+        textSelectDragAnchorRef.current = null;
+        return;
+      }
 
       // Commit box selection
       if (boxSelectRef.current) {

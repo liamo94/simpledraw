@@ -87,6 +87,7 @@ function Canvas({
 }) {
   const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canvasIndexRef = useRef(canvasIndex);
   const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
   const strokesRef = useRef<Stroke[]>(loadedStrokes);
@@ -175,6 +176,7 @@ function Canvas({
   const caretTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const caretPosRef = useRef(0); // tracks selectionEnd for caret rendering
   const selectionAnchorRef = useRef<number | null>(null); // non-null = selection active
+  const textSelectDragAnchorRef = useRef<number | null>(null);
   const writingBoldRef = useRef(false);
   const writingItalicRef = useRef(false);
   const writingAlignRef = useRef<TextAlign>("left");
@@ -199,7 +201,7 @@ function Canvas({
   const hoverTextRef = useRef<Stroke | null>(null);
   const editingStrokeRef = useRef<Stroke | null>(null);
   const editingOldTextRef = useRef("");
-  const lastTextTapRef = useRef<{ time: number; stroke: Stroke } | null>(null);
+  const lastTextTapRef = useRef<{ time: number; stroke: Stroke; count: number } | null>(null);
   const selectDragRef = useRef<{
     mode: "move" | "corner";
     corner?: number;
@@ -1923,7 +1925,7 @@ function Canvas({
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
       shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
       lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-      sprayKeyRef,
+      sprayKeyRef, textareaRef,
     },
     {
       scheduleRedraw, persistStrokes, persistView, clearCanvas,
@@ -3118,6 +3120,87 @@ function Canvas({
 
   cursorRef.current = cursor;
 
+  // Hidden textarea: captures all text input including mobile soft keyboard, IME, and paste.
+  // The canvas continues to render all text visually — the textarea is purely an input sink.
+  useEffect(() => {
+    const ta = textareaRef.current;
+    if (!ta) return;
+
+    const onInput = () => {
+      if (!isWritingRef.current) return;
+      const newText = ta.value;
+      const prev = writingTextRef.current;
+      // Desktop keydown already handled this via replaceSelection + syncToTextarea
+      if (newText === prev) return;
+      textUndoRef.current.push(prev);
+      textRedoRef.current = [];
+      writingTextRef.current = newText;
+      caretPosRef.current = ta.selectionEnd ?? newText.length;
+      const ss = ta.selectionStart ?? caretPosRef.current;
+      const se = ta.selectionEnd ?? caretPosRef.current;
+      selectionAnchorRef.current = ss !== se ? ss : null;
+      caretVisibleRef.current = true;
+      scheduleRedraw();
+    };
+
+    const onSelChange = () => {
+      if (!isWritingRef.current || document.activeElement !== ta) return;
+      caretPosRef.current = ta.selectionEnd ?? 0;
+      const ss = ta.selectionStart ?? caretPosRef.current;
+      const se = ta.selectionEnd ?? caretPosRef.current;
+      selectionAnchorRef.current = ss !== se ? ss : null;
+      caretVisibleRef.current = true;
+      scheduleRedraw();
+    };
+
+    const onWriting = (ev: Event) => {
+      if (!(ev as CustomEvent).detail) {
+        ta.blur();
+        return;
+      }
+      ta.value = writingTextRef.current;
+      const anch = selectionAnchorRef.current;
+      const caret = caretPosRef.current;
+      ta.setSelectionRange(anch !== null ? Math.min(anch, caret) : caret, caret);
+      ta.focus();
+    };
+
+    const onPaste = (e: ClipboardEvent) => {
+      if (!isWritingRef.current) return;
+      e.preventDefault();
+      e.stopPropagation(); // prevent window paste handler from double-firing
+      const pasted = e.clipboardData?.getData("text/plain");
+      if (!pasted) return;
+      const text = writingTextRef.current;
+      const pos = caretPosRef.current;
+      const anch = selectionAnchorRef.current;
+      const selStart = anch !== null ? Math.min(anch, pos) : pos;
+      const selEnd = anch !== null ? Math.max(anch, pos) : pos;
+      textUndoRef.current.push(text);
+      textRedoRef.current = [];
+      writingTextRef.current = text.slice(0, selStart) + pasted + text.slice(selEnd);
+      caretPosRef.current = selStart + pasted.length;
+      selectionAnchorRef.current = null;
+      caretVisibleRef.current = true;
+      ta.value = writingTextRef.current;
+      const c = caretPosRef.current;
+      ta.setSelectionRange(c, c);
+      scheduleRedraw();
+    };
+
+    ta.addEventListener("input", onInput);
+    ta.addEventListener("paste", onPaste);
+    document.addEventListener("selectionchange", onSelChange);
+    window.addEventListener("drawtool:writing", onWriting);
+    return () => {
+      ta.removeEventListener("input", onInput);
+      ta.removeEventListener("paste", onPaste);
+      document.removeEventListener("selectionchange", onSelChange);
+      window.removeEventListener("drawtool:writing", onWriting);
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scheduleRedraw]);
+
   const {
     handlePointerDownForText,
     handlePointerMoveGuarded,
@@ -3131,7 +3214,7 @@ function Canvas({
       isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
       selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
       zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-      finishWritingRef, startWritingRef, lastCycleRef,
+      finishWritingRef, startWritingRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
     },
     {
       scheduleRedraw, persistStrokes, notifyColorUsed, setZCursor,
@@ -3140,26 +3223,51 @@ function Canvas({
   );
 
   return (
-    <canvas
-      ref={canvasRef}
-      role="img"
-      aria-label="Drawing canvas"
-      className="block touch-none select-none"
-      style={{ cursor }}
-      onPointerDown={(e) => {
-        if (e.pointerType === "touch" || e.pointerType === "pen") {
-          window.dispatchEvent(new Event("drawtool:close-menu"));
-        }
-        handlePointerDownForText(e);
-      }}
-      onPointerMove={handlePointerMoveGuarded}
-      onPointerUp={handlePointerUpGuarded}
-      onPointerCancel={onPointerCancel}
-      onPointerLeave={onPointerLeave}
-      onContextMenu={(e) => e.preventDefault()}
-      onDragOver={(e) => e.preventDefault()}
-      onDrop={handleImageDrop}
-    />
+    <>
+      {/* Invisible input sink — focused during text mode to trigger mobile keyboard and capture IME/paste */}
+      <textarea
+        ref={textareaRef}
+        tabIndex={-1}
+        autoComplete="off"
+        autoCorrect="off"
+        autoCapitalize="off"
+        spellCheck={false}
+        enterKeyHint="enter"
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          width: 1,
+          height: 1,
+          opacity: 0,
+          pointerEvents: "none",
+          resize: "none",
+          border: "none",
+          padding: 0,
+          overflow: "hidden",
+        }}
+      />
+      <canvas
+        ref={canvasRef}
+        role="img"
+        aria-label="Drawing canvas"
+        className="block touch-none select-none"
+        style={{ cursor }}
+        onPointerDown={(e) => {
+          if (e.pointerType === "touch" || e.pointerType === "pen") {
+            window.dispatchEvent(new Event("drawtool:close-menu"));
+          }
+          handlePointerDownForText(e);
+        }}
+        onPointerMove={handlePointerMoveGuarded}
+        onPointerUp={handlePointerUpGuarded}
+        onPointerCancel={onPointerCancel}
+        onPointerLeave={onPointerLeave}
+        onContextMenu={(e) => e.preventDefault()}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={handleImageDrop}
+      />
+    </>
   );
 }
 
