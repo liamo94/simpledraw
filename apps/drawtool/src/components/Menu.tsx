@@ -246,7 +246,7 @@ export default function Menu({
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
   const [logoAnimate, setLogoAnimate] = useState(false);
-  const hasWavedRef = useRef(false);
+  const hasWavedRef = useRef(!!sessionStorage.getItem("drawtool-logo-waved"));
   const [showInfo, setShowInfo] = useState(false);
   const [showKeysModal, setShowKeysModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
@@ -282,6 +282,7 @@ export default function Menu({
     const onToggle = () => {
       if (!hasWavedRef.current) {
         hasWavedRef.current = true;
+        sessionStorage.setItem("drawtool-logo-waved", "1");
         setLogoAnimate(true);
       }
       setOpen((o) => {
@@ -432,6 +433,7 @@ export default function Menu({
           onClick={(e) => {
             if (!open && !hasWavedRef.current) {
               hasWavedRef.current = true;
+              sessionStorage.setItem("drawtool-logo-waved", "1");
               setLogoAnimate(true);
             }
             setOpen((o) => {
