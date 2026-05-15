@@ -1150,14 +1150,36 @@ function Canvas({
       redraw(); // immediate — must paint now
     };
 
-    resize();
+    // Size canvas immediately so layout is correct, but defer the first draw
+    // until fonts are usable to avoid a flash of fallback fonts on a cold load.
+    // document.fonts.ready is insufficient — it resolves before unloaded fonts
+    // start downloading. document.fonts.load() actively triggers the download
+    // and resolves only when the font is truly ready to paint.
+    // Google Fonts CSS is render-blocking so @font-face rules are registered by
+    // this point; load() will find them. A 2s timeout guards against network issues.
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let firstDrawDone = false;
+    const firstDraw = () => {
+      if (firstDrawDone) return;
+      firstDrawDone = true;
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
+      redraw();
+    };
+    const fontTimeout = setTimeout(firstDraw, 2000);
+    Promise.all([
+      document.fonts.load("400 32px Caveat"),
+      document.fonts.load("700 32px Caveat"),
+      document.fonts.load("400 32px Bangers"),
+      document.fonts.load("400 32px Boogaloo"),
+    ]).then(firstDraw, firstDraw);
+
     window.addEventListener("resize", resize);
 
-    // Redraw after fonts load to ensure text renders correctly
-    document.fonts.ready.then(() => {
-      strokesCacheRef.current = null; strokesBBoxRef.current = null;
-      scheduleRedraw();
-    });
+    // Re-render if any font batch loads after the first draw (e.g. non-default fonts).
+    const onFontsLoaded = () => { strokesCacheRef.current = null; strokesBBoxRef.current = null; scheduleRedraw(); };
+    document.fonts.addEventListener("loadingdone", onFontsLoaded);
 
     // Track cursor position globally so W key always has accurate coords
     const onMouseMove = (e: MouseEvent) => {
@@ -1170,8 +1192,10 @@ function Canvas({
     window.addEventListener("mousemove", onMouseMove);
 
     return () => {
+      clearTimeout(fontTimeout);
       window.removeEventListener("resize", resize);
       window.removeEventListener("mousemove", onMouseMove);
+      document.fonts.removeEventListener("loadingdone", onFontsLoaded);
       if (caretTimerRef.current) {
         clearInterval(caretTimerRef.current);
         caretTimerRef.current = null;

@@ -465,7 +465,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           selectLockedRef.current = !selectLockedRef.current;
           lastVPressRef.current = 0;
           window.dispatchEvent(new CustomEvent("drawtool:toast", {
-            detail: selectLockedRef.current ? "Select mode locked" : "Select mode unlocked",
+            detail: { type: "toggle", label: "Select mode", on: selectLockedRef.current },
           }));
         } else {
           lastVPressRef.current = now;

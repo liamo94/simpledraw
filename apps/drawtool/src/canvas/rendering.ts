@@ -912,7 +912,11 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   // Text stroke rendering
   if (stroke.text) {
     const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
-    ctx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
+    const font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
+    // Skip rendering if the font hasn't loaded yet — the loadingdone listener in
+    // Canvas.tsx will trigger a redraw once it arrives, preventing a fallback-font flash.
+    if (!document.fonts.check(font)) return;
+    ctx.font = font;
     ctx.fillStyle = stroke.color;
     ctx.textBaseline = "top";
     ctx.textAlign = stroke.textAlign ?? "left";

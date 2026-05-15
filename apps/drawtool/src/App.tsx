@@ -561,6 +561,10 @@ export default function App() {
     };
     const onToast = (e: Event) => {
       const detail = (e as CustomEvent).detail;
+      if (typeof detail === "object" && detail.type === "toggle") {
+        showToast({ type: "toggle", label: detail.label, on: detail.on }, detail.duration);
+        return;
+      }
       const message =
         typeof detail === "object" ? detail.message : (detail as string);
       const duration = typeof detail === "object" ? detail.duration : undefined;
