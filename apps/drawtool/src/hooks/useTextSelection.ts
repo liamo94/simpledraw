@@ -57,6 +57,7 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
 
 /** Returns true if (wx, wy) hits the stroke. Arrow/line uses line-proximity; everything else uses bbox. */
 export function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
+  if (stroke.subStrokes) return stroke.subStrokes.some(s => hitTestStroke(s, wx, wy, scale));
   if (stroke.points.length === 0) return false;
   // Un-rotate the test point into the stroke's local frame before testing
   if (stroke.rotation) {
@@ -117,11 +118,13 @@ export type TextSelectionRefs = {
     bbox: BBox;
     cycleHits?: Stroke[];
     pendingBend?: { segmentIdx: number };
+    subStrokeStartPoints?: { x: number; y: number }[][];
   } | null>;
   hoverTextRef: MutableRefObject<Stroke | null>;
   groupDragRef: MutableRefObject<{
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
+    subStrokeStartPoints?: { x: number; y: number }[][][];
   } | null>;
   boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: Stroke; prevGroup?: Stroke[]; prevSingle?: Stroke | null } | null>;
   zKeyRef: MutableRefObject<boolean>;
@@ -448,6 +451,9 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           groupDragRef.current = {
             startPtr: { ...wp },
             startPoints: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+            subStrokeStartPoints: selectedGroupRef.current.some(s => s.subStrokes)
+              ? selectedGroupRef.current.map(s => s.subStrokes?.map(sub => sub.points.map(p => ({ ...p }))) ?? [])
+              : undefined,
           };
           (e.target as Element).setPointerCapture(e.pointerId);
           scheduleRedraw();
@@ -473,6 +479,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 startPoints: hitOnClear.points.map(p => ({ ...p })),
                 startScale: hitOnClear.fontScale ?? 1,
                 bbox: anyStrokeBBox(hitOnClear),
+                subStrokeStartPoints: hitOnClear.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
               };
               dispatchTextStyleSync(hitOnClear.bold ?? false, hitOnClear.italic ?? false, hitOnClear.textAlign ?? "left");
               setZCursor("default");
@@ -645,6 +652,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               bbox: bb,
               cycleHits: allHits.length > 1 ? allHits : undefined,
               pendingBend,
+              subStrokeStartPoints: curStroke.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
             };
             (e.target as Element).setPointerCapture(e.pointerId);
             return;
@@ -666,6 +674,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               startPoints: newSel.points.map(p => ({ ...p })),
               startScale: newSel.fontScale ?? 1,
               bbox: anyStrokeBBox(newSel),
+              subStrokeStartPoints: newSel.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
             };
             dispatchTextStyleSync(newSel.bold ?? false, newSel.italic ?? false, newSel.textAlign ?? "left");
             (e.target as Element).setPointerCapture(e.pointerId);
@@ -717,6 +726,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             startPoints: stroke.points.map(p => ({ ...p })),
             startScale: stroke.fontScale ?? 1,
             bbox: anyStrokeBBox(stroke),
+            subStrokeStartPoints: stroke.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
           };
           dispatchTextStyleSync(stroke.bold ?? false, stroke.italic ?? false, stroke.textAlign ?? "left");
           (e.target as Element).setPointerCapture(e.pointerId);
@@ -764,13 +774,21 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       // Handle group drag
       if (groupDragRef.current) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
-        const { startPtr, startPoints } = groupDragRef.current;
+        const { startPtr, startPoints, subStrokeStartPoints } = groupDragRef.current;
         const dx = wp.x - startPtr.x;
         const dy = wp.y - startPtr.y;
         for (let i = 0; i < selectedGroupRef.current.length; i++) {
           const stroke = selectedGroupRef.current[i];
           for (let j = 0; j < startPoints[i].length; j++) {
             stroke.points[j] = { x: startPoints[i][j].x + dx, y: startPoints[i][j].y + dy };
+          }
+          if (subStrokeStartPoints && stroke.subStrokes) {
+            const spts = subStrokeStartPoints[i];
+            for (let k = 0; k < stroke.subStrokes.length; k++) {
+              for (let j = 0; j < spts[k].length; j++) {
+                stroke.subStrokes[k].points[j] = { x: spts[k][j].x + dx, y: spts[k][j].y + dy };
+              }
+            }
           }
         }
         strokesCacheRef.current = null;
@@ -800,6 +818,14 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const dy = wp.y - drag.startPtr.y;
           for (let i = 0; i < drag.startPoints.length; i++) {
             stroke.points[i] = { x: drag.startPoints[i].x + dx, y: drag.startPoints[i].y + dy };
+          }
+          if (drag.subStrokeStartPoints && stroke.subStrokes) {
+            for (let k = 0; k < stroke.subStrokes.length; k++) {
+              const spts = drag.subStrokeStartPoints[k];
+              for (let j = 0; j < spts.length; j++) {
+                stroke.subStrokes[k].points[j] = { x: spts[j].x + dx, y: spts[j].y + dy };
+              }
+            }
           }
         } else {
           // Corner resize / arrow endpoint drag
@@ -1111,9 +1137,12 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
       // Commit group drag
       if (groupDragRef.current) {
-        const { startPoints } = groupDragRef.current;
+        const { startPoints, subStrokeStartPoints } = groupDragRef.current;
         const anyMoved = selectedGroupRef.current.some((stroke, i) =>
-          startPoints[i].some((p, j) => p.x !== stroke.points[j].x || p.y !== stroke.points[j].y)
+          startPoints[i].some((p, j) => p.x !== stroke.points[j].x || p.y !== stroke.points[j].y) ||
+          (stroke.subStrokes && subStrokeStartPoints?.[i]?.some((spts, k) =>
+            spts.some((p, j) => p.x !== stroke.subStrokes![k].points[j].x || p.y !== stroke.subStrokes![k].points[j].y)
+          ))
         );
         if (anyMoved) {
           undoStackRef.current.push({
@@ -1121,6 +1150,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             strokes: selectedGroupRef.current,
             from: startPoints,
             to: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+            subFrom: subStrokeStartPoints,
+            subTo: subStrokeStartPoints
+              ? selectedGroupRef.current.map(s => s.subStrokes?.map(sub => sub.points.map(p => ({ ...p }))) ?? [])
+              : undefined,
           });
           redoStackRef.current = [];
           persistStrokes();
@@ -1160,13 +1193,20 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           return;
         } else if (drag.mode === "move") {
           const anyMoved = drag.startPoints.some((p, i) =>
-            p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
+            p.x !== stroke.points[i].x || p.y !== stroke.points[i].y) ||
+            (drag.subStrokeStartPoints && stroke.subStrokes?.some((s, k) =>
+              drag.subStrokeStartPoints![k]?.some((p, j) => p.x !== s.points[j].x || p.y !== s.points[j].y)
+            ));
           if (anyMoved) {
             undoStackRef.current.push({
               type: "move",
               stroke,
               from: drag.startPoints.map(p => ({ ...p })),
               to: stroke.points.slice(0, drag.startPoints.length).map(p => ({ ...p })),
+              subFrom: drag.subStrokeStartPoints,
+              subTo: drag.subStrokeStartPoints
+                ? stroke.subStrokes?.map(s => s.points.map(p => ({ ...p })))
+                : undefined,
             });
             redoStackRef.current = [];
             persistStrokes();

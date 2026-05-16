@@ -204,6 +204,15 @@ export function selectBBox(stroke: Stroke): BBox | null {
 }
 
 export function anyStrokeBBox(stroke: Stroke): BBox {
+  if (stroke.subStrokes && stroke.subStrokes.length > 0) {
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const s of stroke.subStrokes) {
+      const bb = anyStrokeBBox(s);
+      if (bb.x < minX) minX = bb.x; if (bb.y < minY) minY = bb.y;
+      if (bb.x + bb.w > maxX) maxX = bb.x + bb.w; if (bb.y + bb.h > maxY) maxY = bb.y + bb.h;
+    }
+    return { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+  }
   const bb = selectBBox(stroke);
   if (bb) return bb;
   // Single-point dot: rendered as filled circle with radius lineWidth * 0.6

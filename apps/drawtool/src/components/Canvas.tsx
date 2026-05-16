@@ -203,7 +203,7 @@ function Canvas({
   const editingOldTextRef = useRef("");
   const lastTextTapRef = useRef<{ time: number; stroke: Stroke; count: number } | null>(null);
   const selectDragRef = useRef<{
-    mode: "move" | "corner";
+    mode: "move" | "corner" | "rotate";
     corner?: number;
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[];
@@ -211,6 +211,8 @@ function Canvas({
     bbox: BBox;
     cycleHits?: Stroke[];
     pendingBend?: { segmentIdx: number };
+    startRotation?: number;
+    subStrokeStartPoints?: { x: number; y: number }[][];
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: import("../canvas/types").Stroke; prevGroup?: import("../canvas/types").Stroke[]; prevSingle?: import("../canvas/types").Stroke | null } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
@@ -218,6 +220,7 @@ function Canvas({
   const groupDragRef = useRef<{
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
+    subStrokeStartPoints?: { x: number; y: number }[][][];
   } | null>(null);
 
   // Refs to late-defined callbacks (populated after they're created below)
@@ -638,7 +641,7 @@ function Canvas({
 
     // Draw text select hover/selection overlay (world space)
     const drawOverlayStroke = (stroke: Stroke, isSelected: boolean, noHandles = false) => {
-      if (stroke.points.length === 0) return;
+      if (!stroke.subStrokes && stroke.points.length === 0) return;
       const lw = 1.5 / scale;
 
       // Arrow/line: handles along the stroke, not a bounding box
@@ -1077,7 +1080,7 @@ function Canvas({
         };
         const swapStrokes = (strokes: Stroke[]) => { for (const s of strokes) swapOne(s); };
         const swapAction = (a: UndoAction) => {
-          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "reshape" ? [a.stroke] : [];
+          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "reshape" ? [a.stroke] : a.type === "combine" || a.type === "uncombine" ? a.originals : [];
           for (const s of list) swapOne(s);
           // Update stored from/to color values in color-related undo actions
           if (a.type === "color-change") {
@@ -1508,6 +1511,9 @@ function Canvas({
         strokesRef.current.push(...action.strokes);
       } else if (action.type === "move") {
         action.from.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
+        if (action.subFrom && action.stroke.subStrokes) {
+          action.stroke.subStrokes.forEach((s, k) => { s.points = action.subFrom![k].map(p => ({ ...p })); });
+        }
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.fromScale;
         if (action.fromW !== undefined) { action.stroke.imageW = action.fromW; action.stroke.imageH = action.fromH; }
@@ -1538,8 +1544,26 @@ function Canvas({
       } else if (action.type === "group-move") {
         for (let i = 0; i < action.strokes.length; i++) {
           action.strokes[i].points = action.from[i].map(p => ({ ...p }));
+          if (action.subFrom && action.strokes[i].subStrokes) {
+            action.strokes[i].subStrokes!.forEach((s, k) => { s.points = action.subFrom![i][k].map(p => ({ ...p })); });
+          }
         }
         selectedGroupRef.current = action.strokes;
+      } else if (action.type === "combine") {
+        const idx = strokesRef.current.indexOf(action.combined);
+        if (idx !== -1) strokesRef.current.splice(idx, 1, ...action.originals);
+        else strokesRef.current.splice(action.insertIndex, 0, ...action.originals);
+        selectedGroupRef.current = action.originals;
+        selectedTextRef.current = null;
+      } else if (action.type === "uncombine") {
+        const firstIdx = action.originals.reduce((min, s) => {
+          const i = strokesRef.current.indexOf(s);
+          return i !== -1 && i < min ? i : min;
+        }, Infinity);
+        strokesRef.current = strokesRef.current.filter(s => !action.originals.includes(s));
+        strokesRef.current.splice(firstIdx === Infinity ? strokesRef.current.length : firstIdx, 0, action.combined);
+        selectedTextRef.current = action.combined;
+        selectedGroupRef.current = [];
       } else if (action.type === "multi-draw") {
         for (const s of action.strokes) {
           const idx = strokesRef.current.lastIndexOf(s);
@@ -1599,6 +1623,9 @@ function Canvas({
         }
       } else if (action.type === "move") {
         action.to.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
+        if (action.subTo && action.stroke.subStrokes) {
+          action.stroke.subStrokes.forEach((s, k) => { s.points = action.subTo![k].map(p => ({ ...p })); });
+        }
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.toScale;
         if (action.toW !== undefined) { action.stroke.imageW = action.toW; action.stroke.imageH = action.toH; }
@@ -1629,8 +1656,26 @@ function Canvas({
       } else if (action.type === "group-move") {
         for (let i = 0; i < action.strokes.length; i++) {
           action.strokes[i].points = action.to[i].map(p => ({ ...p }));
+          if (action.subTo && action.strokes[i].subStrokes) {
+            action.strokes[i].subStrokes!.forEach((s, k) => { s.points = action.subTo![i][k].map(p => ({ ...p })); });
+          }
         }
         selectedGroupRef.current = action.strokes;
+      } else if (action.type === "combine") {
+        const firstIdx = action.originals.reduce((min, s) => {
+          const i = strokesRef.current.indexOf(s);
+          return i !== -1 && i < min ? i : min;
+        }, Infinity);
+        strokesRef.current = strokesRef.current.filter(s => !action.originals.includes(s));
+        strokesRef.current.splice(firstIdx === Infinity ? strokesRef.current.length : firstIdx, 0, action.combined);
+        selectedTextRef.current = action.combined;
+        selectedGroupRef.current = [];
+      } else if (action.type === "uncombine") {
+        const idx = strokesRef.current.indexOf(action.combined);
+        if (idx !== -1) strokesRef.current.splice(idx, 1, ...action.originals);
+        else strokesRef.current.splice(action.insertIndex, 0, ...action.originals);
+        selectedGroupRef.current = action.originals;
+        selectedTextRef.current = null;
       } else if (action.type === "multi-draw") {
         strokesRef.current.push(...action.strokes);
       } else if (action.type === "reorder") {

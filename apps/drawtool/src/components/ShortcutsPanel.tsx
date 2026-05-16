@@ -96,6 +96,8 @@ const ZoomSelIcon = () => <I><rect x="2" y="2" width="12" height="12" rx="1" str
 const FlipHIcon = () => <I><line x1="8" y1="3" x2="8" y2="13" /><path d="M5 6l-3 2 3 2" /><path d="M11 6l3 2-3 2" strokeOpacity="0.45" /></I>;
 const FlipVIcon = () => <I><line x1="3" y1="8" x2="13" y2="8" /><path d="M6 5l2-3 2 3" /><path d="M6 11l2 3 2-3" strokeOpacity="0.45" /></I>;
 const LockSelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" /><circle cx="8" cy="8" r="2.5" /></I>;
+const CombineIcon = () => <I><path d="M2 5.5L7 5.5" strokeOpacity="0.5"/><path d="M2 10.5L7 10.5" strokeOpacity="0.5"/><path d="M7 5.5Q10 5.5 10 8Q10 10.5 7 10.5"/><path d="M10 8L14 8"/></I>;
+const UncombineIcon = () => <I><path d="M2 8L6 8"/><path d="M6 8Q9 8 9 5.5L14 5.5" strokeOpacity="0.6"/><path d="M6 8Q9 8 9 10.5L14 10.5" strokeOpacity="0.6"/></I>;
 const SprayIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="1.5" cy="3.5" r="0.85" fill="currentColor" stroke="none" />
@@ -227,6 +229,8 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
         <Row label={<><LayerExtremeIcon />To front / To back</>} kbd={`${mod} + ] / [`} />
         <Row label={<><LayerIcon />Bring forward / Send back</>} kbd={`${mod} + ⌥ + ] / [`} />
         <Row label={<><DeleteIcon />Delete</>} kbd="Backspace" />
+        <Row label={<><CombineIcon />Combine selection</>} kbd={`${mod} + J`} />
+        <Row label={<><UncombineIcon />Uncombine</>} kbd={`${mod} + ⇧ + J`} />
         <Row label={<><RotateIcon />Rotate</>} kbd="Drag rotate handle" />
         <Row label={<><FlipHIcon />Flip horizontal</>} kbd={`${mod} + ⇧ + H`} />
         <Row label={<><FlipVIcon />Flip vertical</>} kbd={`${mod} + ⇧ + V`} />

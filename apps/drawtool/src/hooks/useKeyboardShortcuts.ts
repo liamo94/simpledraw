@@ -1034,6 +1034,64 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         scheduleRedraw();
         return;
       }
+      // Cmd+Shift+J — uncombine selected compound stroke back to originals
+      if (cmdKey(e) && e.key === "j" && e.shiftKey && !e.altKey && !isWritingRef.current) {
+        const stroke = selectedTextRef.current;
+        if (stroke?.subStrokes) {
+          e.preventDefault();
+          const originals = stroke.subStrokes;
+          const idx = strokesRef.current.indexOf(stroke);
+          const insertIndex = idx !== -1 ? idx : strokesRef.current.length;
+          if (idx !== -1) strokesRef.current.splice(idx, 1, ...originals);
+          else strokesRef.current.push(...originals);
+          undoStackRef.current.push({ type: "uncombine", combined: stroke, originals, insertIndex });
+          redoStackRef.current = [];
+          selectedGroupRef.current = originals;
+          selectedTextRef.current = null;
+          selectDragRef.current = null;
+          hoverTextRef.current = null;
+          groupDragRef.current = null;
+          lastCycleRef.current = null;
+          strokesCacheRef.current = null;
+          setZCursor("default");
+          persistStrokes();
+          scheduleRedraw();
+        }
+        return;
+      }
+      // Cmd+J — combine selected strokes into one compound stroke
+      if (cmdKey(e) && e.key === "j" && !e.shiftKey && !e.altKey && !isWritingRef.current) {
+        const toMerge = selectedGroupRef.current;
+        if (toMerge.length >= 2) {
+          e.preventDefault();
+          const insertIndex = toMerge.reduce((min, s) => {
+            const i = strokesRef.current.indexOf(s);
+            return i !== -1 && i < min ? i : min;
+          }, Infinity);
+          const combined: import("../canvas/types").Stroke = {
+            points: [],
+            style: "solid",
+            lineWidth: 0,
+            color: "transparent",
+            subStrokes: [...toMerge],
+          };
+          strokesRef.current = strokesRef.current.filter(s => !toMerge.includes(s));
+          strokesRef.current.splice(insertIndex === Infinity ? strokesRef.current.length : insertIndex, 0, combined);
+          undoStackRef.current.push({ type: "combine", combined, originals: toMerge, insertIndex: insertIndex === Infinity ? strokesRef.current.length - 1 : insertIndex });
+          redoStackRef.current = [];
+          selectedGroupRef.current = [];
+          selectedTextRef.current = combined;
+          selectDragRef.current = null;
+          hoverTextRef.current = null;
+          groupDragRef.current = null;
+          lastCycleRef.current = null;
+          strokesCacheRef.current = null;
+          setZCursor("default");
+          persistStrokes();
+          scheduleRedraw();
+        }
+        return;
+      }
       if (e.key === "Escape" && activeModifierRef.current === "alt") {
         e.preventDefault();
         setErasing(false);

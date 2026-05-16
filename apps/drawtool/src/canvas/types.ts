@@ -27,12 +27,13 @@ export type Stroke = {
   imageW?: number;
   imageH?: number;
   rotation?: number; // radians, clockwise
+  subStrokes?: Stroke[]; // compound stroke: renders each sub-stroke as one unit
 };
 
 export type UndoAction =
   | { type: "draw"; stroke: Stroke }
   | { type: "erase"; strokes: Stroke[] }
-  | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
+  | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[]; subFrom?: { x: number; y: number }[][]; subTo?: { x: number; y: number }[][] }
   | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[]; fromW?: number; toW?: number; fromH?: number; toH?: number }
   | { type: "edit"; stroke: Stroke; oldText: string; newText: string }
   | { type: "font-change"; stroke: Stroke; from: FontFamily | undefined; to: FontFamily }
@@ -44,12 +45,14 @@ export type UndoAction =
   | { type: "fill-style-change"; strokes: Stroke[]; from: (FillStyle | boolean | undefined)[]; to: FillStyle }
   | { type: "fill-opacity-change"; strokes: Stroke[]; from: (number | undefined)[]; to: number }
   | { type: "corners-change"; strokes: Stroke[]; from: (boolean | undefined)[]; to: boolean | undefined }
-  | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][] }
+  | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][]; subFrom?: { x: number; y: number }[][][]; subTo?: { x: number; y: number }[][][] }
   | { type: "multi-draw"; strokes: Stroke[] }
   | { type: "reorder"; before: Stroke[]; after: Stroke[] }
   | { type: "reshape"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
   | { type: "rotate"; stroke: Stroke; from: number; to: number }
-  | { type: "flip"; strokes: Stroke[]; fromPoints: { x: number; y: number }[][]; toPoints: { x: number; y: number }[][]; fromRotations: (number | undefined)[]; toRotations: (number | undefined)[] };
+  | { type: "flip"; strokes: Stroke[]; fromPoints: { x: number; y: number }[][]; toPoints: { x: number; y: number }[][]; fromRotations: (number | undefined)[]; toRotations: (number | undefined)[] }
+  | { type: "combine"; combined: Stroke; originals: Stroke[]; insertIndex: number }
+  | { type: "uncombine"; combined: Stroke; originals: Stroke[]; insertIndex: number };
 
 export type TouchTool =
   | "draw"
