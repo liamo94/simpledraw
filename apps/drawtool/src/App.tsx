@@ -222,7 +222,7 @@ export default function App() {
   const NUDGE_KEY = "drawtool-training-nudge-count";
   const [showTrainingNudge, setShowTrainingNudge] = useState(false);
   useEffect(() => {
-    if (showTraining) return;
+    if (showTraining || showOnboarding) return;
     const count = parseInt(localStorage.getItem(NUDGE_KEY) ?? "0", 10);
     if (count >= MAX_NUDGES) return;
     const delay = 10000 + Math.random() * 20000; // 10–30s
@@ -231,7 +231,7 @@ export default function App() {
       localStorage.setItem(NUDGE_KEY, String(count + 1));
     }, delay);
     return () => clearTimeout(t);
-  }, [showTraining]);
+  }, [showTraining, showOnboarding]);
 
   const dismissNudge = (permanent: boolean) => {
     setShowTrainingNudge(false);
@@ -2403,7 +2403,7 @@ export default function App() {
             <div
               className={`text-[10px] mt-4 ${isDark ? "text-white/30" : "text-black/30"}`}
             >
-              Open the menu (M) for all shortcuts
+              Press ? to see all shortcuts
             </div>
             <div
               className={`text-[10px] mt-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
