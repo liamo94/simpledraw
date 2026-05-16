@@ -85,10 +85,17 @@ export function getFontCss(key?: FontFamily): string {
   return FONT_FAMILIES.find(f => f.key === key)?.css ?? FONT_FAMILIES[0].css;
 }
 
+// Caveat and Boogaloo have a smaller x-height relative to their em square; scale up so visual size matches other fonts.
+const FONT_SIZE_SCALE: Partial<Record<FontFamily, number>> = {
+  caveat:  1.35,
+  cartoon: 1.15,
+};
+
 export function buildFont(basePx: number, bold?: boolean, italic?: boolean, fontFamily?: FontFamily): string {
   const style = italic ? "italic " : "";
   const weight = bold ? "700 " : "400 ";
-  return `${style}${weight}${basePx}px ${getFontCss(fontFamily)}`;
+  const scale = (fontFamily && FONT_SIZE_SCALE[fontFamily]) ?? 1;
+  return `${style}${weight}${Math.round(basePx * scale)}px ${getFontCss(fontFamily)}`;
 }
 
 export function dispatchTextStyleSync(bold: boolean, italic: boolean, align: TextAlign) {
