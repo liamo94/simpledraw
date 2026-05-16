@@ -47,15 +47,18 @@ export function distToSegment(
 
 export function smoothPoints(raw: { x: number; y: number }[]) {
   if (raw.length < 3) return raw;
-  const out = [raw[0]];
-  for (let i = 1; i < raw.length - 1; i++) {
-    out.push({
-      x: raw[i - 1].x * 0.25 + raw[i].x * 0.5 + raw[i + 1].x * 0.25,
-      y: raw[i - 1].y * 0.25 + raw[i].y * 0.5 + raw[i + 1].y * 0.25,
-    });
-  }
-  out.push(raw[raw.length - 1]);
-  return out;
+  const pass = (pts: { x: number; y: number }[]) => {
+    const out = [pts[0]];
+    for (let i = 1; i < pts.length - 1; i++) {
+      out.push({
+        x: pts[i - 1].x * 0.25 + pts[i].x * 0.5 + pts[i + 1].x * 0.25,
+        y: pts[i - 1].y * 0.25 + pts[i].y * 0.5 + pts[i + 1].y * 0.25,
+      });
+    }
+    out.push(pts[pts.length - 1]);
+    return out;
+  };
+  return pass(pass(raw));
 }
 
 export function smoothWidths(raw: number[]) {

@@ -89,6 +89,7 @@ function Canvas({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canvasIndexRef = useRef(canvasIndex);
+  const dprRef = useRef(window.devicePixelRatio || 1);
   const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
   const strokesRef = useRef<Stroke[]>(loadedStrokes);
   const undoStackRef = useRef<UndoAction[]>(
@@ -328,6 +329,7 @@ function Canvas({
     if (!ctx) return;
 
     const { x, y, scale } = viewRef.current;
+    const dpr = dprRef.current;
 
     const isDark = isDarkTheme(themeRef.current);
 
@@ -336,7 +338,7 @@ function Canvas({
     ctx.fillStyle = getBackgroundColor(themeRef.current);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    ctx.setTransform(scale, 0, 0, scale, x, y);
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * x, dpr * y);
 
     // --- Cached completed strokes (item 8) ---
     const pending = pendingEraseRef.current;
@@ -375,7 +377,7 @@ function Canvas({
         const sctx = offscreen.getContext("2d")!;
         sctx.setTransform(1, 0, 0, 1, 0, 0);
         sctx.clearRect(0, 0, offscreen.width, offscreen.height);
-        sctx.setTransform(scale, 0, 0, scale, x, y);
+        sctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * x, dpr * y);
         renderStrokesToCtx(sctx, completedStrokes);
         strokesCacheRef.current = { canvas: offscreen, key: cacheKey };
         sCache = strokesCacheRef.current;
@@ -383,7 +385,7 @@ function Canvas({
       // Blit cached strokes
       ctx.setTransform(1, 0, 0, 1, 0, 0);
       ctx.drawImage(sCache.canvas, 0, 0);
-      ctx.setTransform(scale, 0, 0, scale, x, y);
+      ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * x, dpr * y);
 
       // Render only the active stroke on top
       if (activeStroke) {
@@ -392,10 +394,13 @@ function Canvas({
     }
 
     // --- Grid via tiled patterns (drawn after strokes so it overlays filled shapes) ---
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    // Use DPR-scaled screen space so grid coords stay in CSS pixels
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (gridPatternCacheRef.current.size > 120) gridPatternCacheRef.current.clear();
     const themeKey = themeRef.current;
     const gridColor = getGridColor(themeRef.current);
+    const screenW = window.innerWidth;
+    const screenH = window.innerHeight;
     if (gridTypeRef.current === "dot") {
       const BASE = 12;
       const DOT_RADIUS = 0.75;
@@ -405,7 +410,7 @@ function Canvas({
       for (let spacing = BASE; spacing < 500000; spacing *= 5) {
         const screenGap = spacing * scale;
         if (screenGap < 4) continue;
-        if (screenGap > Math.max(canvas.width, canvas.height) * 2) break;
+        if (screenGap > Math.max(screenW, screenH) * 2) break;
         const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 20));
         if (opacity <= 0) continue;
 
@@ -437,11 +442,11 @@ function Canvas({
 
         ctx.globalAlpha = opacity * baseAlpha;
         ctx.fillStyle = pattern;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, screenW, screenH);
       }
       ctx.globalAlpha = 1;
     } else if (gridTypeRef.current === "square") {
-      const canvasMax = Math.max(canvas.width, canvas.height);
+      const canvasMax = Math.max(screenW, screenH);
 
       const drawSqLevel = (sg: number, dashed: boolean, alpha: number) => {
         if (alpha < 0.005) return;
@@ -468,7 +473,7 @@ function Canvas({
         pat.setTransform(new DOMMatrix().translate(ox - sg, oy - sg).scale(patternScale));
         ctx.globalAlpha = alpha;
         ctx.fillStyle = pat;
-        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillRect(0, 0, screenW, screenH);
       };
 
       const zoomAlpha =
@@ -506,7 +511,7 @@ function Canvas({
       }
       ctx.globalAlpha = 1;
     }
-    ctx.setTransform(scale, 0, 0, scale, x, y);
+    ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * x, dpr * y);
 
     // Render live writing text preview + blinking caret
     if (isWritingRef.current || writingTextRef.current) {
@@ -1146,8 +1151,12 @@ function Canvas({
     if (!canvas) return;
 
     const resize = () => {
-      canvas.width = window.innerWidth;
-      canvas.height = window.innerHeight;
+      const dpr = window.devicePixelRatio || 1;
+      dprRef.current = dpr;
+      canvas.width = Math.round(window.innerWidth * dpr);
+      canvas.height = Math.round(window.innerHeight * dpr);
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
       gridPatternCacheRef.current.clear();
       strokesCacheRef.current = null; strokesBBoxRef.current = null;
       redraw(); // immediate — must paint now
@@ -1160,8 +1169,14 @@ function Canvas({
     // and resolves only when the font is truly ready to paint.
     // Google Fonts CSS is render-blocking so @font-face rules are registered by
     // this point; load() will find them. A 2s timeout guards against network issues.
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    {
+      const dpr = window.devicePixelRatio || 1;
+      dprRef.current = dpr;
+      canvas.width = Math.round(window.innerWidth * dpr);
+      canvas.height = Math.round(window.innerHeight * dpr);
+      canvas.style.width = window.innerWidth + "px";
+      canvas.style.height = window.innerHeight + "px";
+    }
 
     let firstDrawDone = false;
     const firstDraw = () => {
