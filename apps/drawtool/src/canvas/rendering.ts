@@ -1194,7 +1194,6 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
 export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Stroke[]) {
   for (const stroke of strokes) {
     if (!stroke.subStrokes && stroke.points.length === 0) continue;
-    if (stroke.subStrokes) { renderOneStroke(ctx, stroke); continue; }
     if (stroke.rotation) {
       const bb = anyStrokeBBox(stroke);
       const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
