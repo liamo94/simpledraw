@@ -534,8 +534,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               return;
             }
           }
-          // Check handles first (only for shapes, text, and images, not freehand)
-          if (selShape || selectedTextRef.current.text || selectedTextRef.current.imageId) {
+          // Check handles for all stroke types (shapes, text, images, and freehand)
+          if (selShape || selectedTextRef.current.text || selectedTextRef.current.imageId || (!selShape && !selectedTextRef.current.text && !selectedTextRef.current.imageId)) {
             if (selShape === "arrow" || selShape === "line") {
               const pts = selectedTextRef.current.points;
               const n = pts.length;
@@ -592,6 +592,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                     startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
                     startScale: selectedTextRef.current.fontScale ?? 1,
                     bbox: bb,
+                    subStrokeStartPoints: selectedTextRef.current.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
                   };
                   (e.target as Element).setPointerCapture(e.pointerId);
                   return;
@@ -906,6 +907,36 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               const relY = bb.y - opp.y;
               stroke.points[0] = { x: opp.x + relX * actualRatio, y: opp.y + relY * actualRatio };
             }
+          } else if (!stroke.shape && !stroke.text && !stroke.imageId) {
+            // Freehand resize: scale all points from the fixed opposite corner
+            const origX = ci === 1 || ci === 2 ? bb.x + bb.w : bb.x;
+            const origY = ci === 2 || ci === 3 ? bb.y + bb.h : bb.y;
+            const denomX = origX - opp.x;
+            const denomY = origY - opp.y;
+            if (Math.abs(denomX) > 1e-6 && Math.abs(denomY) > 1e-6) {
+              const sx = (resizeWp.x - opp.x) / denomX;
+              const sy = (resizeWp.y - opp.y) / denomY;
+              const minSize = 5 / viewRef.current.scale;
+              if (Math.abs(resizeWp.x - opp.x) > minSize && Math.abs(resizeWp.y - opp.y) > minSize) {
+                for (let i = 0; i < drag.startPoints.length; i++) {
+                  stroke.points[i] = {
+                    x: opp.x + (drag.startPoints[i].x - opp.x) * sx,
+                    y: opp.y + (drag.startPoints[i].y - opp.y) * sy,
+                  };
+                }
+                if (drag.subStrokeStartPoints && stroke.subStrokes) {
+                  for (let k = 0; k < stroke.subStrokes.length; k++) {
+                    const spts = drag.subStrokeStartPoints[k];
+                    for (let j = 0; j < spts.length; j++) {
+                      stroke.subStrokes[k].points[j] = {
+                        x: opp.x + (spts[j].x - opp.x) * sx,
+                        y: opp.y + (spts[j].y - opp.y) * sy,
+                      };
+                    }
+                  }
+                }
+              }
+            }
           } else {
             // Shape resize: move both defining points to new bbox corners
             const p0IsLeft = drag.startPoints[0].x <= drag.startPoints[1].x;
@@ -958,7 +989,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               cur = "grab";
             }
           }
-          if (cur === "default" && (selStroke.shape || selStroke.text || selStroke.imageId)) {
+          if (cur === "default" && (selStroke.shape || selStroke.text || selStroke.imageId || (!selStroke.shape && !selStroke.text && !selStroke.imageId))) {
             const selShape = selStroke.shape;
             if ((selShape === "arrow" || selShape === "line") && selStroke.points.length >= 2) {
               const pts = selStroke.points;
@@ -1290,15 +1321,22 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           redoStackRef.current = [];
           persistStrokes();
         } else {
-          // Shape resize — only point positions changed, use "move" undo
+          // Shape/freehand resize — point positions changed, use "move" undo
           const anyChanged = drag.startPoints.some((p, i) =>
-            p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
+            p.x !== stroke.points[i].x || p.y !== stroke.points[i].y) ||
+            (drag.subStrokeStartPoints && stroke.subStrokes?.some((s, k) =>
+              drag.subStrokeStartPoints![k]?.some((p, j) => p.x !== s.points[j].x || p.y !== s.points[j].y)
+            ));
           if (anyChanged) {
             undoStackRef.current.push({
               type: "move",
               stroke,
               from: drag.startPoints.map(p => ({ ...p })),
               to: stroke.points.slice(0, drag.startPoints.length).map(p => ({ ...p })),
+              subFrom: drag.subStrokeStartPoints,
+              subTo: drag.subStrokeStartPoints
+                ? stroke.subStrokes?.map(s => s.points.map(p => ({ ...p })))
+                : undefined,
             });
             redoStackRef.current = [];
             persistStrokes();

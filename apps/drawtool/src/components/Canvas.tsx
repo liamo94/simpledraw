@@ -728,8 +728,8 @@ function Canvas({
         ctx.setLineDash([]);
         ctx.stroke();
 
-        // Square corner handles (only for shapes, text, and images, not freehand, not group members)
-        if (!noHandles && (stroke.shape || stroke.text || stroke.imageId)) {
+        // Square corner handles for all selected strokes (not group members)
+        if (!noHandles) {
           const hr = 4.5 / scale;
           const corners = [
             { x: rx,      y: ry },
