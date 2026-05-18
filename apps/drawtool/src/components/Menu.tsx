@@ -399,7 +399,7 @@ export default function Menu({
             onClick={() => setShowKeysModal(false)}
           />
           <div
-            className={`relative z-10 rounded-xl border w-[90vw] max-w-[1400px] p-6 ${
+            className={`relative z-10 rounded-xl border w-[90vw] max-w-[1400px] flex flex-col max-h-[90vh] ${
               settings.theme === "midnight"
                 ? "bg-[rgba(15,15,30,0.97)] border-white/15"
                 : isDark
@@ -407,7 +407,7 @@ export default function Menu({
                   : "bg-white/97 border-black/15"
             }`}
           >
-            <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
               <span className={`text-[10px] uppercase tracking-widest font-semibold ${isDark ? "text-white/30" : "text-black/30"}`}>
                 Keyboard shortcuts
               </span>
@@ -421,7 +421,9 @@ export default function Menu({
                 </svg>
               </button>
             </div>
-            <ShortcutsPanel isDark={isDark} modal />
+            <div className="overflow-y-auto px-6 pb-6">
+              <ShortcutsPanel isDark={isDark} modal />
+            </div>
           </div>
         </div>
       )}
@@ -1702,9 +1704,12 @@ export default function Menu({
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
               >
                 <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <rect x="1" y="4" width="12" height="8" rx="1.5" />
-                  <path d="M4 4V3a2 2 0 0 1 4 0v1" />
-                  <line x1="5" y1="8" x2="9" y2="8" />
+                  <circle cx="7" cy="7" r="5" />
+                  <circle cx="7" cy="7" r="1.8" />
+                  <line x1="8.3" y1="5.7" x2="10.5" y2="3.5" />
+                  <line x1="8.3" y1="8.3" x2="10.5" y2="10.5" />
+                  <line x1="5.7" y1="8.3" x2="3.5" y2="10.5" />
+                  <line x1="5.7" y1="5.7" x2="3.5" y2="3.5" />
                 </svg>
                 Bank
                 {bankCount > 0 && (

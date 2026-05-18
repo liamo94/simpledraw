@@ -2198,6 +2198,62 @@ function Canvas({
   const handleImageDrop = useCallback(
     async (e: React.DragEvent<HTMLCanvasElement>) => {
       e.preventDefault();
+
+      const bankItemJson = e.dataTransfer.getData("drawtool/bank-item");
+      if (bankItemJson) {
+        try {
+          const { strokes, savedDark } = JSON.parse(bankItemJson) as { strokes: Stroke[]; savedDark?: boolean };
+          if (!strokes?.length) return;
+          const canvas = canvasRef.current;
+          if (!canvas) return;
+          const rect = canvas.getBoundingClientRect();
+          const screenX = e.clientX - rect.left;
+          const screenY = e.clientY - rect.top;
+          const currentIsDark = isDarkTheme(themeRef.current);
+          const needsColorSwap = savedDark !== undefined && savedDark !== currentIsDark;
+          const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
+          const maybeSwap = (c: string) => needsColorSwap ? swapColor(c) : c;
+          let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+          for (const s of strokes) {
+            const bb = anyStrokeBBox(s);
+            minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+            maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+          }
+          const itemCx = (minX + maxX) / 2, itemCy = (minY + maxY) / 2;
+          const view = viewRef.current;
+          const dropWorld = screenToWorld(screenX, screenY, view);
+          const dx = dropWorld.x - itemCx, dy = dropWorld.y - itemCy;
+          const offset = (p: { x: number; y: number }) => ({ x: p.x + dx, y: p.y + dy });
+          const newStrokes: Stroke[] = strokes.map((src) => ({
+            ...src,
+            color: maybeSwap(src.color),
+            points: src.points.map(offset),
+            widths: src.widths ? [...src.widths] : undefined,
+            subStrokes: src.subStrokes?.map((ss) => ({ ...ss, color: maybeSwap(ss.color), points: ss.points.map(offset) })),
+          }));
+          strokesRef.current.push(...newStrokes);
+          undoStackRef.current.push(
+            newStrokes.length === 1
+              ? { type: "draw", stroke: newStrokes[0] }
+              : { type: "multi-draw", strokes: newStrokes },
+          );
+          redoStackRef.current = [];
+          if (newStrokes.length === 1) {
+            selectedTextRef.current = newStrokes[0];
+            selectedGroupRef.current = [];
+          } else {
+            selectedGroupRef.current = newStrokes;
+            selectedTextRef.current = null;
+          }
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
+          setZCursor("default");
+          persistStrokes();
+          scheduleRedraw();
+          window.dispatchEvent(new CustomEvent("drawtool:close-bank"));
+        } catch { /* ignore malformed data */ }
+        return;
+      }
+
       const file = Array.from(e.dataTransfer.files).find((f) =>
         f.type.startsWith("image/"),
       );

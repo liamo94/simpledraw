@@ -433,11 +433,14 @@ export default function App() {
       });
       showToast({ type: "text", message: "Saved to bank" });
     };
+    const onCloseBank = () => setShowBank(false);
     window.addEventListener("drawtool:toggle-bank", onToggleBank);
     window.addEventListener("drawtool:save-to-bank-result", onSaveToBankResult);
+    window.addEventListener("drawtool:close-bank", onCloseBank);
     return () => {
       window.removeEventListener("drawtool:toggle-bank", onToggleBank);
       window.removeEventListener("drawtool:save-to-bank-result", onSaveToBankResult);
+      window.removeEventListener("drawtool:close-bank", onCloseBank);
     };
   }, [showToast]);
 
@@ -2810,6 +2813,7 @@ export default function App() {
         <BankPanel
           items={bankItems}
           isDark={isDark}
+          theme={settings.theme}
           onClose={() => setShowBank(false)}
           onDrop={(item) => {
             window.dispatchEvent(

@@ -42,8 +42,8 @@ const LaserIcon = () => (
 );
 const UndoIcon = () => <I><path d="M12,11 C12,4 4,4 4,9" /><polyline points="2,8 4,10 6,8" /></I>;
 const RedoIcon = () => <I><path d="M4,11 C4,4 12,4 12,9" /><polyline points="14,8 12,10 10,8" /></I>;
-const ColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><circle cx="4" cy="8" r="2.5" opacity="0.4" /><circle cx="11" cy="8" r="2.5" /></svg>;
-const SwapColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><circle cx="5" cy="8" r="2.5" /><path d="M9.5 6.5 L12.5 8 L9.5 9.5" opacity="0.4" /><path d="M12.5 6.5 L9.5 8 L12.5 9.5" opacity="0.4" /></svg>;
+const ColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="none"><circle cx="4" cy="8" r="2.5" fill="#22c55e" opacity="0.7" /><circle cx="11" cy="8" r="2.5" fill="#3b82f6" /></svg>;
+const SwapColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="none"><circle cx="3.5" cy="8" r="2.5" fill="#22c55e" /><circle cx="12.5" cy="8" r="2.5" fill="#3b82f6" /><path d="M9.5 6.5 L6.5 8 L9.5 9.5" fill="currentColor" opacity="0.35" /><path d="M6.5 6.5 L9.5 8 L6.5 9.5" fill="currentColor" opacity="0.35" /></svg>;
 const CanvasIcon = () => <I strokeWidth="1.2"><rect x="2" y="2" width="12" height="12" rx="1.5" /><line x1="6" y1="5" x2="6" y2="11" /><line x1="10" y1="5" x2="10" y2="11" /><line x1="2" y1="8" x2="14" y2="8" /></I>;
 const RenameIcon = () => <I strokeWidth="1.2"><rect x="2" y="2" width="12" height="12" rx="1.5" /><text x="8" y="8.5" textAnchor="middle" dominantBaseline="middle" fill="currentColor" stroke="none" fontSize="6.5" fontWeight="600" fontFamily="system-ui,-apple-system,sans-serif">Aa</text></I>;
 const ThicknessIcon = () => <I><line x1="4" y1="8" x2="12" y2="8" /></I>;
@@ -97,7 +97,7 @@ const FlipHIcon = () => <I><line x1="8" y1="3" x2="8" y2="13" /><path d="M5 6l-3
 const FlipVIcon = () => <I><line x1="3" y1="8" x2="13" y2="8" /><path d="M6 5l2-3 2 3" /><path d="M6 11l2 3 2-3" strokeOpacity="0.45" /></I>;
 const LockSelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" /><circle cx="8" cy="8" r="2.5" /></I>;
 const CombineIcon = () => <I><path d="M2 5.5L7 5.5" strokeOpacity="0.5"/><path d="M2 10.5L7 10.5" strokeOpacity="0.5"/><path d="M7 5.5Q10 5.5 10 8Q10 10.5 7 10.5"/><path d="M10 8L14 8"/></I>;
-const BankIcon = () => <I><rect x="1" y="5" width="14" height="9" rx="1.5" /><path d="M5 5V4a3 3 0 0 1 6 0v1" /></I>;
+const BankIcon = () => <I><circle cx="8" cy="8" r="5.5" /><circle cx="8" cy="8" r="2" /><line x1="9.4" y1="6.6" x2="11.9" y2="4.1" /><line x1="9.4" y1="9.4" x2="11.9" y2="11.9" /><line x1="6.6" y1="9.4" x2="4.1" y2="11.9" /><line x1="6.6" y1="6.6" x2="4.1" y2="4.1" /></I>;
 const UncombineIcon = () => <I><path d="M2 8L6 8"/><path d="M6 8Q9 8 9 5.5L14 5.5" strokeOpacity="0.6"/><path d="M6 8Q9 8 9 10.5L14 10.5" strokeOpacity="0.6"/></I>;
 const SprayIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
