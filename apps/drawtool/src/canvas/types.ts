@@ -37,6 +37,7 @@ export type UndoAction =
   | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[]; fromW?: number; toW?: number; fromH?: number; toH?: number }
   | { type: "edit"; stroke: Stroke; oldText: string; newText: string }
   | { type: "font-change"; stroke: Stroke; from: FontFamily | undefined; to: FontFamily }
+  | { type: "size-change"; stroke: Stroke; from: TextSize | undefined; to: TextSize }
   | { type: "bold-change"; stroke: Stroke; from: boolean | undefined; to: boolean; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }
   | { type: "italic-change"; stroke: Stroke; from: boolean | undefined; to: boolean; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }
   | { type: "align-change"; stroke: Stroke; from: TextAlign; to: TextAlign; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }

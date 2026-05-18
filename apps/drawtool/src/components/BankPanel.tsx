@@ -83,6 +83,7 @@ export default function BankPanel({
   items,
   isDark,
   theme,
+  hasTouch,
   onClose,
   onDrop,
   onDelete,
@@ -93,6 +94,7 @@ export default function BankPanel({
   items: BankItem[];
   isDark: boolean;
   theme: Theme;
+  hasTouch: boolean;
   onClose: () => void;
   onDrop: (item: BankItem) => void;
   onDelete: (id: string) => void;
@@ -277,7 +279,7 @@ export default function BankPanel({
             color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.7)",
           }}
         />
-        {!search && (
+        {!search && !hasTouch && (
           <kbd
             className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none font-mono text-[10px] px-1 py-px rounded"
             style={{
@@ -301,9 +303,11 @@ export default function BankPanel({
             {items.length === 0 ? (
               <>
                 <div className="mb-1">No items saved yet</div>
-                <div style={{ color: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)" }}>
-                  ⌘⇧K to save selection
-                </div>
+                {!hasTouch && (
+                  <div style={{ color: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)" }}>
+                    ⌘⇧K to save selection
+                  </div>
+                )}
               </>
             ) : (
               "No matches"

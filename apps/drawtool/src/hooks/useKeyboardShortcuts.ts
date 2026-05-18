@@ -481,6 +481,15 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         const next = sizes[(idx + 1) % sizes.length];
         window.dispatchEvent(new CustomEvent("drawtool:text-size", { detail: next }));
         window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: `Text: ${labels[next]}` }));
+        const sel = selectedTextRef.current;
+        if (sel && sel.text) {
+          undoStackRef.current.push({ type: "size-change", stroke: sel, from: sel.fontSize, to: next });
+          redoStackRef.current = [];
+          sel.fontSize = next;
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+        }
         return;
       }
       if (e.key === "Y" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current && !keyShapeRef.current) {

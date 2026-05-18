@@ -871,7 +871,7 @@ function Canvas({
 
   // --- RAF-queue scheduleRedraw (item 1) ---
   const rafIdRef = useRef<number | null>(null);
-  const lastStateRef = useRef({ canUndo: false, canRedo: false, hasSelection: false });
+  const lastStateRef = useRef({ canUndo: false, canRedo: false, hasSelection: false, selectionCount: 0, selectionIsCombined: false, selectionIsText: false });
   const scheduleRedraw = useCallback(() => {
     if (rafIdRef.current !== null) return;
     rafIdRef.current = requestAnimationFrame(() => {
@@ -880,13 +880,21 @@ function Canvas({
       checkContentOffScreen();
       const canUndo = undoStackRef.current.length > 0;
       const canRedo = redoStackRef.current.length > 0;
-      const hasSelection = selectedTextRef.current !== null || selectedGroupRef.current.length > 0;
+      const single = selectedTextRef.current;
+      const group = selectedGroupRef.current;
+      const hasSelection = single !== null || group.length > 0;
+      const selectionCount = group.length > 0 ? group.length : single ? 1 : 0;
+      const selectionIsCombined = single !== null && Array.isArray(single.subStrokes) && single.subStrokes.length > 0;
+      const selectionIsText = single !== null && single.text !== undefined;
       const last = lastStateRef.current;
-      if (canUndo !== last.canUndo || canRedo !== last.canRedo || hasSelection !== last.hasSelection) {
+      if (canUndo !== last.canUndo || canRedo !== last.canRedo || hasSelection !== last.hasSelection || selectionCount !== last.selectionCount || selectionIsCombined !== last.selectionIsCombined || selectionIsText !== last.selectionIsText) {
         last.canUndo = canUndo;
         last.canRedo = canRedo;
         last.hasSelection = hasSelection;
-        window.dispatchEvent(new CustomEvent("drawtool:state", { detail: { canUndo, canRedo, hasSelection } }));
+        last.selectionCount = selectionCount;
+        last.selectionIsCombined = selectionIsCombined;
+        last.selectionIsText = selectionIsText;
+        window.dispatchEvent(new CustomEvent("drawtool:state", { detail: { canUndo, canRedo, hasSelection, selectionCount, selectionIsCombined, selectionIsText } }));
       }
     });
   }, [redraw, checkContentOffScreen]);
@@ -1085,7 +1093,7 @@ function Canvas({
         };
         const swapStrokes = (strokes: Stroke[]) => { for (const s of strokes) swapOne(s); };
         const swapAction = (a: UndoAction) => {
-          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "reshape" ? [a.stroke] : a.type === "combine" || a.type === "uncombine" ? a.originals : [];
+          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "size-change" || a.type === "reshape" ? [a.stroke] : a.type === "combine" || a.type === "uncombine" ? a.originals : [];
           for (const s of list) swapOne(s);
           // Update stored from/to color values in color-related undo actions
           if (a.type === "color-change") {
@@ -1537,6 +1545,8 @@ function Canvas({
         action.stroke.text = action.oldText;
       } else if (action.type === "font-change") {
         action.stroke.fontFamily = action.from;
+      } else if (action.type === "size-change") {
+        action.stroke.fontSize = action.from;
       } else if (action.type === "bold-change") {
         action.stroke.bold = action.from;
         if (action.fromAnchor) action.stroke.points[0] = { ...action.fromAnchor };
@@ -1649,6 +1659,8 @@ function Canvas({
         action.stroke.text = action.newText;
       } else if (action.type === "font-change") {
         action.stroke.fontFamily = action.to;
+      } else if (action.type === "size-change") {
+        action.stroke.fontSize = action.to;
       } else if (action.type === "bold-change") {
         action.stroke.bold = action.to || undefined;
         if (action.toAnchor) action.stroke.points[0] = { ...action.toAnchor };

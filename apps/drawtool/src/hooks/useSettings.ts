@@ -48,6 +48,7 @@ export type Settings = {
   pressureSensitivity: boolean;
   leftClickTool: ClickTool;
   rightClickTool: ClickTool;
+  showSelectControls: boolean;
 };
 
 const STORAGE_KEY = "drawtool-settings";
@@ -86,6 +87,7 @@ function getDefaults(): Settings {
     pressureSensitivity: false,
     leftClickTool: "draw" as ClickTool,
     rightClickTool: "dashed" as ClickTool,
+    showSelectControls: false,
   };
 }
 

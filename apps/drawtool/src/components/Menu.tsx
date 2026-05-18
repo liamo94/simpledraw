@@ -1647,6 +1647,17 @@ export default function Menu({
               )}
               <button
                 role="switch"
+                aria-checked={settings.showSelectControls}
+                onClick={() => updateSettings({ showSelectControls: !settings.showSelectControls })}
+                className="flex items-center justify-between w-full text-sm cursor-pointer group"
+              >
+                <span>Selection controls</span>
+                <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${settings.showSelectControls ? "bg-[#3b82f6]" : isDark ? "bg-white/15 group-hover:bg-white/25" : "bg-black/12 group-hover:bg-black/20"}`}>
+                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${settings.showSelectControls ? "translate-x-[16px] bg-white" : isDark ? "bg-white/70" : "bg-white"}`} />
+                </span>
+              </button>
+              <button
+                role="switch"
                 aria-checked={settings.confirmClear}
                 onClick={() =>
                   updateSettings({ confirmClear: !settings.confirmClear })

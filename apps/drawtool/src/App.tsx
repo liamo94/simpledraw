@@ -31,6 +31,7 @@ import {
 } from "./canvas/storage";
 import type { BankItem, Stroke } from "./canvas/types";
 import BankPanel from "./components/BankPanel";
+import SelectControls from "./components/SelectControls";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -155,6 +156,9 @@ export default function App() {
   const [canUndo, setCanUndo] = useState(false);
   const [canRedo, setCanRedo] = useState(false);
   const [hasSelection, setHasSelection] = useState(false);
+  const [selectionCount, setSelectionCount] = useState(0);
+  const [selectionIsCombined, setSelectionIsCombined] = useState(false);
+  const [selectionIsText, setSelectionIsText] = useState(false);
   const [, setMenuOpen] = useState(false);
   const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 768);
   useEffect(() => {
@@ -455,10 +459,13 @@ export default function App() {
 
   useEffect(() => {
     const onState = (e: Event) => {
-      const { canUndo, canRedo, hasSelection } = (e as CustomEvent).detail;
+      const { canUndo, canRedo, hasSelection, selectionCount, selectionIsCombined, selectionIsText } = (e as CustomEvent).detail;
       setCanUndo(canUndo);
       setCanRedo(canRedo);
       setHasSelection(hasSelection);
+      setSelectionCount(selectionCount ?? 0);
+      setSelectionIsCombined(selectionIsCombined ?? false);
+      setSelectionIsText(selectionIsText ?? false);
     };
     const onMenuState = (e: Event) => {
       const open = (e as CustomEvent).detail as boolean;
@@ -888,23 +895,6 @@ export default function App() {
           ),
         },
         {
-          id: "line",
-          label: "Line",
-          icon: (
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 20 20"
-              fill="none"
-              stroke={settings.lineColor}
-              strokeWidth="1.75"
-              strokeLinecap="round"
-            >
-              <line x1="4" y1="16" x2="16" y2="4" />
-            </svg>
-          ),
-        },
-        {
           id: "shape",
           label: "Shape",
           icon: (
@@ -1085,6 +1075,9 @@ export default function App() {
         rightClickTool={settings.rightClickTool}
         onContentOffScreen={setContentOffScreen}
       />
+      {settings.showSelectControls && hasSelection && (
+        <SelectControls isDark={isDark} selectionCount={selectionCount} selectionIsCombined={selectionIsCombined} selectionIsText={selectionIsText} />
+      )}
       {hasTouch ? (
         <>
           {(showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker) && (
@@ -1171,6 +1164,21 @@ export default function App() {
                   <path d="M11.5 9v6" />
                 </svg>
               </button>
+              <button
+                aria-label="Save to bank"
+                disabled={!hasSelection}
+                onClick={() => window.dispatchEvent(new Event("drawtool:save-to-bank"))}
+                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="10" cy="10" r="6.5" />
+                  <circle cx="10" cy="10" r="2.3" />
+                  <line x1="11.6" y1="8.4" x2="14.1" y2="5.9" />
+                  <line x1="11.6" y1="11.6" x2="14.1" y2="14.1" />
+                  <line x1="8.4" y1="11.6" x2="5.9" y2="14.1" />
+                  <line x1="8.4" y1="8.4" x2="5.9" y2="5.9" />
+                </svg>
+              </button>
             </div>
           )}
           <nav
@@ -1252,6 +1260,21 @@ export default function App() {
                     <path d="M5 5.5l1 13h8l1-13" />
                     <path d="M8.5 9v6" />
                     <path d="M11.5 9v6" />
+                  </svg>
+                </button>
+                <button
+                  aria-label="Save to bank"
+                  disabled={!hasSelection}
+                  onClick={() => window.dispatchEvent(new Event("drawtool:save-to-bank"))}
+                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                >
+                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="10" cy="10" r="6.5" />
+                    <circle cx="10" cy="10" r="2.3" />
+                    <line x1="11.6" y1="8.4" x2="14.1" y2="5.9" />
+                    <line x1="11.6" y1="11.6" x2="14.1" y2="14.1" />
+                    <line x1="8.4" y1="11.6" x2="5.9" y2="14.1" />
+                    <line x1="8.4" y1="8.4" x2="5.9" y2="5.9" />
                   </svg>
                 </button>
               </div>
@@ -2814,6 +2837,7 @@ export default function App() {
           items={bankItems}
           isDark={isDark}
           theme={settings.theme}
+          hasTouch={hasTouch}
           onClose={() => setShowBank(false)}
           onDrop={(item) => {
             window.dispatchEvent(
