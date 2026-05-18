@@ -133,13 +133,22 @@ export function textBBox(stroke: Stroke): { x: number; y: number; w: number; h: 
     mCtx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
     mCtx.textBaseline = "top";
     w = Math.max(...lines.map((l) => mCtx.measureText(l || " ").width)) * 1.05;
-    // Measure actual glyph extents (caps + descenders) relative to the "top" baseline
-    const m = mCtx.measureText("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz");
-    if (m.actualBoundingBoxAscent !== undefined) {
-      // With textBaseline="top": negative ascent means glyph top is below the em-top
-      // yOff shifts the box down to where glyphs actually start
-      yOff = -m.actualBoundingBoxAscent;
-      lineH = Math.max(basePx * 0.4, m.actualBoundingBoxAscent + m.actualBoundingBoxDescent);
+    // Measure descent from actual content so the box fits the text without over-estimating
+    // for fonts like Caveat (whose full-alphabet descent is inflated by descenders not present).
+    // yOff stays 0 — box starts at anchor.y (em-top). Glyphs always start below em-top so
+    // the selection box's built-in pad covers the small gap. We don't use actualBoundingBoxAscent
+    // because swash characters (e.g. Caveat 's') can extend above em-top, which would push the
+    // box top far above the letter bodies and make the text appear at the bottom of the box.
+    let maxDescent = 0, hasMetrics = false;
+    for (const line of lines) {
+      const m = mCtx.measureText(line || " ");
+      if (m.actualBoundingBoxDescent !== undefined) {
+        hasMetrics = true;
+        if (m.actualBoundingBoxDescent > maxDescent) maxDescent = m.actualBoundingBoxDescent;
+      }
+    }
+    if (hasMetrics) {
+      lineH = Math.max(basePx * 0.4, maxDescent);
     }
   } else {
     w = Math.max(...lines.map((l) => l.length)) * basePx * 0.6;

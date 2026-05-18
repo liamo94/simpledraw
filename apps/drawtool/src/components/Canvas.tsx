@@ -1143,8 +1143,9 @@ function Canvas({
       return;
     }
     const rect = canvas.getBoundingClientRect();
-    const cx = Math.round(screen.x - rect.left);
-    const cy = Math.round(screen.y - rect.top);
+    const dpr = dprRef.current;
+    const cx = Math.round((screen.x - rect.left) * dpr);
+    const cy = Math.round((screen.y - rect.top) * dpr);
     const px = ctx.getImageData(cx, cy, 1, 1).data;
     const ar = parseInt(lineColor.slice(1, 3), 16);
     const ag = parseInt(lineColor.slice(3, 5), 16);
@@ -1545,6 +1546,7 @@ function Canvas({
         action.stroke.text = action.oldText;
       } else if (action.type === "font-change") {
         action.stroke.fontFamily = action.from;
+        if (action.fromAnchor) action.stroke.points[0] = { ...action.fromAnchor };
       } else if (action.type === "size-change") {
         action.stroke.fontSize = action.from;
       } else if (action.type === "bold-change") {
@@ -1659,6 +1661,7 @@ function Canvas({
         action.stroke.text = action.newText;
       } else if (action.type === "font-change") {
         action.stroke.fontFamily = action.to;
+        if (action.toAnchor) action.stroke.points[0] = { ...action.toAnchor };
       } else if (action.type === "size-change") {
         action.stroke.fontSize = action.to;
       } else if (action.type === "bold-change") {
@@ -1758,9 +1761,15 @@ function Canvas({
       const key = (e as CustomEvent).detail as FontFamily;
       const sel = selectedTextRef.current;
       if (sel && sel.text && !isWritingRef.current) {
-        undoStackRef.current.push({ type: "font-change", stroke: sel, from: sel.fontFamily, to: key });
-        redoStackRef.current = [];
+        const fromAnchor = { ...sel.points[0] };
+        const oldBbox = textBBox(sel);
+        const fromFont = sel.fontFamily;
         sel.fontFamily = key;
+        const newBbox = textBBox(sel);
+        sel.points[0] = { x: fromAnchor.x + (oldBbox.x - newBbox.x), y: fromAnchor.y + (oldBbox.y - newBbox.y) };
+        const toAnchor = { ...sel.points[0] };
+        undoStackRef.current.push({ type: "font-change", stroke: sel, from: fromFont, to: key, fromAnchor, toAnchor });
+        redoStackRef.current = [];
         strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
         scheduleRedraw();
@@ -2724,8 +2733,9 @@ function Canvas({
           const ctx = canvas?.getContext("2d");
           if (ctx && canvas) {
             const rect = canvas.getBoundingClientRect();
-            const cx = Math.round(e.clientX - rect.left);
-            const cy = Math.round(e.clientY - rect.top);
+            const dpr = dprRef.current;
+            const cx = Math.round((e.clientX - rect.left) * dpr);
+            const cy = Math.round((e.clientY - rect.top) * dpr);
             const px = ctx.getImageData(cx, cy, 1, 1).data;
             const col = lineColorRef.current;
             const ar = parseInt(col.slice(1, 3), 16);
@@ -3287,14 +3297,17 @@ function Canvas({
     const b = parseInt(lineColor.slice(5, 7), 16) / 255;
     return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.4 ? "black" : "white";
   })();
-  const _of = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeDropShadow dx='0' dy='0' stdDeviation='1.5' flood-color='${_haloCol}' flood-opacity='1'/%3E%3C/filter%3E%3C/defs%3E` : "";
+  // feMorphology dilate creates a solid, fully-opaque outline ring — unlike feDropShadow's
+  // Gaussian fade, the border is uniform opacity so white-on-dark combos (red, blue, purple)
+  // are as visible as black-on-light ones.
+  const _of = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeMorphology operator='dilate' radius='1.5' result='d'/%3E%3CfeFlood flood-color='${_haloCol}' result='f'/%3E%3CfeComposite in='f' in2='d' operator='in' result='c'/%3E%3CfeComposite in='SourceGraphic' in2='c' operator='over'/%3E%3C/filter%3E%3C/defs%3E` : "";
   const _wo = _needsHalo ? "%3Cg filter='url(%23o)'%3E" : "";
   const _wc = _needsHalo ? "%3C/g%3E" : "";
-  // Stronger blur for semi-transparent/sparse cursors: feDropShadow alpha is clipped to
-  // source alpha, so a 0.4-opacity stroke needs a larger stdDeviation to read as a visible glow.
-  // filterUnits='userSpaceOnUse' with fixed px coords avoids the default objectBoundingBox mode,
-  // which would make the region too small for a short/thin bounding box like the highlight bar.
-  const _sof = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' filterUnits='userSpaceOnUse' x='-4' y='-4' width='32' height='32'%3E%3CfeDropShadow dx='0' dy='0' stdDeviation='3' flood-color='${_haloCol}' flood-opacity='1'/%3E%3C/filter%3E%3C/defs%3E` : "";
+  // Larger radius for semi-transparent cursors (highlight/spray): dilation finds max alpha,
+  // so wider expansion compensates for the 0.4-opacity source producing a fainter outline.
+  // filterUnits='userSpaceOnUse' with fixed px coords avoids objectBoundingBox making the
+  // region too small for a short/thin bounding box like the highlight bar.
+  const _sof = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' filterUnits='userSpaceOnUse' x='-6' y='-6' width='36' height='36'%3E%3CfeMorphology operator='dilate' radius='3' result='d'/%3E%3CfeFlood flood-color='${_haloCol}' result='f'/%3E%3CfeComposite in='f' in2='d' operator='in' result='c'/%3E%3CfeComposite in='SourceGraphic' in2='c' operator='over'/%3E%3C/filter%3E%3C/defs%3E` : "";
   const _sow = _needsHalo ? "%3Cg filter='url(%23o)'%3E" : "";
   const _soc = _needsHalo ? "%3C/g%3E" : "";
   const crosshairCursor = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E${_of}${_wo}%3Cline x1='12' y1='4' x2='12' y2='20' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E%3Cline x1='4' y1='12' x2='20' y2='12' stroke='${encodedColor}' stroke-width='1.5' stroke-linecap='round'/%3E${_wc}%3C/svg%3E") 12 12, crosshair`;

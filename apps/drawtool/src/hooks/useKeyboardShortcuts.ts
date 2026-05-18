@@ -498,15 +498,6 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         const next = FONT_FAMILIES[(idx + 1) % FONT_FAMILIES.length];
         window.dispatchEvent(new CustomEvent("drawtool:font-family", { detail: next.key }));
         window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: `Font: ${next.label}` }));
-        const sel = selectedTextRef.current;
-        if (sel && sel.text) {
-          undoStackRef.current.push({ type: "font-change", stroke: sel, from: sel.fontFamily, to: next.key });
-          redoStackRef.current = [];
-          sel.fontFamily = next.key;
-          strokesCacheRef.current = null;
-          persistStrokes();
-          scheduleRedraw();
-        }
         return;
       }
       // Cmd+B → bold, Cmd+I → italic for selected text stroke (outside writing mode)
