@@ -1,4 +1,4 @@
-import type { Stroke } from "./types";
+import type { Stroke, BankItem } from "./types";
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
@@ -86,6 +86,30 @@ export function validateStrokesFile(data: unknown): Stroke[] {
   }
 
   return obj.strokes as Stroke[];
+}
+
+// ─── Bank persistence ─────────────────────────────────────────────────────────
+
+const BANK_KEY = "drawtool-bank";
+
+export function loadBank(): BankItem[] {
+  try {
+    const raw = localStorage.getItem(BANK_KEY);
+    if (raw) return JSON.parse(raw);
+  } catch {
+    /* ignore */
+  }
+  return [];
+}
+
+export function saveBank(items: BankItem[]) {
+  try {
+    const json = JSON.stringify(items);
+    if (json.length < 5_000_000)
+      localStorage.setItem(BANK_KEY, json);
+  } catch {
+    /* ignore */
+  }
 }
 
 // ─── View persistence ─────────────────────────────────────────────────────────

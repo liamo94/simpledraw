@@ -224,6 +224,7 @@ type Props = {
   onExportData: () => void;
   onImportData: () => void;
   onStartTraining: () => void;
+  bankCount: number;
 };
 
 export default function Menu({
@@ -242,6 +243,7 @@ export default function Menu({
   onExportData,
   onImportData,
   onStartTraining,
+  bankCount,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
@@ -1692,6 +1694,23 @@ export default function Menu({
             </div>
 
             <div className="mt-4 space-y-1.5">
+              <button
+                onClick={() => {
+                  window.dispatchEvent(new Event("drawtool:toggle-bank"));
+                  closeMenu();
+                }}
+                className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
+              >
+                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <rect x="1" y="4" width="12" height="8" rx="1.5" />
+                  <path d="M4 4V3a2 2 0 0 1 4 0v1" />
+                  <line x1="5" y1="8" x2="9" y2="8" />
+                </svg>
+                Bank
+                {bankCount > 0 && (
+                  <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${isDark ? "bg-white/10 text-white/40" : "bg-black/[0.07] text-black/40"}`}>{bankCount}</span>
+                )}
+              </button>
               {!hasTouch && (
                 <AccordionSection
                   label="Keys"

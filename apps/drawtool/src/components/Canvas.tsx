@@ -1081,7 +1081,7 @@ function Canvas({
         // strokesRef.current and in undo/redo action references.
         const swapped = new Set<Stroke>();
         const swapOne = (s: Stroke) => {
-          if (!swapped.has(s)) { s.color = swapColor(s.color); swapped.add(s); }
+          if (!swapped.has(s)) { s.color = swapColor(s.color); swapped.add(s); if (s.subStrokes) for (const sub of s.subStrokes) swapOne(sub); }
         };
         const swapStrokes = (strokes: Stroke[]) => { for (const s of strokes) swapOne(s); };
         const swapAction = (a: UndoAction) => {
@@ -1911,6 +1911,64 @@ function Canvas({
     window.addEventListener("drawtool:undo", onUndoEvent);
     const onRedoEvent = () => redo();
     window.addEventListener("drawtool:redo", onRedoEvent);
+    const onSaveToBank = () => {
+      const group = selectedGroupRef.current;
+      const single = selectedTextRef.current;
+      const strokes = group.length > 0 ? group
+        : single ? [single]
+        : strokesRef.current.filter((s) => s.points.length > 0 || s.subStrokes);
+      if (strokes.length === 0) return;
+      window.dispatchEvent(new CustomEvent("drawtool:save-to-bank-result", { detail: strokes }));
+    };
+    window.addEventListener("drawtool:save-to-bank", onSaveToBank);
+    const onDropBankItem = (e: Event) => {
+      const { strokes, savedDark } = (e as CustomEvent<{ strokes: Stroke[]; savedDark?: boolean }>).detail;
+      if (!strokes?.length) return;
+      const currentIsDark = isDarkTheme(themeRef.current);
+      const needsColorSwap = savedDark !== undefined && savedDark !== currentIsDark;
+      const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
+      const maybeSwap = (c: string) => needsColorSwap ? swapColor(c) : c;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const s of strokes) {
+        const bb = anyStrokeBBox(s);
+        minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+        maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+      }
+      const itemCx = (minX + maxX) / 2, itemCy = (minY + maxY) / 2;
+      const view = viewRef.current;
+      const w = canvasRef.current?.offsetWidth ?? window.innerWidth;
+      const h = canvasRef.current?.offsetHeight ?? window.innerHeight;
+      const vpCx = (w / 2 - view.x) / view.scale;
+      const vpCy = (h / 2 - view.y) / view.scale;
+      const dx = vpCx - itemCx, dy = vpCy - itemCy;
+      const offset = (p: { x: number; y: number }) => ({ x: p.x + dx, y: p.y + dy });
+      const newStrokes: Stroke[] = strokes.map((src) => ({
+        ...src,
+        color: maybeSwap(src.color),
+        points: src.points.map(offset),
+        widths: src.widths ? [...src.widths] : undefined,
+        subStrokes: src.subStrokes?.map((ss) => ({ ...ss, color: maybeSwap(ss.color), points: ss.points.map(offset) })),
+      }));
+      strokesRef.current.push(...newStrokes);
+      undoStackRef.current.push(
+        newStrokes.length === 1
+          ? { type: "draw", stroke: newStrokes[0] }
+          : { type: "multi-draw", strokes: newStrokes },
+      );
+      redoStackRef.current = [];
+      if (newStrokes.length === 1) {
+        selectedTextRef.current = newStrokes[0];
+        selectedGroupRef.current = [];
+      } else {
+        selectedGroupRef.current = newStrokes;
+        selectedTextRef.current = null;
+      }
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
+      setZCursor("default");
+      persistStrokes();
+      scheduleRedraw();
+    };
+    window.addEventListener("drawtool:drop-bank-item", onDropBankItem);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
@@ -1929,6 +1987,8 @@ function Canvas({
       window.removeEventListener("drawtool:import-strokes", onImportStrokes);
       window.removeEventListener("drawtool:undo", onUndoEvent);
       window.removeEventListener("drawtool:redo", onRedoEvent);
+      window.removeEventListener("drawtool:save-to-bank", onSaveToBank);
+      window.removeEventListener("drawtool:drop-bank-item", onDropBankItem);
     };
   }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomToSelection, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 

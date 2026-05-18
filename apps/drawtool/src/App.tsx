@@ -26,7 +26,11 @@ import {
   saveStrokes,
   validateStrokesFile,
   strokesKey,
+  loadBank,
+  saveBank,
 } from "./canvas/storage";
+import type { BankItem, Stroke } from "./canvas/types";
+import BankPanel from "./components/BankPanel";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -336,6 +340,8 @@ export default function App() {
 
   const importFileRef = useRef<HTMLInputElement>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showBank, setShowBank] = useState(false);
+  const [bankItems, setBankItems] = useState<BankItem[]>(() => loadBank());
   const [dropZoneActive, setDropZoneActive] = useState(false);
   const dropZoneCounterRef = useRef(0);
 
@@ -406,6 +412,45 @@ export default function App() {
   }, [showImportModal]);
 
   useEffect(() => {
+    const onToggleBank = () => setShowBank((p) => {
+      if (!p) window.dispatchEvent(new Event("drawtool:close-menu"));
+      return !p;
+    });
+    const onSaveToBankResult = (e: Event) => {
+      const strokes = (e as CustomEvent<Stroke[]>).detail;
+      if (!strokes.length) return;
+      setBankItems((prev) => {
+        const item: BankItem = {
+          id: crypto.randomUUID(),
+          name: `Item ${prev.length + 1}`,
+          createdAt: Date.now(),
+          strokes: JSON.parse(JSON.stringify(strokes)),
+          savedDark: isDarkTheme(settingsRef.current.theme),
+        };
+        const next = [item, ...prev];
+        saveBank(next);
+        return next;
+      });
+      showToast({ type: "text", message: "Saved to bank" });
+    };
+    window.addEventListener("drawtool:toggle-bank", onToggleBank);
+    window.addEventListener("drawtool:save-to-bank-result", onSaveToBankResult);
+    return () => {
+      window.removeEventListener("drawtool:toggle-bank", onToggleBank);
+      window.removeEventListener("drawtool:save-to-bank-result", onSaveToBankResult);
+    };
+  }, [showToast]);
+
+  useEffect(() => {
+    if (!showBank) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") { e.stopPropagation(); setShowBank(false); }
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [showBank]);
+
+  useEffect(() => {
     const onState = (e: Event) => {
       const { canUndo, canRedo, hasSelection } = (e as CustomEvent).detail;
       setCanUndo(canUndo);
@@ -419,6 +464,7 @@ export default function App() {
         setShowShapePicker(false);
         setShowThicknessPicker(null);
         setShowHighlightPicker(false);
+        setShowBank(false);
       }
     };
     window.addEventListener("drawtool:state", onState);
@@ -1002,6 +1048,7 @@ export default function App() {
         onExportData={exportData}
         onImportData={importData}
         onStartTraining={openTraining}
+        bankCount={bankItems.length}
       />
       <input
         ref={importFileRef}
@@ -2758,6 +2805,57 @@ export default function App() {
             </button>
           </div>
         </div>
+      )}
+      {showBank && (
+        <BankPanel
+          items={bankItems}
+          isDark={isDark}
+          onClose={() => setShowBank(false)}
+          onDrop={(item) => {
+            window.dispatchEvent(
+              new CustomEvent("drawtool:drop-bank-item", { detail: { strokes: item.strokes, savedDark: item.savedDark } }),
+            );
+            setShowBank(false);
+            showToast({ type: "text", message: `"${item.name}" dropped` });
+          }}
+          onDelete={(id) => {
+            setBankItems((prev) => {
+              const next = prev.filter((i) => i.id !== id);
+              saveBank(next);
+              return next;
+            });
+          }}
+          onRename={(id, name) => {
+            setBankItems((prev) => {
+              const next = prev.map((i) => (i.id === id ? { ...i, name } : i));
+              saveBank(next);
+              return next;
+            });
+          }}
+          onReorder={(fromId, toId) => {
+            setBankItems((prev) => {
+              const fromIdx = prev.findIndex((i) => i.id === fromId);
+              let toIdx = prev.findIndex((i) => i.id === toId);
+              if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
+              const next = [...prev];
+              const [item] = next.splice(fromIdx, 1);
+              if (toIdx > fromIdx) toIdx--;
+              next.splice(toIdx, 0, item);
+              saveBank(next);
+              return next;
+            });
+          }}
+          onImport={(imported) => {
+            setBankItems((prev) => {
+              const existingIds = new Set(prev.map((i) => i.id));
+              const fresh = imported.filter((i) => !existingIds.has(i.id));
+              const next = [...fresh, ...prev];
+              saveBank(next);
+              return next;
+            });
+            showToast({ type: "text", message: "Bank imported" });
+          }}
+        />
       )}
       {showImportModal && (
         <div

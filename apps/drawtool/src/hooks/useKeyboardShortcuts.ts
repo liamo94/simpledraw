@@ -949,6 +949,16 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         sprayKeyRef.current = true;
         setSpraying(true);
       }
+      if (e.key === "B" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:toggle-bank"));
+        return;
+      }
+      if (cmdKey(e) && e.key === "k" && e.shiftKey && !e.altKey && !isWritingRef.current) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:save-to-bank"));
+        return;
+      }
       // Letter-key shape shortcuts (lowercase = solid, uppercase/shift = dashed)
       const shapeKeyMap: Record<string, ShapeKind> = {
         a: "arrow", A: "arrow",

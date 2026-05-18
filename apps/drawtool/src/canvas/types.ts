@@ -80,3 +80,11 @@ export const snapshotCache = new Map<number, CanvasSnapshot>();
 
 // Re-export setting types used across canvas modules
 export type { Theme, TextSize, FontFamily, TextAlign, FillStyle };
+
+export type BankItem = {
+  id: string;
+  name: string;
+  createdAt: number;
+  strokes: Stroke[];
+  savedDark?: boolean;
+};

@@ -97,6 +97,7 @@ const FlipHIcon = () => <I><line x1="8" y1="3" x2="8" y2="13" /><path d="M5 6l-3
 const FlipVIcon = () => <I><line x1="3" y1="8" x2="13" y2="8" /><path d="M6 5l2-3 2 3" /><path d="M6 11l2 3 2-3" strokeOpacity="0.45" /></I>;
 const LockSelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" /><circle cx="8" cy="8" r="2.5" /></I>;
 const CombineIcon = () => <I><path d="M2 5.5L7 5.5" strokeOpacity="0.5"/><path d="M2 10.5L7 10.5" strokeOpacity="0.5"/><path d="M7 5.5Q10 5.5 10 8Q10 10.5 7 10.5"/><path d="M10 8L14 8"/></I>;
+const BankIcon = () => <I><rect x="1" y="5" width="14" height="9" rx="1.5" /><path d="M5 5V4a3 3 0 0 1 6 0v1" /></I>;
 const UncombineIcon = () => <I><path d="M2 8L6 8"/><path d="M6 8Q9 8 9 5.5L14 5.5" strokeOpacity="0.6"/><path d="M6 8Q9 8 9 10.5L14 10.5" strokeOpacity="0.6"/></I>;
 const SprayIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
@@ -210,6 +211,8 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
         <Row label={<><FullscreenIcon />Fullscreen</>} kbd={`${mod} + F`} />
         <Row label={<><GridIcon />Cycle grid</>} kbd="G" />
         <Row label="Cycle theme" kbd="D D" />
+        <Row label={<><BankIcon />Bank</>} kbd="⇧ + B" />
+        <Row label={<><BankIcon />Save to bank</>} kbd={`${mod} ⇧ K`} />
       </div>
     </div>,
 
