@@ -192,10 +192,22 @@ function addPatternFill(
   return clipIndex;
 }
 
+function flattenStrokes(strokes: Stroke[]): Stroke[] {
+  const out: Stroke[] = [];
+  for (const s of strokes) {
+    if (s.subStrokes) out.push(...flattenStrokes(s.subStrokes));
+    else out.push(s);
+  }
+  return out;
+}
+
 export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Theme): string {
   if (!strokes.length) return "";
 
   const adaptColor = (c: string) => c;
+
+  strokes = flattenStrokes(strokes);
+  if (!strokes.length) return "";
 
   // Compute bounding box
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;

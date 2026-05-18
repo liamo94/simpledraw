@@ -1,4 +1,4 @@
-import { useRef, useEffect, useCallback, useState, memo } from "react";
+import { useRef, useEffect, useCallback, useState, memo, type MutableRefObject } from "react";
 import type { ShapeKind, Theme, TextSize, GridType, FontFamily, TextAlign, ClickTool } from "../hooks/useSettings";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useTextSelection } from "../hooks/useTextSelection";
@@ -37,6 +37,13 @@ function sameColorFamily(ar: number, ag: number, ab: number, br: number, bg: num
   const diff = Math.abs(hA - hB);
   return Math.min(diff, 360 - diff) < 60;
 }
+
+// Module-level clipboard — survives canvas remounts so copy/paste works across canvas slots.
+let _moduleClipboard: Stroke[] | null = null;
+const _moduleClipboardRef: MutableRefObject<Stroke[] | null> = {
+  get current() { return _moduleClipboard; },
+  set current(v) { _moduleClipboard = v; },
+};
 
 function Canvas({
   lineWidth,
@@ -166,7 +173,7 @@ function Canvas({
   const shiftHeldRef = useRef(false); // own shift tracking — e.shiftKey can get stuck on Mac
   const rightClickHeldRef = useRef(false);
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
-  const clipboardRef = useRef<Stroke[] | null>(null);
+  const clipboardRef = _moduleClipboardRef;
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const lastDPressRef = useRef(0);
   const tapStartRef = useRef<{ x: number; y: number; id: number } | null>(null);
@@ -1757,6 +1764,26 @@ function Canvas({
     };
     const onExportTransparent = () => exportTransparent();
     const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false);
+    const onExportSelectionSvg = (e: Event) => {
+      const transparent = (e as CustomEvent).detail?.transparent ?? true;
+      const strokes = selectedGroupRef.current.length > 0
+        ? selectedGroupRef.current
+        : selectedTextRef.current
+        ? [selectedTextRef.current]
+        : [];
+      if (!strokes.length) return;
+      const svgStr = generateSvg(strokes, transparent, theme);
+      if (!svgStr) return;
+      const blob = new Blob([svgStr], { type: "image/svg+xml" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+      a.download = `drawtool-selection-${ts}.svg`;
+      a.click();
+      URL.revokeObjectURL(url);
+      window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported selection as SVG", duration: 1500 } }));
+    };
     const onFontFamily = (e: Event) => {
       const key = (e as CustomEvent).detail as FontFamily;
       const sel = selectedTextRef.current;
@@ -1805,6 +1832,7 @@ function Canvas({
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
     window.addEventListener("drawtool:export-transparent", onExportTransparent);
     window.addEventListener("drawtool:export-svg", onExportSvg);
+    window.addEventListener("drawtool:export-selection-svg", onExportSelectionSvg);
     const onTextBold = () => {
       const editStroke = editingStrokeRef.current;
       const sel = selectedTextRef.current;
@@ -2000,6 +2028,7 @@ function Canvas({
       window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
       window.removeEventListener("drawtool:export-transparent", onExportTransparent);
       window.removeEventListener("drawtool:export-svg", onExportSvg);
+      window.removeEventListener("drawtool:export-selection-svg", onExportSelectionSvg);
       window.removeEventListener("drawtool:font-family", onFontFamily);
       window.removeEventListener("drawtool:set-color", onSetColor);
       window.removeEventListener("drawtool:text-bold", onTextBold);

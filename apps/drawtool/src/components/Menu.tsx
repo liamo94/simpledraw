@@ -225,6 +225,8 @@ type Props = {
   onImportData: () => void;
   onStartTraining: () => void;
   bankCount: number;
+  selectionCount: number;
+  onExportSelection: (transparent: boolean) => void;
 };
 
 export default function Menu({
@@ -244,6 +246,8 @@ export default function Menu({
   onImportData,
   onStartTraining,
   bankCount,
+  selectionCount,
+  onExportSelection,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
@@ -1894,6 +1898,25 @@ export default function Menu({
                       Export
                     </button>
                   </div>
+                  {/* Export selection row */}
+                  {selectionCount > 0 && (
+                    <div className="flex items-center gap-1.5">
+                      <span className={`text-[11px] ${isDark ? "text-white/40" : "text-black/35"}`}>
+                        {selectionCount} selected
+                      </span>
+                      <button
+                        onClick={() => onExportSelection(exportTransparentBg)}
+                        className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none border ${isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"}`}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M7 2v8" />
+                          <path d="M4.5 8 7 11l2.5-3" />
+                          <line x1="2" y1="13" x2="12" y2="13" />
+                        </svg>
+                        Export selection
+                      </button>
+                    </div>
+                  )}
                   {/* Save / Load data row */}
                   <div className="grid grid-cols-2 gap-1.5">
                     {(

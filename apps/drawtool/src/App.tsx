@@ -801,6 +801,12 @@ export default function App() {
     );
   }, []);
 
+  const exportSelectionSvgFn = useCallback((transparent: boolean) => {
+    window.dispatchEvent(
+      new CustomEvent("drawtool:export-selection-svg", { detail: { transparent } }),
+    );
+  }, []);
+
   const zoomIn = useCallback(() => {
     window.dispatchEvent(
       new CustomEvent("drawtool:zoom-step", { detail: 1.25 }),
@@ -1042,6 +1048,8 @@ export default function App() {
         onImportData={importData}
         onStartTraining={openTraining}
         bankCount={bankItems.length}
+        selectionCount={selectionCount}
+        onExportSelection={(transparent) => exportSelectionSvgFn(transparent)}
       />
       <input
         ref={importFileRef}
