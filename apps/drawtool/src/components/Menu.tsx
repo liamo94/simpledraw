@@ -2161,10 +2161,7 @@ export default function Menu({
                           ["Draw freehand", "click + drag"],
                           ["Dashed line", "⇧ + drag"],
                           ["Straight line", `${mod} + ⇧ + drag`],
-                          [
-                            "Draw shape",
-                            `${isMac ? "Ctrl" : `${alt} + ⇧`} + drag`,
-                          ],
+                          ["Draw shape", "S + drag"],
                           ["Erase", `${alt} + drag`],
                           ["Write text", "T, then click"],
                         ].map(([label, kbd]) => (

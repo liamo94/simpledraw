@@ -2519,7 +2519,7 @@ export default function App() {
               <div className="flex justify-between gap-6">
                 <span>Shape</span>
                 <kbd className={isDark ? "text-white/40" : "text-black/40"}>
-                  {isMac ? "Ctrl" : `${alt} + ⇧`} + drag
+                  S + drag
                 </kbd>
               </div>
               <div className="flex justify-between gap-6">
