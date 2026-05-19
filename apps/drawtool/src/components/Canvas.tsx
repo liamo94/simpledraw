@@ -7,7 +7,7 @@ import {
   isDarkTheme, getBackgroundColor, getGridColor,
   TEXT_SIZE_MAP, buildFont, dispatchTextStyleSync,
   loadStrokes, saveStrokes, loadView, saveView,
-  distToSegment, cmdKey, screenToWorld, smoothPoints, isMac,
+  distToSegment, cmdKey, screenToWorld, smoothPoints,
   shapeToSegments,
   textBBox, anyStrokeBBox,
   renderStrokesToCtx, snapshotCache, smoothArrowPath,
@@ -2136,7 +2136,7 @@ function Canvas({
       isWritingRef, writingTextRef, caretPosRef, caretVisibleRef, selectionAnchorRef,
       textUndoRef, textRedoRef, editingStrokeRef, writingBoldRef, writingItalicRef, writingAlignRef,
       zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef, lastCycleRef,
-      clipboardRef, cursorWorldRef, lastDPressRef, shapeFlashRef,
+      clipboardRef, cursorWorldRef, lastDPressRef, shapeFlashRef, activeShapeRef,
       textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
       laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
@@ -2885,13 +2885,9 @@ function Canvas({
           ? "highlight"
           : keyShapeRef.current
             ? "shape"
-            : e.altKey && e.shiftKey && !isMac
-              ? "shape"
-              : e.altKey
+            : e.altKey
                 ? "alt"
-                : e.ctrlKey && !e.metaKey && isMac
-                  ? "shape"
-                  : cmdKey(e) && e.shiftKey
+                : cmdKey(e) && e.shiftKey
                     ? "line"
                     : cmdKey(e)
                       ? "meta"

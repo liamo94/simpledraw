@@ -169,13 +169,14 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
     <div key="shapes" style={{ breakInside: "avoid" }} className={modal ? "mb-6" : ""}>
       <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Shapes</div>
       <div className={`space-y-1.5 ${textClass}`}>
-        <Row label="Draw shape" kbd={`${isMac ? "Ctrl" : `${alt} + ⇧`} + drag`} />
-        <Row label="Cycle shape" kbd="S" />
+        <Row label="Draw shape" kbd="S + drag" />
+        <Row label="Cycle shape" kbd="S tap" />
+        <Row label="Peek active shape" kbd="Hold S" />
         <Row label={<><RectIcon />Rectangle</>} kbd="R + drag" />
         <Row label={<><CircleIcon />Circle</>} kbd="C + drag" />
         <Row label={<><ArrowIcon />Arrow</>} kbd="A + drag" />
-        <Row label={<><DashedRectIcon />Dashed shape</>} kbd={`${isMac ? "⇧ + Ctrl" : `⇧ + ${alt}`} + drag`} />
-        <Row label={<><FilledRectIcon />Filled shape</>} kbd={`${isMac ? "F + Ctrl" : `F + ${alt}`} + drag`} />
+        <Row label={<><DashedRectIcon />Dashed shape</>} kbd="⇧ + S + drag" />
+        <Row label={<><FilledRectIcon />Filled shape</>} kbd="F + S + drag" />
         <Row label={<><FilledRectIcon />Cycle fill style</>} kbd={`${alt} + F`} />
         <Row label={<><CornersIcon />Rounded / sharp edges</>} kbd="E" />
       </div>

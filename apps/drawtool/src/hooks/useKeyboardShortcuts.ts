@@ -59,6 +59,7 @@ export type KeyboardRefs = {
   cursorWorldRef: MutableRefObject<{ x: number; y: number }>;
   lastDPressRef: MutableRefObject<number>;
   shapeFlashRef: MutableRefObject<ReturnType<typeof setTimeout> | null>;
+  activeShapeRef: MutableRefObject<ShapeKind>;
   textSizeRef: MutableRefObject<TextSize>;
   fontFamilyRef: MutableRefObject<FontFamily>;
   lineColorRef: MutableRefObject<string>;
@@ -119,9 +120,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     isWritingRef, writingTextRef, caretPosRef, caretVisibleRef, selectionAnchorRef,
     textUndoRef, textRedoRef, editingStrokeRef, writingBoldRef, writingItalicRef, writingAlignRef,
     zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef,
-    clipboardRef, cursorWorldRef, lastDPressRef, shapeFlashRef,
+    clipboardRef, cursorWorldRef, lastDPressRef, shapeFlashRef, activeShapeRef,
     textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
-    laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
+    laserTrailRef, isDrawingRef, activeModifierRef,
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
@@ -137,6 +138,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
   // Internal state for select-mode lock (double-tap V) — not part of the ref bag
   const selectLockedRef = useRef(false);
   const lastVPressRef = useRef(0);
+  // s key: direction + timer that shows the shape cursor after a short hold (peek mode)
+  const sKeyBackwardRef = useRef(false);
+  const sHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -923,29 +927,18 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (e.key === "Shift") shiftHeldRef.current = true;
       if (e.key === "Alt" && !e.shiftKey) setErasing(true);
-      if (e.key === "Alt" && e.shiftKey && !isMac) setShapeActive(true);
-      if (e.key === "Shift" && e.altKey && !isMac) {
-        setErasing(false);
-        setShapeActive(true);
-      }
-      if (e.key === "Control" && isMac && !isZoomingRef.current) setShapeActive(true);
-      if (e.key === "s" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
-        window.dispatchEvent(new Event("drawtool:cycle-shape"));
-        if (shapeFlashRef.current) clearTimeout(shapeFlashRef.current);
-        setShapeActive(true);
-        shapeFlashRef.current = setTimeout(() => {
-          setShapeActive(false);
-          shapeFlashRef.current = null;
-        }, 300);
-      }
-      if (e.key === "S" && !cmdKey(e) && !e.altKey && !e.ctrlKey && e.shiftKey) {
-        window.dispatchEvent(new Event("drawtool:cycle-shape-back"));
-        if (shapeFlashRef.current) clearTimeout(shapeFlashRef.current);
-        setShapeActive(true);
-        shapeFlashRef.current = setTimeout(() => {
-          setShapeActive(false);
-          shapeFlashRef.current = null;
-        }, 300);
+      if ((e.key === "s" || e.key === "S") && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.repeat) {
+        if (shapeFlashRef.current) { clearTimeout(shapeFlashRef.current); shapeFlashRef.current = null; }
+        if (sHintTimerRef.current) { clearTimeout(sHintTimerRef.current); sHintTimerRef.current = null; }
+        sKeyBackwardRef.current = e.key === "S";
+        shapeJustCommittedRef.current = false;
+        keyShapeRef.current = activeShapeRef.current;
+        keyShapeDashedRef.current = shiftHeldRef.current || rightClickHeldRef.current;
+        // After 500ms of holding without dragging, show the shape cursor as a peek hint
+        sHintTimerRef.current = setTimeout(() => {
+          sHintTimerRef.current = null;
+          if (activeModifierRef.current !== "shape") setShapeActive(true);
+        }, 500);
       }
       if ((e.key === "w" || e.key === "h") && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         highlightKeyRef.current = true;
@@ -1278,8 +1271,48 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       if (e.key === "f" || e.key === "F") {
         fKeyHeldRef.current = false;
       }
-      if (e.key === "Control" && isMac) setShapeActive(false);
-      if ((e.key === "Alt" || e.key === "Shift") && !isMac) setShapeActive(false);
+      if ((e.key === "s" || e.key === "S") && !cmdKey(e)) {
+        if (shapeFlashRef.current) { clearTimeout(shapeFlashRef.current); shapeFlashRef.current = null; }
+        const wasTap = sHintTimerRef.current !== null;
+        if (sHintTimerRef.current) { clearTimeout(sHintTimerRef.current); sHintTimerRef.current = null; }
+        keyShapeRef.current = null;
+        keyShapeDashedRef.current = false;
+        if (activeModifierRef.current === "shape") {
+          // Draw still in progress — commit it (same path as a/r/c)
+          const stroke = strokesRef.current[strokesRef.current.length - 1];
+          if (stroke?.shape === "arrow" && stroke.points.length > 2) {
+            const n = stroke.points.length;
+            const last = stroke.points[n - 1];
+            const prev = stroke.points[n - 2];
+            if (Math.hypot(last.x - prev.x, last.y - prev.y) < 1) stroke.points.pop();
+          }
+          shapeJustCommittedRef.current = true;
+          discardTinyShape();
+          isDrawingRef.current = false;
+          activeModifierRef.current = null;
+          strokesCacheRef.current = null;
+          persistStrokes();
+          const _committed = strokesRef.current[strokesRef.current.length - 1];
+          if (_committed?.shape) {
+            window.dispatchEvent(new CustomEvent("drawtool:stroke-committed", {
+              detail: { shape: _committed.shape, style: _committed.style, color: _committed.color, fill: _committed.fill, text: _committed.text, fontFamily: _committed.fontFamily, sharp: _committed.sharp, highlight: _committed.highlight, spray: _committed.spray, points: _committed.points.length },
+            }));
+          }
+          scheduleRedraw();
+          setShapeActive(false);
+        } else if (wasTap && !shapeJustCommittedRef.current) {
+          // Released before 500ms with no draw — cycle shape, flash shows the new one
+          window.dispatchEvent(new Event(sKeyBackwardRef.current ? "drawtool:cycle-shape-back" : "drawtool:cycle-shape"));
+          setShapeActive(true);
+          shapeFlashRef.current = setTimeout(() => {
+            setShapeActive(false);
+            shapeFlashRef.current = null;
+          }, 300);
+        } else {
+          // Peek (held > 500ms, no draw) or draw committed via pointer-up — just clean up
+          setShapeActive(false);
+        }
+      }
       if (["a", "r", "t", "c", "A", "R", "T", "C"].includes(e.key)) {
         keyShapeRef.current = null;
         keyShapeDashedRef.current = false;
@@ -1326,12 +1359,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         setPanning(false);
         persistView();
       }
+      if (sHintTimerRef.current) { clearTimeout(sHintTimerRef.current); sHintTimerRef.current = null; }
       setErasing(false);
       setShapeActive(false);
       setHighlighting(false);
       setLasering(false);
       highlightKeyRef.current = false;
       laserKeyRef.current = false;
+      sprayKeyRef.current = false;
       shiftHeldRef.current = false;
       keyShapeRef.current = null;
       keyShapeDashedRef.current = false;
