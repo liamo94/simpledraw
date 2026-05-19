@@ -221,6 +221,8 @@ function Canvas({
     pendingBend?: { segmentIdx: number };
     startRotation?: number;
     subStrokeStartPoints?: { x: number; y: number }[][];
+    startLineWidth?: number;
+    startSubLineWidths?: number[];
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: import("../canvas/types").Stroke; prevGroup?: import("../canvas/types").Stroke[]; prevSingle?: import("../canvas/types").Stroke | null } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
@@ -1545,6 +1547,10 @@ function Canvas({
         if (action.subFrom && action.stroke.subStrokes) {
           action.stroke.subStrokes.forEach((s, k) => { s.points = action.subFrom![k].map(p => ({ ...p })); });
         }
+        if (action.fromLineWidth !== undefined) action.stroke.lineWidth = action.fromLineWidth;
+        if (action.fromSubLineWidths && action.stroke.subStrokes) {
+          action.stroke.subStrokes.forEach((s, k) => { if (action.fromSubLineWidths![k] !== undefined) s.lineWidth = action.fromSubLineWidths![k]; });
+        }
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.fromScale;
         if (action.fromW !== undefined) { action.stroke.imageW = action.fromW; action.stroke.imageH = action.fromH; }
@@ -1659,6 +1665,10 @@ function Canvas({
         action.to.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
         if (action.subTo && action.stroke.subStrokes) {
           action.stroke.subStrokes.forEach((s, k) => { s.points = action.subTo![k].map(p => ({ ...p })); });
+        }
+        if (action.toLineWidth !== undefined) action.stroke.lineWidth = action.toLineWidth;
+        if (action.toSubLineWidths && action.stroke.subStrokes) {
+          action.stroke.subStrokes.forEach((s, k) => { if (action.toSubLineWidths![k] !== undefined) s.lineWidth = action.toSubLineWidths![k]; });
         }
       } else if (action.type === "resize") {
         action.stroke.fontScale = action.toScale;

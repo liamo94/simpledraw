@@ -33,7 +33,7 @@ export type Stroke = {
 export type UndoAction =
   | { type: "draw"; stroke: Stroke }
   | { type: "erase"; strokes: Stroke[] }
-  | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[]; subFrom?: { x: number; y: number }[][]; subTo?: { x: number; y: number }[][] }
+  | { type: "move"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[]; subFrom?: { x: number; y: number }[][]; subTo?: { x: number; y: number }[][]; fromLineWidth?: number; toLineWidth?: number; fromSubLineWidths?: number[]; toSubLineWidths?: number[] }
   | { type: "resize"; stroke: Stroke; fromScale: number; toScale: number; fromPoints: { x: number; y: number }[]; toPoints: { x: number; y: number }[]; fromW?: number; toW?: number; fromH?: number; toH?: number }
   | { type: "edit"; stroke: Stroke; oldText: string; newText: string }
   | { type: "font-change"; stroke: Stroke; from: FontFamily | undefined; to: FontFamily; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }

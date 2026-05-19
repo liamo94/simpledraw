@@ -6,6 +6,15 @@ import { cmdKey, isMac, textBBox, anyStrokeBBox, FONT_FAMILIES } from "../canvas
 import { strokesKey } from "../canvas/storage";
 import { storeImage, processImageFile } from "../canvas/imageStore";
 
+function deepCopyStroke(s: Stroke, dx = 0, dy = 0): Stroke {
+  return {
+    ...s,
+    points: s.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
+    widths: s.widths ? [...s.widths] : undefined,
+    subStrokes: s.subStrokes ? s.subStrokes.map(sub => deepCopyStroke(sub, dx, dy)) : undefined,
+  };
+}
+
 // ─── Ref bag type ─────────────────────────────────────────────────────────────
 
 export type KeyboardRefs = {
@@ -555,7 +564,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         if (selectedGroupRef.current.length > 0 && !isWritingRef.current) {
           const toDelete = selectedGroupRef.current;
-          clipboardRef.current = toDelete.map(s => ({ ...s, points: s.points.map(p => ({ ...p })), widths: s.widths ? [...s.widths] : undefined }));
+          clipboardRef.current = toDelete.map(s => deepCopyStroke(s));
           navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
           strokesRef.current = strokesRef.current.filter(s => !toDelete.includes(s));
           undoStackRef.current.push({ type: "erase", strokes: toDelete });
@@ -644,10 +653,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (cmdKey(e) && e.key === "c") {
         if (selectedGroupRef.current.length > 0) {
-          clipboardRef.current = selectedGroupRef.current.map(s => ({ ...s, points: s.points.map(p => ({ ...p })), widths: s.widths ? [...s.widths] : undefined }));
+          clipboardRef.current = selectedGroupRef.current.map(s => deepCopyStroke(s));
           navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
         } else if (selectedTextRef.current) {
-          clipboardRef.current = [selectedTextRef.current];
+          clipboardRef.current = [deepCopyStroke(selectedTextRef.current)];
           navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
         }
       }
@@ -1407,11 +1416,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         })();
         const dx = cursor.x - cx;
         const dy = cursor.y - cy;
-        const newStrokes: Stroke[] = srcs.map(src => ({
-          ...src,
-          points: src.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
-          widths: src.widths ? [...src.widths] : undefined,
-        }));
+        const newStrokes: Stroke[] = srcs.map(src => deepCopyStroke(src, dx, dy));
         strokesRef.current.push(...newStrokes);
         if (newStrokes.length === 1) {
           undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });
