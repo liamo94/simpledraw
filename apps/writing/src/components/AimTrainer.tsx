@@ -294,7 +294,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
               { letter: 'l', color: '#06b6d4', rotate: 3 },
               { letter: 'a', color: '#ef4444', rotate: -4 },
             ] as const).map((l, i) => (
-              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
+              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
                 <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>
               </span>
             ))}
@@ -313,9 +313,9 @@ export default function AimTrainer({ theme, onHome }: Props) {
             </button>
           ))}
         </div>
-        <div className={`w-px h-4 ${hdrDivider} shrink-0`} />
+        <div className={`w-px h-4 ${hdrDivider} shrink-0 hidden sm:block`} />
         {/* Min stroke slider */}
-        <div className="flex items-center gap-1.5 shrink-0">
+        <div className="hidden sm:flex items-center gap-1.5 shrink-0">
           <span className={`text-[10px] hidden sm:inline ${hdrTextMid}`}>drag</span>
           <input
             type="range"
@@ -340,7 +340,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
         {totalRounds !== null && (<>
         <div className={`w-px h-4 ${hdrDivider} shrink-0`} />
           <div className="flex items-center gap-1.5">
-            <div className="flex gap-1">
+            <div className="hidden sm:flex gap-1">
               {Array.from({ length: totalRounds }, (_, i) => (
                 <div
                   key={i}

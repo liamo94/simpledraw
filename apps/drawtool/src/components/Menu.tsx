@@ -228,6 +228,7 @@ function AccordionSection({
   isDark,
   children,
   action,
+  dim,
 }: {
   label: string;
   icon: React.ReactNode;
@@ -236,6 +237,7 @@ function AccordionSection({
   isDark: boolean;
   children: React.ReactNode;
   action?: React.ReactNode;
+  dim?: boolean;
 }) {
   return (
     <div>
@@ -244,8 +246,8 @@ function AccordionSection({
           onClick={onToggle}
           className={`flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
             isDark
-              ? `${open ? "bg-white/[0.08] text-white/80" : "bg-white/5 text-white/55"} hover:bg-white/[0.11] hover:text-white/85`
-              : `${open ? "bg-black/[0.07] text-black/70" : "bg-black/[0.04] text-black/50"} hover:bg-black/[0.09] hover:text-black/75`
+              ? `${open ? "bg-white/[0.08] text-white/80" : "bg-white/5 " + (dim ? "text-white/35" : "text-white/55")} hover:bg-white/[0.11] ` + (dim ? "hover:text-white/60" : "hover:text-white/85")
+              : `${open ? "bg-black/[0.07] text-black/70" : "bg-black/[0.04] " + (dim ? "text-black/30" : "text-black/50")} hover:bg-black/[0.09] ` + (dim ? "hover:text-black/55" : "hover:text-black/75")
           }`}
         >
           <span className="flex items-center gap-2">
@@ -318,7 +320,6 @@ export default function Menu({
   const isWritingRef = useRef(false);
   const [logoAnimate, setLogoAnimate] = useState(false);
   const hasWavedRef = useRef(!!sessionStorage.getItem("drawtool-logo-waved"));
-  const [showInfo, setShowInfo] = useState(false);
   const [showKeysModal, setShowKeysModal] = useState(false);
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
@@ -329,7 +330,6 @@ export default function Menu({
     null,
   );
   const menuRef = useRef<HTMLDivElement>(null);
-  const infoRef = useRef<HTMLDivElement>(null);
   const helpRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
   const exportContentRef = useRef<HTMLDivElement>(null);
@@ -360,7 +360,6 @@ export default function Menu({
       }
       setOpen((o) => {
         if (o) {
-          setShowInfo(false);
           setShowHelp(false);
           setShowAbout(false);
           setShowExport(false);
@@ -372,14 +371,12 @@ export default function Menu({
     };
     const onClose = () => {
       setOpen(false);
-      setShowInfo(false);
       setShowHelp(false);
       setShowAbout(false);
       setShowExport(false);
     };
     const onOpenShortcuts = () => {
       setOpen(false);
-      setShowInfo(false);
       setShowHelp(false);
       setShowAbout(false);
       setShowExport(false);
@@ -420,7 +417,6 @@ export default function Menu({
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !isWritingRef.current) {
         setOpen(false);
-        setShowInfo(false);
         setShowHelp(false);
         setShowAbout(false);
         setShowExport(false);
@@ -435,7 +431,6 @@ export default function Menu({
 
   const closeMenu = () => {
     setOpen(false);
-    setShowInfo(false);
     setShowHelp(false);
     setShowAbout(false);
     setShowExport(false);
@@ -525,7 +520,6 @@ export default function Menu({
             }
             setOpen((o) => {
               if (o) {
-                setShowInfo(false);
                 setShowAbout(false);
                 setClearWipe(0);
                 setLogoAnimate(false);
@@ -1687,32 +1681,6 @@ export default function Menu({
               </button>
             )}
 
-            {!hasTouch && (
-              <button
-                onClick={() => {
-                  onToggleFullscreen();
-                  closeMenu();
-                }}
-                className={`mt-4 w-full py-1.5 rounded text-xs transition-colors flex items-center justify-center gap-1.5 ${isDark ? "text-white/70 hover:text-white bg-white/5 hover:bg-white/10" : "text-black/70 hover:text-black bg-black/5 hover:bg-black/10"}`}
-              >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 16 16"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2 6V2h4" />
-                  <path d="M10 2h4v4" />
-                  <path d="M14 10v4h-4" />
-                  <path d="M6 14H2v-4" />
-                </svg>
-                Fullscreen
-              </button>
-            )}
 
             <div className="mt-4 space-y-3">
               {!hasTouch && (
@@ -1826,6 +1794,17 @@ export default function Menu({
             </div>
 
             <div className="mt-4 space-y-1.5">
+              {!hasTouch && (
+                <button
+                  onClick={() => { onToggleFullscreen(); closeMenu(); }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
+                >
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 6V2h4" /><path d="M10 2h4v4" /><path d="M14 10v4h-4" /><path d="M6 14H2v-4" />
+                  </svg>
+                  Fullscreen
+                </button>
+              )}
               <button
                 onClick={() => {
                   window.dispatchEvent(new Event("drawtool:toggle-stash"));
@@ -1858,94 +1837,19 @@ export default function Menu({
                 )}
               </button>
               {!hasTouch && (
-                <AccordionSection
-                  label="Keys"
-                  icon={
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 14 14"
-                      fill="none"
-                      stroke="currentColor"
-                      strokeWidth="1.5"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <rect x="1" y="4" width="12" height="7" rx="1.5" />
-                      <line
-                        x1="3.5"
-                        y1="6.8"
-                        x2="3.5"
-                        y2="6.8"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="7"
-                        y1="6.8"
-                        x2="7"
-                        y2="6.8"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <line
-                        x1="10.5"
-                        y1="6.8"
-                        x2="10.5"
-                        y2="6.8"
-                        strokeWidth="2"
-                        strokeLinecap="round"
-                      />
-                      <line x1="4.5" y1="9" x2="9.5" y2="9" />
-                    </svg>
-                  }
-                  open={showInfo}
-                  onToggle={() =>
-                    setShowInfo((v) => {
-                      if (!v)
-                        setTimeout(
-                          () =>
-                            infoRef.current?.scrollIntoView({
-                              behavior: "smooth",
-                              block: "nearest",
-                            }),
-                          0,
-                        );
-                      return !v;
-                    })
-                  }
-                  isDark={isDark}
-                  action={
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        closeMenu();
-                        setShowKeysModal(true);
-                      }}
-                      title="Open in modal"
-                      className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
-                    >
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 11 11"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M4.5 1H1v9h9V6.5" />
-                        <path d="M6.5 1H10v3.5" />
-                        <line x1="10" y1="1" x2="5.5" y2="5.5" />
-                      </svg>
-                    </button>
-                  }
+                <button
+                  onClick={() => { closeMenu(); setShowKeysModal(true); }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
                 >
-                  <div ref={infoRef}>
-                    <ShortcutsPanel isDark={isDark} />
-                  </div>
-                </AccordionSection>
+                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1" y="4" width="12" height="7" rx="1.5" />
+                    <line x1="3.5" y1="6.8" x2="3.5" y2="6.8" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="7" y1="6.8" x2="7" y2="6.8" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="10.5" y1="6.8" x2="10.5" y2="6.8" strokeWidth="2" strokeLinecap="round" />
+                    <line x1="4.5" y1="9" x2="9.5" y2="9" />
+                  </svg>
+                  Keys
+                </button>
               )}
 
               <AccordionSection
@@ -2200,6 +2104,7 @@ export default function Menu({
 
               <AccordionSection
                 label="Help"
+                dim
                 icon={
                   <svg
                     width="12"
@@ -2402,6 +2307,7 @@ export default function Menu({
 
               <AccordionSection
                 label="About"
+                dim
                 icon={
                   <svg
                     width="12"
@@ -2451,8 +2357,7 @@ export default function Menu({
                   ref={aboutRef}
                   className={`text-xs leading-relaxed break-words ${isDark ? "text-white/60" : "text-black/60"}`}
                 >
-                  <p className="flex items-center gap-1 flex-wrap">
-                    <img src="/drawzillaicon.svg" alt="" width="14" height="13" style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }} />
+                  <p>
                     drawzilla started as a personal tool &mdash; a drawing
                     canvas that stays out of the way.
                   </p>
@@ -2536,9 +2441,7 @@ export default function Menu({
                   <div
                     className={`text-xs font-medium leading-snug flex items-center gap-1.5 ${isDark ? "text-white/80" : "text-black/75"}`}
                   >
-                    writing by
-                    <img src="/drawzillaicon.svg" alt="" width="14" height="13" style={{ display: "inline-block", verticalAlign: "middle" }} />
-                    drawzilla
+                    writing by drawzilla
                   </div>
                   <div
                     className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}

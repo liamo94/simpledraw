@@ -138,14 +138,14 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
 
   const d = theme.isDark;
   const txt = d ? "text-white" : "text-black/85";
-  const txtWeak = d ? "text-white/40" : "text-black/40";
-  const txtDim = d ? "text-white/25" : "text-black/25";
-  const border = d ? "border-white/8" : "border-black/8";
+  const txtWeak = d ? "text-white/60" : "text-black/40";
+  const txtDim = d ? "text-white/40" : "text-black/25";
+  const border = d ? "border-white/15" : "border-black/8";
   const btnActive = d
-    ? "bg-[#3b82f6]/20 text-[#93c5fd] border-[#3b82f6]/50"
+    ? "bg-[#3b82f6]/35 text-[#93c5fd] border-[#3b82f6]/60"
     : "bg-[#3b82f6]/12 text-[#3b82f6] border-[#3b82f6]/40";
   const btnInactive = d
-    ? "text-white/40 border-white/10 hover:text-white/70 hover:bg-white/8"
+    ? "bg-white/[0.08] text-white/65 border-white/20 hover:text-white/90 hover:bg-white/[0.13]"
     : "text-black/40 border-black/10 hover:text-black/70 hover:bg-black/6";
   const btnStart = d
     ? "bg-white text-black hover:bg-white/90"
@@ -177,7 +177,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
               { letter: 'l', color: '#06b6d4', rotate: 3 },
               { letter: 'a', color: '#ef4444', rotate: -4 },
             ] as const).map((l, i) => (
-              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
+              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
                 <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>
               </span>
             ))}
@@ -191,7 +191,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
       <div className="flex flex-col items-center justify-center flex-1 px-8 py-10 gap-10 max-w-lg mx-auto w-full">
 
         {/* Game type toggle */}
-        <div className="w-full flex gap-1 p-1 rounded-xl" style={{ background: d ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)' }}>
+        <div className="w-full flex gap-1 p-1 rounded-xl" style={{ background: d ? 'rgba(255,255,255,0.09)' : 'rgba(0,0,0,0.06)' }}>
           {(['text', 'shapes'] as const).map((type) => (
             <button
               key={type}
@@ -393,7 +393,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
               className={[
                 "flex-1 px-3 py-2 rounded-xl text-sm border transition-colors outline-none",
                 d
-                  ? "bg-white/5 border-white/10 text-white placeholder-white/20 focus:border-white/25"
+                  ? "bg-white/[0.08] border-white/20 text-white placeholder-white/30 focus:border-white/40"
                   : "bg-black/4 border-black/8 text-black/85 placeholder-black/20 focus:border-black/20",
               ].join(" ")}
             />

@@ -594,7 +594,6 @@ export default function App() {
               <button onClick={() => navigate('home')} className={`${hdr.textMid} text-xs font-medium`}>writing</button>
               <span className={`${hdr.textWeak.split(' ')[0]} text-xs hidden sm:inline`}>by</span>
               <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center gap-1" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
-                <img src="/drawzillaicon.svg" alt="" width="14" height="13" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
                 {([
                   { letter: 'd', color: '#3b82f6', rotate: -6 },
                   { letter: 'r', color: '#ef4444', rotate: 3 },
@@ -606,7 +605,7 @@ export default function App() {
                   { letter: 'l', color: '#06b6d4', rotate: 3 },
                   { letter: 'a', color: '#ef4444', rotate: -4 },
                 ] as const).map((l, i) => (
-                  <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
+                  <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
                     <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>
                   </span>
                 ))}
@@ -679,7 +678,7 @@ export default function App() {
                     { letter: 'l', color: '#06b6d4', rotate: 3 },
                     { letter: 'a', color: '#ef4444', rotate: -4 },
                   ] as const).map((l, i) => (
-                    <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
+                    <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
                       <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>
                     </span>
                   ))}
@@ -755,7 +754,7 @@ export default function App() {
                       { letter: 'l', color: '#06b6d4', rotate: 3 },
                       { letter: 'a', color: '#ef4444', rotate: -4 },
                     ] as const).map((l, i) => (
-                      <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
+                      <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
                         <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>
                       </span>
                     ))}
