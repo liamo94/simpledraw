@@ -22,6 +22,17 @@ export function getBackgroundColor(theme: Theme): string {
   return "#f5f5f0";
 }
 
+export function getPanelBackground(theme: Theme): string {
+  if (theme === "midnight") return "rgba(15,15,30,0.92)";
+  if (theme === "dark")     return "rgba(10,10,10,0.92)";
+  if (theme === "lumber")   return "rgba(10,10,2,0.92)";
+  if (theme === "slate")    return "rgba(18,22,28,0.92)";
+  if (theme === "journal")  return "rgba(255,252,224,0.92)";
+  if (theme === "sky")      return "rgba(234,244,251,0.92)";
+  if (theme === "sand")     return "rgba(245,237,232,0.92)";
+  return "rgba(255,255,255,0.92)";
+}
+
 export function getGridColor(theme: Theme): string {
   if (isDarkTheme(theme)) return "#ffffff";
   if (theme === "journal") return "#7a5c30";

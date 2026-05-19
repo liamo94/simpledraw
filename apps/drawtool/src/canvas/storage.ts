@@ -1,4 +1,4 @@
-import type { Stroke, BankItem } from "./types";
+import type { Stroke, StashItem } from "./types";
 
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
@@ -88,13 +88,13 @@ export function validateStrokesFile(data: unknown): Stroke[] {
   return obj.strokes as Stroke[];
 }
 
-// ─── Bank persistence ─────────────────────────────────────────────────────────
+// ─── Stash persistence ─────────────────────────────────────────────────────────
 
-const BANK_KEY = "drawtool-bank";
+const STASH_KEY = "drawtool-stash";
 
-export function loadBank(): BankItem[] {
+export function loadStash(): StashItem[] {
   try {
-    const raw = localStorage.getItem(BANK_KEY);
+    const raw = localStorage.getItem(STASH_KEY);
     if (raw) return JSON.parse(raw);
   } catch {
     /* ignore */
@@ -102,11 +102,11 @@ export function loadBank(): BankItem[] {
   return [];
 }
 
-export function saveBank(items: BankItem[]) {
+export function saveStash(items: StashItem[]) {
   try {
     const json = JSON.stringify(items);
     if (json.length < 5_000_000)
-      localStorage.setItem(BANK_KEY, json);
+      localStorage.setItem(STASH_KEY, json);
   } catch {
     /* ignore */
   }

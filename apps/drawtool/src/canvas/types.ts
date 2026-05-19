@@ -82,7 +82,7 @@ export const snapshotCache = new Map<number, CanvasSnapshot>();
 // Re-export setting types used across canvas modules
 export type { Theme, TextSize, FontFamily, TextAlign, FillStyle };
 
-export type BankItem = {
+export type StashItem = {
   id: string;
   name: string;
   createdAt: number;

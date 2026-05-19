@@ -103,7 +103,7 @@ const COMMON_ACTIONS: Action[] = [
     action: () => kd({ key: "d", metaKey: true }),
   },
   {
-    label: "Save to bank",
+    label: "Save to stash",
     group: "edit",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -115,7 +115,7 @@ const COMMON_ACTIONS: Action[] = [
         <line x1="8.4" y1="8.4" x2="5.9" y2="5.9" />
       </svg>
     ),
-    action: () => window.dispatchEvent(new Event("drawtool:save-to-bank")),
+    action: () => window.dispatchEvent(new Event("drawtool:save-to-stash")),
   },
 ];
 

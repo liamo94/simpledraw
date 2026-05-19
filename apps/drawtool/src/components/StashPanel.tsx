@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
-import type { BankItem } from "../canvas/types";
-import { renderStrokesToCtx, anyStrokeBBox } from "../canvas/canvasUtils";
+import type { StashItem } from "../canvas/types";
+import { renderStrokesToCtx, anyStrokeBBox, getPanelBackground } from "../canvas/canvasUtils";
 import type { Theme } from "../hooks/useSettings";
 
-function BankItemThumbnail({ item }: { item: BankItem }) {
+function StashItemThumbnail({ item }: { item: StashItem }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const renderedRef = useRef(false);
 
@@ -68,18 +68,8 @@ function BankItemThumbnail({ item }: { item: BankItem }) {
   );
 }
 
-function panelBackground(theme: Theme): string {
-  if (theme === "midnight") return "rgba(15,15,30,0.92)";
-  if (theme === "lumber")   return "rgba(10,10,2,0.92)";
-  if (theme === "slate")    return "rgba(18,22,28,0.92)";
-  if (theme === "dark")     return "rgba(10,10,10,0.92)";
-  if (theme === "journal")  return "rgba(255,252,224,0.92)";
-  if (theme === "sky")      return "rgba(234,244,251,0.92)";
-  if (theme === "sand")     return "rgba(245,237,232,0.92)";
-  return "rgba(255,255,255,0.92)"; // white
-}
 
-export default function BankPanel({
+export default function StashPanel({
   items,
   isDark,
   theme,
@@ -91,16 +81,16 @@ export default function BankPanel({
   onReorder,
   onImport,
 }: {
-  items: BankItem[];
+  items: StashItem[];
   isDark: boolean;
   theme: Theme;
   hasTouch: boolean;
   onClose: () => void;
-  onDrop: (item: BankItem) => void;
+  onDrop: (item: StashItem) => void;
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onReorder: (fromId: string, toId: string) => void;
-  onImport: (items: BankItem[]) => void;
+  onImport: (items: StashItem[]) => void;
 }) {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -150,7 +140,7 @@ export default function BankPanel({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = "drawtool-bank.json";
+    a.download = "drawtool-stash.json";
     a.click();
     URL.revokeObjectURL(url);
     setShowHeaderMenu(false);
@@ -163,7 +153,7 @@ export default function BankPanel({
     reader.onload = (ev) => {
       try {
         const parsed = JSON.parse(ev.target?.result as string);
-        const imported: BankItem[] = Array.isArray(parsed) ? parsed : [];
+        const imported: StashItem[] = Array.isArray(parsed) ? parsed : [];
         if (imported.length) onImport(imported);
       } catch { /* ignore */ }
     };
@@ -177,10 +167,11 @@ export default function BankPanel({
   const canDrag = !search;
 
   const titleLetters = [
-    { letter: "b", color: "#3b82f6", rotate: -4 },
-    { letter: "a", color: "#ec4899", rotate: 3 },
-    { letter: "n", color: "#22c55e", rotate: -3 },
-    { letter: "k", color: "#f97316", rotate: 4 },
+    { letter: "s", rotate: -4 },
+    { letter: "t", rotate: 3 },
+    { letter: "a", rotate: -3 },
+    { letter: "s", rotate: 4 },
+    { letter: "h", rotate: -2 },
   ];
 
   return (
@@ -188,7 +179,7 @@ export default function BankPanel({
       className="fixed inset-y-0 right-0 z-50 flex flex-col shadow-2xl"
       style={{
         width: 300,
-        background: panelBackground(theme),
+        background: getPanelBackground(theme),
         borderLeft: `1px solid ${border}`,
         backdropFilter: "blur(16px)",
       }}
@@ -197,12 +188,10 @@ export default function BankPanel({
       <div
         className="flex items-center gap-1 px-4 py-3"
       >
-        <div className="flex-1 select-none" style={{ fontFamily: "Pacifico, cursive", fontSize: 17 }}>
+        <div className="flex-1 select-none" style={{ fontFamily: "Bangers, cursive", fontSize: 20, letterSpacing: "0.05em" }}>
           {titleLetters.map((l, i) => (
-            <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
-              <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22` }}>
-                {l.letter}
-              </span>
+            <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)`, color: "#3b82f6", textShadow: isDark ? "0 0 8px #3b82f644" : "1px 1px 0 #3b82f622" }}>
+              {l.letter}
             </span>
           ))}
         </div>
@@ -210,7 +199,7 @@ export default function BankPanel({
         {/* Import/export dropdown */}
         <div className="relative" ref={headerMenuRef}>
           <button
-            aria-label="Bank options"
+            aria-label="Stash options"
             onClick={() => setShowHeaderMenu((p) => !p)}
             className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
             style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)" }}
@@ -231,8 +220,8 @@ export default function BankPanel({
               }}
             >
               {[
-                { label: "Export bank", icon: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10"/></svg>, action: handleExport },
-                { label: "Import bank", icon: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 9V1M4 4l3-3 3 3M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10"/></svg>, action: () => importRef.current?.click() },
+                { label: "Export stash", icon: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10"/></svg>, action: handleExport },
+                { label: "Import stash", icon: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 9V1M4 4l3-3 3 3M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10"/></svg>, action: () => importRef.current?.click() },
               ].map(({ label, icon, action }) => (
                 <button
                   key={label}
@@ -250,7 +239,7 @@ export default function BankPanel({
         </div>
 
         <button
-          aria-label="Close bank"
+          aria-label="Close stash"
           onClick={onClose}
           className="w-7 h-7 flex items-center justify-center rounded-lg transition-colors"
           onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)"; }}
@@ -322,7 +311,7 @@ export default function BankPanel({
               draggable={canDrag}
               onDragStart={(e) => {
                 setDragId(item.id);
-                e.dataTransfer.setData("drawtool/bank-item", JSON.stringify({ strokes: item.strokes, savedDark: item.savedDark }));
+                e.dataTransfer.setData("drawtool/stash-item", JSON.stringify({ strokes: item.strokes, savedDark: item.savedDark }));
                 e.dataTransfer.effectAllowed = "copy";
               }}
               onDragEnd={() => { setDragId(null); setDragOverId(null); }}
@@ -360,7 +349,7 @@ export default function BankPanel({
                 }}
                 onClick={() => onDrop(item)}
               >
-                <BankItemThumbnail item={item} />
+                <StashItemThumbnail item={item} />
               </div>
 
               {/* Name row — click to rename, delete on hover */}

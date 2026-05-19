@@ -960,12 +960,12 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (e.key === "B" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !isWritingRef.current) {
         e.preventDefault();
-        window.dispatchEvent(new Event("drawtool:toggle-bank"));
+        window.dispatchEvent(new Event("drawtool:toggle-stash"));
         return;
       }
-      if (cmdKey(e) && e.key === "k" && e.shiftKey && !e.altKey && !isWritingRef.current) {
+      if (cmdKey(e) && e.key === "s" && e.shiftKey && !e.altKey && !isWritingRef.current) {
         e.preventDefault();
-        window.dispatchEvent(new Event("drawtool:save-to-bank"));
+        window.dispatchEvent(new Event("drawtool:save-to-stash"));
         return;
       }
       // Letter-key shape shortcuts (lowercase = solid, uppercase/shift = dashed)

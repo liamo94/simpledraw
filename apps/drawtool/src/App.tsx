@@ -26,11 +26,11 @@ import {
   saveStrokes,
   validateStrokesFile,
   strokesKey,
-  loadBank,
-  saveBank,
+  loadStash,
+  saveStash,
 } from "./canvas/storage";
-import type { BankItem, Stroke } from "./canvas/types";
-import BankPanel from "./components/BankPanel";
+import type { StashItem, Stroke } from "./canvas/types";
+import StashPanel from "./components/StashPanel";
 import SelectControls from "./components/SelectControls";
 
 const SHAPES: ShapeKind[] = [
@@ -344,8 +344,8 @@ export default function App() {
 
   const importFileRef = useRef<HTMLInputElement>(null);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [showBank, setShowBank] = useState(false);
-  const [bankItems, setBankItems] = useState<BankItem[]>(() => loadBank());
+  const [showStash, setShowStash] = useState(false);
+  const [stashItems, setStashItems] = useState<StashItem[]>(() => loadStash());
   const [dropZoneActive, setDropZoneActive] = useState(false);
   const dropZoneCounterRef = useRef(0);
 
@@ -416,15 +416,15 @@ export default function App() {
   }, [showImportModal]);
 
   useEffect(() => {
-    const onToggleBank = () => setShowBank((p) => {
+    const onToggleStash = () => setShowStash((p) => {
       if (!p) window.dispatchEvent(new Event("drawtool:close-menu"));
       return !p;
     });
-    const onSaveToBankResult = (e: Event) => {
+    const onSaveToStashResult = (e: Event) => {
       const strokes = (e as CustomEvent<Stroke[]>).detail;
       if (!strokes.length) return;
-      setBankItems((prev) => {
-        const item: BankItem = {
+      setStashItems((prev) => {
+        const item: StashItem = {
           id: crypto.randomUUID(),
           name: `Item ${prev.length + 1}`,
           createdAt: Date.now(),
@@ -432,30 +432,30 @@ export default function App() {
           savedDark: isDarkTheme(settingsRef.current.theme),
         };
         const next = [item, ...prev];
-        saveBank(next);
+        saveStash(next);
         return next;
       });
-      showToast({ type: "text", message: "Saved to bank" });
+      showToast({ type: "text", message: "Saved to stash" });
     };
-    const onCloseBank = () => setShowBank(false);
-    window.addEventListener("drawtool:toggle-bank", onToggleBank);
-    window.addEventListener("drawtool:save-to-bank-result", onSaveToBankResult);
-    window.addEventListener("drawtool:close-bank", onCloseBank);
+    const onCloseStash = () => setShowStash(false);
+    window.addEventListener("drawtool:toggle-stash", onToggleStash);
+    window.addEventListener("drawtool:save-to-stash-result", onSaveToStashResult);
+    window.addEventListener("drawtool:close-stash", onCloseStash);
     return () => {
-      window.removeEventListener("drawtool:toggle-bank", onToggleBank);
-      window.removeEventListener("drawtool:save-to-bank-result", onSaveToBankResult);
-      window.removeEventListener("drawtool:close-bank", onCloseBank);
+      window.removeEventListener("drawtool:toggle-stash", onToggleStash);
+      window.removeEventListener("drawtool:save-to-stash-result", onSaveToStashResult);
+      window.removeEventListener("drawtool:close-stash", onCloseStash);
     };
   }, [showToast]);
 
   useEffect(() => {
-    if (!showBank) return;
+    if (!showStash) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopPropagation(); setShowBank(false); }
+      if (e.key === "Escape") { e.stopPropagation(); setShowStash(false); }
     };
     window.addEventListener("keydown", onKey, { capture: true });
     return () => window.removeEventListener("keydown", onKey, { capture: true });
-  }, [showBank]);
+  }, [showStash]);
 
   useEffect(() => {
     const onState = (e: Event) => {
@@ -474,7 +474,7 @@ export default function App() {
         setShowShapePicker(false);
         setShowThicknessPicker(null);
         setShowHighlightPicker(false);
-        setShowBank(false);
+        setShowStash(false);
       }
     };
     window.addEventListener("drawtool:state", onState);
@@ -1047,7 +1047,7 @@ export default function App() {
         onExportData={exportData}
         onImportData={importData}
         onStartTraining={openTraining}
-        bankCount={bankItems.length}
+        stashCount={stashItems.length}
         selectionCount={selectionCount}
         onExportSelection={(transparent) => exportSelectionSvgFn(transparent)}
       />
@@ -1173,9 +1173,9 @@ export default function App() {
                 </svg>
               </button>
               <button
-                aria-label="Save to bank"
+                aria-label="Save to stash"
                 disabled={!hasSelection}
-                onClick={() => window.dispatchEvent(new Event("drawtool:save-to-bank"))}
+                onClick={() => window.dispatchEvent(new Event("drawtool:save-to-stash"))}
                 className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
               >
                 <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -1271,9 +1271,9 @@ export default function App() {
                   </svg>
                 </button>
                 <button
-                  aria-label="Save to bank"
+                  aria-label="Save to stash"
                   disabled={!hasSelection}
-                  onClick={() => window.dispatchEvent(new Event("drawtool:save-to-bank"))}
+                  onClick={() => window.dispatchEvent(new Event("drawtool:save-to-stash"))}
                   className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
                   <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
@@ -2845,36 +2845,36 @@ export default function App() {
           </div>
         </div>
       )}
-      {showBank && (
-        <BankPanel
-          items={bankItems}
+      {showStash && (
+        <StashPanel
+          items={stashItems}
           isDark={isDark}
           theme={settings.theme}
           hasTouch={hasTouch}
-          onClose={() => setShowBank(false)}
+          onClose={() => setShowStash(false)}
           onDrop={(item) => {
             window.dispatchEvent(
-              new CustomEvent("drawtool:drop-bank-item", { detail: { strokes: item.strokes, savedDark: item.savedDark } }),
+              new CustomEvent("drawtool:drop-stash-item", { detail: { strokes: item.strokes, savedDark: item.savedDark } }),
             );
-            setShowBank(false);
+            setShowStash(false);
             showToast({ type: "text", message: `"${item.name}" dropped` });
           }}
           onDelete={(id) => {
-            setBankItems((prev) => {
+            setStashItems((prev) => {
               const next = prev.filter((i) => i.id !== id);
-              saveBank(next);
+              saveStash(next);
               return next;
             });
           }}
           onRename={(id, name) => {
-            setBankItems((prev) => {
+            setStashItems((prev) => {
               const next = prev.map((i) => (i.id === id ? { ...i, name } : i));
-              saveBank(next);
+              saveStash(next);
               return next;
             });
           }}
           onReorder={(fromId, toId) => {
-            setBankItems((prev) => {
+            setStashItems((prev) => {
               const fromIdx = prev.findIndex((i) => i.id === fromId);
               let toIdx = prev.findIndex((i) => i.id === toId);
               if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
@@ -2882,19 +2882,19 @@ export default function App() {
               const [item] = next.splice(fromIdx, 1);
               if (toIdx > fromIdx) toIdx--;
               next.splice(toIdx, 0, item);
-              saveBank(next);
+              saveStash(next);
               return next;
             });
           }}
           onImport={(imported) => {
-            setBankItems((prev) => {
+            setStashItems((prev) => {
               const existingIds = new Set(prev.map((i) => i.id));
               const fresh = imported.filter((i) => !existingIds.has(i.id));
               const next = [...fresh, ...prev];
-              saveBank(next);
+              saveStash(next);
               return next;
             });
-            showToast({ type: "text", message: "Bank imported" });
+            showToast({ type: "text", message: "Stash imported" });
           }}
         />
       )}

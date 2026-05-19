@@ -1970,17 +1970,17 @@ function Canvas({
     window.addEventListener("drawtool:undo", onUndoEvent);
     const onRedoEvent = () => redo();
     window.addEventListener("drawtool:redo", onRedoEvent);
-    const onSaveToBank = () => {
+    const onSaveToStash = () => {
       const group = selectedGroupRef.current;
       const single = selectedTextRef.current;
       const strokes = group.length > 0 ? group
         : single ? [single]
         : strokesRef.current.filter((s) => s.points.length > 0 || s.subStrokes);
       if (strokes.length === 0) return;
-      window.dispatchEvent(new CustomEvent("drawtool:save-to-bank-result", { detail: strokes }));
+      window.dispatchEvent(new CustomEvent("drawtool:save-to-stash-result", { detail: strokes }));
     };
-    window.addEventListener("drawtool:save-to-bank", onSaveToBank);
-    const onDropBankItem = (e: Event) => {
+    window.addEventListener("drawtool:save-to-stash", onSaveToStash);
+    const onDropStashItem = (e: Event) => {
       const { strokes, savedDark } = (e as CustomEvent<{ strokes: Stroke[]; savedDark?: boolean }>).detail;
       if (!strokes?.length) return;
       const currentIsDark = isDarkTheme(themeRef.current);
@@ -2027,7 +2027,7 @@ function Canvas({
       persistStrokes();
       scheduleRedraw();
     };
-    window.addEventListener("drawtool:drop-bank-item", onDropBankItem);
+    window.addEventListener("drawtool:drop-stash-item", onDropStashItem);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
@@ -2047,8 +2047,8 @@ function Canvas({
       window.removeEventListener("drawtool:import-strokes", onImportStrokes);
       window.removeEventListener("drawtool:undo", onUndoEvent);
       window.removeEventListener("drawtool:redo", onRedoEvent);
-      window.removeEventListener("drawtool:save-to-bank", onSaveToBank);
-      window.removeEventListener("drawtool:drop-bank-item", onDropBankItem);
+      window.removeEventListener("drawtool:save-to-stash", onSaveToStash);
+      window.removeEventListener("drawtool:drop-stash-item", onDropStashItem);
     };
   }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomToSelection, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 
@@ -2267,10 +2267,10 @@ function Canvas({
     async (e: React.DragEvent<HTMLCanvasElement>) => {
       e.preventDefault();
 
-      const bankItemJson = e.dataTransfer.getData("drawtool/bank-item");
-      if (bankItemJson) {
+      const stashItemJson = e.dataTransfer.getData("drawtool/stash-item");
+      if (stashItemJson) {
         try {
-          const { strokes, savedDark } = JSON.parse(bankItemJson) as { strokes: Stroke[]; savedDark?: boolean };
+          const { strokes, savedDark } = JSON.parse(stashItemJson) as { strokes: Stroke[]; savedDark?: boolean };
           if (!strokes?.length) return;
           const canvas = canvasRef.current;
           if (!canvas) return;
@@ -2317,7 +2317,7 @@ function Canvas({
           setZCursor("default");
           persistStrokes();
           scheduleRedraw();
-          window.dispatchEvent(new CustomEvent("drawtool:close-bank"));
+          window.dispatchEvent(new CustomEvent("drawtool:close-stash"));
         } catch { /* ignore malformed data */ }
         return;
       }

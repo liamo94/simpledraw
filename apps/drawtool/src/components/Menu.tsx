@@ -10,7 +10,7 @@ import type {
   ClickTool,
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
-import { CONFIRM_CLEAR_STROKE_THRESHOLD } from "../canvas/canvasUtils";
+import { CONFIRM_CLEAR_STROKE_THRESHOLD, getPanelBackground } from "../canvas/canvasUtils";
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -289,7 +289,7 @@ type Props = {
   onExportData: () => void;
   onImportData: () => void;
   onStartTraining: () => void;
-  bankCount: number;
+  stashCount: number;
   selectionCount: number;
   onExportSelection: (transparent: boolean) => void;
 };
@@ -310,7 +310,7 @@ export default function Menu({
   onExportData,
   onImportData,
   onStartTraining,
-  bankCount,
+  stashCount,
   selectionCount,
   onExportSelection,
 }: Props) {
@@ -573,16 +573,8 @@ export default function Menu({
         {open && (
           <nav
             aria-label="Settings menu"
-            className={`mt-2 p-4 rounded-xl border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${settings.theme === "midnight" ? "border-white/15" : isDark ? `${hasTouch ? "bg-black/90" : "bg-black/90"} border-white/15` : `${hasTouch ? "bg-white/90" : "bg-white/90"} border-black/15`}`}
-            style={
-              settings.theme === "midnight"
-                ? {
-                    background: hasTouch
-                      ? "rgba(15,15,30,0.93)"
-                      : "rgba(15,15,30,0.90)",
-                  }
-                : undefined
-            }
+            className={`mt-2 p-4 rounded-xl border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
+            style={{ background: getPanelBackground(settings.theme) }}
           >
             <style>{waveStyle}</style>
             <style>{`@keyframes dtWave {
@@ -1836,7 +1828,7 @@ export default function Menu({
             <div className="mt-4 space-y-1.5">
               <button
                 onClick={() => {
-                  window.dispatchEvent(new Event("drawtool:toggle-bank"));
+                  window.dispatchEvent(new Event("drawtool:toggle-stash"));
                   closeMenu();
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
@@ -1851,19 +1843,17 @@ export default function Menu({
                   strokeLinecap="round"
                   strokeLinejoin="round"
                 >
-                  <circle cx="7" cy="7" r="5" />
-                  <circle cx="7" cy="7" r="1.8" />
-                  <line x1="8.3" y1="5.7" x2="10.5" y2="3.5" />
-                  <line x1="8.3" y1="8.3" x2="10.5" y2="10.5" />
-                  <line x1="5.7" y1="8.3" x2="3.5" y2="10.5" />
-                  <line x1="5.7" y1="5.7" x2="3.5" y2="3.5" />
+                  <rect x="1.75" y="4.5" width="10.5" height="8" rx="0.75" />
+                  <line x1="1.75" y1="8" x2="12.25" y2="8" />
+                  <line x1="7" y1="4.5" x2="7" y2="12.5" />
+                  <rect x="1" y="2.75" width="12" height="2.5" rx="0.75" />
                 </svg>
-                Bank
-                {bankCount > 0 && (
+                Stash
+                {stashCount > 0 && (
                   <span
                     className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${isDark ? "bg-white/10 text-white/40" : "bg-black/[0.07] text-black/40"}`}
                   >
-                    {bankCount}
+                    {stashCount}
                   </span>
                 )}
               </button>
