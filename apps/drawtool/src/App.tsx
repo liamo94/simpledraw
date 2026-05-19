@@ -106,9 +106,7 @@ export default function App() {
   const [hasTouch] = useState(
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
   );
-  const [showOnboarding, setShowOnboarding] = useState(
-    () => !localStorage.getItem("drawtool-onboarded"),
-  );
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [activeCanvas, setActiveCanvas] = useState(() => {
     const stored = localStorage.getItem("drawtool-active-canvas");
     const n = stored ? parseInt(stored, 10) : 1;
@@ -835,6 +833,11 @@ export default function App() {
   const dismissOnboarding = useCallback(() => {
     setShowOnboarding(false);
     localStorage.setItem("drawtool-onboarded", "1");
+  }, []);
+
+  useEffect(() => {
+    if (localStorage.getItem("drawtool-onboarded")) return;
+    document.fonts.load("400 20px 'Caveat Brush'").then(() => setShowOnboarding(true));
   }, []);
 
   useEffect(() => {
@@ -2466,7 +2469,7 @@ export default function App() {
             <img src="/drawzillaicon.svg" alt="drawzilla" className="w-20 h-20 mx-auto mb-3 object-contain" />
             <div
               className="text-xl mb-4 select-none"
-              style={{ fontFamily: "Pacifico, cursive" }}
+              style={{ fontFamily: "Caveat Brush, cursive" }}
             >
               {[
                 { letter: "d", color: "#3b82f6", rotate: -6 },
@@ -2768,7 +2771,7 @@ export default function App() {
           className="fixed inset-0 z-50 flex flex-col items-center justify-center pointer-events-none animate-training-flash"
           style={{ background: isDark ? "rgba(0,0,0,0.72)" : "rgba(255,255,255,0.82)" }}
         >
-          <div className="flex items-center gap-2 mb-2" style={{ fontFamily: "Pacifico, cursive", fontSize: 32 }}>
+          <div className="flex items-center mb-2" style={{ fontFamily: "Caveat Brush, cursive", fontSize: 32 }}>
             {([
               { letter: "d", color: "#3b82f6", rotate: -6 },
               { letter: "r", color: "#ef4444", rotate: 3 },
@@ -2780,7 +2783,7 @@ export default function App() {
               { letter: "l", color: "#06b6d4", rotate: 3 },
               { letter: "a", color: "#ef4444", rotate: -4 },
             ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
-              <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 4, transform: `rotate(${l.rotate}deg)` }}>
+              <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
                 <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 16px ${l.color}66` : `2px 2px 0 ${l.color}22` }}>
                   {l.letter}
                 </span>
@@ -2800,7 +2803,7 @@ export default function App() {
             borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
           }}
         >
-          <div className="px-3 py-1 flex items-center pointer-events-none" style={{ fontFamily: "Pacifico, cursive", fontSize: 13 }}>
+          <div className="px-3 py-1 flex items-center pointer-events-none" style={{ fontFamily: "Caveat Brush, cursive", fontSize: 17 }}>
             {([
               { letter: "d", color: "#3b82f6", rotate: -6 },
               { letter: "r", color: "#ef4444", rotate: 3 },
@@ -2853,7 +2856,7 @@ export default function App() {
           <div className="h-0.5" style={{ background: "linear-gradient(90deg, #3b82f6, #ec4899)" }} />
           <div className="p-3.5">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="flex items-center" style={{ fontFamily: "Pacifico, cursive", fontSize: 13 }}>
+              <div className="flex items-center" style={{ fontFamily: "Caveat Brush, cursive", fontSize: 17 }}>
                 {([
                   { letter: "d", color: "#3b82f6", rotate: -6 },
                   { letter: "r", color: "#ef4444", rotate: 3 },

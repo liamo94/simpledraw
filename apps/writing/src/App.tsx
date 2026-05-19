@@ -593,7 +593,7 @@ export default function App() {
             <div className="flex items-center gap-1 shrink-0 mr-1">
               <button onClick={() => navigate('home')} className={`${hdr.textMid} text-xs font-medium`}>writing</button>
               <span className={`${hdr.textWeak.split(' ')[0]} text-xs hidden sm:inline`}>by</span>
-              <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center gap-1" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+              <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center gap-1" style={{ fontFamily: "'Caveat Brush', cursive", fontSize: '1rem', lineHeight: 1, textDecoration: 'none' }}>
                 {([
                   { letter: 'd', color: '#3b82f6', rotate: -6 },
                   { letter: 'r', color: '#ef4444', rotate: 3 },
@@ -666,7 +666,7 @@ export default function App() {
               <div className="flex items-center gap-1 shrink-0 mr-1">
                 <button onClick={() => navigate('home')} className={`${hdr.textMid} text-xs font-medium`}>writing</button>
                 <span className={`${hdr.textWeak.split(' ')[0]} text-xs`}>by</span>
-                <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+                <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Caveat Brush', cursive", fontSize: '1rem', lineHeight: 1, textDecoration: 'none' }}>
                   {([
                     { letter: 'd', color: '#3b82f6', rotate: -6 },
                     { letter: 'r', color: '#ef4444', rotate: 3 },
@@ -742,7 +742,7 @@ export default function App() {
                 <div className="flex items-center gap-1 shrink-0">
                   <button onClick={() => navigate('home')} className={`${hdr.textMid} text-xs font-medium`}>writing</button>
                   <span className={`${hdr.textWeak.split(' ')[0]} text-xs`}>by</span>
-                  <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+                  <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Caveat Brush', cursive", fontSize: '1rem', lineHeight: 1, textDecoration: 'none' }}>
                     {([
                       { letter: 'd', color: '#3b82f6', rotate: -6 },
                       { letter: 'r', color: '#ef4444', rotate: 3 },

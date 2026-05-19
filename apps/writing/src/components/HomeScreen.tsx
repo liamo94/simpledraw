@@ -37,7 +37,7 @@ export default function HomeScreen({ theme, onQuickPlay, onGameMode, onAimTraine
         <h1 className={`${txt} text-3xl font-semibold tracking-tight`}>writing</h1>
         <div className={`flex items-center gap-1.5 ${txtMid} text-sm`}>
           <span>by</span>
-          <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Pacifico', cursive", fontSize: '1.35rem', lineHeight: 1, textDecoration: 'none' }}>
+          <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Caveat Brush', cursive", fontSize: '1.6rem', lineHeight: 1, textDecoration: 'none' }}>
             {[
               { letter: 'd', color: '#3b82f6', rotate: -6 },
               { letter: 'r', color: '#ef4444', rotate: 3 },
@@ -49,7 +49,7 @@ export default function HomeScreen({ theme, onQuickPlay, onGameMode, onAimTraine
               { letter: 'l', color: '#06b6d4', rotate: 3 },
               { letter: 'a', color: '#ef4444', rotate: -4 },
             ].map((l, i) => (
-              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
+              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
                 <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 8px ${l.color}44` }}>
                   {l.letter}
                 </span>

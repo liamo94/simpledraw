@@ -63,8 +63,8 @@ function drawBranding(ctx: CanvasRenderingContext2D, x: number, y: number, fgMid
   ctx.fillText(' by ', cx, y);
   cx += ctx.measureText(' by ').width;
 
-  // Drawtool colored letters in Pacifico
-  ctx.font = `400 13px Pacifico, cursive`;
+  // Drawtool colored letters in Caveat Brush
+  ctx.font = `400 13px Caveat Brush, cursive`;
   for (const { letter, color, rotate } of DRAWTOOL_LETTERS) {
     const lw = ctx.measureText(letter).width + 1;
     ctx.save();
@@ -88,7 +88,7 @@ export async function generateResultsImage(
 ): Promise<Blob> {
   await Promise.all([
     document.fonts.load('600 20px Caveat'),
-    document.fonts.load('400 13px Pacifico'),
+    document.fonts.load('400 13px Caveat Brush'),
   ]);
 
   const DPR = 2;

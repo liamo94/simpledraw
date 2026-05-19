@@ -185,7 +185,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
           <div className="flex items-center gap-1 shrink-0 mr-1">
             <button onClick={onHome} className={`${hdrTextMid} text-xs font-medium`}>writing</button>
             <span className={`${hdrTextMid} text-xs hidden sm:inline`}>by</span>
-            <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="hidden sm:inline" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+            <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="hidden sm:inline" style={{ fontFamily: "'Caveat Brush', cursive", fontSize: '1rem', lineHeight: 1, textDecoration: 'none' }}>
               {([
                 { letter: 'd', color: '#3b82f6', rotate: -6 },
                 { letter: 'r', color: '#ef4444', rotate: 3 },
@@ -282,7 +282,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
         <div className="flex items-center gap-1 shrink-0">
           <button onClick={handleQuit} className={`${hdrTextMid} text-xs font-medium`}>writing</button>
           <span className={`${hdrTextMid} text-xs hidden sm:inline`}>by</span>
-          <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="hidden sm:inline" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+          <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="hidden sm:inline" style={{ fontFamily: "'Caveat Brush', cursive", fontSize: '1rem', lineHeight: 1, textDecoration: 'none' }}>
             {([
               { letter: 'd', color: '#3b82f6', rotate: -6 },
               { letter: 'r', color: '#ef4444', rotate: 3 },

@@ -10,7 +10,10 @@ import type {
   ClickTool,
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
-import { CONFIRM_CLEAR_STROKE_THRESHOLD, getPanelBackground } from "../canvas/canvasUtils";
+import {
+  CONFIRM_CLEAR_STROKE_THRESHOLD,
+  getPanelBackground,
+} from "../canvas/canvasUtils";
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -246,8 +249,10 @@ function AccordionSection({
           onClick={onToggle}
           className={`flex-1 flex items-center justify-between gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
             isDark
-              ? `${open ? "bg-white/[0.08] text-white/80" : "bg-white/5 " + (dim ? "text-white/35" : "text-white/55")} hover:bg-white/[0.11] ` + (dim ? "hover:text-white/60" : "hover:text-white/85")
-              : `${open ? "bg-black/[0.07] text-black/70" : "bg-black/[0.04] " + (dim ? "text-black/30" : "text-black/50")} hover:bg-black/[0.09] ` + (dim ? "hover:text-black/55" : "hover:text-black/75")
+              ? `${open ? "bg-white/[0.08] text-white/80" : "bg-white/5 " + (dim ? "text-white/35" : "text-white/55")} hover:bg-white/[0.11] ` +
+                (dim ? "hover:text-white/60" : "hover:text-white/85")
+              : `${open ? "bg-black/[0.07] text-black/70" : "bg-black/[0.04] " + (dim ? "text-black/30" : "text-black/50")} hover:bg-black/[0.09] ` +
+                (dim ? "hover:text-black/55" : "hover:text-black/75")
           }`}
         >
           <span className="flex items-center gap-2">
@@ -579,9 +584,9 @@ export default function Menu({
             }`}</style>
             <a
               href="/"
-              className="text-xl mb-3 text-center select-none block"
+              className="text-3xl mb-3 text-center select-none block"
               style={{
-                fontFamily: "Pacifico, cursive",
+                fontFamily: "Caveat Brush, cursive",
                 textDecoration: "none",
               }}
             >
@@ -1681,7 +1686,6 @@ export default function Menu({
               </button>
             )}
 
-
             <div className="mt-4 space-y-3">
               {!hasTouch && (
                 <button
@@ -1796,11 +1800,26 @@ export default function Menu({
             <div className="mt-4 space-y-1.5">
               {!hasTouch && (
                 <button
-                  onClick={() => { onToggleFullscreen(); closeMenu(); }}
+                  onClick={() => {
+                    onToggleFullscreen();
+                    closeMenu();
+                  }}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
                 >
-                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M2 6V2h4" /><path d="M10 2h4v4" /><path d="M14 10v4h-4" /><path d="M6 14H2v-4" />
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M2 6V2h4" />
+                    <path d="M10 2h4v4" />
+                    <path d="M14 10v4h-4" />
+                    <path d="M6 14H2v-4" />
                   </svg>
                   Fullscreen
                 </button>
@@ -1838,14 +1857,47 @@ export default function Menu({
               </button>
               {!hasTouch && (
                 <button
-                  onClick={() => { closeMenu(); setShowKeysModal(true); }}
+                  onClick={() => {
+                    closeMenu();
+                    setShowKeysModal(true);
+                  }}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
                 >
-                  <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 14 14"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="1" y="4" width="12" height="7" rx="1.5" />
-                    <line x1="3.5" y1="6.8" x2="3.5" y2="6.8" strokeWidth="2" strokeLinecap="round" />
-                    <line x1="7" y1="6.8" x2="7" y2="6.8" strokeWidth="2" strokeLinecap="round" />
-                    <line x1="10.5" y1="6.8" x2="10.5" y2="6.8" strokeWidth="2" strokeLinecap="round" />
+                    <line
+                      x1="3.5"
+                      y1="6.8"
+                      x2="3.5"
+                      y2="6.8"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1="7"
+                      y1="6.8"
+                      x2="7"
+                      y2="6.8"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
+                    <line
+                      x1="10.5"
+                      y1="6.8"
+                      x2="10.5"
+                      y2="6.8"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                    />
                     <line x1="4.5" y1="9" x2="9.5" y2="9" />
                   </svg>
                   Keys
@@ -2449,9 +2501,7 @@ export default function Menu({
               </a>
             </div>
 
-            <div
-              className={`mt-3 pt-2 border-t text-center ${isDark ? "border-white/10" : "border-black/10"}`}
-            >
+            <div className={`mt-2 pt-2 text-center`}>
               <a
                 href="https://liamo.co"
                 target="_blank"

@@ -188,7 +188,7 @@ export default function StashPanel({
       <div
         className="flex items-center gap-1 px-4 py-3"
       >
-        <div className="flex-1 select-none" style={{ fontFamily: "Bangers, cursive", fontSize: 20, letterSpacing: "0.05em" }}>
+        <div className="flex-1 select-none" style={{ fontFamily: "Caveat Brush, cursive", fontSize: 20 }}>
           {titleLetters.map((l, i) => (
             <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)`, color: "#3b82f6", textShadow: isDark ? "0 0 8px #3b82f644" : "1px 1px 0 #3b82f622" }}>
               {l.letter}
