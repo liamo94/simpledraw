@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://drawtool.io/sitemap.xml
+Sitemap: https://drawzil.la/sitemap.xml
