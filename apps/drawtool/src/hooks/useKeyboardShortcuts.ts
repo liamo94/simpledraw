@@ -139,6 +139,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
   const lastVPressRef = useRef(0);
 
   useEffect(() => {
+    let mounted = true;
     const onKeyDown = (e: KeyboardEvent) => {
       // Handle text input while in writing mode
       if (isWritingRef.current) {
@@ -1448,6 +1449,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           processImageFile(blob).then(async ({ dataUrl, naturalW, naturalH }) => {
             const id = crypto.randomUUID();
             await storeImage(id, dataUrl);
+            if (!mounted) return;
             const view = viewRef.current;
             const MAX_SCREEN_W = 600;
             const worldW = Math.min(naturalW, MAX_SCREEN_W / view.scale);
@@ -1489,6 +1491,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     window.addEventListener("blur", onBlur);
     window.addEventListener("paste", onPaste);
     return () => {
+      mounted = false;
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);

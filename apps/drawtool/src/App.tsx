@@ -147,6 +147,7 @@ export default function App() {
   >(null);
   const [toastFading, setToastFading] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [storageQuotaCanvases, setStorageQuotaCanvases] = useState<Set<number>>(() => new Set());
   const toastFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
@@ -709,6 +710,16 @@ export default function App() {
     window.addEventListener("drawtool:cycle-theme", onCycleTheme);
     const onTextPlaced = () => { if (hasTouch) setTouchTool("select"); };
     window.addEventListener("drawtool:text-placed", onTextPlaced);
+    const onStorageQuota = (e: Event) => {
+      const idx = (e as CustomEvent).detail?.canvasIndex as number;
+      setStorageQuotaCanvases(prev => { const next = new Set(prev); next.add(idx); return next; });
+    };
+    const onStorageOk = (e: Event) => {
+      const idx = (e as CustomEvent).detail?.canvasIndex as number;
+      setStorageQuotaCanvases(prev => { const next = new Set(prev); next.delete(idx); return next; });
+    };
+    window.addEventListener("drawtool:storage-quota", onStorageQuota);
+    window.addEventListener("drawtool:storage-ok", onStorageOk);
     return () => {
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
@@ -740,6 +751,8 @@ export default function App() {
       window.removeEventListener("drawtool:toast", onToast);
       window.removeEventListener("drawtool:cycle-theme", onCycleTheme);
       window.removeEventListener("drawtool:text-placed", onTextPlaced);
+      window.removeEventListener("drawtool:storage-quota", onStorageQuota);
+      window.removeEventListener("drawtool:storage-ok", onStorageOk);
     };
   }, [updateSettings, requestClear, showToast, toggleFullscreen, exportPng]);
 
@@ -2226,6 +2239,45 @@ export default function App() {
           </svg>
           Scroll back to content
         </button>
+      )}
+      {storageQuotaCanvases.has(activeCanvas) && (
+        <div
+          className={`fixed z-50 flex items-center gap-2 px-3 py-2 rounded-lg border text-xs font-medium backdrop-blur-sm animate-fade-in-up ${
+            isDark
+              ? "bg-amber-950/80 border-amber-500/40 text-amber-200"
+              : "bg-amber-50/90 border-amber-500/50 text-amber-900"
+          }`}
+          style={{
+            bottom: hasTouch ? "5rem" : "1rem",
+            left: "50%",
+            transform: "translateX(-50%)",
+            whiteSpace: "nowrap",
+          }}
+        >
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M8 2.5L14 13.5H2L8 2.5Z" />
+            <line x1="8" y1="7" x2="8" y2="10" />
+            <circle cx="8" cy="12" r="0.5" fill="currentColor" />
+          </svg>
+          Canvas full — new strokes won't survive a refresh
+          <button
+            onClick={() => { exportPng(); setStorageQuotaCanvases(prev => { const next = new Set(prev); next.delete(activeCanvas); return next; }); }}
+            className={`ml-0.5 px-2 py-0.5 rounded-md text-xs font-semibold transition-colors ${
+              isDark
+                ? "bg-amber-500/25 hover:bg-amber-500/45 text-amber-200"
+                : "bg-amber-400/30 hover:bg-amber-400/55 text-amber-900"
+            }`}
+          >
+            Export PNG
+          </button>
+          <button
+            onClick={() => setStorageQuotaCanvases(prev => { const next = new Set(prev); next.delete(activeCanvas); return next; })}
+            aria-label="Dismiss"
+            className="opacity-50 hover:opacity-90 transition-opacity text-sm leading-none"
+          >
+            ×
+          </button>
+        </div>
       )}
       <div
         className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5"

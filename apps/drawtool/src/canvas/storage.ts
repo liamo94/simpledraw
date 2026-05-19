@@ -22,11 +22,23 @@ export function loadStrokes(canvasIndex: number): Stroke[] {
   return [];
 }
 
+const _quotaHit = new Set<number>();
+
 export function saveStrokes(strokes: Stroke[], canvasIndex: number) {
   try {
     const json = JSON.stringify(strokes);
-    if (json.length < 5_000_000)
+    if (json.length < 5_000_000) {
       localStorage.setItem(strokesKey(canvasIndex), json);
+      if (_quotaHit.has(canvasIndex)) {
+        _quotaHit.delete(canvasIndex);
+        window.dispatchEvent(new CustomEvent("drawtool:storage-ok", { detail: { canvasIndex } }));
+      }
+    } else {
+      if (!_quotaHit.has(canvasIndex)) {
+        _quotaHit.add(canvasIndex);
+        window.dispatchEvent(new CustomEvent("drawtool:storage-quota", { detail: { canvasIndex } }));
+      }
+    }
   } catch {
     /* ignore */
   }

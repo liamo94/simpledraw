@@ -1236,6 +1236,19 @@ function Canvas({
         clearInterval(caretTimerRef.current);
         caretTimerRef.current = null;
       }
+      if (sprayIntervalRef.current) {
+        clearInterval(sprayIntervalRef.current);
+        sprayIntervalRef.current = null;
+      }
+      if (persistDebounceRef.current) {
+        clearTimeout(persistDebounceRef.current);
+        persistDebounceRef.current = null;
+        saveStrokes(strokesRef.current, canvasIndexRef.current);
+      }
+      if (gcDebounceRef.current) {
+        clearTimeout(gcDebounceRef.current);
+        gcDebounceRef.current = null;
+      }
     };
   }, [redraw, scheduleRedraw]);
 
@@ -2332,14 +2345,15 @@ function Canvas({
       const screenX = e.clientX - rect.left;
       const screenY = e.clientY - rect.top;
       let result: { dataUrl: string; naturalW: number; naturalH: number };
+      let id: string;
       try {
         result = await processImageFile(file);
+        id = crypto.randomUUID();
+        await storeImage(id, result.dataUrl);
       } catch {
         return;
       }
-      const { dataUrl, naturalW, naturalH } = result;
-      const id = crypto.randomUUID();
-      await storeImage(id, dataUrl);
+      const { naturalW, naturalH } = result;
       const view = viewRef.current;
       const MAX_SCREEN_W = 600;
       const worldW = Math.min(naturalW, MAX_SCREEN_W / view.scale);
@@ -2774,7 +2788,7 @@ function Canvas({
       // Skip during active drawing — cursor glow is invisible while drawing anyway
       if (e.pointerType !== "touch" && !isDrawingRef.current) {
         const now = performance.now();
-        if (now - lastSameColorCheckRef.current > 16) {
+        if (now - lastSameColorCheckRef.current > 50) {
           lastSameColorCheckRef.current = now;
           const canvas = canvasRef.current;
           const ctx = canvas?.getContext("2d");
