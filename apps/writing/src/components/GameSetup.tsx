@@ -171,10 +171,11 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
               { letter: 'r', color: '#ef4444', rotate: 3 },
               { letter: 'a', color: '#22c55e', rotate: -4 },
               { letter: 'w', color: '#eab308', rotate: 5 },
-              { letter: 't', color: '#ec4899', rotate: -3 },
-              { letter: 'o', color: '#f97316', rotate: 4 },
-              { letter: 'o', color: '#8b5cf6', rotate: -5 },
+              { letter: 'z', color: '#ec4899', rotate: -3 },
+              { letter: 'i', color: '#f97316', rotate: 4 },
+              { letter: 'l', color: '#8b5cf6', rotate: -5 },
               { letter: 'l', color: '#06b6d4', rotate: 3 },
+              { letter: 'a', color: '#ef4444', rotate: -4 },
             ] as const).map((l, i) => (
               <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
                 <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>

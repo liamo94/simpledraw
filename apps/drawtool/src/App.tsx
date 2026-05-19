@@ -2405,12 +2405,13 @@ export default function App() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Welcome to drawtool"
+          aria-label="Welcome to drawzilla"
           className="fixed inset-0 z-100 flex items-center justify-center bg-black/50 backdrop-blur-sm"
         >
           <div
             className={`px-8 py-6 rounded-lg border backdrop-blur-sm text-center max-w-xs ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
           >
+            <img src="/drawzillaicon.svg" alt="drawzilla" className="w-20 h-20 mx-auto mb-3 object-contain" />
             <div
               className="text-xl mb-4 select-none"
               style={{ fontFamily: "Pacifico, cursive" }}
@@ -2420,10 +2421,11 @@ export default function App() {
                 { letter: "r", color: "#ef4444", rotate: 3 },
                 { letter: "a", color: "#22c55e", rotate: -4 },
                 { letter: "w", color: "#eab308", rotate: 5 },
-                { letter: "t", color: "#ec4899", rotate: -3 },
-                { letter: "o", color: "#f97316", rotate: 4 },
-                { letter: "o", color: "#8b5cf6", rotate: -5 },
+                { letter: "z", color: "#ec4899", rotate: -3 },
+                { letter: "i", color: "#f97316", rotate: 4 },
+                { letter: "l", color: "#8b5cf6", rotate: -5 },
                 { letter: "l", color: "#06b6d4", rotate: 3 },
+                { letter: "a", color: "#ef4444", rotate: -4 },
               ].map((l, i) => (
                 <span
                   key={i}
@@ -2720,10 +2722,11 @@ export default function App() {
               { letter: "r", color: "#ef4444", rotate: 3 },
               { letter: "a", color: "#22c55e", rotate: -4 },
               { letter: "w", color: "#eab308", rotate: 5 },
-              { letter: "t", color: "#ec4899", rotate: -3 },
-              { letter: "o", color: "#f97316", rotate: 4 },
-              { letter: "o", color: "#8b5cf6", rotate: -5 },
+              { letter: "z", color: "#ec4899", rotate: -3 },
+              { letter: "i", color: "#f97316", rotate: 4 },
+              { letter: "l", color: "#8b5cf6", rotate: -5 },
               { letter: "l", color: "#06b6d4", rotate: 3 },
+              { letter: "a", color: "#ef4444", rotate: -4 },
             ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
               <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 4, transform: `rotate(${l.rotate}deg)` }}>
                 <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 16px ${l.color}66` : `2px 2px 0 ${l.color}22` }}>
@@ -2751,10 +2754,11 @@ export default function App() {
               { letter: "r", color: "#ef4444", rotate: 3 },
               { letter: "a", color: "#22c55e", rotate: -4 },
               { letter: "w", color: "#eab308", rotate: 5 },
-              { letter: "t", color: "#ec4899", rotate: -3 },
-              { letter: "o", color: "#f97316", rotate: 4 },
-              { letter: "o", color: "#8b5cf6", rotate: -5 },
+              { letter: "z", color: "#ec4899", rotate: -3 },
+              { letter: "i", color: "#f97316", rotate: 4 },
+              { letter: "l", color: "#8b5cf6", rotate: -5 },
               { letter: "l", color: "#06b6d4", rotate: 3 },
+              { letter: "a", color: "#ef4444", rotate: -4 },
             ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
               <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
                 <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22` }}>

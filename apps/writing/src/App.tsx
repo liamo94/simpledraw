@@ -593,16 +593,18 @@ export default function App() {
             <div className="flex items-center gap-1 shrink-0 mr-1">
               <button onClick={() => navigate('home')} className={`${hdr.textMid} text-xs font-medium`}>writing</button>
               <span className={`${hdr.textWeak.split(' ')[0]} text-xs hidden sm:inline`}>by</span>
-              <a href="https://drawtool.io" target="_blank" rel="noopener noreferrer" className="hidden sm:inline" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+              <a href="https://drawtool.io" target="_blank" rel="noopener noreferrer" className="hidden sm:inline-flex items-center gap-1" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+                <img src="/drawzillaicon.svg" alt="" width="14" height="13" style={{ display: 'inline-block', verticalAlign: 'middle' }} />
                 {([
                   { letter: 'd', color: '#3b82f6', rotate: -6 },
                   { letter: 'r', color: '#ef4444', rotate: 3 },
                   { letter: 'a', color: '#22c55e', rotate: -4 },
                   { letter: 'w', color: '#eab308', rotate: 5 },
-                  { letter: 't', color: '#ec4899', rotate: -3 },
-                  { letter: 'o', color: '#f97316', rotate: 4 },
-                  { letter: 'o', color: '#8b5cf6', rotate: -5 },
+                  { letter: 'z', color: '#ec4899', rotate: -3 },
+                  { letter: 'i', color: '#f97316', rotate: 4 },
+                  { letter: 'l', color: '#8b5cf6', rotate: -5 },
                   { letter: 'l', color: '#06b6d4', rotate: 3 },
+                  { letter: 'a', color: '#ef4444', rotate: -4 },
                 ] as const).map((l, i) => (
                   <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
                     <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>
@@ -671,10 +673,11 @@ export default function App() {
                     { letter: 'r', color: '#ef4444', rotate: 3 },
                     { letter: 'a', color: '#22c55e', rotate: -4 },
                     { letter: 'w', color: '#eab308', rotate: 5 },
-                    { letter: 't', color: '#ec4899', rotate: -3 },
-                    { letter: 'o', color: '#f97316', rotate: 4 },
-                    { letter: 'o', color: '#8b5cf6', rotate: -5 },
+                    { letter: 'z', color: '#ec4899', rotate: -3 },
+                    { letter: 'i', color: '#f97316', rotate: 4 },
+                    { letter: 'l', color: '#8b5cf6', rotate: -5 },
                     { letter: 'l', color: '#06b6d4', rotate: 3 },
+                    { letter: 'a', color: '#ef4444', rotate: -4 },
                   ] as const).map((l, i) => (
                     <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
                       <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>
@@ -746,10 +749,11 @@ export default function App() {
                       { letter: 'r', color: '#ef4444', rotate: 3 },
                       { letter: 'a', color: '#22c55e', rotate: -4 },
                       { letter: 'w', color: '#eab308', rotate: 5 },
-                      { letter: 't', color: '#ec4899', rotate: -3 },
-                      { letter: 'o', color: '#f97316', rotate: 4 },
-                      { letter: 'o', color: '#8b5cf6', rotate: -5 },
+                      { letter: 'z', color: '#ec4899', rotate: -3 },
+                      { letter: 'i', color: '#f97316', rotate: 4 },
+                      { letter: 'l', color: '#8b5cf6', rotate: -5 },
                       { letter: 'l', color: '#06b6d4', rotate: 3 },
+                      { letter: 'a', color: '#ef4444', rotate: -4 },
                     ] as const).map((l, i) => (
                       <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
                         <span style={{ color: l.color, display: 'inline-block', textShadow: `0 0 6px ${l.color}44` }}>{l.letter}</span>

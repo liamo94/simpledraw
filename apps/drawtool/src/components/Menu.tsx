@@ -29,13 +29,25 @@ function isDarkTheme(theme: Theme): boolean {
   );
 }
 
-
-const CLICK_TOOL_OPTIONS: { value: ClickTool; label: string; icon: React.ReactNode }[] = [
+const CLICK_TOOL_OPTIONS: {
+  value: ClickTool;
+  label: string;
+  icon: React.ReactNode;
+}[] = [
   {
     value: "draw",
     label: "Draw",
     icon: (
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
       </svg>
     ),
@@ -44,7 +56,17 @@ const CLICK_TOOL_OPTIONS: { value: ClickTool; label: string; icon: React.ReactNo
     value: "dashed",
     label: "Dashed",
     icon: (
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2.5">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeDasharray="2 2.5"
+      >
         <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
       </svg>
     ),
@@ -53,7 +75,16 @@ const CLICK_TOOL_OPTIONS: { value: ClickTool; label: string; icon: React.ReactNo
     value: "pan",
     label: "Pan",
     icon: (
-      <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+      <svg
+        width="12"
+        height="12"
+        viewBox="0 0 16 16"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
         <path d="M5,8 L2,8 M14,8 L11,8 M8,5 L8,2 M8,14 L8,11" />
         <path d="M3,8 L5,6.5 M3,8 L5,9.5 M13,8 L11,6.5 M13,8 L11,9.5 M8,3 L6.5,5 M8,3 L9.5,5 M8,13 L6.5,11 M8,13 L9.5,11" />
       </svg>
@@ -65,7 +96,14 @@ const CLICK_TOOL_OPTIONS: { value: ClickTool; label: string; icon: React.ReactNo
     icon: (
       <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
         <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
-        <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+        <circle
+          cx="8"
+          cy="8"
+          r="5.5"
+          stroke="#ff3030"
+          strokeWidth="1"
+          strokeOpacity="0.4"
+        />
       </svg>
     ),
   },
@@ -80,7 +118,18 @@ const CLICK_TOOL_OPTIONS: { value: ClickTool; label: string; icon: React.ReactNo
             <stop offset="50%" stopColor="#FA8072" />
           </linearGradient>
         </defs>
-        <rect x="2" y="4" width="12" height="8" rx="1.5" transform="rotate(-15 8 8)" fill="url(#eg-mb)" stroke="currentColor" strokeWidth="1" strokeOpacity="0.5" />
+        <rect
+          x="2"
+          y="4"
+          width="12"
+          height="8"
+          rx="1.5"
+          transform="rotate(-15 8 8)"
+          fill="url(#eg-mb)"
+          stroke="currentColor"
+          strokeWidth="1"
+          strokeOpacity="0.5"
+        />
       </svg>
     ),
   },
@@ -101,7 +150,8 @@ function ClickToolPicker({
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      if (ref.current && !ref.current.contains(e.target as Node))
+        setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -121,20 +171,35 @@ function ClickToolPicker({
       >
         {current.icon}
         <span className="leading-none">{current.label}</span>
-        <svg width="7" height="5" viewBox="0 0 7 5" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinecap="round" strokeLinejoin="round" className="opacity-40 ml-0.5">
+        <svg
+          width="7"
+          height="5"
+          viewBox="0 0 7 5"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          className="opacity-40 ml-0.5"
+        >
           <path d="M1 1L3.5 3.5L6 1" />
         </svg>
       </button>
       {open && (
         <div
           className={`absolute bottom-full mb-1.5 right-0 z-50 rounded-lg py-1 min-w-[110px] shadow-xl border ${
-            isDark ? "bg-[#1e1e1e] border-white/10" : "bg-white border-black/[0.08]"
+            isDark
+              ? "bg-[#1e1e1e] border-white/10"
+              : "bg-white border-black/[0.08]"
           }`}
         >
           {CLICK_TOOL_OPTIONS.map((opt) => (
             <button
               key={opt.value}
-              onClick={() => { onChange(opt.value); setOpen(false); }}
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
               className={`flex items-center gap-2 w-full px-2.5 py-1.5 text-xs transition-colors ${
                 opt.value === value
                   ? isDark
@@ -281,7 +346,9 @@ export default function Menu({
   }`;
 
   useEffect(() => {
-    window.dispatchEvent(new CustomEvent("drawtool:menu-state", { detail: open }));
+    window.dispatchEvent(
+      new CustomEvent("drawtool:menu-state", { detail: open }),
+    );
   }, [open]);
 
   useEffect(() => {
@@ -329,7 +396,9 @@ export default function Menu({
   }, []);
 
   useEffect(() => {
-    const onWriting = (e: Event) => { isWritingRef.current = (e as CustomEvent).detail as boolean; };
+    const onWriting = (e: Event) => {
+      isWritingRef.current = (e as CustomEvent).detail as boolean;
+    };
     window.addEventListener("drawtool:writing", onWriting);
     return () => window.removeEventListener("drawtool:writing", onWriting);
   }, []);
@@ -412,14 +481,24 @@ export default function Menu({
             }`}
           >
             <div className="flex items-center justify-between px-6 pt-6 pb-4 shrink-0">
-              <span className={`text-[10px] uppercase tracking-widest font-semibold ${isDark ? "text-white/30" : "text-black/30"}`}>
+              <span
+                className={`text-[10px] uppercase tracking-widest font-semibold ${isDark ? "text-white/30" : "text-black/30"}`}
+              >
                 Keyboard shortcuts
               </span>
               <button
                 onClick={() => setShowKeysModal(false)}
                 className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white/50 hover:text-white/80 hover:bg-white/10" : "text-black/40 hover:text-black/70 hover:bg-black/[0.07]"}`}
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinecap="round"
+                >
                   <line x1="1" y1="1" x2="9" y2="9" />
                   <line x1="9" y1="1" x2="1" y2="9" />
                 </svg>
@@ -455,19 +534,35 @@ export default function Menu({
             });
             (e.currentTarget as HTMLElement).blur();
           }}
-          className={`w-8 h-8 flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "bg-white/20 border-white/30 text-white" : "bg-black/20 border-black/30 text-black") : isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+          className={`w-[38px] h-[38px] flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "bg-white/20 border-white/30 text-white" : "bg-black/20 border-black/30 text-black") : isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
         >
           <span className="relative flex items-center justify-center w-full h-full">
             <span
-              className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
-              style={{ fontFamily: "Pacifico, cursive", fontSize: 15, lineHeight: 1, letterSpacing: "1px" }}
+              className={`absolute inset-[15%] transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
             >
-              <span style={{ color: "#3b82f6" }}>d</span><span style={{ color: "#ec4899" }}>t</span>
+              <img
+                src="/drawzillaicon.svg"
+                alt=""
+                style={{
+                  display: "block",
+                  width: "100%",
+                  height: "100%",
+                  objectFit: "contain",
+                }}
+              />
             </span>
             <span
               className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${open ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
             >
-              <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="#ec4899" strokeWidth="2.5" strokeLinecap="round">
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="#ec4899"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+              >
                 <line x1="2" y1="2.5" x2="14" y2="13.5" />
                 <line x1="14" y1="2.5" x2="2" y2="13.5" />
               </svg>
@@ -499,17 +594,21 @@ export default function Menu({
             <a
               href="/"
               className="text-xl mb-3 text-center select-none block"
-              style={{ fontFamily: "Pacifico, cursive", textDecoration: "none" }}
+              style={{
+                fontFamily: "Pacifico, cursive",
+                textDecoration: "none",
+              }}
             >
               {[
                 { letter: "d", color: "#3b82f6", rotate: -6 },
                 { letter: "r", color: "#ef4444", rotate: 3 },
                 { letter: "a", color: "#22c55e", rotate: -4 },
                 { letter: "w", color: "#eab308", rotate: 5 },
-                { letter: "t", color: "#ec4899", rotate: -3 },
-                { letter: "o", color: "#f97316", rotate: 4 },
-                { letter: "o", color: "#8b5cf6", rotate: -5 },
+                { letter: "z", color: "#ec4899", rotate: -3 },
+                { letter: "i", color: "#f97316", rotate: 4 },
+                { letter: "l", color: "#8b5cf6", rotate: -5 },
                 { letter: "l", color: "#06b6d4", rotate: 3 },
+                { letter: "a", color: "#ef4444", rotate: -4 },
               ].map((l, i) => (
                 <span
                   key={i}
@@ -518,19 +617,24 @@ export default function Menu({
                     marginLeft: i === 0 ? 0 : 2,
                     transform: `rotate(${l.rotate}deg)`,
                   }}
-                ><span style={{
-                    color: l.color,
-                    display: "inline-block",
-                    textShadow: isDark
-                      ? `0 0 8px ${l.color}44`
-                      : `1px 1px 0 ${l.color}22`,
-                    ...(logoAnimate ? {
-                      animation: `dtWave 0.55s ease both ${i * 60}ms`,
-                    } : {}),
-                  }}
                 >
-                  {l.letter}
-                </span></span>
+                  <span
+                    style={{
+                      color: l.color,
+                      display: "inline-block",
+                      textShadow: isDark
+                        ? `0 0 8px ${l.color}44`
+                        : `1px 1px 0 ${l.color}22`,
+                      ...(logoAnimate
+                        ? {
+                            animation: `dtWave 0.55s ease both ${i * 60}ms`,
+                          }
+                        : {}),
+                    }}
+                  >
+                    {l.letter}
+                  </span>
+                </span>
               ))}
             </a>
             <div className="flex items-center justify-between">
@@ -638,8 +742,10 @@ export default function Menu({
                         ? isDark
                           ? "white"
                           : "black"
-                        : (color === "#000000" || color === "#ffffff")
-                          ? isDark ? "#555" : "#bbb"
+                        : color === "#000000" || color === "#ffffff"
+                          ? isDark
+                            ? "#555"
+                            : "#bbb"
                           : "transparent",
                     transform:
                       settings.lineColor === color ? "scale(1.2)" : undefined,
@@ -1449,7 +1555,8 @@ export default function Menu({
                     new CustomEvent("drawtool:query-stroke-count", { detail }),
                   );
                   const needsConfirm =
-                    settings.confirmClear && detail.count > CONFIRM_CLEAR_STROKE_THRESHOLD;
+                    settings.confirmClear &&
+                    detail.count > CONFIRM_CLEAR_STROKE_THRESHOLD;
                   if (needsConfirm) {
                     setClearConfirming(true);
                     clearConfirmTimerRef.current = setTimeout(() => {
@@ -1652,12 +1759,20 @@ export default function Menu({
               <button
                 role="switch"
                 aria-checked={settings.showSelectControls}
-                onClick={() => updateSettings({ showSelectControls: !settings.showSelectControls })}
+                onClick={() =>
+                  updateSettings({
+                    showSelectControls: !settings.showSelectControls,
+                  })
+                }
                 className="flex items-center justify-between w-full text-sm cursor-pointer group"
               >
                 <span>Selection controls</span>
-                <span className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${settings.showSelectControls ? "bg-[#3b82f6]" : isDark ? "bg-white/15 group-hover:bg-white/25" : "bg-black/12 group-hover:bg-black/20"}`}>
-                  <span className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${settings.showSelectControls ? "translate-x-[16px] bg-white" : isDark ? "bg-white/70" : "bg-white"}`} />
+                <span
+                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${settings.showSelectControls ? "bg-[#3b82f6]" : isDark ? "bg-white/15 group-hover:bg-white/25" : "bg-black/12 group-hover:bg-black/20"}`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${settings.showSelectControls ? "translate-x-[16px] bg-white" : isDark ? "bg-white/70" : "bg-white"}`}
+                  />
                 </span>
               </button>
               <button
@@ -1693,13 +1808,21 @@ export default function Menu({
                 <div className="flex items-center justify-between w-full text-sm">
                   <span>Mouse buttons</span>
                   <div className="flex items-center gap-1.5">
-                    <span className={`text-[10px] ${isDark ? "text-white/35" : "text-black/35"}`}>L</span>
+                    <span
+                      className={`text-[10px] ${isDark ? "text-white/35" : "text-black/35"}`}
+                    >
+                      L
+                    </span>
                     <ClickToolPicker
                       value={settings.leftClickTool}
                       onChange={(v) => updateSettings({ leftClickTool: v })}
                       isDark={isDark}
                     />
-                    <span className={`text-[10px] ml-0.5 ${isDark ? "text-white/35" : "text-black/35"}`}>R</span>
+                    <span
+                      className={`text-[10px] ml-0.5 ${isDark ? "text-white/35" : "text-black/35"}`}
+                    >
+                      R
+                    </span>
                     <ClickToolPicker
                       value={settings.rightClickTool}
                       onChange={(v) => updateSettings({ rightClickTool: v })}
@@ -1718,7 +1841,16 @@ export default function Menu({
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
               >
-                <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="12"
+                  height="12"
+                  viewBox="0 0 14 14"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <circle cx="7" cy="7" r="5" />
                   <circle cx="7" cy="7" r="1.8" />
                   <line x1="8.3" y1="5.7" x2="10.5" y2="3.5" />
@@ -1728,7 +1860,11 @@ export default function Menu({
                 </svg>
                 Bank
                 {bankCount > 0 && (
-                  <span className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${isDark ? "bg-white/10 text-white/40" : "bg-black/[0.07] text-black/40"}`}>{bankCount}</span>
+                  <span
+                    className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${isDark ? "bg-white/10 text-white/40" : "bg-black/[0.07] text-black/40"}`}
+                  >
+                    {bankCount}
+                  </span>
                 )}
               </button>
               {!hasTouch && (
@@ -1791,11 +1927,24 @@ export default function Menu({
                   isDark={isDark}
                   action={
                     <button
-                      onClick={(e) => { e.stopPropagation(); closeMenu(); setShowKeysModal(true); }}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        closeMenu();
+                        setShowKeysModal(true);
+                      }}
                       title="Open in modal"
                       className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
                     >
-                      <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 11 11"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.5"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <path d="M4.5 1H1v9h9V6.5" />
                         <path d="M6.5 1H10v3.5" />
                         <line x1="10" y1="1" x2="5.5" y2="5.5" />
@@ -1848,17 +1997,27 @@ export default function Menu({
                   {/* Format + transparent + export on one row */}
                   <div className="flex items-center gap-1.5 pt-1">
                     {/* Format pills */}
-                    <div className={`flex rounded overflow-hidden border ${isDark ? "border-white/10" : "border-black/10"}`}>
+                    <div
+                      className={`flex rounded overflow-hidden border ${isDark ? "border-white/10" : "border-black/10"}`}
+                    >
                       {(["PNG", "SVG"] as const).map((fmt) => {
                         const active = exportFormat === fmt.toLowerCase();
                         return (
                           <button
                             key={fmt}
-                            onClick={() => onSetExportFormat(fmt.toLowerCase() as "png" | "svg")}
+                            onClick={() =>
+                              onSetExportFormat(
+                                fmt.toLowerCase() as "png" | "svg",
+                              )
+                            }
                             className={`px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none ${
                               active
-                                ? isDark ? "bg-white/15 text-white" : "bg-black/10 text-black"
-                                : isDark ? "text-white/40 hover:text-white/70" : "text-black/35 hover:text-black/60"
+                                ? isDark
+                                  ? "bg-white/15 text-white"
+                                  : "bg-black/10 text-black"
+                                : isDark
+                                  ? "text-white/40 hover:text-white/70"
+                                  : "text-black/35 hover:text-black/60"
                             }`}
                           >
                             {fmt}
@@ -1868,29 +2027,85 @@ export default function Menu({
                     </div>
                     {/* Transparent toggle */}
                     <button
-                      onClick={() => onSetExportTransparentBg(!exportTransparentBg)}
+                      onClick={() =>
+                        onSetExportTransparentBg(!exportTransparentBg)
+                      }
                       title="Transparent background"
                       className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors focus:outline-none border ${
                         exportTransparentBg
-                          ? isDark ? "bg-white/15 text-white border-white/20" : "bg-black/10 text-black border-black/15"
-                          : isDark ? "text-white/40 border-white/10 hover:text-white/70" : "text-black/35 border-black/10 hover:text-black/60"
+                          ? isDark
+                            ? "bg-white/15 text-white border-white/20"
+                            : "bg-black/10 text-black border-black/15"
+                          : isDark
+                            ? "text-white/40 border-white/10 hover:text-white/70"
+                            : "text-black/35 border-black/10 hover:text-black/60"
                       }`}
                     >
-                      <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="12"
+                        height="12"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.3"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <rect x="1" y="2" width="12" height="10" rx="1.5" />
-                        <rect x="1" y="2" width="6" height="5" rx="1.5 0 0 0" fill="currentColor" fillOpacity="0.2" stroke="none" />
-                        <rect x="7" y="7" width="6" height="5" rx="0 0 1.5 0" fill="currentColor" fillOpacity="0.2" stroke="none" />
-                        <line x1="1" y1="7" x2="13" y2="7" strokeOpacity="0.3" />
-                        <line x1="7" y1="2" x2="7" y2="12" strokeOpacity="0.3" />
+                        <rect
+                          x="1"
+                          y="2"
+                          width="6"
+                          height="5"
+                          rx="1.5 0 0 0"
+                          fill="currentColor"
+                          fillOpacity="0.2"
+                          stroke="none"
+                        />
+                        <rect
+                          x="7"
+                          y="7"
+                          width="6"
+                          height="5"
+                          rx="0 0 1.5 0"
+                          fill="currentColor"
+                          fillOpacity="0.2"
+                          stroke="none"
+                        />
+                        <line
+                          x1="1"
+                          y1="7"
+                          x2="13"
+                          y2="7"
+                          strokeOpacity="0.3"
+                        />
+                        <line
+                          x1="7"
+                          y1="2"
+                          x2="7"
+                          y2="12"
+                          strokeOpacity="0.3"
+                        />
                       </svg>
                       <span>Transparent</span>
                     </button>
                     {/* Export button */}
                     <button
-                      onClick={() => onExport(exportFormat, exportTransparentBg)}
+                      onClick={() =>
+                        onExport(exportFormat, exportTransparentBg)
+                      }
                       className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none bg-[#3b82f6] text-white hover:bg-[#2563eb]"
                     >
-                      <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="11"
+                        height="11"
+                        viewBox="0 0 14 14"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <path d="M7 2v8" />
                         <path d="M4.5 8 7 11l2.5-3" />
                         <line x1="2" y1="13" x2="12" y2="13" />
@@ -1901,14 +2116,25 @@ export default function Menu({
                   {/* Export selection row */}
                   {selectionCount > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <span className={`text-[11px] ${isDark ? "text-white/40" : "text-black/35"}`}>
+                      <span
+                        className={`text-[11px] ${isDark ? "text-white/40" : "text-black/35"}`}
+                      >
                         {selectionCount} selected
                       </span>
                       <button
                         onClick={() => onExportSelection(exportTransparentBg)}
                         className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none border ${isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"}`}
                       >
-                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                        <svg
+                          width="11"
+                          height="11"
+                          viewBox="0 0 14 14"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.4"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
                           <path d="M7 2v8" />
                           <path d="M4.5 8 7 11l2.5-3" />
                           <line x1="2" y1="13" x2="12" y2="13" />
@@ -1925,7 +2151,16 @@ export default function Menu({
                           label: "Save data",
                           onClick: onExportData,
                           icon: (
-                            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 14 14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M7 2v7" />
                               <path d="M4.5 7 7 10l2.5-3" />
                               <line x1="2" y1="12.5" x2="12" y2="12.5" />
@@ -1936,14 +2171,27 @@ export default function Menu({
                           label: "Load data",
                           onClick: onImportData,
                           icon: (
-                            <svg width="16" height="16" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.3" strokeLinecap="round" strokeLinejoin="round">
+                            <svg
+                              width="16"
+                              height="16"
+                              viewBox="0 0 14 14"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="1.3"
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                            >
                               <path d="M7 9V2" />
                               <path d="M4.5 4.5 7 2l2.5 2.5" />
                               <line x1="2" y1="12.5" x2="12" y2="12.5" />
                             </svg>
                           ),
                         },
-                      ] as { label: string; onClick: () => void; icon: React.ReactNode }[]
+                      ] as {
+                        label: string;
+                        onClick: () => void;
+                        icon: React.ReactNode;
+                      }[]
                     ).map(({ label, onClick, icon }) => (
                       <button
                         key={label}
@@ -1951,7 +2199,9 @@ export default function Menu({
                         className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus:outline-none ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
                       >
                         {icon}
-                        <span className="text-[10px] leading-none">{label}</span>
+                        <span className="text-[10px] leading-none">
+                          {label}
+                        </span>
                       </button>
                     ))}
                   </div>
@@ -2211,9 +2461,10 @@ export default function Menu({
                   ref={aboutRef}
                   className={`text-xs leading-relaxed break-words ${isDark ? "text-white/60" : "text-black/60"}`}
                 >
-                  <p>
-                    drawtool started as a personal tool &mdash; a drawing canvas
-                    that stays out of the way.
+                  <p className="flex items-center gap-1 flex-wrap">
+                    <img src="/drawzillaicon.svg" alt="" width="14" height="13" style={{ display: "inline-block", verticalAlign: "middle", flexShrink: 0 }} />
+                    drawzilla started as a personal tool &mdash; a drawing
+                    canvas that stays out of the way.
                   </p>
                   <ul className="mt-1.5 list-disc list-inside space-y-1">
                     <li>Freehand and clean, no sidebar bloat.</li>
@@ -2229,21 +2480,53 @@ export default function Menu({
 
             <div className="mt-4 space-y-1.5">
               <button
-                onClick={() => { onStartTraining(); closeMenu(); }}
+                onClick={() => {
+                  onStartTraining();
+                  closeMenu();
+                }}
                 className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${isDark ? "bg-white/5 hover:bg-white/9" : "bg-black/4 hover:bg-black/7"}`}
               >
-                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" className="mt-0.5 shrink-0">
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="mt-0.5 shrink-0"
+                >
                   {/* board */}
-                  <path d="M8 2.5 L14.5 5.5 L8 8.5 L1.5 5.5 Z" stroke="#3b82f6" />
+                  <path
+                    d="M8 2.5 L14.5 5.5 L8 8.5 L1.5 5.5 Z"
+                    stroke="#3b82f6"
+                  />
                   {/* cap body */}
-                  <path d="M4.5 7.5 L4.5 11.5 Q4.5 13.5 8 13.5 Q11.5 13.5 11.5 11.5 L11.5 7.5" stroke="#ec4899" />
+                  <path
+                    d="M4.5 7.5 L4.5 11.5 Q4.5 13.5 8 13.5 Q11.5 13.5 11.5 11.5 L11.5 7.5"
+                    stroke="#ec4899"
+                  />
                   {/* tassel cord + bob */}
-                  <line x1="14.5" y1="5.5" x2="14.5" y2="9.5" stroke="#ec4899" />
+                  <line
+                    x1="14.5"
+                    y1="5.5"
+                    x2="14.5"
+                    y2="9.5"
+                    stroke="#ec4899"
+                  />
                   <circle cx="14.5" cy="10.2" r="0.9" fill="#ec4899" />
                 </svg>
                 <div>
-                  <div className={`text-xs font-medium leading-snug ${isDark ? "text-white/80" : "text-black/75"}`}>Training</div>
-                  <div className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}>Learn the shortcuts and how to use drawtool</div>
+                  <div
+                    className={`text-xs font-medium leading-snug ${isDark ? "text-white/80" : "text-black/75"}`}
+                  >
+                    Training
+                  </div>
+                  <div
+                    className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}
+                  >
+                    Learn the shortcuts and how to use drawzilla
+                  </div>
                 </div>
               </button>
               <a
@@ -2252,10 +2535,26 @@ export default function Menu({
                 rel="noopener noreferrer"
                 className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${isDark ? "bg-white/5 hover:bg-white/9" : "bg-black/4 hover:bg-black/7"}`}
               >
-                <img src="/writing-icon.png" alt="" width="16" height="16" className="mt-0.5 shrink-0 rounded-[3px]" />
+                <img
+                  src="/writing-icon.png"
+                  alt=""
+                  width="16"
+                  height="16"
+                  className="mt-0.5 shrink-0 rounded-[3px]"
+                />
                 <div>
-                  <div className={`text-xs font-medium leading-snug ${isDark ? "text-white/80" : "text-black/75"}`}>Writing practice</div>
-                  <div className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}>Improve your freehand drawing on canvas</div>
+                  <div
+                    className={`text-xs font-medium leading-snug flex items-center gap-1.5 ${isDark ? "text-white/80" : "text-black/75"}`}
+                  >
+                    writing by
+                    <img src="/drawzillaicon.svg" alt="" width="14" height="13" style={{ display: "inline-block", verticalAlign: "middle" }} />
+                    drawzilla
+                  </div>
+                  <div
+                    className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}
+                  >
+                    Improve your freehand drawing on canvas
+                  </div>
                 </div>
               </a>
             </div>

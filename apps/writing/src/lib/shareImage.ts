@@ -14,10 +14,11 @@ const DRAWTOOL_LETTERS = [
   { letter: 'r', color: '#ef4444', rotate: 3 },
   { letter: 'a', color: '#22c55e', rotate: -4 },
   { letter: 'w', color: '#eab308', rotate: 5 },
-  { letter: 't', color: '#ec4899', rotate: -3 },
-  { letter: 'o', color: '#f97316', rotate: 4 },
-  { letter: 'o', color: '#8b5cf6', rotate: -5 },
+  { letter: 'z', color: '#ec4899', rotate: -3 },
+  { letter: 'i', color: '#f97316', rotate: 4 },
+  { letter: 'l', color: '#8b5cf6', rotate: -5 },
   { letter: 'l', color: '#06b6d4', rotate: 3 },
+  { letter: 'a', color: '#ef4444', rotate: -4 },
 ] as const;
 
 export function scoreColor(s: number) {
@@ -49,7 +50,7 @@ function fmt(ms: number) {
   return `${Math.floor(ms / 60000)}m ${Math.floor((ms % 60000) / 1000)}s`;
 }
 
-// Draw the "writing by drawtool" header branding, returns total width used
+// Draw the "writing by drawzilla" header branding, returns total width used
 function drawBranding(ctx: CanvasRenderingContext2D, x: number, y: number, fgMid: string, fgWeak: string, sans: string): number {
   ctx.textBaseline = 'middle';
   ctx.fillStyle = fgMid;
