@@ -2530,7 +2530,7 @@ export default function Menu({
                 </div>
               </button>
               <a
-                href="https://writing.drawtool.io"
+                href="https://writing.drawzil.la"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${isDark ? "bg-white/5 hover:bg-white/9" : "bg-black/4 hover:bg-black/7"}`}

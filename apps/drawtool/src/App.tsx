@@ -2807,10 +2807,11 @@ export default function App() {
                   { letter: "r", color: "#ef4444", rotate: 3 },
                   { letter: "a", color: "#22c55e", rotate: -4 },
                   { letter: "w", color: "#eab308", rotate: 5 },
-                  { letter: "t", color: "#ec4899", rotate: -3 },
-                  { letter: "o", color: "#f97316", rotate: 4 },
-                  { letter: "o", color: "#8b5cf6", rotate: -5 },
+                  { letter: "z", color: "#ec4899", rotate: -3 },
+                  { letter: "i", color: "#f97316", rotate: 4 },
+                  { letter: "l", color: "#8b5cf6", rotate: -5 },
                   { letter: "l", color: "#06b6d4", rotate: 3 },
+                  { letter: "a", color: "#ef4444", rotate: -4 },
                 ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
                   <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
                     <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22` }}>{l.letter}</span>

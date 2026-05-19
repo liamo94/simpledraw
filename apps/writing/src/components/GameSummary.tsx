@@ -122,7 +122,7 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
         <div className="flex items-center gap-1">
           <button onClick={onHome} className={`${txtMid} text-xs font-medium`}>writing</button>
           <span className={`${txtWeak} text-xs`}>by</span>
-          <a href="https://drawtool.io" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
+          <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" style={{ fontFamily: "'Pacifico', cursive", fontSize: '0.8rem', lineHeight: 1, textDecoration: 'none' }}>
             {([
               { letter: 'd', color: '#3b82f6', rotate: -6 },
               { letter: 'r', color: '#ef4444', rotate: 3 },
