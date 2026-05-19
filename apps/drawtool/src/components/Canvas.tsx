@@ -2192,6 +2192,14 @@ function Canvas({
         ex = rcx + rdx * cos - rdy * sin;
         ey = rcy + rdx * sin + rdy * cos;
       }
+      // For combined strokes, test against overall bounding box
+      if (stroke.subStrokes && stroke.subStrokes.length > 0) {
+        const bb = anyStrokeBBox(stroke);
+        if (ex >= bb.x - radius && ex <= bb.x + bb.w + radius && ey >= bb.y - radius && ey <= bb.y + bb.h + radius) {
+          pendingEraseRef.current.add(stroke);
+        }
+        continue;
+      }
       // For image strokes, test against bounding box
       if (stroke.imageId) {
         const a = stroke.points[0];
@@ -2766,7 +2774,7 @@ function Canvas({
       // Skip during active drawing — cursor glow is invisible while drawing anyway
       if (e.pointerType !== "touch" && !isDrawingRef.current) {
         const now = performance.now();
-        if (now - lastSameColorCheckRef.current > 50) {
+        if (now - lastSameColorCheckRef.current > 16) {
           lastSameColorCheckRef.current = now;
           const canvas = canvasRef.current;
           const ctx = canvas?.getContext("2d");
@@ -3324,18 +3332,21 @@ function Canvas({
   }, [scheduleRedraw, broadcastZoom, persistView]);
 
   const encodedColor = encodeURIComponent(lineColor);
-  // Pure black/white can be invisible against the canvas background — inject a
-  // feDropShadow filter so the cursor is always readable.
-  // Also glow when hovering over a stroke of the same color as the active color.
-  const _needsHalo = lineColor === "#000000" || lineColor === "#ffffff" || overSameColor;
-  const _haloCol = (() => {
-    if (lineColor === "#000000") return "white";
-    if (lineColor === "#ffffff") return "black";
-    const r = parseInt(lineColor.slice(1, 3), 16) / 255;
-    const g = parseInt(lineColor.slice(3, 5), 16) / 255;
-    const b = parseInt(lineColor.slice(5, 7), 16) / 255;
-    return (0.2126 * r + 0.7152 * g + 0.0722 * b) > 0.4 ? "black" : "white";
-  })();
+  // Compute cursor vs background luminance contrast. If the cursor blends into the canvas
+  // background (e.g. dark red on dark theme, light yellow on light theme) it appears dim
+  // even when not near a same-color stroke — show a permanent halo in those cases so the
+  // cursor URL is stable (no toggling) and always readable.
+  const fgR = parseInt(lineColor.slice(1, 3), 16) / 255;
+  const fgG = parseInt(lineColor.slice(3, 5), 16) / 255;
+  const fgB = parseInt(lineColor.slice(5, 7), 16) / 255;
+  const fgLum = 0.2126 * fgR + 0.7152 * fgG + 0.0722 * fgB;
+  const bgHex = getBackgroundColor(theme);
+  const bgR = parseInt(bgHex.slice(1, 3), 16) / 255;
+  const bgG = parseInt(bgHex.slice(3, 5), 16) / 255;
+  const bgB = parseInt(bgHex.slice(5, 7), 16) / 255;
+  const bgLum = 0.2126 * bgR + 0.7152 * bgG + 0.0722 * bgB;
+  const _needsHalo = Math.abs(fgLum - bgLum) < 0.25 || overSameColor;
+  const _haloCol = fgLum > 0.4 ? "black" : "white";
   // feMorphology dilate creates a solid, fully-opaque outline ring — unlike feDropShadow's
   // Gaussian fade, the border is uniform opacity so white-on-dark combos (red, blue, purple)
   // are as visible as black-on-light ones.
