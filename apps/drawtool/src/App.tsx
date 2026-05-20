@@ -21,6 +21,7 @@ import useSettings, {
 } from "./hooks/useSettings";
 
 import { isDarkTheme, getBackgroundColor, CONFIRM_CLEAR_STROKE_THRESHOLD } from "./canvas/canvasUtils";
+import { getPanelBackground } from "./canvas/rendering";
 import {
   loadStrokes,
   saveStrokes,
@@ -2350,7 +2351,7 @@ export default function App() {
           className="text-2xl tabular-nums tracking-wider pointer-events-none"
           style={{
             color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
-            fontFamily: "'Caveat', cursive",
+            fontFamily: "Caveat Brush, cursive",
           }}
         >
           {activeCanvas}
@@ -2380,7 +2381,7 @@ export default function App() {
               style={{
                 width: `${canvasName?.length ? canvasName.length + 2 : 2}ch`,
                 color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
-                fontFamily: "'Caveat', cursive",
+                fontFamily: "Caveat Brush, cursive",
               }}
             />
           ) : (
@@ -2388,7 +2389,7 @@ export default function App() {
               className="text-[19px] pointer-events-none select-none"
               style={{
                 color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
-                fontFamily: "'Caveat', cursive",
+                fontFamily: "Caveat Brush, cursive",
               }}
             >
               {canvasName}
@@ -2615,7 +2616,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-4 right-14 z-40 flex items-center gap-2.5 px-3 py-2 rounded-xl pointer-events-none ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
+          className={`fixed top-4 right-16 z-40 flex items-center gap-2.5 px-3 py-2 rounded-xl pointer-events-none ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
             background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
             boxShadow: "0 6px 24px rgba(34,197,94,0.45), 0 2px 8px rgba(0,0,0,0.2)",
@@ -2637,9 +2638,9 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-4 right-14 z-40 px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
+          className={`fixed top-4 right-16 z-40 px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
-            background: isDark ? "rgba(0,0,0,0.65)" : "rgba(255,255,255,0.75)",
+            background: getPanelBackground(settings.theme),
             borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
             color: isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.8)",
             boxShadow: isDark
