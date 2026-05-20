@@ -226,6 +226,10 @@ function Canvas({
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: import("../canvas/types").Stroke; prevGroup?: import("../canvas/types").Stroke[]; prevSingle?: import("../canvas/types").Stroke | null } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
+  const lockedFlashRef = useRef<{ stroke: Stroke; expiry: number } | null>(null);
+  const lockedFlashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lockedIconPositionsRef = useRef<{ stroke: Stroke; wx: number; wy: number; wr: number }[]>([]);
+  const lockedHoverRef = useRef<Stroke | null>(null);
   const lastCycleRef = useRef<{ selectedStroke: Stroke; hits: Stroke[] } | null>(null);
   const groupDragRef = useRef<{
     startPtr: { x: number; y: number };
@@ -826,6 +830,85 @@ function Canvas({
       ctx.restore();
     }
 
+    // Draw lock indicators: always compute positions (for hover/click), draw only when flashed or hovered
+    const flashStroke = lockedFlashRef.current?.stroke ?? null;
+    const lockIconPositions: { stroke: Stroke; wx: number; wy: number; wr: number }[] = [];
+    const getLockAnchor = (stroke: Stroke, bb: { x: number; y: number; w: number; h: number }) => {
+      // For freehand strokes, find the actual top-right-most point so the icon
+      // doesn't float in empty bbox space (e.g. a diagonal curve).
+      if ((!stroke.shape || stroke.shape === "line" || stroke.shape === "arrow") && !stroke.text && !stroke.imageId && stroke.points.length > 0) {
+        let ax = stroke.points[0].x, ay = stroke.points[0].y, best = ax - ay;
+        for (const p of stroke.points) {
+          const s = p.x - p.y;
+          if (s > best) { best = s; ax = p.x; ay = p.y; }
+        }
+        return { ax, ay };
+      }
+      return { ax: bb.x + bb.w, ay: bb.y };
+    };
+    const drawLockIcon = (stroke: Stroke, alpha: number) => {
+      const isHovered = lockedHoverRef.current === stroke;
+      const bb = anyStrokeBBox(stroke);
+      const sz = (isHovered ? 21 : 17) / scale;
+      const margin = 3 / scale;
+      const { ax, ay } = getLockAnchor(stroke, bb);
+      const ix = ax + margin + sz / 2;
+      const iy = ay - margin - sz / 2;
+      const effectiveAlpha = isHovered ? Math.min(1, alpha + 0.1) : alpha;
+      const shieldStroke = isDark
+        ? `rgba(120,185,255,${effectiveAlpha})`
+        : `rgba(45,100,200,${effectiveAlpha})`;
+      const shieldFill = isDark
+        ? `rgba(70,130,230,${effectiveAlpha * 0.28})`
+        : `rgba(45,100,200,${effectiveAlpha * 0.18})`;
+      const sw = sz * 0.72;
+      const sh = sz * 0.82;
+      const r = sw * 0.22;
+      const cx = ix, cy = iy - sh * 0.04;
+      const t = cy - sh / 2;   // top
+      const bot = cy + sh / 2; // point
+      const mid = cy + sh * 0.14; // where sides start curving inward
+      ctx.save();
+      ctx.setLineDash([]);
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.lineWidth = (isHovered ? 1.7 : 1.4) / scale;
+      // Shield path
+      ctx.beginPath();
+      ctx.moveTo(cx - sw / 2 + r, t);
+      ctx.lineTo(cx + sw / 2 - r, t);
+      ctx.arc(cx + sw / 2 - r, t + r, r, -Math.PI / 2, 0);
+      ctx.lineTo(cx + sw / 2, mid);
+      ctx.quadraticCurveTo(cx + sw / 2, bot - sh * 0.08, cx, bot);
+      ctx.quadraticCurveTo(cx - sw / 2, bot - sh * 0.08, cx - sw / 2, mid);
+      ctx.lineTo(cx - sw / 2, t + r);
+      ctx.arc(cx - sw / 2 + r, t + r, r, Math.PI, -Math.PI / 2);
+      ctx.closePath();
+      ctx.fillStyle = shieldFill;
+      ctx.fill();
+      ctx.strokeStyle = shieldStroke;
+      ctx.stroke();
+      ctx.restore();
+      lockIconPositions.push({ stroke, wx: ix, wy: iy, wr: sz * 0.8 });
+    };
+    for (const stroke of strokesRef.current) {
+      if (!stroke.locked) continue;
+      const isFlash = stroke === flashStroke;
+      const isHovered = lockedHoverRef.current === stroke;
+      if (isFlash || isHovered) {
+        drawLockIcon(stroke, 0.9);
+      } else {
+        // Still track position for hover detection even when not drawn
+        const bb = anyStrokeBBox(stroke);
+        const sz = 17 / scale;
+        const margin = 3 / scale;
+        const { ax, ay } = getLockAnchor(stroke, bb);
+        const ix = ax + margin + sz / 2;
+        lockIconPositions.push({ stroke, wx: ix, wy: ay - margin - sz / 2, wr: sz * 0.8 });
+      }
+    }
+    lockedIconPositionsRef.current = lockIconPositions;
+
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
@@ -866,7 +949,7 @@ function Canvas({
 
   // --- RAF-queue scheduleRedraw (item 1) ---
   const rafIdRef = useRef<number | null>(null);
-  const lastStateRef = useRef({ canUndo: false, canRedo: false, hasSelection: false, selectionCount: 0, selectionIsCombined: false, selectionIsText: false });
+  const lastStateRef = useRef({ canUndo: false, canRedo: false, hasSelection: false, selectionCount: 0, selectionIsCombined: false, selectionIsText: false, selectionIsLocked: false });
   const scheduleRedraw = useCallback(() => {
     if (rafIdRef.current !== null) return;
     rafIdRef.current = requestAnimationFrame(() => {
@@ -881,15 +964,17 @@ function Canvas({
       const selectionCount = group.length > 0 ? group.length : single ? 1 : 0;
       const selectionIsCombined = single !== null && Array.isArray(single.subStrokes) && single.subStrokes.length > 0;
       const selectionIsText = single !== null && single.text !== undefined;
+      const selectionIsLocked = single !== null && single.locked === true;
       const last = lastStateRef.current;
-      if (canUndo !== last.canUndo || canRedo !== last.canRedo || hasSelection !== last.hasSelection || selectionCount !== last.selectionCount || selectionIsCombined !== last.selectionIsCombined || selectionIsText !== last.selectionIsText) {
+      if (canUndo !== last.canUndo || canRedo !== last.canRedo || hasSelection !== last.hasSelection || selectionCount !== last.selectionCount || selectionIsCombined !== last.selectionIsCombined || selectionIsText !== last.selectionIsText || selectionIsLocked !== last.selectionIsLocked) {
         last.canUndo = canUndo;
         last.canRedo = canRedo;
         last.hasSelection = hasSelection;
         last.selectionCount = selectionCount;
         last.selectionIsCombined = selectionIsCombined;
         last.selectionIsText = selectionIsText;
-        window.dispatchEvent(new CustomEvent("drawtool:state", { detail: { canUndo, canRedo, hasSelection, selectionCount, selectionIsCombined, selectionIsText } }));
+        last.selectionIsLocked = selectionIsLocked;
+        window.dispatchEvent(new CustomEvent("drawtool:state", { detail: { canUndo, canRedo, hasSelection, selectionCount, selectionIsCombined, selectionIsText, selectionIsLocked } }));
       }
     });
   }, [redraw, checkContentOffScreen]);
@@ -1605,6 +1690,10 @@ function Canvas({
           action.strokes[i].points = action.fromPoints[i].map(p => ({ ...p }));
           action.strokes[i].rotation = action.fromRotations[i];
         }
+      } else if (action.type === "lock") {
+        for (const s of action.strokes) {
+          s.locked = action.to ? undefined : true;
+        }
       }
       redoStackRef.current.push(action);
     }
@@ -1720,6 +1809,10 @@ function Canvas({
         for (let i = 0; i < action.strokes.length; i++) {
           action.strokes[i].points = action.toPoints[i].map(p => ({ ...p }));
           action.strokes[i].rotation = action.toRotations[i];
+        }
+      } else if (action.type === "lock") {
+        for (const s of action.strokes) {
+          s.locked = action.to ? true : undefined;
         }
       }
       undoStackRef.current.push(action);
@@ -2092,6 +2185,7 @@ function Canvas({
         groupDragRef.current = null;
         boxSelectRef.current = null;
         lastTextTapRef.current = null;
+        lastLockedTapRef.current = null;
         zKeyRef.current = false;
         setZCursor(null);
         scheduleRedraw();
@@ -2100,6 +2194,29 @@ function Canvas({
     window.addEventListener("keydown", onCapture, { capture: true });
     return () => window.removeEventListener("keydown", onCapture, { capture: true });
   }, [finishWritingRef, setZCursor, scheduleRedraw]);
+
+  // Show lock icon briefly when a locked stroke is clicked
+  useEffect(() => {
+    const onLockedClick = (e: Event) => {
+      const stroke = (e as CustomEvent).detail as Stroke;
+      if (lockedFlashTimerRef.current) clearTimeout(lockedFlashTimerRef.current);
+      lockedFlashRef.current = { stroke, expiry: Date.now() + 2000 };
+      scheduleRedraw();
+      lockedFlashTimerRef.current = setTimeout(() => {
+        lockedFlashRef.current = null;
+        lockedFlashTimerRef.current = null;
+        scheduleRedraw();
+      }, 2000);
+    };
+    window.addEventListener("drawtool:locked-click", onLockedClick);
+    return () => {
+      window.removeEventListener("drawtool:locked-click", onLockedClick);
+      if (lockedFlashTimerRef.current) {
+        clearTimeout(lockedFlashTimerRef.current);
+        lockedFlashTimerRef.current = null;
+      }
+    };
+  }, [scheduleRedraw]);
 
   // Keyboard shortcuts (keydown/keyup/blur/paste)
   useKeyboardShortcuts(
@@ -2166,6 +2283,7 @@ function Canvas({
     const radius = 12 / viewRef.current.scale;
     for (const stroke of strokesRef.current) {
       if (pendingEraseRef.current.has(stroke)) continue;
+      if (stroke.locked) continue;
       let hit = false;
       // Un-rotate eraser point into the stroke's local frame if the stroke is rotated
       let ex = x, ey = y;
@@ -3462,6 +3580,7 @@ function Canvas({
     handlePointerDownForText,
     handlePointerMoveGuarded,
     handlePointerUpGuarded,
+    lastLockedTapRef,
   } = useTextSelection(
     {
       writingTextRef, writingPosRef, writingBoldRef, writingItalicRef, writingAlignRef,
@@ -3514,12 +3633,72 @@ function Canvas({
           if (e.pointerType === "touch" || e.pointerType === "pen") {
             window.dispatchEvent(new Event("drawtool:close-menu"));
           }
+          // Check if clicking a lock icon → unlock the stroke
+          const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+          if (lockedIconPositionsRef.current.length > 0) {
+            for (const icon of lockedIconPositionsRef.current) {
+              const dx = wp.x - icon.wx, dy = wp.y - icon.wy;
+              if (dx * dx + dy * dy <= icon.wr * icon.wr) {
+                icon.stroke.locked = undefined;
+                undoStackRef.current.push({ type: "lock", strokes: [icon.stroke], to: false });
+                redoStackRef.current = [];
+                if (lockedFlashTimerRef.current) { clearTimeout(lockedFlashTimerRef.current); lockedFlashTimerRef.current = null; }
+                lockedFlashRef.current = null;
+                strokesCacheRef.current = null;
+                persistStrokes();
+                scheduleRedraw();
+                window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: "Unlocked" }));
+                return;
+              }
+            }
+          }
+          // Check if clicking a locked stroke body (any tool mode) → flash its icon
+          {
+            const { scale } = viewRef.current;
+            const pad = 3 / scale;
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              const s = strokesRef.current[i];
+              if (!s.locked) continue;
+              const bb = anyStrokeBBox(s);
+              if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
+                  wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+                window.dispatchEvent(new CustomEvent("drawtool:locked-click", { detail: s }));
+                break;
+              }
+            }
+          }
           handlePointerDownForText(e);
         }}
-        onPointerMove={handlePointerMoveGuarded}
+        onPointerMove={(e) => {
+          const icons = lockedIconPositionsRef.current;
+          if (icons.length > 0) {
+            const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+            let hovered: Stroke | null = null;
+            for (const icon of icons) {
+              const dx = wp.x - icon.wx, dy = wp.y - icon.wy;
+              if (dx * dx + dy * dy <= icon.wr * icon.wr) { hovered = icon.stroke; break; }
+            }
+            if (hovered !== lockedHoverRef.current) {
+              lockedHoverRef.current = hovered;
+              if (canvasRef.current) canvasRef.current.style.cursor = hovered ? "pointer" : cursorRef.current;
+              scheduleRedraw();
+            }
+          } else if (lockedHoverRef.current !== null) {
+            lockedHoverRef.current = null;
+            if (canvasRef.current) canvasRef.current.style.cursor = cursorRef.current;
+            scheduleRedraw();
+          }
+          handlePointerMoveGuarded(e);
+        }}
         onPointerUp={handlePointerUpGuarded}
         onPointerCancel={onPointerCancel}
-        onPointerLeave={onPointerLeave}
+        onPointerLeave={(e) => {
+          if (lockedHoverRef.current !== null) {
+            lockedHoverRef.current = null;
+            scheduleRedraw();
+          }
+          onPointerLeave(e);
+        }}
         onContextMenu={(e) => e.preventDefault()}
         onDragOver={(e) => e.preventDefault()}
         onDrop={handleImageDrop}

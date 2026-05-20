@@ -1,4 +1,4 @@
-import { useCallback } from "react";
+import { useCallback, useRef } from "react";
 import type { MutableRefObject } from "react";
 import type { TextAlign } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
@@ -185,6 +185,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
     finishWritingRef, startWritingRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
   } = refs;
+
+  const lastLockedTapRef = useRef<{ time: number; stroke: Stroke } | null>(null);
 
   const {
     scheduleRedraw, persistStrokes, notifyColorUsed, setZCursor,
@@ -413,7 +415,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         const { scale } = viewRef.current;
         let hit: Stroke | null = null;
         for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-          if (hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+          if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
         }
         if (hit) {
           const current = selectedGroupRef.current.length > 0
@@ -430,6 +432,47 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         }
       }
 
+      // In select mode: double-click a locked stroke to unlock it immediately
+      if ((zKeyRef.current || touchToolRef.current === "select") && e.pointerType !== "touch") {
+        const wp2 = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        const scale2 = viewRef.current.scale;
+        let lockedHit: Stroke | null = null;
+        for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+          const s = strokesRef.current[i];
+          if (s.locked && hitTestStroke(s, wp2.x, wp2.y, scale2)) { lockedHit = s; break; }
+        }
+        if (lockedHit) {
+          const now = performance.now();
+          const last = lastLockedTapRef.current;
+          if (last && last.stroke === lockedHit && now - last.time < 400) {
+            lastLockedTapRef.current = null;
+            lockedHit.locked = undefined;
+            undoStackRef.current.push({ type: "lock", strokes: [lockedHit], to: false });
+            redoStackRef.current = [];
+            selectedTextRef.current = lockedHit;
+            selectedGroupRef.current = [];
+            hoverTextRef.current = null;
+            lastCycleRef.current = null;
+            selectDragRef.current = {
+              mode: "move",
+              startPtr: { ...wp2 },
+              startPoints: lockedHit.points.map(p => ({ ...p })),
+              startScale: lockedHit.fontScale ?? 1,
+              bbox: anyStrokeBBox(lockedHit),
+              subStrokeStartPoints: lockedHit.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
+            };
+            strokesCacheRef.current = null;
+            persistStrokes();
+            setZCursor("default");
+            scheduleRedraw();
+            (e.target as Element).setPointerCapture(e.pointerId);
+            return;
+          }
+          lastLockedTapRef.current = { time: now, stroke: lockedHit };
+          return;
+        }
+      }
+
       // Shift+V: always start a containment box select so dragging inside a large element works.
       // Click-toggle (tiny drag) is resolved on pointerup via clickHit.
       // Don't clear selection on pointerdown — preserve it so click-toggle can build on it.
@@ -439,7 +482,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         let clickHit: Stroke | null = null;
         for (let i = strokesRef.current.length - 1; i >= 0; i--) {
           const s = strokesRef.current[i];
-          if (hitTestStroke(s, wp.x, wp.y, scale)) { clickHit = s; break; }
+          if (!s.locked && hitTestStroke(s, wp.x, wp.y, scale)) { clickHit = s; break; }
         }
         boxSelectRef.current = {
           start: { ...wp }, end: { ...wp }, containOnly: true,
@@ -481,7 +524,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           // Hit-test at the actual click position rather than using (potentially stale) hoverTextRef
           let hitOnClear: Stroke | null = null;
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-            if (hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hitOnClear = strokesRef.current[i]; break; }
+            if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hitOnClear = strokesRef.current[i]; break; }
           }
           selectedGroupRef.current = [];
           groupDragRef.current = null;
@@ -683,6 +726,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
             if (stroke === selectedTextRef.current) continue;
+            if (stroke.locked) continue;
             if (hitTestStroke(stroke, wp.x, wp.y, scale)) { newSel = stroke; break; }
           }
           if (newSel) {
@@ -723,7 +767,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const hits: Stroke[] = [];
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
-            if (hitTestStroke(stroke, wp.x, wp.y, scale)) hits.push(stroke);
+            if (!stroke.locked && hitTestStroke(stroke, wp.x, wp.y, scale)) hits.push(stroke);
           }
           if (hits.length === 0) {
             selectedTextRef.current = null;
@@ -1115,7 +1159,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             let hit: Stroke | null = null;
             for (let i = strokesRef.current.length - 1; i >= 0; i--) {
               const stroke = strokesRef.current[i];
-              if (hitTestStroke(stroke, wp.x, wp.y, scale)) { hit = stroke; break; }
+              if (!stroke.locked && hitTestStroke(stroke, wp.x, wp.y, scale)) { hit = stroke; break; }
             }
             if (hit !== hoverTextRef.current) {
               hoverTextRef.current = hit;
@@ -1173,6 +1217,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         if (selW > 2 / scale && selH > 2 / scale) {
           const containOnly = boxSelectRef.current?.containOnly ?? false;
           const hits = strokesRef.current.filter(stroke => {
+            if (stroke.locked) return false;
             const bb = rotatedAABB(stroke);
             if (containOnly) {
               // Shift+V: stroke must be fully inside the selection box
@@ -1245,7 +1290,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const wp = groupDragRef.current.startPtr;
           let hit: Stroke | null = null;
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-            if (hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+            if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
           }
           selectedGroupRef.current = [];
           selectedTextRef.current = hit ?? null;
@@ -1418,5 +1463,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     handlePointerDownForText,
     handlePointerMoveGuarded,
     handlePointerUpGuarded,
+    lastLockedTapRef,
   };
 }

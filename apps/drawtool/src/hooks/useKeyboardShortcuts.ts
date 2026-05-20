@@ -9,6 +9,7 @@ import { storeImage, processImageFile } from "../canvas/imageStore";
 function deepCopyStroke(s: Stroke, dx = 0, dy = 0): Stroke {
   return {
     ...s,
+    locked: undefined,
     points: s.points.map(p => ({ x: p.x + dx, y: p.y + dy })),
     widths: s.widths ? [...s.widths] : undefined,
     subStrokes: s.subStrokes ? s.subStrokes.map(sub => deepCopyStroke(sub, dx, dy)) : undefined,
@@ -602,7 +603,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (cmdKey(e) && e.key === "a" && !isWritingRef.current) {
         e.preventDefault();
-        const all = strokesRef.current.filter(s => s.points.length > 0);
+        const all = strokesRef.current.filter(s => s.points.length > 0 && !s.locked);
         if (all.length === 1) {
           selectedTextRef.current = all[0];
           selectedGroupRef.current = [];
@@ -998,6 +999,31 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           window.dispatchEvent(
             new CustomEvent("drawtool:switch-canvas", { detail: least + 1 }),
           );
+        }
+      }
+      if (e.key === "k" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey && !isWritingRef.current) {
+        const group = selectedGroupRef.current;
+        const single = selectedTextRef.current;
+        const targets = group.length > 0 ? [...group] : single ? [single] : [];
+        if (targets.length > 0) {
+          const allLocked = targets.every(s => s.locked);
+          const toLocked = !allLocked;
+          undoStackRef.current.push({ type: "lock", strokes: targets, to: toLocked });
+          redoStackRef.current = [];
+          for (const s of targets) { s.locked = toLocked ? true : undefined; }
+          if (toLocked) {
+            selectedTextRef.current = null;
+            selectedGroupRef.current = [];
+            selectDragRef.current = null;
+            groupDragRef.current = null;
+            hoverTextRef.current = null;
+            lastCycleRef.current = null;
+            setZCursor(zKeyRef.current ? "default" : null);
+          }
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+          window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: toLocked ? "Locked" : "Unlocked" }));
         }
       }
       if (e.key === "Escape" && (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current || selectLockedRef.current)) {

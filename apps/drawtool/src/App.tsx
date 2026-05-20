@@ -158,6 +158,7 @@ export default function App() {
   const [selectionCount, setSelectionCount] = useState(0);
   const [selectionIsCombined, setSelectionIsCombined] = useState(false);
   const [selectionIsText, setSelectionIsText] = useState(false);
+  const [selectionIsLocked, setSelectionIsLocked] = useState(false);
   const [, setMenuOpen] = useState(false);
   const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 768);
   useEffect(() => {
@@ -458,13 +459,14 @@ export default function App() {
 
   useEffect(() => {
     const onState = (e: Event) => {
-      const { canUndo, canRedo, hasSelection, selectionCount, selectionIsCombined, selectionIsText } = (e as CustomEvent).detail;
+      const { canUndo, canRedo, hasSelection, selectionCount, selectionIsCombined, selectionIsText, selectionIsLocked } = (e as CustomEvent).detail;
       setCanUndo(canUndo);
       setCanRedo(canRedo);
       setHasSelection(hasSelection);
       setSelectionCount(selectionCount ?? 0);
       setSelectionIsCombined(selectionIsCombined ?? false);
       setSelectionIsText(selectionIsText ?? false);
+      setSelectionIsLocked(selectionIsLocked ?? false);
     };
     const onMenuState = (e: Event) => {
       const open = (e as CustomEvent).detail as boolean;
@@ -1100,7 +1102,7 @@ export default function App() {
         onContentOffScreen={setContentOffScreen}
       />
       {settings.showSelectControls && hasSelection && (
-        <SelectControls isDark={isDark} selectionCount={selectionCount} selectionIsCombined={selectionIsCombined} selectionIsText={selectionIsText} />
+        <SelectControls isDark={isDark} selectionCount={selectionCount} selectionIsCombined={selectionIsCombined} selectionIsText={selectionIsText} selectionIsLocked={selectionIsLocked} />
       )}
       {hasTouch ? (
         <>

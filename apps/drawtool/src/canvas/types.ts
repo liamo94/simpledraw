@@ -28,6 +28,7 @@ export type Stroke = {
   imageH?: number;
   rotation?: number; // radians, clockwise
   subStrokes?: Stroke[]; // compound stroke: renders each sub-stroke as one unit
+  locked?: boolean;
 };
 
 export type UndoAction =
@@ -53,7 +54,8 @@ export type UndoAction =
   | { type: "rotate"; stroke: Stroke; from: number; to: number }
   | { type: "flip"; strokes: Stroke[]; fromPoints: { x: number; y: number }[][]; toPoints: { x: number; y: number }[][]; fromRotations: (number | undefined)[]; toRotations: (number | undefined)[] }
   | { type: "combine"; combined: Stroke; originals: Stroke[]; insertIndex: number }
-  | { type: "uncombine"; combined: Stroke; originals: Stroke[]; insertIndex: number };
+  | { type: "uncombine"; combined: Stroke; originals: Stroke[]; insertIndex: number }
+  | { type: "lock"; strokes: Stroke[]; to: boolean };
 
 export type TouchTool =
   | "draw"

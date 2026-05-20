@@ -12,11 +12,25 @@ export type ShapeKind =
   | "diamond"
   | "cloud";
 
-export type Theme = "dark" | "midnight" | "lumber" | "white" | "journal" | "sky" | "slate" | "sand";
+export type Theme =
+  | "dark"
+  | "midnight"
+  | "lumber"
+  | "white"
+  | "journal"
+  | "sky"
+  | "slate"
+  | "sand";
 
 export type TextSize = "xs" | "s" | "m" | "l" | "xl";
 
-export type FontFamily = "caveat" | "sans" | "serif" | "mono" | "comic" | "cartoon";
+export type FontFamily =
+  | "caveat"
+  | "sans"
+  | "serif"
+  | "mono"
+  | "comic"
+  | "cartoon";
 
 export type GridType = "off" | "dot" | "square";
 
@@ -87,7 +101,7 @@ function getDefaults(): Settings {
     pressureSensitivity: false,
     leftClickTool: "draw" as ClickTool,
     rightClickTool: "dashed" as ClickTool,
-    showSelectControls: false,
+    showSelectControls: true,
   };
 }
 
@@ -110,7 +124,10 @@ function load(): Settings {
       }
       // Migrate old boolean shapeFill to FillStyle
       if (parsed.shapeFill === true) parsed.shapeFill = "solid";
-      if (parsed.shapeFill === false) { parsed.shapeFill = "solid"; parsed.shapeFillEnabled = false; }
+      if (parsed.shapeFill === false) {
+        parsed.shapeFill = "solid";
+        parsed.shapeFillEnabled = false;
+      }
       return { ...defaults, ...parsed };
     }
   } catch {

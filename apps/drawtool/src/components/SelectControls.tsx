@@ -276,19 +276,26 @@ function Btn({
   isDark,
   onHover,
   onLeave,
+  isActive,
 }: {
   a: Action;
   isDark: boolean;
   onHover: (label: string, y: number) => void;
   onLeave: () => void;
+  isActive?: boolean;
 }) {
   const isDanger = a.group === "danger";
+  const color = isActive
+    ? (isDark ? "#78b8ff" : "#2d64c8")
+    : isDanger
+    ? (isDark ? "#f87171" : "#dc2626")
+    : isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)";
   return (
     <button
       aria-label={a.label}
       onClick={a.action}
       className="flex items-center justify-center w-10 h-10 transition-colors"
-      style={{ color: isDanger ? (isDark ? "#f87171" : "#dc2626") : isDark ? "rgba(255,255,255,0.6)" : "rgba(0,0,0,0.55)" }}
+      style={{ color }}
       onMouseEnter={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         onHover(a.label, rect.top + rect.height / 2);
@@ -310,11 +317,13 @@ export default memo(function SelectControls({
   selectionCount,
   selectionIsCombined,
   selectionIsText,
+  selectionIsLocked,
 }: {
   isDark: boolean;
   selectionCount: number;
   selectionIsCombined: boolean;
   selectionIsText: boolean;
+  selectionIsLocked: boolean;
 }) {
   const bg = isDark ? "rgba(0,0,0,0.75)" : "rgba(255,255,255,0.85)";
   const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
@@ -326,6 +335,23 @@ export default memo(function SelectControls({
   const viewActions = COMMON_ACTIONS.filter(a => a.group === "view");
   const layerActions = COMMON_ACTIONS.filter(a => a.group === "layer");
   const editActions = COMMON_ACTIONS.filter(a => a.group === "edit");
+
+  const lockAction: Action = {
+    label: selectionIsLocked ? "Unlock" : "Lock",
+    group: "lock",
+    icon: selectionIsLocked ? (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="9" width="12" height="9" rx="1.5" />
+        <path d="M7 9V6.5a3 3 0 016 0" />
+      </svg>
+    ) : (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="4" y="9" width="12" height="9" rx="1.5" />
+        <path d="M7 9V6.5a3 3 0 016 0V9" />
+      </svg>
+    ),
+    action: () => kd({ key: "k" }),
+  };
 
   const tailActions: Action[] = [
     DANGER_ACTION,
@@ -340,8 +366,8 @@ export default memo(function SelectControls({
     <div className="col-span-2" style={{ height: 1, background: border, margin: "0 8px" }} />
   );
 
-  const btn = (a: Action) => (
-    <Btn key={a.label} a={a} isDark={isDark} onHover={onHover} onLeave={onLeave} />
+  const btn = (a: Action, active?: boolean) => (
+    <Btn key={a.label} a={a} isDark={isDark} onHover={onHover} onLeave={onLeave} isActive={active} />
   );
 
   return (
@@ -376,28 +402,36 @@ export default memo(function SelectControls({
               </div>
             ))}
 
+
             <Divider />
 
             {/* Layer: 2×2 */}
-            {layerActions.map(btn)}
+            {layerActions.map(a => btn(a))}
             {layerActions.length % 2 === 1 && <Spacer />}
 
             <Divider />
 
             {/* Edit: 2×2 */}
-            {editActions.map(btn)}
+            {editActions.map(a => btn(a))}
             {editActions.length % 2 === 1 && <Spacer />}
 
             <Divider />
 
             {/* Text or drawing */}
-            {contextActions.map(btn)}
+            {contextActions.map(a => btn(a))}
             {contextActions.length % 2 === 1 && <Spacer />}
 
             <Divider />
 
+            {/* Lock / unlock — full width, amber when locked */}
+            <div className="col-span-2 flex">
+              {btn(lockAction, selectionIsLocked)}
+            </div>
+
+            <Divider />
+
             {/* Delete + combine/uncombine */}
-            {tailActions.map(btn)}
+            {tailActions.map(a => btn(a))}
             {tailActions.length % 2 === 1 && <Spacer />}
           </div>
         </div>
