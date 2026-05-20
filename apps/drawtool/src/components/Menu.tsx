@@ -540,7 +540,7 @@ export default function Menu({
               className={`absolute inset-[15%] transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
             >
               <img
-                src="/drawzillaicon.svg"
+                src="/drawzilla-simplifed.svg"
                 alt=""
                 style={{
                   display: "block",
