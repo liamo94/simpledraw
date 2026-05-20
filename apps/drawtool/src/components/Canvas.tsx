@@ -845,25 +845,11 @@ function Canvas({
     if (!strokesBBoxRef.current) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const stroke of strokes) {
-        if (stroke.text) {
-          const anchor = stroke.points[0];
-          const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
-          const lines = stroke.text.split("\n");
-          const maxLineLen = Math.max(...lines.map((l) => l.length));
-          const textW = maxLineLen * basePx * 0.6;
-          const textH = lines.length * basePx * 1.2;
-          if (anchor.x < minX) minX = anchor.x;
-          if (anchor.y < minY) minY = anchor.y;
-          if (anchor.x + textW > maxX) maxX = anchor.x + textW;
-          if (anchor.y + textH > maxY) maxY = anchor.y + textH;
-          continue;
-        }
-        for (const p of stroke.points) {
-          if (p.x < minX) minX = p.x;
-          if (p.y < minY) minY = p.y;
-          if (p.x > maxX) maxX = p.x;
-          if (p.y > maxY) maxY = p.y;
-        }
+        const bb = anyStrokeBBox(stroke);
+        if (bb.x < minX) minX = bb.x;
+        if (bb.y < minY) minY = bb.y;
+        if (bb.x + bb.w > maxX) maxX = bb.x + bb.w;
+        if (bb.y + bb.h > maxY) maxY = bb.y + bb.h;
       }
       strokesBBoxRef.current = { minX, minY, maxX, maxY };
     }
@@ -1425,25 +1411,11 @@ function Canvas({
       maxX = -Infinity,
       maxY = -Infinity;
     for (const stroke of strokes) {
-      if (stroke.text) {
-        const anchor = stroke.points[0];
-        const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
-        const lines = stroke.text.split("\n");
-        const maxLineLen = Math.max(...lines.map((l) => l.length));
-        const textW = maxLineLen * basePx * 0.6;
-        const textH = lines.length * basePx * 1.2;
-        if (anchor.x < minX) minX = anchor.x;
-        if (anchor.y < minY) minY = anchor.y;
-        if (anchor.x + textW > maxX) maxX = anchor.x + textW;
-        if (anchor.y + textH > maxY) maxY = anchor.y + textH;
-        continue;
-      }
-      for (const p of stroke.points) {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      }
+      const bb = anyStrokeBBox(stroke);
+      if (bb.x < minX) minX = bb.x;
+      if (bb.y < minY) minY = bb.y;
+      if (bb.x + bb.w > maxX) maxX = bb.x + bb.w;
+      if (bb.y + bb.h > maxY) maxY = bb.y + bb.h;
     }
     const pad = 60;
     const w = maxX - minX;

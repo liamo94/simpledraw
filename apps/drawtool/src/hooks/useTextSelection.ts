@@ -55,6 +55,22 @@ function distToSegment(px: number, py: number, x1: number, y1: number, x2: numbe
   return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
 }
 
+function segmentIntersectsRect(
+  p1: { x: number; y: number }, p2: { x: number; y: number },
+  rx: number, ry: number, rx2: number, ry2: number,
+): boolean {
+  if (p1.x >= rx && p1.x <= rx2 && p1.y >= ry && p1.y <= ry2) return true;
+  if (p2.x >= rx && p2.x <= rx2 && p2.y >= ry && p2.y <= ry2) return true;
+  const dx = p2.x - p1.x, dy = p2.y - p1.y;
+  for (const [ex, ey, horiz] of [[rx, ry, false], [rx2, ry, false], [rx, ry, true], [rx, ry2, true]] as [number, number, boolean][]) {
+    const t = horiz ? (ey - p1.y) / (dy || 1) : (ex - p1.x) / (dx || 1);
+    if (t < 0 || t > 1 || (horiz && dy === 0) || (!horiz && dx === 0)) continue;
+    const ix = p1.x + t * dx, iy = p1.y + t * dy;
+    if (horiz ? (ix >= rx && ix <= rx2) : (iy >= ry && iy <= ry2)) return true;
+  }
+  return false;
+}
+
 /** Returns true if (wx, wy) hits the stroke. Arrow/line uses line-proximity; everything else uses bbox. */
 export function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
   if (stroke.subStrokes) return stroke.subStrokes.some(s => hitTestStroke(s, wx, wy, scale));
@@ -1163,9 +1179,20 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               return bb.x >= selX && bb.x + bb.w <= selX + selW &&
                      bb.y >= selY && bb.y + bb.h <= selY + selH;
             }
-            // Normal box select: intersection
-            return bb.x < selX + selW && bb.x + bb.w > selX &&
-                   bb.y < selY + selH && bb.y + bb.h > selY;
+            // Quick AABB rejection
+            if (bb.x >= selX + selW || bb.x + bb.w <= selX ||
+                bb.y >= selY + selH || bb.y + bb.h <= selY) return false;
+            // Text, images, combined groups, and area shapes: AABB intersection is correct
+            if (stroke.text || stroke.imageId || stroke.subStrokes) return true;
+            if (stroke.shape && stroke.shape !== "line" && stroke.shape !== "arrow") return true;
+            // Line/arrow shapes and freehand strokes: test actual geometry
+            // so a wide-spanning stroke's AABB doesn't capture unrelated nearby shapes.
+            const selX2 = selX + selW, selY2 = selY + selH;
+            if (stroke.points.some(p => p.x >= selX && p.x <= selX2 && p.y >= selY && p.y <= selY2)) return true;
+            for (let i = 0; i < stroke.points.length - 1; i++) {
+              if (segmentIntersectsRect(stroke.points[i], stroke.points[i + 1], selX, selY, selX2, selY2)) return true;
+            }
+            return false;
           });
           if (hits.length === 1) {
             selectedTextRef.current = hits[0];
