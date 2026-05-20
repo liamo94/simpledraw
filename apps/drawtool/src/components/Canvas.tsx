@@ -2166,11 +2166,20 @@ function Canvas({
     scheduleRedraw();
   }, [scheduleRedraw]);
 
+  const shortcutsModalOpenRef = useRef(false);
+  useEffect(() => {
+    const onModal = (e: Event) => { shortcutsModalOpenRef.current = (e as CustomEvent).detail as boolean; };
+    window.addEventListener("drawtool:shortcuts-modal", onModal);
+    return () => window.removeEventListener("drawtool:shortcuts-modal", onModal);
+  }, []);
+
   // Capture-phase Escape handler — runs before Menu's bubble-phase handler.
   // Performs the canvas escape action and stops propagation so Menu stays open.
+  // Skips entirely when the shortcuts modal is open so it can close first.
   useEffect(() => {
     const onCapture = (e: KeyboardEvent) => {
       if (e.key !== "Escape") return;
+      if (shortcutsModalOpenRef.current) return;
       if (isWritingRef.current) {
         e.preventDefault();
         e.stopImmediatePropagation();

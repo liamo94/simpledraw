@@ -1,5 +1,7 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useEffect } from "react";
 import type React from "react";
+import { getPanelBackground } from "../canvas/rendering";
+import type { Theme } from "../hooks/useSettings";
 
 type Action = { label: string; group: string; icon: React.ReactNode; action: () => void };
 
@@ -12,9 +14,11 @@ const COMMON_ACTIONS: Action[] = [
     group: "view",
     icon: (
       <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="2" width="16" height="16" rx="1" strokeDasharray="2.5 2" />
-        <path d="M8 11v4M8 11h4" strokeWidth="1.4" />
-        <path d="M12 11l2.5 2.5" strokeWidth="1.2" />
+        <rect x="5.5" y="5.5" width="9" height="9" rx="1" strokeDasharray="2.5 2" />
+        <path d="M2 5V2H5" />
+        <path d="M15 2H18V5" />
+        <path d="M18 15V18H15" />
+        <path d="M5 18H2V15" />
       </svg>
     ),
     action: () => kd({ key: "4", shiftKey: true }),
@@ -106,13 +110,10 @@ const COMMON_ACTIONS: Action[] = [
     label: "Save to stash",
     group: "edit",
     icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="10" cy="10" r="6.5" />
-        <circle cx="10" cy="10" r="2.3" />
-        <line x1="11.6" y1="8.4" x2="14.1" y2="5.9" />
-        <line x1="11.6" y1="11.6" x2="14.1" y2="14.1" />
-        <line x1="8.4" y1="11.6" x2="5.9" y2="14.1" />
-        <line x1="8.4" y1="8.4" x2="5.9" y2="5.9" />
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" stroke="none">
+        <path d="M7.5 7.5C3 9 2.5 12.5 2.5 14C2.5 17.5 6 19 10 19C14 19 17.5 17.5 17.5 14C17.5 12.5 17 9 12.5 7.5Z" />
+        <rect x="7.5" y="4.5" width="5" height="3.5" />
+        <path d="M10 4.5C9.5 3.5 8.5 2 7 2C5 2 5.5 4.5 7.5 4.5H12.5C14.5 4.5 15 2 13 2C11.5 2 10.5 3.5 10 4.5Z" />
       </svg>
     ),
     action: () => window.dispatchEvent(new Event("drawtool:save-to-stash")),
@@ -268,8 +269,12 @@ const UNCOMBINE_ACTION: Action = {
   action: () => kd({ key: "j", metaKey: true, shiftKey: true }),
 };
 
-// Panel is at left:12px, width:80px → tooltip starts at 100px
-const TOOLTIP_LEFT = 100;
+// Panel sits at left:12px (left-3)
+const PANEL_LEFT = 12;
+const PANEL_WIDTH_1COL = 52;
+const PANEL_WIDTH_2COL = 88;
+// Switch to 2-col below this viewport height to avoid the panel overflowing/scrolling
+const TWO_COL_THRESHOLD = 650;
 
 function Btn({
   a,
@@ -294,18 +299,13 @@ function Btn({
     <button
       aria-label={a.label}
       onClick={a.action}
-      className="flex items-center justify-center w-10 h-10 transition-colors"
+      className={`flex items-center justify-center w-full h-10 rounded-lg transition-colors duration-150 ${isDark ? "hover:bg-white/[0.08]" : "hover:bg-black/[0.05]"}`}
       style={{ color }}
       onMouseEnter={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         onHover(a.label, rect.top + rect.height / 2);
-        (e.currentTarget as HTMLElement).style.background = isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.05)";
-        (e.currentTarget as HTMLElement).style.borderRadius = "8px";
       }}
-      onMouseLeave={(e) => {
-        onLeave();
-        (e.currentTarget as HTMLElement).style.background = "transparent";
-      }}
+      onMouseLeave={onLeave}
     >
       {a.icon}
     </button>
@@ -314,19 +314,32 @@ function Btn({
 
 export default memo(function SelectControls({
   isDark,
+  theme,
   selectionCount,
   selectionIsCombined,
   selectionIsText,
   selectionIsLocked,
 }: {
   isDark: boolean;
+  theme: Theme;
   selectionCount: number;
   selectionIsCombined: boolean;
   selectionIsText: boolean;
   selectionIsLocked: boolean;
 }) {
-  const bg = isDark ? "rgba(0,0,0,0.75)" : "rgba(255,255,255,0.85)";
+  const bg = getPanelBackground(theme);
   const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
+
+  const [windowHeight, setWindowHeight] = useState(() => window.innerHeight);
+  useEffect(() => {
+    const onResize = () => setWindowHeight(window.innerHeight);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+  const twoCol = windowHeight < TWO_COL_THRESHOLD;
+
+  const panelWidth = twoCol ? PANEL_WIDTH_2COL : PANEL_WIDTH_1COL;
+  const tooltipLeft = PANEL_LEFT + panelWidth + 8;
 
   const [tooltip, setTooltip] = useState<{ label: string; y: number } | null>(null);
   const onHover = useCallback((label: string, y: number) => setTooltip({ label, y }), []);
@@ -361,23 +374,36 @@ export default memo(function SelectControls({
 
   const contextActions = selectionIsText ? TEXT_ACTIONS : DRAWING_ACTIONS;
 
-  const Spacer = () => <div />;
+  // In 2-col mode, single items and dividers span both columns
   const Divider = () => (
-    <div className="col-span-2" style={{ height: 1, background: border, margin: "0 8px" }} />
+    <div
+      className={twoCol ? "col-span-2" : undefined}
+      style={{ height: 1, background: border, margin: "2px 6px" }}
+    />
   );
+
+  // Wraps a single button so it spans full width in 2-col grid
+  const Full = ({ children }: { children: React.ReactNode }) =>
+    twoCol ? <div className="col-span-2">{children}</div> : <>{children}</>;
+
+  // Fills the empty cell when a section has an odd number of items
+  const Spacer = () => twoCol ? <div /> : null;
 
   const btn = (a: Action, active?: boolean) => (
     <Btn key={a.label} a={a} isDark={isDark} onHover={onHover} onLeave={onLeave} isActive={active} />
   );
 
+  const containerClass = twoCol
+    ? "grid grid-cols-2 gap-0.5"
+    : "flex flex-col gap-0.5";
+
   return (
     <>
-      {/* Fixed tooltip — escapes overflow container so it never gets clipped */}
       {tooltip && (
         <div
           className="fixed pointer-events-none px-2 py-1 rounded-md text-xs whitespace-nowrap z-50"
           style={{
-            left: TOOLTIP_LEFT + 8,
+            left: tooltipLeft,
             top: tooltip.y,
             transform: "translateY(-50%)",
             background: isDark ? "rgba(0,0,0,0.85)" : "rgba(0,0,0,0.75)",
@@ -389,48 +415,33 @@ export default memo(function SelectControls({
       )}
 
       <div
-        className="fixed left-3 top-1/2 -translate-y-1/2 z-30 rounded-xl shadow-lg"
-        style={{ background: bg, border: `1px solid ${border}`, backdropFilter: "blur(12px)", maxHeight: "calc(100dvh - 24px)" }}
+        className="fixed left-3 -translate-y-1/2 z-30 rounded-xl shadow-lg"
+        style={{ background: bg, border: `1px solid ${border}`, backdropFilter: "blur(12px)", top: "calc(50dvh - 22px)", maxHeight: "calc(100dvh - 68px)", width: panelWidth }}
       >
-        {/* Scrollable inner — overflow-y clips tooltips, so tooltips live outside above */}
-        <div className="overflow-y-auto rounded-xl" style={{ maxHeight: "calc(100dvh - 24px)" }}>
-          <div className="grid grid-cols-2" style={{ width: 80 }}>
-            {/* View: zoom spans full width */}
-            {viewActions.map(a => (
-              <div key={a.label} className="col-span-2 flex">
-                {btn(a)}
-              </div>
-            ))}
-
+        <div className="overflow-y-auto rounded-xl" style={{ maxHeight: "calc(100dvh - 68px)" }}>
+          <div className={`${containerClass} p-1.5`}>
+            <Full>{viewActions.map(a => btn(a))}</Full>
 
             <Divider />
 
-            {/* Layer: 2×2 */}
             {layerActions.map(a => btn(a))}
-            {layerActions.length % 2 === 1 && <Spacer />}
 
             <Divider />
 
-            {/* Edit: 2×2 */}
             {editActions.map(a => btn(a))}
             {editActions.length % 2 === 1 && <Spacer />}
 
             <Divider />
 
-            {/* Text or drawing */}
             {contextActions.map(a => btn(a))}
             {contextActions.length % 2 === 1 && <Spacer />}
 
             <Divider />
 
-            {/* Lock / unlock — full width, amber when locked */}
-            <div className="col-span-2 flex">
-              {btn(lockAction, selectionIsLocked)}
-            </div>
+            <Full>{btn(lockAction, selectionIsLocked)}</Full>
 
             <Divider />
 
-            {/* Delete + combine/uncombine */}
             {tailActions.map(a => btn(a))}
             {tailActions.length % 2 === 1 && <Spacer />}
           </div>

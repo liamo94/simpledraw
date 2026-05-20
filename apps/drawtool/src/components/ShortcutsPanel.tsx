@@ -98,7 +98,7 @@ const FlipVIcon = () => <I><line x1="3" y1="8" x2="13" y2="8" /><path d="M6 5l2-
 const LockSelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" /><circle cx="8" cy="8" r="2.5" /></I>;
 const ShieldLockIcon = () => <I strokeWidth="1.4"><path d="M8 2.5 L13 4.5 L13 9 Q13 13 8 14.5 Q3 13 3 9 L3 4.5 Z" /></I>;
 const CombineIcon = () => <I><path d="M2 5.5L7 5.5" strokeOpacity="0.5"/><path d="M2 10.5L7 10.5" strokeOpacity="0.5"/><path d="M7 5.5Q10 5.5 10 8Q10 10.5 7 10.5"/><path d="M10 8L14 8"/></I>;
-const StashIcon = () => <I><rect x="2" y="5" width="12" height="9" rx="1" /><line x1="2" y1="9" x2="14" y2="9" /><line x1="8" y1="5" x2="8" y2="14" /><rect x="1" y="3" width="14" height="3" rx="0.75" /></I>;
+const StashIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><path d="M6 6C2.4 7.2 2 10 2 11.2C2 14 4.8 15.2 8 15.2C11.2 15.2 14 14 14 11.2C14 10 13.6 7.2 10 6Z" /><rect x="6" y="3.6" width="4" height="2.8" /><path d="M8 3.6C7.6 2.8 6.8 1.6 5.6 1.6C4 1.6 4.4 3.6 6 3.6H10C11.6 3.6 12 1.6 10.4 1.6C9.2 1.6 8.4 2.8 8 3.6Z" /></svg>;
 const UncombineIcon = () => <I><path d="M2 8L6 8"/><path d="M6 8Q9 8 9 5.5L14 5.5" strokeOpacity="0.6"/><path d="M6 8Q9 8 9 10.5L14 10.5" strokeOpacity="0.6"/></I>;
 const SprayIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">

@@ -406,14 +406,16 @@ export default function Menu({
   }, []);
 
   useEffect(() => {
+    window.dispatchEvent(new CustomEvent("drawtool:shortcuts-modal", { detail: showKeysModal }));
     if (!showKeysModal) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
+        e.stopImmediatePropagation();
         setShowKeysModal(false);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [showKeysModal]);
 
   useEffect(() => {
