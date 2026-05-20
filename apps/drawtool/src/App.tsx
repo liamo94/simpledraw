@@ -24,7 +24,10 @@ import { isDarkTheme, getBackgroundColor, CONFIRM_CLEAR_STROKE_THRESHOLD } from 
 import {
   loadStrokes,
   saveStrokes,
+  loadView,
+  saveView,
   validateStrokesFile,
+  validateWorkspaceFile,
   strokesKey,
   loadStash,
   saveStash,
@@ -344,6 +347,7 @@ export default function App() {
 
   const importFileRef = useRef<HTMLInputElement>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [importMode, setImportMode] = useState<"canvas" | "workspace">("canvas");
   const [showStash, setShowStash] = useState(false);
   const [stashItems, setStashItems] = useState<StashItem[]>(() => loadStash());
   const [dropZoneActive, setDropZoneActive] = useState(false);
@@ -361,7 +365,8 @@ export default function App() {
     a.download = `canvas-${activeCanvas}.json`;
     a.click();
     URL.revokeObjectURL(url);
-  }, [activeCanvas]);
+    showToast({ type: "text", message: `Exported canvas ${activeCanvas}` }, 1500);
+  }, [activeCanvas, showToast]);
 
   const processImportFile = useCallback(
     (file: File) => {
@@ -375,7 +380,54 @@ export default function App() {
           showToast({
             type: "text",
             message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}`,
+          }, 1500);
+        } catch (err) {
+          showToast({
+            type: "text",
+            message: `Import failed: ${(err as Error).message}`,
           });
+        }
+      });
+    },
+    [activeCanvas, showToast],
+  );
+
+  const exportWorkspaceData = useCallback(() => {
+    const canvases = Array.from({ length: 9 }, (_, i) => {
+      const index = i + 1;
+      const strokes = loadStrokes(index);
+      const view = loadView(index);
+      return { index, strokes, view };
+    }).filter((c) => c.strokes.length > 0);
+    const file = { version: 1, type: "workspace", canvases };
+    const blob = new Blob([JSON.stringify(file)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `workspace-${new Date().toISOString().slice(0, 10)}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast({ type: "text", message: `Exported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})` }, 1500);
+  }, [showToast]);
+
+  const processWorkspaceFile = useCallback(
+    (file: File) => {
+      file.text().then((text) => {
+        try {
+          const canvases = validateWorkspaceFile(JSON.parse(text));
+          for (const { index, strokes, view } of canvases) {
+            saveStrokes(strokes, index);
+            if (view) saveView(view, index);
+          }
+          window.dispatchEvent(
+            new CustomEvent("drawtool:import-strokes", {
+              detail: loadStrokes(activeCanvas),
+            }),
+          );
+          showToast({
+            type: "text",
+            message: `Imported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})`,
+          }, 1500);
         } catch (err) {
           showToast({
             type: "text",
@@ -388,6 +440,12 @@ export default function App() {
   );
 
   const importData = useCallback(() => {
+    setImportMode("canvas");
+    setShowImportModal(true);
+  }, []);
+
+  const importWorkspaceData = useCallback(() => {
+    setImportMode("workspace");
     setShowImportModal(true);
   }, []);
 
@@ -397,9 +455,10 @@ export default function App() {
       if (!file) return;
       e.target.value = "";
       setShowImportModal(false);
-      processImportFile(file);
+      if (importMode === "workspace") processWorkspaceFile(file);
+      else processImportFile(file);
     },
-    [processImportFile],
+    [importMode, processImportFile, processWorkspaceFile],
   );
 
   useEffect(() => {
@@ -1064,6 +1123,8 @@ export default function App() {
         onResetView={resetView}
         onExportData={exportData}
         onImportData={importData}
+        onExportWorkspace={exportWorkspaceData}
+        onImportWorkspace={importWorkspaceData}
         onStartTraining={openTraining}
         stashCount={stashItems.length}
         selectionCount={selectionCount}
@@ -2956,7 +3017,7 @@ export default function App() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label="Load canvas data"
+          aria-label={importMode === "workspace" ? "Import workspace" : "Import canvas"}
           className="fixed inset-0 z-[300] flex items-center justify-center"
           style={{
             background: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)",
@@ -2970,7 +3031,7 @@ export default function App() {
             <div
               className={`text-sm font-medium ${isDark ? "text-white/80" : "text-black/80"}`}
             >
-              Load canvas data
+              {importMode === "workspace" ? "Import workspace" : "Import canvas"}
             </div>
             {/* Drop zone */}
             <div
@@ -3010,7 +3071,8 @@ export default function App() {
                 const file = e.dataTransfer.files[0];
                 if (file) {
                   setShowImportModal(false);
-                  processImportFile(file);
+                  if (importMode === "workspace") processWorkspaceFile(file);
+                  else processImportFile(file);
                 }
               }}
             >

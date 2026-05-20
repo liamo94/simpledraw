@@ -295,6 +295,8 @@ type Props = {
   onResetView: () => void;
   onExportData: () => void;
   onImportData: () => void;
+  onExportWorkspace: () => void;
+  onImportWorkspace: () => void;
   onStartTraining: () => void;
   stashCount: number;
   selectionCount: number;
@@ -316,6 +318,8 @@ export default function Menu({
   onResetView,
   onExportData,
   onImportData,
+  onExportWorkspace,
+  onImportWorkspace,
   onStartTraining,
   stashCount,
   selectionCount,
@@ -2091,66 +2095,59 @@ export default function Menu({
                       </button>
                     </div>
                   )}
-                  {/* Save / Load data row */}
-                  <div className="grid grid-cols-2 gap-1.5">
+                  {/* Export / Import rows */}
+                  <div className="space-y-1.5">
                     {(
                       [
-                        {
-                          label: "Save data",
-                          onClick: onExportData,
-                          icon: (
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 14 14"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M7 2v7" />
-                              <path d="M4.5 7 7 10l2.5-3" />
-                              <line x1="2" y1="12.5" x2="12" y2="12.5" />
-                            </svg>
-                          ),
-                        },
-                        {
-                          label: "Load data",
-                          onClick: onImportData,
-                          icon: (
-                            <svg
-                              width="16"
-                              height="16"
-                              viewBox="0 0 14 14"
-                              fill="none"
-                              stroke="currentColor"
-                              strokeWidth="1.3"
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                            >
-                              <path d="M7 9V2" />
-                              <path d="M4.5 4.5 7 2l2.5 2.5" />
-                              <line x1="2" y1="12.5" x2="12" y2="12.5" />
-                            </svg>
-                          ),
-                        },
-                      ] as {
-                        label: string;
-                        onClick: () => void;
-                        icon: React.ReactNode;
-                      }[]
-                    ).map(({ label, onClick, icon }) => (
-                      <button
-                        key={label}
-                        onClick={onClick}
-                        className={`flex flex-col items-center gap-1.5 py-2.5 rounded transition-colors focus:outline-none ${isDark ? "bg-white/5 text-white/50 hover:bg-white/10 hover:text-white" : "bg-black/5 text-black/50 hover:bg-black/10 hover:text-black"}`}
-                      >
-                        {icon}
-                        <span className="text-[10px] leading-none">
+                        { label: "Canvas", onExport: onExportData, onImport: onImportData },
+                        { label: "Workspace", onExport: onExportWorkspace, onImport: onImportWorkspace },
+                      ] as const
+                    ).map(({ label, onExport, onImport }) => (
+                      <div key={label} className="flex items-center gap-2">
+                        <span className={`text-[11px] w-16 shrink-0 ${isDark ? "text-white/40" : "text-black/35"}`}>
                           {label}
                         </span>
-                      </button>
+                        <div className="flex flex-1 gap-1">
+                          {(
+                            [
+                              { action: "Export", onClick: onExport, isExport: true },
+                              { action: "Import", onClick: onImport, isExport: false },
+                            ] as const
+                          ).map(({ action, onClick, isExport }) => (
+                            <button
+                              key={action}
+                              onClick={onClick}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
+                            >
+                              <svg
+                                width="11"
+                                height="11"
+                                viewBox="0 0 14 14"
+                                fill="none"
+                                stroke="currentColor"
+                                strokeWidth="1.4"
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                              >
+                                {isExport ? (
+                                  <>
+                                    <path d="M7 2v8" />
+                                    <path d="M4.5 8 7 11l2.5-3" />
+                                    <line x1="2" y1="13" x2="12" y2="13" />
+                                  </>
+                                ) : (
+                                  <>
+                                    <path d="M7 11V3" />
+                                    <path d="M4.5 5 7 2l2.5 3" />
+                                    <line x1="2" y1="13" x2="12" y2="13" />
+                                  </>
+                                )}
+                              </svg>
+                              {action}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
                     ))}
                   </div>
                 </div>
