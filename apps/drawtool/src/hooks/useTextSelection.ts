@@ -397,8 +397,9 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       }
 
       // Double-click on text = enter edit mode (mouse/stylus, no z key needed)
-      // Only guard when nothing is selected — if something is selected, let the selection-switch logic run.
-      if (e.pointerType !== "touch" && !zKeyRef.current && !selectedTextRef.current) {
+      // Only guard when nothing is selected and shift is not held — if something is selected or shift is
+      // held (for shift+click group add), let the selection-switch logic run.
+      if (e.pointerType !== "touch" && !zKeyRef.current && !selectedTextRef.current && !e.shiftKey && selectedGroupRef.current.length === 0) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
         const pad = 3 / scale;
@@ -444,6 +445,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           scheduleRedraw();
           return;
         }
+        // No stroke under click — do nothing; don't fall through to group-move
+        return;
       }
 
       // In select mode: double-click a locked stroke to unlock it immediately
@@ -1147,7 +1150,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           }
           setZCursor(cur);
         } else if (selectedGroupRef.current.length > 0) {
-          // Group selected without V: show move cursor inside group bbox, arrow elsewhere
+          // Group selected without V: move cursor inside group bbox, also over any other stroke (click will switch selection)
           const wp2 = screenToWorld(e.clientX, e.clientY, viewRef.current);
           const scale2 = viewRef.current.scale;
           let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
@@ -1157,7 +1160,14 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
           }
           const pad2 = 8 / scale2;
-          setZCursor(wp2.x >= minX - pad2 && wp2.x <= maxX + pad2 && wp2.y >= minY - pad2 && wp2.y <= maxY + pad2 ? "move" : "default");
+          const insideGroupBbox = wp2.x >= minX - pad2 && wp2.x <= maxX + pad2 && wp2.y >= minY - pad2 && wp2.y <= maxY + pad2;
+          let showMove = insideGroupBbox;
+          if (!showMove) {
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp2.x, wp2.y, scale2)) { showMove = true; break; }
+            }
+          }
+          setZCursor(showMove ? "move" : "default");
         } else if (zKeyRef.current) {
           if (shiftHeldRef.current) {
             // Shift+V: box-select mode — suppress individual hover, show crosshair
