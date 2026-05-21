@@ -5,6 +5,7 @@ import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import {
   dispatchTextStyleSync, textBBox, anyStrokeBBox,
   screenToWorld, computeCaretPosFromClick,
+  getBBoxMeasureCtx, buildFont, TEXT_SIZE_MAP, fontLineHeight,
 } from "../canvas/geometry";
 import type { TouchTool } from "../canvas/types";
 
@@ -259,7 +260,19 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
   }, [persistStrokes, scheduleRedraw, notifyColorUsed, setZCursor]);
 
   const startWriting = useCallback((worldPos: { x: number; y: number }) => {
-    writingPosRef.current = worldPos;
+    // Offset anchor left so the first character appears centered on the click point.
+    // Only applies to left-aligned text; center/right already anchor at the click naturally.
+    const basePx = TEXT_SIZE_MAP[textSizeRef.current];
+    let xOffset = 0;
+    if (textAlignRef.current === "left") {
+      const mCtx = getBBoxMeasureCtx();
+      if (mCtx) {
+        mCtx.font = buildFont(basePx, textBoldRef.current, textItalicRef.current, fontFamilyRef.current);
+        xOffset = mCtx.measureText("n").width * 0.5;
+      }
+    }
+    const yOffset = fontLineHeight(basePx, fontFamilyRef.current) * 0.5;
+    writingPosRef.current = { x: worldPos.x - xOffset, y: worldPos.y - yOffset };
     writingTextRef.current = "";
     caretPosRef.current = 0;
     selectionAnchorRef.current = null;

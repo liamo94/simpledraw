@@ -138,22 +138,21 @@ export function textBBox(stroke: Stroke): { x: number; y: number; w: number; h: 
     mCtx.font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
     mCtx.textBaseline = "top";
     w = Math.max(...lines.map((l) => mCtx.measureText(l || " ").width)) * 1.05;
-    // Measure descent from actual content so the box fits the text without over-estimating
-    // for fonts like Caveat (whose full-alphabet descent is inflated by descenders not present).
-    // yOff stays 0 — box starts at anchor.y (em-top). Glyphs always start below em-top so
-    // the selection box's built-in pad covers the small gap. We don't use actualBoundingBoxAscent
-    // because swash characters (e.g. Caveat 's') can extend above em-top, which would push the
-    // box top far above the letter bodies and make the text appear at the bottom of the box.
-    let maxDescent = 0, hasMetrics = false;
+    let maxDescent = 0, maxAscent = -Infinity, hasMetrics = false;
     for (const line of lines) {
       const m = mCtx.measureText(line || " ");
       if (m.actualBoundingBoxDescent !== undefined) {
         hasMetrics = true;
         if (m.actualBoundingBoxDescent > maxDescent) maxDescent = m.actualBoundingBoxDescent;
+        // Cap upward swashes; allow negative values (glyph tops below em-top).
+        const asc = Math.min(m.actualBoundingBoxAscent ?? 0, lineHeight * 0.4);
+        if (asc > maxAscent) maxAscent = asc;
       }
     }
     if (hasMetrics) {
-      lineH = Math.max(basePx * 0.4, maxDescent);
+      if (!isFinite(maxAscent)) maxAscent = 0;
+      yOff = -maxAscent;
+      lineH = Math.max(basePx * 0.4, maxDescent + maxAscent);
     }
   } else {
     w = Math.max(...lines.map((l) => l.length)) * basePx * 0.6;

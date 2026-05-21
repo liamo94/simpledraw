@@ -600,7 +600,7 @@ function Canvas({
         const caretX = lx + ctx.measureText(textBeforeCaret).width;
         const caretY = anchor.y + caretLine * lineHeight;
         ctx.fillStyle = textColor;
-        ctx.fillRect(caretX, caretY, 2 / scale, basePx);
+        ctx.fillRect(caretX, caretY, 2 / scale, lineHeight);
       }
     }
 
