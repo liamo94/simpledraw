@@ -384,7 +384,8 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       }
 
       // Double-click on text = enter edit mode (mouse/stylus, no z key needed)
-      if (e.pointerType !== "touch" && !zKeyRef.current && !selectedTextRef.current?.text) {
+      // Only guard when nothing is selected — if something is selected, let the selection-switch logic run.
+      if (e.pointerType !== "touch" && !zKeyRef.current && !selectedTextRef.current) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
         const pad = 3 / scale;

@@ -16,6 +16,25 @@ function deepCopyStroke(s: Stroke, dx = 0, dy = 0): Stroke {
   };
 }
 
+const _wordSegmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+
+function prevWordBoundary(text: string, pos: number): number {
+  if (pos === 0) return 0;
+  const segs = [..._wordSegmenter.segment(text.slice(0, pos))];
+  let i = segs.length - 1;
+  while (i >= 0 && /^[ \t]+$/.test(segs[i].segment)) i--;
+  return i >= 0 ? segs[i].index : 0;
+}
+
+function nextWordBoundary(text: string, pos: number): number {
+  if (pos >= text.length) return text.length;
+  const segs = [..._wordSegmenter.segment(text)];
+  let i = segs.findIndex(s => s.index + s.segment.length > pos);
+  if (i === -1) return text.length;
+  while (i < segs.length && /^[ \t]+$/.test(segs[i].segment)) i++;
+  return i < segs.length ? segs[i].index + segs[i].segment.length : text.length;
+}
+
 // ─── Ref bag type ─────────────────────────────────────────────────────────────
 
 export type KeyboardRefs = {
@@ -294,9 +313,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           } else if (pos > 0) {
             textUndoRef.current.push(text);
             textRedoRef.current = [];
-            let i = pos - 1;
-            while (i > 0 && text[i - 1] === " ") i--;
-            while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
+            const i = prevWordBoundary(text, pos);
             writingTextRef.current = text.slice(0, i) + text.slice(pos);
             caretPosRef.current = i;
             syncToTextarea();
@@ -351,10 +368,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
               if (e.metaKey) {
                 caretPosRef.current = text.lastIndexOf("\n", pos - 1) + 1;
               } else if (e.altKey) {
-                let i = pos - 1;
-                while (i > 0 && text[i - 1] === " ") i--;
-                while (i > 0 && text[i - 1] !== " " && text[i - 1] !== "\n") i--;
-                caretPosRef.current = i;
+                caretPosRef.current = prevWordBoundary(text, pos);
               } else {
                 caretPosRef.current = pos - 1;
               }
@@ -379,10 +393,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
                 if (end === -1) end = text.length;
                 caretPosRef.current = end;
               } else if (e.altKey) {
-                let i = pos;
-                while (i < text.length && text[i] === " ") i++;
-                while (i < text.length && text[i] !== " " && text[i] !== "\n") i++;
-                caretPosRef.current = i;
+                caretPosRef.current = nextWordBoundary(text, pos);
               } else {
                 caretPosRef.current = pos + 1;
               }

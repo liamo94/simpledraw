@@ -3682,7 +3682,25 @@ function Canvas({
               }
             }
           }
-          handlePointerDownForText(e);
+          // When panning and not in any selection mode, bypass handlePointerDownForText so
+          // the text double-click guard can't block pan initiation (e.g. cursor over a text
+          // stroke right after a zoom). Must still go through handlePointerDownForText when
+          // V is held or something is selected so selection logic runs normally.
+          const inSelectMode = zKeyRef.current ||
+            touchToolRef.current === "select" ||
+            selectedTextRef.current !== null ||
+            selectedGroupRef.current.length > 0;
+          const clickWillPan = !inSelectMode && (
+            e.button === 1 ||
+            (spaceDownRef.current && e.button === 0) ||
+            (e.button === 0 && leftClickToolRef.current === "pan") ||
+            (e.button === 2 && rightClickToolRef.current === "pan")
+          );
+          if (clickWillPan) {
+            onPointerDown(e);
+          } else {
+            handlePointerDownForText(e);
+          }
         }}
         onPointerMove={(e) => {
           const icons = lockedIconPositionsRef.current;

@@ -2,7 +2,7 @@ import { getStroke } from "perfect-freehand";
 import rough from "roughjs";
 import type { ShapeKind, Theme, FillStyle } from "../hooks/useSettings";
 import type { Stroke } from "./types";
-import { smoothPoints, smoothWidths, buildFont, TEXT_SIZE_MAP, anyStrokeBBox } from "./geometry";
+import { smoothPoints, smoothWidths, buildFont, fontLineHeight, TEXT_SIZE_MAP, anyStrokeBBox } from "./geometry";
 import { getImageEl } from "./imageStore";
 
 // ─── Theme helpers ────────────────────────────────────────────────────────────
@@ -949,7 +949,7 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     ctx.textBaseline = "top";
     ctx.textAlign = stroke.textAlign ?? "left";
     const lines = stroke.text.split("\n");
-    const lineHeight = basePx * 1.2;
+    const lineHeight = fontLineHeight(basePx, stroke.fontFamily);
     const anchor = stroke.points[0];
     for (let i = 0; i < lines.length; i++) {
       ctx.fillText(lines[i], anchor.x, anchor.y + i * lineHeight);

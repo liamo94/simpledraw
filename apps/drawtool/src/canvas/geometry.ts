@@ -94,6 +94,11 @@ const FONT_SIZE_SCALE: Partial<Record<FontFamily, number>> = {
   cartoon: 1.15,
 };
 
+export function fontLineHeight(basePx: number, fontFamily?: FontFamily): number {
+  const scale = (fontFamily && FONT_SIZE_SCALE[fontFamily]) ?? 1;
+  return basePx * scale * 1.15;
+}
+
 export function buildFont(basePx: number, bold?: boolean, italic?: boolean, fontFamily?: FontFamily): string {
   const style = italic ? "italic " : "";
   const weight = bold ? "700 " : "400 ";
@@ -122,7 +127,7 @@ export function textBBox(stroke: Stroke): { x: number; y: number; w: number; h: 
   const anchor = stroke.points[0];
   const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
   const lines = (stroke.text ?? "").split("\n");
-  const lineHeight = basePx * 1.2;
+  const lineHeight = fontLineHeight(basePx, stroke.fontFamily);
   const mCtx = getBBoxMeasureCtx();
 
   let w: number;
@@ -167,7 +172,7 @@ export function computeCaretPosFromClick(stroke: Stroke, wp: { x: number; y: num
   const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
   const lines = text.split("\n");
   const anchor = stroke.points[0];
-  const lineHeight = basePx * 1.2;
+  const lineHeight = fontLineHeight(basePx, stroke.fontFamily);
   const lineIndex = Math.max(0, Math.min(lines.length - 1, Math.floor((wp.y - anchor.y) / lineHeight)));
   const line = lines[lineIndex];
   const bboxCtx = getBBoxMeasureCtx();
