@@ -94,6 +94,11 @@ if (window.location.pathname === "/new") {
   localStorage.setItem("drawtool-active-canvas", String(_newRouteCanvas));
 }
 
+function buildExportFilename(name: string, index: number): string {
+  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  return slug ? `${slug}-${index}` : `canvas-${index}`;
+}
+
 export default function App() {
   const [settings, updateSettings] = useSettings();
 
@@ -135,6 +140,10 @@ export default function App() {
   );
   const exportFormatRef = useRef(exportFormat);
   const exportTransparentBgRef = useRef(exportTransparentBg);
+  const canvasNameRef = useRef(canvasName);
+  const activeCanvasRef = useRef(activeCanvas);
+  canvasNameRef.current = canvasName;
+  activeCanvasRef.current = activeCanvas;
   const [showThicknessPicker, setShowThicknessPicker] = useState<
     "draw" | "dashed" | "line" | null
   >(null);
@@ -335,12 +344,13 @@ export default function App() {
   const exportPng = useCallback(() => {
     const canvas = document.querySelector("canvas");
     if (!canvas) return;
+    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
     canvas.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `drawtool-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.png`;
+      a.download = `${filename}.png`;
       a.click();
       URL.revokeObjectURL(url);
     });
@@ -363,11 +373,11 @@ export default function App() {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `canvas-${activeCanvas}.json`;
+    a.download = `${buildExportFilename(canvasName, activeCanvas)}.json`;
     a.click();
     URL.revokeObjectURL(url);
     showToast({ type: "text", message: `Exported canvas ${activeCanvas}` }, 1500);
-  }, [activeCanvas, showToast]);
+  }, [activeCanvas, canvasName, showToast]);
 
   const processImportFile = useCallback(
     (file: File) => {
@@ -762,6 +772,7 @@ export default function App() {
     window.addEventListener("drawtool:toggle-corners", onToggleCorners);
     window.addEventListener("drawtool:cycle-fill", onCycleFill);
     window.addEventListener("drawtool:export", onExportShortcut);
+    window.addEventListener("drawtool:export-data", exportData);
     window.addEventListener("drawtool:text-size", onTextSize);
     window.addEventListener("drawtool:font-family", onFontFamily);
     window.addEventListener("drawtool:set-color", onSetColor);
@@ -804,6 +815,7 @@ export default function App() {
       window.removeEventListener("drawtool:toggle-corners", onToggleCorners);
       window.removeEventListener("drawtool:cycle-fill", onCycleFill);
       window.removeEventListener("drawtool:export", onExportShortcut);
+      window.removeEventListener("drawtool:export-data", exportData);
       window.removeEventListener("drawtool:text-size", onTextSize);
       window.removeEventListener("drawtool:font-family", onFontFamily);
       window.removeEventListener("drawtool:set-color", onSetColor);
@@ -814,7 +826,7 @@ export default function App() {
       window.removeEventListener("drawtool:storage-quota", onStorageQuota);
       window.removeEventListener("drawtool:storage-ok", onStorageOk);
     };
-  }, [updateSettings, requestClear, showToast, toggleFullscreen, exportPng]);
+  }, [updateSettings, requestClear, showToast, toggleFullscreen, exportPng, exportData]);
 
   // Confirmation overlay keyboard handler — capture phase to block Canvas
   useEffect(() => {
@@ -865,18 +877,21 @@ export default function App() {
   }, []);
 
   const exportTransparent = useCallback(() => {
-    window.dispatchEvent(new Event("drawtool:export-transparent"));
+    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
+    window.dispatchEvent(new CustomEvent("drawtool:export-transparent", { detail: { filename } }));
   }, []);
 
   const exportSvgFn = useCallback((transparent: boolean) => {
+    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
     window.dispatchEvent(
-      new CustomEvent("drawtool:export-svg", { detail: { transparent } }),
+      new CustomEvent("drawtool:export-svg", { detail: { transparent, filename } }),
     );
   }, []);
 
   const exportSelectionSvgFn = useCallback((transparent: boolean) => {
+    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
     window.dispatchEvent(
-      new CustomEvent("drawtool:export-selection-svg", { detail: { transparent } }),
+      new CustomEvent("drawtool:export-selection-svg", { detail: { transparent, filename } }),
     );
   }, []);
 

@@ -1530,7 +1530,7 @@ function Canvas({
     animateView(target);
   }, [animateView]);
 
-  const exportTransparent = useCallback(() => {
+  const exportTransparent = useCallback((filename?: string) => {
     const strokes = strokesRef.current;
     if (strokes.length === 0) return;
     let minX = Infinity,
@@ -1581,14 +1581,16 @@ function Canvas({
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `drawtool-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.png`;
+      a.download = filename
+        ? `${filename}.png`
+        : `drawtool-${new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-")}.png`;
       a.click();
       URL.revokeObjectURL(url);
       window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported PNG", duration: 1500 } }));
     });
   }, []);
 
-  const exportSvg = useCallback((transparent: boolean) => {
+  const exportSvg = useCallback((transparent: boolean, filename?: string) => {
     const strokes = strokesRef.current;
     if (strokes.length === 0) return;
     const svgStr = generateSvg(strokes, transparent, theme);
@@ -1598,7 +1600,9 @@ function Canvas({
     const a = document.createElement("a");
     a.href = url;
     const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
-    a.download = transparent ? `drawtool-${ts}-transparent.svg` : `drawtool-${ts}.svg`;
+    a.download = filename
+      ? (transparent ? `${filename}-transparent.svg` : `${filename}.svg`)
+      : (transparent ? `drawtool-${ts}-transparent.svg` : `drawtool-${ts}.svg`);
     a.click();
     URL.revokeObjectURL(url);
     window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: transparent ? "Exported transparent SVG" : "Exported SVG", duration: 1500 } }));
@@ -1850,10 +1854,10 @@ function Canvas({
     const onQueryCount = (e: Event) => {
       (e as CustomEvent).detail.count = strokesRef.current.length;
     };
-    const onExportTransparent = () => exportTransparent();
-    const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false);
+    const onExportTransparent = (e: Event) => exportTransparent((e as CustomEvent).detail?.filename);
+    const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false, (e as CustomEvent).detail?.filename);
     const onExportSelectionSvg = (e: Event) => {
-      const transparent = (e as CustomEvent).detail?.transparent ?? true;
+      const { transparent = true, filename } = (e as CustomEvent).detail ?? {};
       const strokes = selectedGroupRef.current.length > 0
         ? selectedGroupRef.current
         : selectedTextRef.current
@@ -1867,7 +1871,9 @@ function Canvas({
       const a = document.createElement("a");
       a.href = url;
       const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
-      a.download = `drawtool-selection-${ts}.svg`;
+      a.download = filename
+        ? (transparent ? `${filename}-selection-transparent.svg` : `${filename}-selection.svg`)
+        : `drawtool-selection-${ts}.svg`;
       a.click();
       URL.revokeObjectURL(url);
       window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported selection as SVG", duration: 1500 } }));

@@ -1923,8 +1923,8 @@ export default function Menu({
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
-                    <path d="M7 2v7" />
-                    <path d="M4.5 7 7 10l2.5-3" />
+                    <path d="M7 10V3" />
+                    <path d="M4.5 5 7 2l2.5 3" />
                     <line x1="2" y1="12.5" x2="12" y2="12.5" />
                   </svg>
                 }
@@ -2131,14 +2131,14 @@ export default function Menu({
                               >
                                 {isExport ? (
                                   <>
-                                    <path d="M7 2v8" />
-                                    <path d="M4.5 8 7 11l2.5-3" />
+                                    <path d="M7 10V3" />
+                                    <path d="M4.5 5 7 2l2.5 3" />
                                     <line x1="2" y1="13" x2="12" y2="13" />
                                   </>
                                 ) : (
                                   <>
-                                    <path d="M7 11V3" />
-                                    <path d="M4.5 5 7 2l2.5 3" />
+                                    <path d="M7 2v8" />
+                                    <path d="M4.5 8 7 11l2.5-3" />
                                     <line x1="2" y1="13" x2="12" y2="13" />
                                   </>
                                 )}

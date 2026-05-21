@@ -699,6 +699,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:export"));
       }
+      if (cmdKey(e) && e.key === "e" && e.shiftKey) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:export-data"));
+      }
       if (e.shiftKey && e.code === "Digit1" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:reset-view"));
