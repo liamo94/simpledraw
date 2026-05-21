@@ -5,7 +5,7 @@ import { useTextSelection } from "../hooks/useTextSelection";
 import { generateSvg } from "../canvas/svgExport";
 import {
   isDarkTheme, getBackgroundColor, getGridColor,
-  TEXT_SIZE_MAP, buildFont, dispatchTextStyleSync,
+  TEXT_SIZE_MAP, buildFont, fontLineHeight, dispatchTextStyleSync,
   loadStrokes, saveStrokes, loadView, saveView,
   distToSegment, cmdKey, screenToWorld, smoothPoints,
   shapeToSegments,
@@ -542,7 +542,7 @@ function Canvas({
       ctx.textAlign = align;
       const text = writingTextRef.current;
       const lines = text ? text.split("\n") : [""];
-      const lineHeight = basePx * 1.2;
+      const lineHeight = fontLineHeight(basePx, editStroke ? editStroke.fontFamily : fontFamilyRef.current);
       const anchor = writingPosRef.current;
       for (let i = 0; i < lines.length; i++) {
         if (lines[i]) {
@@ -571,7 +571,7 @@ function Canvas({
             const lx = lineStartX(lines[i]);
             const x1 = lx + ctx.measureText(lines[i].slice(0, colStart)).width;
             const x2 = lx + ctx.measureText(lines[i].slice(0, colEnd)).width;
-            ctx.fillRect(x1, anchor.y + i * lineHeight, Math.max(x2 - x1, 2 / scale), basePx);
+            ctx.fillRect(x1, anchor.y + i * lineHeight, Math.max(x2 - x1, 2 / scale), lineHeight);
           }
           lineStart += lines[i].length + 1;
         }
@@ -3686,7 +3686,8 @@ function Canvas({
           // the text double-click guard can't block pan initiation (e.g. cursor over a text
           // stroke right after a zoom). Must still go through handlePointerDownForText when
           // V is held or something is selected so selection logic runs normally.
-          const inSelectMode = zKeyRef.current ||
+          const inSelectMode = isWritingRef.current ||
+            zKeyRef.current ||
             touchToolRef.current === "select" ||
             selectedTextRef.current !== null ||
             selectedGroupRef.current.length > 0;

@@ -96,7 +96,7 @@ const FONT_SIZE_SCALE: Partial<Record<FontFamily, number>> = {
 
 export function fontLineHeight(basePx: number, fontFamily?: FontFamily): number {
   const scale = (fontFamily && FONT_SIZE_SCALE[fontFamily]) ?? 1;
-  return basePx * scale * 1.15;
+  return Math.max(basePx * 1.15, basePx * scale);
 }
 
 export function buildFont(basePx: number, bold?: boolean, italic?: boolean, fontFamily?: FontFamily): string {
