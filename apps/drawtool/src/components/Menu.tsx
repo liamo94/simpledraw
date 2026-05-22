@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
   Settings,
   Theme,
@@ -291,6 +292,7 @@ type Props = {
   hasTouch: boolean;
   activeCanvas: number;
   onSwitchCanvas: (n: number) => void;
+  onReorderCanvases: (newOrder: number[]) => void;
   onToggleFullscreen: () => void;
   onResetView: () => void;
   onExportData: () => void;
@@ -314,6 +316,7 @@ export default function Menu({
   hasTouch,
   activeCanvas,
   onSwitchCanvas,
+  onReorderCanvases,
   onToggleFullscreen,
   onResetView,
   onExportData,
@@ -333,6 +336,7 @@ export default function Menu({
   const [showHelp, setShowHelp] = useState(false);
   const [showAbout, setShowAbout] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showReorder, setShowReorder] = useState(false);
   const [clearWipe, setClearWipe] = useState(0);
   const [clearConfirming, setClearConfirming] = useState(false);
   const clearConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -372,6 +376,7 @@ export default function Menu({
           setShowHelp(false);
           setShowAbout(false);
           setShowExport(false);
+          setShowReorder(false);
           setClearWipe(0);
           setLogoAnimate(false);
         }
@@ -383,6 +388,7 @@ export default function Menu({
       setShowHelp(false);
       setShowAbout(false);
       setShowExport(false);
+      setShowReorder(false);
     };
     const onOpenShortcuts = () => {
       setOpen(false);
@@ -431,6 +437,7 @@ export default function Menu({
         setShowHelp(false);
         setShowAbout(false);
         setShowExport(false);
+        setShowReorder(false);
       }
     };
 
@@ -445,6 +452,7 @@ export default function Menu({
     setShowHelp(false);
     setShowAbout(false);
     setShowExport(false);
+    setShowReorder(false);
     setClearWipe(0);
     setClearConfirming(false);
     if (clearConfirmTimerRef.current) {
@@ -471,6 +479,15 @@ export default function Menu({
 
   return (
     <>
+      {showReorder && (
+        <CanvasReorderPanel
+          activeCanvas={activeCanvas}
+          isDark={isDark}
+          theme={settings.theme}
+          onReorderCanvases={onReorderCanvases}
+          onClose={() => setShowReorder(false)}
+        />
+      )}
       {showKeysModal && (
         <div className="fixed inset-0 z-[200] flex items-center justify-center">
           <div
@@ -1509,10 +1526,26 @@ export default function Menu({
               })}
             </div>
 
-            <div
-              className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-            >
-              Canvas
+            <div className="flex items-center justify-between mt-3">
+              <span
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Canvas
+              </span>
+              <button
+                onClick={() => setShowReorder(true)}
+                className={`relative group w-5 h-5 flex items-center justify-center rounded transition-colors ${isDark ? "text-white/30 hover:text-white/65 hover:bg-white/10" : "text-black/25 hover:text-black/55 hover:bg-black/[0.07]"}`}
+              >
+                <Tooltip label="Manage canvases" />
+                <svg width="12" height="11" viewBox="0 0 12 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
+                  <line x1="4.5" y1="1.5" x2="11" y2="1.5" />
+                  <line x1="4.5" y1="5.5" x2="11" y2="5.5" />
+                  <line x1="4.5" y1="9.5" x2="11" y2="9.5" />
+                  <circle cx="1.5" cy="1.5" r="1" fill="currentColor" stroke="none" />
+                  <circle cx="1.5" cy="5.5" r="1" fill="currentColor" stroke="none" />
+                  <circle cx="1.5" cy="9.5" r="1" fill="currentColor" stroke="none" />
+                </svg>
+              </button>
             </div>
             <div className="flex gap-1 mt-1 justify-center">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (

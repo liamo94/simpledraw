@@ -32,6 +32,7 @@ import {
   strokesKey,
   loadStash,
   saveStash,
+  reorderCanvases,
 } from "./canvas/storage";
 import type { StashItem, Stroke } from "./canvas/types";
 import StashPanel from "./components/StashPanel";
@@ -1134,6 +1135,15 @@ export default function App() {
         onSwitchCanvas={(n) => {
           setActiveCanvas(n);
           localStorage.setItem("drawtool-active-canvas", String(n));
+        }}
+        onReorderCanvases={(newOrder) => {
+          const newActivePos = newOrder.indexOf(activeCanvas) + 1;
+          reorderCanvases(newOrder);
+          const newName = localStorage.getItem(`drawtool-canvas-name-${newActivePos}`) ?? "";
+          setActiveCanvas(newActivePos);
+          setCanvasName(newName);
+          canvasNameRef.current = newName;
+          localStorage.setItem("drawtool-active-canvas", String(newActivePos));
         }}
         onToggleFullscreen={toggleFullscreen}
         onResetView={resetView}

@@ -134,6 +134,26 @@ export function validateWorkspaceFile(data: unknown): WorkspaceCanvas[] {
   });
 }
 
+// ─── Canvas reorder ───────────────────────────────────────────────────────────
+
+/** Physically swap localStorage data so slot i+1 gets the data that was in newOrder[i]. */
+export function reorderCanvases(newOrder: number[]) {
+  const data = newOrder.map((n) => ({
+    strokes: localStorage.getItem(strokesKey(n)),
+    view: localStorage.getItem(viewKey(n)),
+    name: localStorage.getItem(`drawtool-canvas-name-${n}`),
+  }));
+  data.forEach((d, i) => {
+    const slot = i + 1;
+    if (d.strokes !== null) localStorage.setItem(strokesKey(slot), d.strokes);
+    else localStorage.removeItem(strokesKey(slot));
+    if (d.view !== null) localStorage.setItem(viewKey(slot), d.view);
+    else localStorage.removeItem(viewKey(slot));
+    if (d.name !== null) localStorage.setItem(`drawtool-canvas-name-${slot}`, d.name);
+    else localStorage.removeItem(`drawtool-canvas-name-${slot}`);
+  });
+}
+
 // ─── Stash persistence ─────────────────────────────────────────────────────────
 
 const STASH_KEY = "drawtool-stash";
