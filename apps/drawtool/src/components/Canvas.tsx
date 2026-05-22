@@ -9,7 +9,7 @@ import {
   loadStrokes, saveStrokes, loadView, saveView,
   distToSegment, cmdKey, screenToWorld, smoothPoints,
   shapeToSegments,
-  textBBox, anyStrokeBBox,
+  textBBox, anyStrokeBBox, visualStrokeBBox,
   renderStrokesToCtx, snapshotCache, smoothArrowPath,
   loadImages, storeImage, processImageFile, gcImages,
 } from "../canvas/canvasUtils";
@@ -232,9 +232,18 @@ function Canvas({
   const lockedHoverRef = useRef<Stroke | null>(null);
   const lastCycleRef = useRef<{ selectedStroke: Stroke; hits: Stroke[] } | null>(null);
   const groupDragRef = useRef<{
+    mode: "move" | "corner" | "rotate";
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
     subStrokeStartPoints?: { x: number; y: number }[][][];
+    // corner / rotate only:
+    startBbox?: { x: number; y: number; w: number; h: number };
+    corner?: number;
+    cx?: number; cy?: number; startAngle?: number;
+    startRotations?: (number | undefined)[];
+    startFontScales?: (number | undefined)[];
+    startImageSizes?: ({ w: number; h: number } | undefined)[];
+    startCenters?: { x: number; y: number }[];
   } | null>(null);
 
   // Refs to late-defined callbacks (populated after they're created below)
@@ -694,6 +703,17 @@ function Canvas({
             ctx.fillStyle = "#ffffff"; ctx.fill();
             ctx.strokeStyle = "#4895ef"; ctx.stroke();
           }
+          // Rotate handle above bbox (not shown in group mode)
+          if (!noHandles) {
+            const bb = anyStrokeBBox(stroke);
+            const handleOffset = 28 / scale;
+            const rotHr = 5 / scale;
+            const hx = bb.x + bb.w / 2, hy = bb.y - handleOffset;
+            ctx.beginPath(); ctx.moveTo(hx, bb.y); ctx.lineTo(hx, hy); ctx.stroke();
+            ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
+            ctx.fillStyle = "#ffffff"; ctx.fill();
+            ctx.strokeStyle = "#4895ef"; ctx.stroke();
+          }
         } else {
           // Hover: wide semi-transparent halo + faint handle outlines
           ctx.lineCap = "round";
@@ -809,24 +829,52 @@ function Canvas({
       ctx.restore();
     }
 
-    // Draw group selection: individual outlines (no handles) + combined bbox
+    // Draw group selection: individual outlines (no handles) + combined bbox with resize/rotate handles
     if (selectedGroupRef.current.length > 0) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const stroke of selectedGroupRef.current) {
         drawOverlayStroke(stroke, true, true);
-        const bb = anyStrokeBBox(stroke);
+        const bb = visualStrokeBBox(stroke);
         minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
         maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
       }
-      // Combined selection box
       const pad = 6 / scale;
+      const bx = minX - pad, by = minY - pad;
+      const bw = (maxX - minX) + pad * 2, bh = (maxY - minY) + pad * 2;
+      const lw = 1.5 / scale;
       ctx.save();
       ctx.strokeStyle = "#4895ef";
-      ctx.lineWidth = 1.5 / scale;
+      ctx.lineWidth = lw;
       ctx.setLineDash([6 / scale, 3 / scale]);
       ctx.beginPath();
-      ctx.rect(minX - pad, minY - pad, (maxX - minX) + pad * 2, (maxY - minY) + pad * 2);
+      ctx.rect(bx, by, bw, bh);
       ctx.stroke();
+      ctx.setLineDash([]);
+      // Corner handles
+      const hr = 4.5 / scale;
+      const corners = [
+        { x: bx,      y: by },
+        { x: bx + bw, y: by },
+        { x: bx + bw, y: by + bh },
+        { x: bx,      y: by + bh },
+      ];
+      for (const c of corners) {
+        ctx.beginPath();
+        ctx.rect(c.x - hr, c.y - hr, hr * 2, hr * 2);
+        ctx.fillStyle = "#ffffff";
+        ctx.fill();
+        ctx.strokeStyle = "#4895ef";
+        ctx.stroke();
+      }
+      // Rotate handle
+      const handleOffset = 28 / scale;
+      const rotHr = 5 / scale;
+      const hx = bx + bw / 2, hy = by - handleOffset;
+      ctx.strokeStyle = "#4895ef";
+      ctx.beginPath(); ctx.moveTo(hx, by); ctx.lineTo(hx, hy); ctx.stroke();
+      ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
+      ctx.fillStyle = "#ffffff"; ctx.fill();
+      ctx.strokeStyle = "#4895ef"; ctx.stroke();
       ctx.restore();
     }
 
@@ -1663,6 +1711,18 @@ function Canvas({
           }
         }
         selectedGroupRef.current = action.strokes;
+      } else if (action.type === "group-transform") {
+        for (let i = 0; i < action.strokes.length; i++) {
+          const s = action.strokes[i];
+          s.points = action.fromPoints[i].map(p => ({ ...p }));
+          if (action.fromSubPoints && s.subStrokes) {
+            s.subStrokes.forEach((ss, k) => { ss.points = action.fromSubPoints![i][k].map(p => ({ ...p })); });
+          }
+          s.rotation = action.fromRotations[i];
+          s.fontScale = action.fromFontScales[i];
+          if (action.fromImageSizes[i]) { s.imageW = action.fromImageSizes[i]!.w; s.imageH = action.fromImageSizes[i]!.h; }
+        }
+        selectedGroupRef.current = action.strokes;
       } else if (action.type === "combine") {
         const idx = strokesRef.current.indexOf(action.combined);
         if (idx !== -1) strokesRef.current.splice(idx, 1, ...action.originals);
@@ -1718,8 +1778,8 @@ function Canvas({
     selectedTextRef.current = null;
     selectDragRef.current = null;
     groupDragRef.current = null;
-    // Clear group selection unless we just re-selected it for a group-move undo
-    if (!action || action.type !== "group-move") selectedGroupRef.current = [];
+    // Clear group selection unless we just re-selected it for a group-move/group-transform undo
+    if (!action || (action.type !== "group-move" && action.type !== "group-transform")) selectedGroupRef.current = [];
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
     strokesCacheRef.current = null; strokesBBoxRef.current = null;
@@ -1786,6 +1846,18 @@ function Canvas({
           }
         }
         selectedGroupRef.current = action.strokes;
+      } else if (action.type === "group-transform") {
+        for (let i = 0; i < action.strokes.length; i++) {
+          const s = action.strokes[i];
+          s.points = action.toPoints[i].map(p => ({ ...p }));
+          if (action.toSubPoints && s.subStrokes) {
+            s.subStrokes.forEach((ss, k) => { ss.points = action.toSubPoints![i][k].map(p => ({ ...p })); });
+          }
+          s.rotation = action.toRotations[i];
+          s.fontScale = action.toFontScales[i];
+          if (action.toImageSizes[i]) { s.imageW = action.toImageSizes[i]!.w; s.imageH = action.toImageSizes[i]!.h; }
+        }
+        selectedGroupRef.current = action.strokes;
       } else if (action.type === "combine") {
         const firstIdx = action.originals.reduce((min, s) => {
           const i = strokesRef.current.indexOf(s);
@@ -1832,8 +1904,8 @@ function Canvas({
     selectedTextRef.current = null;
     selectDragRef.current = null;
     groupDragRef.current = null;
-    // Clear group selection unless we just re-selected it for a group-move redo
-    if (!action || action.type !== "group-move") selectedGroupRef.current = [];
+    // Clear group selection unless we just re-selected it for a group-move/group-transform redo
+    if (!action || (action.type !== "group-move" && action.type !== "group-transform")) selectedGroupRef.current = [];
     lastTextTapRef.current = null;
     hoverTextRef.current = null;
     strokesCacheRef.current = null; strokesBBoxRef.current = null;

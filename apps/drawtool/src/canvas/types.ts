@@ -48,6 +48,7 @@ export type UndoAction =
   | { type: "fill-opacity-change"; strokes: Stroke[]; from: (number | undefined)[]; to: number }
   | { type: "corners-change"; strokes: Stroke[]; from: (boolean | undefined)[]; to: boolean | undefined }
   | { type: "group-move"; strokes: Stroke[]; from: { x: number; y: number }[][]; to: { x: number; y: number }[][]; subFrom?: { x: number; y: number }[][][]; subTo?: { x: number; y: number }[][][] }
+  | { type: "group-transform"; strokes: Stroke[]; fromPoints: { x: number; y: number }[][]; toPoints: { x: number; y: number }[][]; fromSubPoints?: { x: number; y: number }[][][]; toSubPoints?: { x: number; y: number }[][][]; fromRotations: (number | undefined)[]; toRotations: (number | undefined)[]; fromFontScales: (number | undefined)[]; toFontScales: (number | undefined)[]; fromImageSizes: ({ w: number; h: number } | undefined)[]; toImageSizes: ({ w: number; h: number } | undefined)[] }
   | { type: "multi-draw"; strokes: Stroke[] }
   | { type: "reorder"; before: Stroke[]; after: Stroke[] }
   | { type: "reshape"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }

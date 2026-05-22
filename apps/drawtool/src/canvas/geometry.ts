@@ -251,3 +251,15 @@ export function anyStrokeBBox(stroke: Stroke): BBox {
       : stroke.lineWidth / 2;
   return { x: minX - r, y: minY - r, w: Math.max(maxX - minX, 1) + r * 2, h: Math.max(maxY - minY, 1) + r * 2 };
 }
+
+/** Like anyStrokeBBox but expands to account for stroke.rotation (AABB of the rotated bbox). */
+export function visualStrokeBBox(stroke: Stroke): BBox {
+  const bb = anyStrokeBBox(stroke);
+  if (!stroke.rotation) return bb;
+  const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+  const cos = Math.abs(Math.cos(stroke.rotation));
+  const sin = Math.abs(Math.sin(stroke.rotation));
+  const hw = (bb.w * cos + bb.h * sin) / 2;
+  const hh = (bb.w * sin + bb.h * cos) / 2;
+  return { x: cx - hw, y: cy - hh, w: hw * 2, h: hh * 2 };
+}

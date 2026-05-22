@@ -1093,7 +1093,37 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         const stroke = selectedTextRef.current;
         if (stroke?.subStrokes) {
           e.preventDefault();
-          const originals = stroke.subStrokes;
+          // If the combined stroke has been rotated, bake that rotation into each sub-stroke
+          // so the individual strokes appear in the correct rotated positions.
+          let originals: Stroke[];
+          if (stroke.rotation) {
+            const R = stroke.rotation;
+            const cb = anyStrokeBBox(stroke);
+            const gcx = cb.x + cb.w / 2, gcy = cb.y + cb.h / 2;
+            const cos = Math.cos(R), sin = Math.sin(R);
+            originals = stroke.subStrokes.map(sub => {
+              const newStroke: Stroke = { ...sub, points: sub.points.map(p => ({ ...p })) };
+              if (newStroke.shape === "arrow" || newStroke.shape === "line") {
+                // Rotate each point directly around combined center
+                newStroke.points = sub.points.map(p => ({
+                  x: gcx + (p.x - gcx) * cos - (p.y - gcy) * sin,
+                  y: gcy + (p.x - gcx) * sin + (p.y - gcy) * cos,
+                }));
+              } else {
+                const sc = anyStrokeBBox(sub);
+                const scx = sc.x + sc.w / 2, scy = sc.y + sc.h / 2;
+                const dx2 = scx - gcx, dy2 = scy - gcy;
+                const ncx = gcx + dx2 * cos - dy2 * sin;
+                const ncy = gcy + dx2 * sin + dy2 * cos;
+                const tx = ncx - scx, ty = ncy - scy;
+                newStroke.points = sub.points.map(p => ({ x: p.x + tx, y: p.y + ty }));
+                newStroke.rotation = ((sub.rotation ?? 0) + R) || undefined;
+              }
+              return newStroke;
+            });
+          } else {
+            originals = stroke.subStrokes;
+          }
           const idx = strokesRef.current.indexOf(stroke);
           const insertIndex = idx !== -1 ? idx : strokesRef.current.length;
           if (idx !== -1) strokesRef.current.splice(idx, 1, ...originals);

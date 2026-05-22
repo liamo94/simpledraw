@@ -3,7 +3,7 @@ import type { MutableRefObject } from "react";
 import type { TextAlign } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import {
-  dispatchTextStyleSync, textBBox, anyStrokeBBox,
+  dispatchTextStyleSync, textBBox, anyStrokeBBox, visualStrokeBBox,
   screenToWorld, computeCaretPosFromClick,
   getBBoxMeasureCtx, buildFont, TEXT_SIZE_MAP, fontLineHeight,
 } from "../canvas/geometry";
@@ -141,9 +141,17 @@ export type TextSelectionRefs = {
   } | null>;
   hoverTextRef: MutableRefObject<Stroke | null>;
   groupDragRef: MutableRefObject<{
+    mode: "move" | "corner" | "rotate";
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[][];
     subStrokeStartPoints?: { x: number; y: number }[][][];
+    startBbox?: { x: number; y: number; w: number; h: number };
+    corner?: number;
+    cx?: number; cy?: number; startAngle?: number;
+    startRotations?: (number | undefined)[];
+    startFontScales?: (number | undefined)[];
+    startImageSizes?: ({ w: number; h: number } | undefined)[];
+    startCenters?: { x: number; y: number }[];
   } | null>;
   boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: Stroke; prevGroup?: Stroke[]; prevSingle?: Stroke | null } | null>;
   zKeyRef: MutableRefObject<boolean>;
@@ -514,19 +522,77 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         return;
       }
 
-      // Group move: if a group is selected, check if pointer is inside combined bbox
+      // Group move/resize/rotate: if a group is selected, check handles then interior
       if (selectedGroupRef.current.length > 0 && (e.pointerType !== "touch" || touchToolRef.current === "select")) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
         let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
         for (const s of selectedGroupRef.current) {
-          const bb = anyStrokeBBox(s);
+          const bb = visualStrokeBBox(s);
           minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
           maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+        }
+        // Padded bbox matching rendering
+        const renderPad = 6 / scale;
+        const bx = minX - renderPad, by = minY - renderPad;
+        const bw = (maxX - minX) + renderPad * 2, bh = (maxY - minY) + renderPad * 2;
+        const hs = 7 / scale;
+        // Rotate handle hit
+        const handleOffset = 28 / scale;
+        const rhx = bx + bw / 2, rhy = by - handleOffset;
+        if (Math.hypot(wp.x - rhx, wp.y - rhy) <= hs) {
+          const cx = (minX + maxX) / 2, cy = (minY + maxY) / 2;
+          groupDragRef.current = {
+            mode: "rotate",
+            startPtr: { ...wp },
+            startPoints: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+            subStrokeStartPoints: selectedGroupRef.current.some(s => s.subStrokes)
+              ? selectedGroupRef.current.map(s => s.subStrokes?.map(sub => sub.points.map(p => ({ ...p }))) ?? [])
+              : undefined,
+            startBbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+            cx, cy,
+            startAngle: Math.atan2(wp.y - cy, wp.x - cx),
+            startRotations: selectedGroupRef.current.map(s => s.rotation),
+            startFontScales: selectedGroupRef.current.map(s => s.fontScale),
+            startImageSizes: selectedGroupRef.current.map(s => s.imageW !== undefined ? { w: s.imageW, h: s.imageH! } : undefined),
+            startCenters: selectedGroupRef.current.map(s => { const b = anyStrokeBBox(s); return { x: b.x + b.w / 2, y: b.y + b.h / 2 }; }),
+          };
+          (e.target as Element).setPointerCapture(e.pointerId);
+          scheduleRedraw();
+          return;
+        }
+        // Corner handle hits
+        const cornerPts = [
+          { x: bx,      y: by },
+          { x: bx + bw, y: by },
+          { x: bx + bw, y: by + bh },
+          { x: bx,      y: by + bh },
+        ];
+        for (let ci = 0; ci < 4; ci++) {
+          const cc = cornerPts[ci];
+          if (Math.abs(wp.x - cc.x) <= hs && Math.abs(wp.y - cc.y) <= hs) {
+            groupDragRef.current = {
+              mode: "corner",
+              startPtr: { ...wp },
+              corner: ci,
+              startPoints: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+              subStrokeStartPoints: selectedGroupRef.current.some(s => s.subStrokes)
+                ? selectedGroupRef.current.map(s => s.subStrokes?.map(sub => sub.points.map(p => ({ ...p }))) ?? [])
+                : undefined,
+              startBbox: { x: minX, y: minY, w: maxX - minX, h: maxY - minY },
+              startRotations: selectedGroupRef.current.map(s => s.rotation),
+              startFontScales: selectedGroupRef.current.map(s => s.fontScale),
+              startImageSizes: selectedGroupRef.current.map(s => s.imageW !== undefined ? { w: s.imageW, h: s.imageH! } : undefined),
+            };
+            (e.target as Element).setPointerCapture(e.pointerId);
+            scheduleRedraw();
+            return;
+          }
         }
         const pad = 8 / scale;
         if (wp.x >= minX - pad && wp.x <= maxX + pad && wp.y >= minY - pad && wp.y <= maxY + pad) {
           groupDragRef.current = {
+            mode: "move",
             startPtr: { ...wp },
             startPoints: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
             subStrokeStartPoints: selectedGroupRef.current.some(s => s.subStrokes)
@@ -592,18 +658,19 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             const dx = wp.x - rcx, dy = wp.y - rcy;
             twp = { x: rcx + dx * cos - dy * sin, y: rcy + dx * sin + dy * cos };
           }
-          // Check rotate handle first (all types except arrows/lines)
-          if (selShape !== "arrow" && selShape !== "line") {
-            const rotPad = 3 / scale;
+          // Check rotate handle first (all types including arrows/lines)
+          {
+            const rotPad = selShape === "arrow" || selShape === "line" ? 0 : 3 / scale;
             const handleOffset = 28 / scale;
             const rotHs = 7 / scale;
             const handleX = bb.x + bb.w / 2;
             const handleY = bb.y - rotPad - handleOffset;
-            if (Math.hypot(twp.x - handleX, twp.y - handleY) <= rotHs) {
+            const testPt = selShape === "arrow" || selShape === "line" ? wp : twp;
+            if (Math.hypot(testPt.x - handleX, testPt.y - handleY) <= rotHs) {
               selectDragRef.current = {
                 mode: "rotate",
                 startPtr: { ...wp },
-                startPoints: [],
+                startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
                 startScale: 1,
                 startRotation: strokeRotation,
                 bbox: bb,
@@ -853,22 +920,127 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         return;
       }
 
-      // Handle group drag
+      // Handle group drag (move / corner-resize / rotate)
       if (groupDragRef.current) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
-        const { startPtr, startPoints, subStrokeStartPoints } = groupDragRef.current;
-        const dx = wp.x - startPtr.x;
-        const dy = wp.y - startPtr.y;
-        for (let i = 0; i < selectedGroupRef.current.length; i++) {
-          const stroke = selectedGroupRef.current[i];
-          for (let j = 0; j < startPoints[i].length; j++) {
-            stroke.points[j] = { x: startPoints[i][j].x + dx, y: startPoints[i][j].y + dy };
+        const drag = groupDragRef.current;
+        const { startPtr, startPoints, subStrokeStartPoints } = drag;
+
+        if (drag.mode === "rotate") {
+          // Rotate each stroke's visual bbox center around the group center, then update rotation
+          const dAngle = Math.atan2(wp.y - drag.cy!, wp.x - drag.cx!) - drag.startAngle!;
+          const snappedAngle = e.shiftKey
+            ? Math.round(dAngle / ((15 * Math.PI) / 180)) * ((15 * Math.PI) / 180)
+            : dAngle;
+          const cos = Math.cos(snappedAngle), sin = Math.sin(snappedAngle);
+          const gcx = drag.cx!, gcy = drag.cy!;
+          for (let i = 0; i < selectedGroupRef.current.length; i++) {
+            const stroke = selectedGroupRef.current[i];
+            if (stroke.shape === "arrow" || stroke.shape === "line") {
+              // Arrows/lines: rotate each effective visual point directly around group center.
+              // This avoids setting stroke.rotation on strokes whose overlay ignores it.
+              const prevRot = drag.startRotations![i] ?? 0;
+              const cosPrev = Math.cos(prevRot), sinPrev = Math.sin(prevRot);
+              const sc = drag.startCenters![i]; // bbox center of raw start points
+              for (let j = 0; j < startPoints[i].length; j++) {
+                const sp = startPoints[i][j];
+                // Un-rotate from existing stroke.rotation to get visual position at drag start
+                const vx = sc.x + (sp.x - sc.x) * cosPrev - (sp.y - sc.y) * sinPrev;
+                const vy = sc.y + (sp.x - sc.x) * sinPrev + (sp.y - sc.y) * cosPrev;
+                // Rotate visual position around group center by snappedAngle
+                stroke.points[j] = {
+                  x: gcx + (vx - gcx) * cos - (vy - gcy) * sin,
+                  y: gcy + (vx - gcx) * sin + (vy - gcy) * cos,
+                };
+              }
+              stroke.rotation = undefined;
+            } else {
+              // All other types: orbit bbox center + spin via stroke.rotation
+              const sc = drag.startCenters![i];
+              const dx = sc.x - gcx, dy = sc.y - gcy;
+              const ncx = gcx + dx * cos - dy * sin;
+              const ncy = gcy + dx * sin + dy * cos;
+              const tx = ncx - sc.x, ty = ncy - sc.y;
+              for (let j = 0; j < startPoints[i].length; j++) {
+                stroke.points[j] = { x: startPoints[i][j].x + tx, y: startPoints[i][j].y + ty };
+              }
+              if (subStrokeStartPoints && stroke.subStrokes) {
+                const spts = subStrokeStartPoints[i];
+                for (let k = 0; k < stroke.subStrokes.length; k++) {
+                  for (let j = 0; j < spts[k].length; j++) {
+                    stroke.subStrokes[k].points[j] = { x: spts[k][j].x + tx, y: spts[k][j].y + ty };
+                  }
+                }
+              }
+              const newAngle = (drag.startRotations![i] ?? 0) + snappedAngle;
+              stroke.rotation = newAngle || undefined;
+            }
           }
-          if (subStrokeStartPoints && stroke.subStrokes) {
-            const spts = subStrokeStartPoints[i];
-            for (let k = 0; k < stroke.subStrokes.length; k++) {
-              for (let j = 0; j < spts[k].length; j++) {
-                stroke.subStrokes[k].points[j] = { x: spts[k][j].x + dx, y: spts[k][j].y + dy };
+        } else if (drag.mode === "corner") {
+          // Scale all strokes proportionally from the fixed opposite corner
+          const ci = drag.corner!;
+          const sb = drag.startBbox!;
+          // Fixed opposite corner (raw bbox, no padding)
+          const oppCorners = [
+            { x: sb.x + sb.w, y: sb.y + sb.h }, // TL → BR fixed
+            { x: sb.x,        y: sb.y + sb.h }, // TR → BL fixed
+            { x: sb.x,        y: sb.y },         // BR → TL fixed
+            { x: sb.x + sb.w, y: sb.y },         // BL → TR fixed
+          ];
+          const opp = oppCorners[ci];
+          const denomX = startPtr.x - opp.x;
+          const denomY = startPtr.y - opp.y;
+          const rawSx = Math.abs(denomX) > 1e-6 ? (wp.x - opp.x) / denomX : 1;
+          const rawSy = Math.abs(denomY) > 1e-6 ? (wp.y - opp.y) / denomY : 1;
+          // Clamp to avoid flipping
+          const sx = Math.max(0.05, rawSx);
+          const sy = Math.max(0.05, rawSy);
+          const uniformScale = Math.hypot(wp.x - opp.x, wp.y - opp.y) /
+            Math.max(1e-6, Math.hypot(startPtr.x - opp.x, startPtr.y - opp.y));
+          for (let i = 0; i < selectedGroupRef.current.length; i++) {
+            const stroke = selectedGroupRef.current[i];
+            for (let j = 0; j < startPoints[i].length; j++) {
+              stroke.points[j] = {
+                x: opp.x + (startPoints[i][j].x - opp.x) * sx,
+                y: opp.y + (startPoints[i][j].y - opp.y) * sy,
+              };
+            }
+            if (subStrokeStartPoints && stroke.subStrokes) {
+              const spts = subStrokeStartPoints[i];
+              for (let k = 0; k < stroke.subStrokes.length; k++) {
+                for (let j = 0; j < spts[k].length; j++) {
+                  stroke.subStrokes[k].points[j] = {
+                    x: opp.x + (spts[k][j].x - opp.x) * sx,
+                    y: opp.y + (spts[k][j].y - opp.y) * sy,
+                  };
+                }
+              }
+            }
+            // Scale text fontScale proportionally
+            if (stroke.text) {
+              stroke.fontScale = Math.min(5, Math.max(0.1, (drag.startFontScales![i] ?? 1) * uniformScale));
+            }
+            // Scale image dimensions
+            if (stroke.imageId && drag.startImageSizes![i]) {
+              stroke.imageW = Math.max(10, drag.startImageSizes![i]!.w * sx);
+              stroke.imageH = Math.max(10, drag.startImageSizes![i]!.h * sy);
+            }
+          }
+        } else {
+          // Move
+          const dx = wp.x - startPtr.x;
+          const dy = wp.y - startPtr.y;
+          for (let i = 0; i < selectedGroupRef.current.length; i++) {
+            const stroke = selectedGroupRef.current[i];
+            for (let j = 0; j < startPoints[i].length; j++) {
+              stroke.points[j] = { x: startPoints[i][j].x + dx, y: startPoints[i][j].y + dy };
+            }
+            if (subStrokeStartPoints && stroke.subStrokes) {
+              const spts = subStrokeStartPoints[i];
+              for (let k = 0; k < stroke.subStrokes.length; k++) {
+                for (let j = 0; j < spts[k].length; j++) {
+                  stroke.subStrokes[k].points[j] = { x: spts[k][j].x + dx, y: spts[k][j].y + dy };
+                }
               }
             }
           }
@@ -885,16 +1057,26 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         const stroke = selectedTextRef.current;
 
         if (drag.mode === "rotate") {
-          const bb = anyStrokeBBox(stroke);
+          const bb = drag.bbox;
           const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
           const startAngle = Math.atan2(drag.startPtr.y - cy, drag.startPtr.x - cx);
           const currentAngle = Math.atan2(wp.y - cy, wp.x - cx);
-          let newRotation = (drag.startRotation ?? 0) + (currentAngle - startAngle);
-          if (e.shiftKey) {
-            const snap = (15 * Math.PI) / 180;
-            newRotation = Math.round(newRotation / snap) * snap;
+          let dAngle = currentAngle - startAngle;
+          if (e.shiftKey) { const snap = (15 * Math.PI) / 180; dAngle = Math.round(dAngle / snap) * snap; }
+          if (stroke.shape === "arrow" || stroke.shape === "line") {
+            // Rotate each point directly around bbox center (keeps overlay in sync)
+            const cos = Math.cos(dAngle), sin = Math.sin(dAngle);
+            for (let i = 0; i < drag.startPoints.length; i++) {
+              const sp = drag.startPoints[i];
+              stroke.points[i] = {
+                x: cx + (sp.x - cx) * cos - (sp.y - cy) * sin,
+                y: cy + (sp.x - cx) * sin + (sp.y - cy) * cos,
+              };
+            }
+          } else {
+            let newRotation = (drag.startRotation ?? 0) + dAngle;
+            stroke.rotation = newRotation || undefined;
           }
-          stroke.rotation = newRotation || undefined;
         } else if (drag.mode === "move") {
           const dx = wp.x - drag.startPtr.x;
           const dy = wp.y - drag.startPtr.y;
@@ -1081,11 +1263,16 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             cwp = { x: rcx + dx * cos - dy * sin, y: rcy + dx * sin + dy * cos };
           }
           let cur = "default";
-          // Check rotate handle first (non-arrow/line strokes)
-          if (selStroke.shape !== "arrow" && selStroke.shape !== "line") {
+          // Check rotate handle (all types including arrows/lines)
+          {
             const handleOffset = 28 / scale;
-            const handleX = bb.x + bb.w / 2, handleY = bb.y - pad - handleOffset;
-            if (Math.hypot(cwp.x - handleX, cwp.y - handleY) <= hs) {
+            const isArrowLine = selStroke.shape === "arrow" || selStroke.shape === "line";
+            const handleX = bb.x + bb.w / 2;
+            // Arrows/lines: handle at bb.y - handleOffset (no pad, handle drawn at raw bbox edge)
+            // Other types: handle at bb.y - pad - handleOffset (pad accounts for selection rect inset)
+            const handleY = isArrowLine ? bb.y - handleOffset : bb.y - pad - handleOffset;
+            const testPt = isArrowLine ? wp : cwp;
+            if (Math.hypot(testPt.x - handleX, testPt.y - handleY) <= hs) {
               cur = "grab";
             }
           }
@@ -1150,24 +1337,54 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           }
           setZCursor(cur);
         } else if (selectedGroupRef.current.length > 0) {
-          // Group selected without V: move cursor inside group bbox, also over any other stroke (click will switch selection)
+          // Group selected: show resize/rotate cursors over handles, move cursor inside bbox or over other strokes
           const wp2 = screenToWorld(e.clientX, e.clientY, viewRef.current);
           const scale2 = viewRef.current.scale;
           let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
           for (const s of selectedGroupRef.current) {
-            const bb = anyStrokeBBox(s);
+            const bb = visualStrokeBBox(s);
             minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
             maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
           }
-          const pad2 = 8 / scale2;
-          const insideGroupBbox = wp2.x >= minX - pad2 && wp2.x <= maxX + pad2 && wp2.y >= minY - pad2 && wp2.y <= maxY + pad2;
-          let showMove = insideGroupBbox;
-          if (!showMove) {
-            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-              if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp2.x, wp2.y, scale2)) { showMove = true; break; }
+          const renderPad2 = 6 / scale2;
+          const bx2 = minX - renderPad2, by2 = minY - renderPad2;
+          const bw2 = (maxX - minX) + renderPad2 * 2, bh2 = (maxY - minY) + renderPad2 * 2;
+          const hs2 = 7 / scale2;
+          let groupCur = "default";
+          // Rotate handle
+          const handleOffset2 = 28 / scale2;
+          const rhx2 = bx2 + bw2 / 2, rhy2 = by2 - handleOffset2;
+          if (Math.hypot(wp2.x - rhx2, wp2.y - rhy2) <= hs2) {
+            groupCur = "grab";
+          }
+          // Corner handles
+          if (groupCur === "default") {
+            const cornerPts2 = [
+              { x: bx2,        y: by2 },
+              { x: bx2 + bw2,  y: by2 },
+              { x: bx2 + bw2,  y: by2 + bh2 },
+              { x: bx2,        y: by2 + bh2 },
+            ];
+            for (const cc of cornerPts2) {
+              if (Math.abs(wp2.x - cc.x) <= hs2 && Math.abs(wp2.y - cc.y) <= hs2) {
+                groupCur = "nwse-resize";
+                break;
+              }
             }
           }
-          setZCursor(showMove ? "move" : "default");
+          // Interior / other strokes
+          if (groupCur === "default") {
+            const pad2 = 8 / scale2;
+            const insideGroupBbox = wp2.x >= minX - pad2 && wp2.x <= maxX + pad2 && wp2.y >= minY - pad2 && wp2.y <= maxY + pad2;
+            if (insideGroupBbox) {
+              groupCur = "move";
+            } else {
+              for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+                if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp2.x, wp2.y, scale2)) { groupCur = "move"; break; }
+              }
+            }
+          }
+          setZCursor(groupCur);
         } else if (zKeyRef.current) {
           if (shiftHeldRef.current) {
             // Shift+V: box-select mode — suppress individual hover, show crosshair
@@ -1287,38 +1504,76 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
       // Commit group drag
       if (groupDragRef.current) {
-        const { startPoints, subStrokeStartPoints } = groupDragRef.current;
-        const anyMoved = selectedGroupRef.current.some((stroke, i) =>
-          startPoints[i].some((p, j) => p.x !== stroke.points[j].x || p.y !== stroke.points[j].y) ||
-          (stroke.subStrokes && subStrokeStartPoints?.[i]?.some((spts, k) =>
-            spts.some((p, j) => p.x !== stroke.subStrokes![k].points[j].x || p.y !== stroke.subStrokes![k].points[j].y)
-          ))
-        );
-        if (anyMoved) {
-          undoStackRef.current.push({
-            type: "group-move",
-            strokes: selectedGroupRef.current,
-            from: startPoints,
-            to: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
-            subFrom: subStrokeStartPoints,
-            subTo: subStrokeStartPoints
-              ? selectedGroupRef.current.map(s => s.subStrokes?.map(sub => sub.points.map(p => ({ ...p }))) ?? [])
-              : undefined,
-          });
-          redoStackRef.current = [];
-          persistStrokes();
-          window.dispatchEvent(new Event("drawtool:selection-moved"));
-        } else {
-          // Click without drag inside group — select the clicked item, or deselect if none
-          const { scale } = viewRef.current;
-          const wp = groupDragRef.current.startPtr;
-          let hit: Stroke | null = null;
-          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-            if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+        const drag = groupDragRef.current;
+        const { startPoints, subStrokeStartPoints } = drag;
+
+        if (drag.mode === "corner" || drag.mode === "rotate") {
+          // Check if anything actually changed
+          const anyChanged = selectedGroupRef.current.some((stroke, i) =>
+            startPoints[i].some((p, j) => p.x !== stroke.points[j].x || p.y !== stroke.points[j].y) ||
+            (stroke.subStrokes && subStrokeStartPoints?.[i]?.some((spts, k) =>
+              spts.some((p, j) => p.x !== stroke.subStrokes![k].points[j].x || p.y !== stroke.subStrokes![k].points[j].y)
+            )) ||
+            (stroke.rotation ?? undefined) !== drag.startRotations?.[i] ||
+            (stroke.fontScale ?? undefined) !== drag.startFontScales?.[i] ||
+            (stroke.imageW ?? undefined) !== drag.startImageSizes?.[i]?.w
+          );
+          if (anyChanged) {
+            undoStackRef.current.push({
+              type: "group-transform",
+              strokes: selectedGroupRef.current,
+              fromPoints: startPoints,
+              toPoints: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+              fromSubPoints: subStrokeStartPoints,
+              toSubPoints: subStrokeStartPoints
+                ? selectedGroupRef.current.map(s => s.subStrokes?.map(sub => sub.points.map(p => ({ ...p }))) ?? [])
+                : undefined,
+              fromRotations: drag.startRotations ?? selectedGroupRef.current.map(() => undefined),
+              toRotations: selectedGroupRef.current.map(s => s.rotation),
+              fromFontScales: drag.startFontScales ?? selectedGroupRef.current.map(() => undefined),
+              toFontScales: selectedGroupRef.current.map(s => s.fontScale),
+              fromImageSizes: drag.startImageSizes ?? selectedGroupRef.current.map(() => undefined),
+              toImageSizes: selectedGroupRef.current.map(s => s.imageW !== undefined ? { w: s.imageW, h: s.imageH! } : undefined),
+            });
+            redoStackRef.current = [];
+            persistStrokes();
           }
-          selectedGroupRef.current = [];
-          selectedTextRef.current = hit ?? null;
+          // Corner/rotate clicks without drag are a no-op (don't switch selection)
+        } else {
+          // move mode
+          const anyMoved = selectedGroupRef.current.some((stroke, i) =>
+            startPoints[i].some((p, j) => p.x !== stroke.points[j].x || p.y !== stroke.points[j].y) ||
+            (stroke.subStrokes && subStrokeStartPoints?.[i]?.some((spts, k) =>
+              spts.some((p, j) => p.x !== stroke.subStrokes![k].points[j].x || p.y !== stroke.subStrokes![k].points[j].y)
+            ))
+          );
+          if (anyMoved) {
+            undoStackRef.current.push({
+              type: "group-move",
+              strokes: selectedGroupRef.current,
+              from: startPoints,
+              to: selectedGroupRef.current.map(s => s.points.map(p => ({ ...p }))),
+              subFrom: subStrokeStartPoints,
+              subTo: subStrokeStartPoints
+                ? selectedGroupRef.current.map(s => s.subStrokes?.map(sub => sub.points.map(p => ({ ...p }))) ?? [])
+                : undefined,
+            });
+            redoStackRef.current = [];
+            persistStrokes();
+            window.dispatchEvent(new Event("drawtool:selection-moved"));
+          } else {
+            // Click without drag inside group — select the clicked item, or deselect if none
+            const { scale } = viewRef.current;
+            const wp = drag.startPtr;
+            let hit: Stroke | null = null;
+            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+              if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+            }
+            selectedGroupRef.current = [];
+            selectedTextRef.current = hit ?? null;
+          }
         }
+
         groupDragRef.current = null;
         setZCursor("default");
         scheduleRedraw();
@@ -1331,12 +1586,22 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         const stroke = selectedTextRef.current;
 
         if (drag.mode === "rotate") {
-          const startRot = drag.startRotation ?? 0;
-          const endRot = stroke.rotation ?? 0;
-          if (Math.abs(endRot - startRot) > 0.0001) {
-            undoStackRef.current.push({ type: "rotate", stroke, from: startRot, to: endRot });
-            redoStackRef.current = [];
-            persistStrokes();
+          if (stroke.shape === "arrow" || stroke.shape === "line") {
+            // Arrow/line: rotation encoded in points — use reshape undo
+            const anyMoved = drag.startPoints.some((p, i) => p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
+            if (anyMoved) {
+              undoStackRef.current.push({ type: "reshape", stroke, from: drag.startPoints.map(p => ({ ...p })), to: stroke.points.map(p => ({ ...p })) });
+              redoStackRef.current = [];
+              persistStrokes();
+            }
+          } else {
+            const startRot = drag.startRotation ?? 0;
+            const endRot = stroke.rotation ?? 0;
+            if (Math.abs(endRot - startRot) > 0.0001) {
+              undoStackRef.current.push({ type: "rotate", stroke, from: startRot, to: endRot });
+              redoStackRef.current = [];
+              persistStrokes();
+            }
           }
           selectDragRef.current = null;
           scheduleRedraw();
