@@ -230,7 +230,6 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           if (editStroke) {
             const newBold = !(editStroke.bold ?? false);
             undoStackRef.current.push({ type: "bold-change", stroke: editStroke, from: editStroke.bold, to: newBold });
-            redoStackRef.current = [];
             editStroke.bold = newBold || undefined;
             writingBoldRef.current = newBold;
             strokesCacheRef.current = null;
@@ -247,7 +246,6 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           if (editStroke) {
             const newItalic = !(editStroke.italic ?? false);
             undoStackRef.current.push({ type: "italic-change", stroke: editStroke, from: editStroke.italic, to: newItalic });
-            redoStackRef.current = [];
             editStroke.italic = newItalic || undefined;
             writingItalicRef.current = newItalic;
             strokesCacheRef.current = null;
@@ -266,7 +264,6 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             const oldAlign: TextAlign = editStroke.textAlign ?? "left";
             if (oldAlign !== newAlign) {
               undoStackRef.current.push({ type: "align-change", stroke: editStroke, from: oldAlign, to: newAlign });
-              redoStackRef.current = [];
               editStroke.textAlign = newAlign !== "left" ? newAlign : undefined;
               strokesCacheRef.current = null;
             }
@@ -581,10 +578,11 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         if (selectedGroupRef.current.length > 0 && !isWritingRef.current) {
           const toDelete = selectedGroupRef.current;
+          const deleteIndices = toDelete.map(s => strokesRef.current.indexOf(s));
           clipboardRef.current = toDelete.map(s => deepCopyStroke(s));
           navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
           strokesRef.current = strokesRef.current.filter(s => !toDelete.includes(s));
-          undoStackRef.current.push({ type: "erase", strokes: toDelete });
+          undoStackRef.current.push({ type: "erase", strokes: toDelete, indices: deleteIndices });
           redoStackRef.current = [];
           selectedGroupRef.current = [];
           selectDragRef.current = null;
@@ -597,10 +595,11 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           scheduleRedraw();
         } else if (selectedTextRef.current && !isWritingRef.current) {
           const stroke = selectedTextRef.current;
-          clipboardRef.current = [stroke];
+          const deleteIdx = strokesRef.current.indexOf(stroke);
+          clipboardRef.current = [deepCopyStroke(stroke)];
           navigator.clipboard?.writeText("drawtool-clip").catch(() => {});
           strokesRef.current = strokesRef.current.filter(s => s !== stroke);
-          undoStackRef.current.push({ type: "erase", strokes: [stroke] });
+          undoStackRef.current.push({ type: "erase", strokes: [stroke], indices: [deleteIdx] });
           redoStackRef.current = [];
           selectedTextRef.current = null;
           selectDragRef.current = null;
@@ -1064,8 +1063,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       if ((e.key === "Backspace" || e.key === "Delete") && selectedGroupRef.current.length > 0 && !isWritingRef.current) {
         e.preventDefault();
         const toDelete = selectedGroupRef.current;
+        const deleteIndices = toDelete.map(s => strokesRef.current.indexOf(s));
         strokesRef.current = strokesRef.current.filter(s => !toDelete.includes(s));
-        undoStackRef.current.push({ type: "erase", strokes: toDelete });
+        undoStackRef.current.push({ type: "erase", strokes: toDelete, indices: deleteIndices });
         redoStackRef.current = [];
         selectedGroupRef.current = [];
         selectDragRef.current = null;
@@ -1081,8 +1081,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       if ((e.key === "Backspace" || e.key === "Delete") && selectedTextRef.current && !isWritingRef.current) {
         e.preventDefault();
         const stroke = selectedTextRef.current;
+        const deleteIdx = strokesRef.current.indexOf(stroke);
         strokesRef.current = strokesRef.current.filter((s) => s !== stroke);
-        undoStackRef.current.push({ type: "erase", strokes: [stroke] });
+        undoStackRef.current.push({ type: "erase", strokes: [stroke], indices: [deleteIdx] });
         redoStackRef.current = [];
         selectedTextRef.current = null;
         selectDragRef.current = null;
@@ -1152,10 +1153,8 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         const toMerge = selectedGroupRef.current;
         if (toMerge.length >= 2) {
           e.preventDefault();
-          const insertIndex = toMerge.reduce((min, s) => {
-            const i = strokesRef.current.indexOf(s);
-            return i !== -1 && i < min ? i : min;
-          }, Infinity);
+          const originalIndices = toMerge.map(s => strokesRef.current.indexOf(s));
+          const insertIndex = originalIndices.reduce((min, i) => i !== -1 && i < min ? i : min, Infinity);
           const combined: import("../canvas/types").Stroke = {
             points: [],
             style: "solid",
@@ -1165,7 +1164,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           };
           strokesRef.current = strokesRef.current.filter(s => !toMerge.includes(s));
           strokesRef.current.splice(insertIndex === Infinity ? strokesRef.current.length : insertIndex, 0, combined);
-          undoStackRef.current.push({ type: "combine", combined, originals: toMerge, insertIndex: insertIndex === Infinity ? strokesRef.current.length - 1 : insertIndex });
+          undoStackRef.current.push({ type: "combine", combined, originals: toMerge, insertIndex: insertIndex === Infinity ? strokesRef.current.length - 1 : insertIndex, originalIndices });
           redoStackRef.current = [];
           selectedGroupRef.current = [];
           selectedTextRef.current = combined;

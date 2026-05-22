@@ -322,8 +322,9 @@ function Canvas({
     const pending = pendingEraseRef.current;
     if (pending.size > 0) {
       const erased = strokesRef.current.filter((s) => pending.has(s));
+      const erasedIndices = erased.map(s => strokesRef.current.indexOf(s));
       strokesRef.current = strokesRef.current.filter((s) => !pending.has(s));
-      undoStackRef.current.push({ type: "erase", strokes: erased });
+      undoStackRef.current.push({ type: "erase", strokes: erased, indices: erasedIndices });
       redoStackRef.current = [];
       pending.clear();
       window.dispatchEvent(new CustomEvent("drawtool:stroke-erased"));
@@ -1663,7 +1664,15 @@ function Canvas({
         const idx = strokesRef.current.lastIndexOf(action.stroke);
         if (idx !== -1) strokesRef.current.splice(idx, 1);
       } else if (action.type === "erase") {
-        strokesRef.current.push(...action.strokes);
+        if (action.indices) {
+          const pairs = action.strokes.map((s, i) => ({ s, idx: action.indices![i] }));
+          pairs.sort((a, b) => a.idx - b.idx);
+          for (const { s, idx } of pairs) {
+            strokesRef.current.splice(Math.min(idx, strokesRef.current.length), 0, s);
+          }
+        } else {
+          strokesRef.current.push(...action.strokes);
+        }
       } else if (action.type === "move") {
         action.from.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
         if (action.subFrom && action.stroke.subStrokes) {
@@ -1725,8 +1734,17 @@ function Canvas({
         selectedGroupRef.current = action.strokes;
       } else if (action.type === "combine") {
         const idx = strokesRef.current.indexOf(action.combined);
-        if (idx !== -1) strokesRef.current.splice(idx, 1, ...action.originals);
-        else strokesRef.current.splice(action.insertIndex, 0, ...action.originals);
+        if (idx !== -1) strokesRef.current.splice(idx, 1);
+        if (action.originalIndices) {
+          const pairs = action.originals.map((s, i) => ({ s, idx: action.originalIndices![i] }));
+          pairs.sort((a, b) => a.idx - b.idx);
+          for (const { s, idx: origIdx } of pairs) {
+            strokesRef.current.splice(Math.min(origIdx, strokesRef.current.length), 0, s);
+          }
+        } else {
+          const insertAt = idx !== -1 ? idx : action.insertIndex;
+          strokesRef.current.splice(Math.min(insertAt, strokesRef.current.length), 0, ...action.originals);
+        }
         selectedGroupRef.current = action.originals;
         selectedTextRef.current = null;
       } else if (action.type === "uncombine") {
@@ -2006,7 +2024,6 @@ function Canvas({
         if (editStroke) {
           const newBold = !(editStroke.bold ?? false);
           undoStackRef.current.push({ type: "bold-change", stroke: editStroke, from: editStroke.bold, to: newBold });
-          redoStackRef.current = [];
           editStroke.bold = newBold || undefined;
           writingBoldRef.current = newBold;
           strokesCacheRef.current = null; strokesBBoxRef.current = null;
@@ -2041,7 +2058,6 @@ function Canvas({
         if (editStroke) {
           const newItalic = !(editStroke.italic ?? false);
           undoStackRef.current.push({ type: "italic-change", stroke: editStroke, from: editStroke.italic, to: newItalic });
-          redoStackRef.current = [];
           editStroke.italic = newItalic || undefined;
           writingItalicRef.current = newItalic;
           strokesCacheRef.current = null; strokesBBoxRef.current = null;
@@ -2078,7 +2094,6 @@ function Canvas({
           const oldAlign: TextAlign = editStroke.textAlign ?? "left";
           if (oldAlign !== newAlign) {
             undoStackRef.current.push({ type: "align-change", stroke: editStroke, from: oldAlign, to: newAlign });
-            redoStackRef.current = [];
             editStroke.textAlign = newAlign !== "left" ? newAlign : undefined;
             strokesCacheRef.current = null; strokesBBoxRef.current = null;
           }
