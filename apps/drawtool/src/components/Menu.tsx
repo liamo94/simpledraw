@@ -397,13 +397,19 @@ export default function Menu({
       setShowExport(false);
       setShowKeysModal(true);
     };
+    const onOpenCanvasManager = () => {
+      setOpen(false);
+      setShowReorder(true);
+    };
     window.addEventListener("drawtool:toggle-menu", onToggle);
     window.addEventListener("drawtool:close-menu", onClose);
     window.addEventListener("drawtool:open-shortcuts", onOpenShortcuts);
+    window.addEventListener("drawtool:open-canvas-manager", onOpenCanvasManager);
     return () => {
       window.removeEventListener("drawtool:toggle-menu", onToggle);
       window.removeEventListener("drawtool:close-menu", onClose);
       window.removeEventListener("drawtool:open-shortcuts", onOpenShortcuts);
+      window.removeEventListener("drawtool:open-canvas-manager", onOpenCanvasManager);
     };
   }, []);
 
@@ -429,7 +435,7 @@ export default function Menu({
   }, [showKeysModal]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open && !showReorder) return;
 
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape" && !isWritingRef.current) {
@@ -445,7 +451,7 @@ export default function Menu({
     return () => {
       window.removeEventListener("keydown", onKey);
     };
-  }, [open]);
+  }, [open, showReorder]);
 
   const closeMenu = () => {
     setOpen(false);
@@ -485,6 +491,7 @@ export default function Menu({
           isDark={isDark}
           theme={settings.theme}
           onReorderCanvases={onReorderCanvases}
+          onSwitchCanvas={onSwitchCanvas}
           onClose={() => setShowReorder(false)}
         />
       )}

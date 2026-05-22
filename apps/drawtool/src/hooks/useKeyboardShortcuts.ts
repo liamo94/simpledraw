@@ -698,6 +698,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:toggle-menu"));
       }
+      if (e.key === "M" && !cmdKey(e) && !e.altKey && !e.ctrlKey && e.shiftKey) {
+        e.preventDefault();
+        window.dispatchEvent(new Event("drawtool:open-canvas-manager"));
+      }
       if (e.key === "g" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:toggle-grid"));

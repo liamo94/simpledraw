@@ -24,15 +24,17 @@ type Props = {
   isDark: boolean;
   theme: Theme;
   onReorderCanvases: (newOrder: number[]) => void;
+  onSwitchCanvas: (n: number) => void;
   onClose: () => void;
 };
 
-export default function CanvasReorderPanel({ activeCanvas, isDark, theme, onReorderCanvases, onClose }: Props) {
+export default function CanvasReorderPanel({ activeCanvas, isDark, theme, onReorderCanvases, onSwitchCanvas, onClose }: Props) {
   const [infos, setInfos] = useState<CanvasInfo[]>(() =>
     Array.from({ length: 9 }, (_, i) => readCanvasInfo(i + 1))
   );
   const [dragOver, setDragOver] = useState<number | null>(null);
   const dragFrom = useRef<number | null>(null);
+  const didDragRef = useRef(false);
 
   const refreshInfos = () => {
     setInfos(Array.from({ length: 9 }, (_, i) => readCanvasInfo(i + 1)));
@@ -73,8 +75,16 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, onReor
               <div
                 key={i}
                 draggable
+                onClick={() => {
+                  if (didDragRef.current) return;
+                  if (!isActive) {
+                    onSwitchCanvas(pos);
+                    onClose();
+                  }
+                }}
                 onDragStart={(e) => {
                   dragFrom.current = i;
+                  didDragRef.current = false;
                   e.dataTransfer.effectAllowed = "move";
                 }}
                 onDragOver={(e) => {
@@ -97,6 +107,8 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, onReor
                 onDragEnd={() => {
                   dragFrom.current = null;
                   setDragOver(null);
+                  didDragRef.current = true;
+                  setTimeout(() => { didDragRef.current = false; }, 200);
                 }}
                 className={`flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors ${
                   isOver

@@ -211,6 +211,7 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
         <Row label={<><ExportIcon />Export</>} kbd={`${mod} + E`} />
         <Row label={<><ExportIcon />Export canvas</>} kbd={`${mod} + ⇧ + E`} />
         <Row label={<><MenuIcon />Menu</>} kbd="M" />
+        <Row label="Canvas manager" kbd="⇧ + M" />
         <Row label={<><FullscreenIcon />Fullscreen</>} kbd={`${mod} + F`} />
         <Row label={<><GridIcon />Cycle grid</>} kbd="G" />
         <Row label="Cycle theme" kbd="D D" />

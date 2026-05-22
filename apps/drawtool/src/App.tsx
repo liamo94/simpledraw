@@ -1134,6 +1134,9 @@ export default function App() {
         activeCanvas={activeCanvas}
         onSwitchCanvas={(n) => {
           setActiveCanvas(n);
+          const name = localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "";
+          setCanvasName(name);
+          canvasNameRef.current = name;
           localStorage.setItem("drawtool-active-canvas", String(n));
         }}
         onReorderCanvases={(newOrder) => {
