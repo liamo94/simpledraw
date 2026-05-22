@@ -61,6 +61,12 @@ export function getImageDataUrl(id: string): string | undefined {
   return cache.get(id)?.dataUrl;
 }
 
+export async function getImageDataUrlFromIdb(id: string): Promise<string | undefined> {
+  if (cache.has(id)) return cache.get(id)!.dataUrl;
+  const dataUrl = await get<string>(idbKey(id));
+  return dataUrl ?? undefined;
+}
+
 export async function loadImages(ids: string[]): Promise<void> {
   const missing = ids.filter((id) => !cache.has(id));
   await Promise.all(

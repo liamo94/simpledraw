@@ -299,6 +299,8 @@ type Props = {
   onImportData: () => void;
   onExportWorkspace: () => void;
   onImportWorkspace: () => void;
+  exportIncludeImages: boolean;
+  onSetExportIncludeImages: (v: boolean) => void;
   onStartTraining: () => void;
   stashCount: number;
   selectionCount: number;
@@ -323,6 +325,8 @@ export default function Menu({
   onImportData,
   onExportWorkspace,
   onImportWorkspace,
+  exportIncludeImages,
+  onSetExportIncludeImages,
   onStartTraining,
   stashCount,
   selectionCount,
@@ -2049,7 +2053,7 @@ export default function Menu({
                           y="2"
                           width="6"
                           height="5"
-                          rx="1.5 0 0 0"
+                          rx="1.5"
                           fill="currentColor"
                           fillOpacity="0.2"
                           stroke="none"
@@ -2059,7 +2063,7 @@ export default function Menu({
                           y="7"
                           width="6"
                           height="5"
-                          rx="0 0 1.5 0"
+                          rx="1.5"
                           fill="currentColor"
                           fillOpacity="0.2"
                           stroke="none"
@@ -2137,6 +2141,29 @@ export default function Menu({
                   )}
                   {/* Export / Import rows */}
                   <div className="space-y-1.5">
+                    {/* Include images toggle */}
+                    <div className="flex items-center justify-end">
+                      <button
+                        onClick={() => onSetExportIncludeImages(!exportIncludeImages)}
+                        title="Embed images in exported JSON"
+                        className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors focus:outline-none border ${
+                          exportIncludeImages
+                            ? isDark
+                              ? "bg-white/15 text-white border-white/20"
+                              : "bg-black/10 text-black border-black/15"
+                            : isDark
+                              ? "text-white/40 border-white/10 hover:text-white/70"
+                              : "text-black/35 border-black/10 hover:text-black/60"
+                        }`}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="1" y="2" width="12" height="10" rx="1.5" />
+                          <circle cx="4.5" cy="5.5" r="1.2" />
+                          <path d="M1 10l3-3 2.5 2.5L9 7l4 4" />
+                        </svg>
+                        <span>Include images</span>
+                      </button>
+                    </div>
                     {(
                       [
                         { label: "Canvas", onExport: onExportData, onImport: onImportData },

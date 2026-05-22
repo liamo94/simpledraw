@@ -46,12 +46,14 @@ export function saveStrokes(strokes: Stroke[], canvasIndex: number) {
 
 // ─── Import / export ──────────────────────────────────────────────────────────
 
-export type StrokesFile = { version: 1; strokes: Stroke[] };
+export type StrokesFile = { version: 1; strokes: Stroke[]; name?: string; images?: Record<string, string> };
 
 export type WorkspaceCanvas = {
   index: number;
   strokes: Stroke[];
   view?: { x: number; y: number; scale: number };
+  name?: string;
+  images?: Record<string, string>;
 };
 
 export type WorkspaceFile = { version: 1; type: "workspace"; canvases: WorkspaceCanvas[] };
@@ -69,7 +71,8 @@ function validateStrokesArray(strokes: unknown[], prefix: string): Stroke[] {
       throw new Error(`${prefix}${i}: not an object`);
     const st = s as Record<string, unknown>;
 
-    if (!Array.isArray(st.points) || st.points.length === 0)
+    const isCombined = Array.isArray(st.subStrokes) && st.subStrokes.length > 0;
+    if (!Array.isArray(st.points) || (!isCombined && st.points.length === 0))
       throw new Error(`${prefix}${i}: missing points`);
     for (const p of st.points as unknown[]) {
       const pt = p as Record<string, unknown>;
@@ -78,7 +81,7 @@ function validateStrokesArray(strokes: unknown[], prefix: string): Stroke[] {
     }
     if (!VALID_STYLES.has(st.style as string))
       throw new Error(`${prefix}${i}: invalid style`);
-    if (typeof st.lineWidth !== "number" || st.lineWidth <= 0)
+    if (typeof st.lineWidth !== "number" || (!isCombined && st.lineWidth <= 0))
       throw new Error(`${prefix}${i}: invalid lineWidth`);
     if (typeof st.color !== "string")
       throw new Error(`${prefix}${i}: invalid color`);
@@ -93,12 +96,14 @@ function validateStrokesArray(strokes: unknown[], prefix: string): Stroke[] {
       throw new Error(`${prefix}${i}: invalid fontFamily`);
     if (st.textAlign  !== undefined && !VALID_ALIGNS.has(st.textAlign as string))
       throw new Error(`${prefix}${i}: invalid textAlign`);
+    if (isCombined)
+      validateStrokesArray(st.subStrokes as unknown[], `${prefix}${i} sub-stroke `);
   }
   return strokes as Stroke[];
 }
 
 /** Validate a parsed JSON value as a drawtool canvas file. Throws on failure. */
-export function validateStrokesFile(data: unknown): Stroke[] {
+export function validateStrokesFile(data: unknown): { strokes: Stroke[]; name?: string; images?: Record<string, string> } {
   if (typeof data !== "object" || data === null)
     throw new Error("Not a valid drawtool file");
   const obj = data as Record<string, unknown>;
@@ -106,7 +111,12 @@ export function validateStrokesFile(data: unknown): Stroke[] {
     throw new Error("Unknown file version — was this made by a newer drawtool?");
   if (!Array.isArray(obj.strokes))
     throw new Error("Missing strokes array");
-  return validateStrokesArray(obj.strokes, "Stroke ");
+  const strokes = validateStrokesArray(obj.strokes, "Stroke ");
+  const name = typeof obj.name === "string" ? obj.name : undefined;
+  const images = obj.images && typeof obj.images === "object" && !Array.isArray(obj.images)
+    ? obj.images as Record<string, string>
+    : undefined;
+  return { strokes, name, images };
 }
 
 /** Validate a parsed JSON value as a drawtool workspace file. Throws on failure. */
@@ -130,7 +140,11 @@ export function validateWorkspaceFile(data: unknown): WorkspaceCanvas[] {
     if (!Array.isArray(cv.strokes))
       throw new Error(`Canvas ${i}: missing strokes`);
     const strokes = validateStrokesArray(cv.strokes, `Canvas ${i} stroke `);
-    return { index: cv.index as number, strokes, view: cv.view as WorkspaceCanvas["view"] };
+    const name = typeof cv.name === "string" ? cv.name : undefined;
+    const images = cv.images && typeof cv.images === "object" && !Array.isArray(cv.images)
+      ? cv.images as Record<string, string>
+      : undefined;
+    return { index: cv.index as number, strokes, view: cv.view as WorkspaceCanvas["view"], name, images };
   });
 }
 

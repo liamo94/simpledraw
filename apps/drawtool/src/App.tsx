@@ -20,7 +20,7 @@ import useSettings, {
   type FillStyle,
 } from "./hooks/useSettings";
 
-import { isDarkTheme, getBackgroundColor, CONFIRM_CLEAR_STROKE_THRESHOLD } from "./canvas/canvasUtils";
+import { isDarkTheme, getBackgroundColor, CONFIRM_CLEAR_STROKE_THRESHOLD, getImageDataUrlFromIdb, storeImage } from "./canvas/canvasUtils";
 import { getPanelBackground } from "./canvas/rendering";
 import {
   loadStrokes,
@@ -139,8 +139,13 @@ export default function App() {
   const [exportTransparentBg, setExportTransparentBg] = useState(
     () => localStorage.getItem("drawtool-export-transparent") === "1",
   );
+  const [exportIncludeImages, setExportIncludeImages] = useState(
+    () => localStorage.getItem("drawtool-export-include-images") === "1",
+  );
   const exportFormatRef = useRef(exportFormat);
   const exportTransparentBgRef = useRef(exportTransparentBg);
+  const exportIncludeImagesRef = useRef(exportIncludeImages);
+  exportIncludeImagesRef.current = exportIncludeImages;
   const canvasNameRef = useRef(canvasName);
   const activeCanvasRef = useRef(activeCanvas);
   canvasNameRef.current = canvasName;
@@ -365,9 +370,21 @@ export default function App() {
   const [dropZoneActive, setDropZoneActive] = useState(false);
   const dropZoneCounterRef = useRef(0);
 
-  const exportData = useCallback(() => {
+  const exportData = useCallback(async () => {
     const strokes = loadStrokes(activeCanvas);
-    const file = { version: 1, strokes };
+    const name = canvasNameRef.current || undefined;
+    let images: Record<string, string> | undefined;
+    if (exportIncludeImagesRef.current) {
+      const ids = [...new Set(strokes.map((s) => s.imageId).filter(Boolean) as string[])];
+      if (ids.length > 0) {
+        images = {};
+        for (const id of ids) {
+          const url = await getImageDataUrlFromIdb(id);
+          if (url) images[id] = url;
+        }
+      }
+    }
+    const file = { version: 1, strokes, ...(name ? { name } : {}), ...(images ? { images } : {}) };
     const blob = new Blob([JSON.stringify(file, null, 2)], {
       type: "application/json",
     });
@@ -384,33 +401,61 @@ export default function App() {
     (file: File) => {
       file.text().then((text) => {
         try {
-          const strokes = validateStrokesFile(JSON.parse(text));
+          const { strokes, name, images } = validateStrokesFile(JSON.parse(text));
           saveStrokes(strokes, activeCanvas);
-          window.dispatchEvent(
-            new CustomEvent("drawtool:import-strokes", { detail: strokes }),
-          );
-          showToast({
-            type: "text",
-            message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}`,
-          }, 1500);
+          if (name !== undefined) {
+            localStorage.setItem(`drawtool-canvas-name-${activeCanvas}`, name);
+            setCanvasName(name);
+          }
+          const imageEntries = images ? Object.entries(images) : [];
+          const restoreAndDispatch = () => {
+            window.dispatchEvent(
+              new CustomEvent("drawtool:import-strokes", { detail: strokes }),
+            );
+            showToast({
+              type: "text",
+              message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}`,
+            }, 1500);
+          };
+          if (imageEntries.length > 0) {
+            Promise.all(imageEntries.map(([id, dataUrl]) => storeImage(id, dataUrl))).then(restoreAndDispatch);
+          } else {
+            restoreAndDispatch();
+          }
         } catch (err) {
+          console.error("Canvas import error:", err);
           showToast({
             type: "text",
             message: `Import failed: ${(err as Error).message}`,
-          });
+          }, 5000);
         }
       });
     },
     [activeCanvas, showToast],
   );
 
-  const exportWorkspaceData = useCallback(() => {
-    const canvases = Array.from({ length: 9 }, (_, i) => {
-      const index = i + 1;
-      const strokes = loadStrokes(index);
-      const view = loadView(index);
-      return { index, strokes, view };
-    }).filter((c) => c.strokes.length > 0);
+  const exportWorkspaceData = useCallback(async () => {
+    const canvasEntries = await Promise.all(
+      Array.from({ length: 9 }, async (_, i) => {
+        const index = i + 1;
+        const strokes = loadStrokes(index);
+        const view = loadView(index);
+        const name = localStorage.getItem(`drawtool-canvas-name-${index}`) || undefined;
+        let images: Record<string, string> | undefined;
+        if (exportIncludeImagesRef.current) {
+          const ids = [...new Set(strokes.map((s) => s.imageId).filter(Boolean) as string[])];
+          if (ids.length > 0) {
+            images = {};
+            for (const id of ids) {
+              const dataUrl = await getImageDataUrlFromIdb(id);
+              if (dataUrl) images[id] = dataUrl;
+            }
+          }
+        }
+        return { index, strokes, view, ...(name ? { name } : {}), ...(images ? { images } : {}) };
+      }),
+    );
+    const canvases = canvasEntries.filter((c) => c.strokes.length > 0);
     const file = { version: 1, type: "workspace", canvases };
     const blob = new Blob([JSON.stringify(file)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
@@ -427,24 +472,38 @@ export default function App() {
       file.text().then((text) => {
         try {
           const canvases = validateWorkspaceFile(JSON.parse(text));
-          for (const { index, strokes, view } of canvases) {
+          const allImageEntries: [string, string][] = [];
+          for (const { index, strokes, view, name, images } of canvases) {
             saveStrokes(strokes, index);
             if (view) saveView(view, index);
+            if (name !== undefined) localStorage.setItem(`drawtool-canvas-name-${index}`, name);
+            else localStorage.removeItem(`drawtool-canvas-name-${index}`);
+            if (images) allImageEntries.push(...Object.entries(images));
           }
-          window.dispatchEvent(
-            new CustomEvent("drawtool:import-strokes", {
-              detail: loadStrokes(activeCanvas),
-            }),
-          );
-          showToast({
-            type: "text",
-            message: `Imported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})`,
-          }, 1500);
+          const activeNameAfterImport = localStorage.getItem(`drawtool-canvas-name-${activeCanvas}`) ?? "";
+          setCanvasName(activeNameAfterImport);
+          const dispatchWorkspace = () => {
+            window.dispatchEvent(
+              new CustomEvent("drawtool:import-strokes", {
+                detail: loadStrokes(activeCanvas),
+              }),
+            );
+            showToast({
+              type: "text",
+              message: `Imported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})`,
+            }, 1500);
+          };
+          if (allImageEntries.length > 0) {
+            Promise.all(allImageEntries.map(([id, dataUrl]) => storeImage(id, dataUrl))).then(dispatchWorkspace);
+          } else {
+            dispatchWorkspace();
+          }
         } catch (err) {
+          console.error("Workspace import error:", err);
           showToast({
             type: "text",
             message: `Import failed: ${(err as Error).message}`,
-          });
+          }, 5000);
         }
       });
     },
@@ -1129,6 +1188,12 @@ export default function App() {
           setExportTransparentBg(v);
           exportTransparentBgRef.current = v;
           localStorage.setItem("drawtool-export-transparent", v ? "1" : "0");
+        }}
+        exportIncludeImages={exportIncludeImages}
+        onSetExportIncludeImages={(v) => {
+          setExportIncludeImages(v);
+          exportIncludeImagesRef.current = v;
+          localStorage.setItem("drawtool-export-include-images", v ? "1" : "0");
         }}
         hasTouch={hasTouch}
         activeCanvas={activeCanvas}
