@@ -273,8 +273,6 @@ const UNCOMBINE_ACTION: Action = {
 const PANEL_LEFT = 12;
 const PANEL_WIDTH_1COL = 52;
 const PANEL_WIDTH_2COL = 88;
-// Switch to 2-col below this viewport height to avoid the panel overflowing/scrolling
-const TWO_COL_THRESHOLD = 650;
 
 function Btn({
   a,
@@ -336,11 +334,6 @@ export default memo(function SelectControls({
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
-  const twoCol = windowHeight < TWO_COL_THRESHOLD;
-
-  const panelWidth = twoCol ? PANEL_WIDTH_2COL : PANEL_WIDTH_1COL;
-  const tooltipLeft = PANEL_LEFT + panelWidth + 8;
-
   const [tooltip, setTooltip] = useState<{ label: string; y: number } | null>(null);
   const onHover = useCallback((label: string, y: number) => setTooltip({ label, y }), []);
   const onLeave = useCallback(() => setTooltip(null), []);
@@ -373,6 +366,14 @@ export default memo(function SelectControls({
   ];
 
   const contextActions = selectionIsText ? TEXT_ACTIONS : DRAWING_ACTIONS;
+
+  // Switch to 2-col when content won't fit 1-col in the available viewport.
+  // Each button ~42px, 5 dividers ~9px each, 12px padding; 132px reserved for safe areas.
+  const totalButtons = viewActions.length + layerActions.length + editActions.length + contextActions.length + 1 + tailActions.length;
+  const estimated1ColHeight = totalButtons * 42 + 5 * 9 + 12;
+  const twoCol = windowHeight - 132 < estimated1ColHeight;
+  const panelWidth = twoCol ? PANEL_WIDTH_2COL : PANEL_WIDTH_1COL;
+  const tooltipLeft = PANEL_LEFT + panelWidth + 8;
 
   // In 2-col mode, single items and dividers span both columns
   const Divider = () => (
@@ -416,9 +417,9 @@ export default memo(function SelectControls({
 
       <div
         className="fixed left-3 -translate-y-1/2 z-30 rounded-xl shadow-lg"
-        style={{ background: bg, border: `1px solid ${border}`, backdropFilter: "blur(12px)", top: "calc(50dvh - 22px)", maxHeight: "calc(100dvh - 68px)", width: panelWidth }}
+        style={{ background: bg, border: `1px solid ${border}`, backdropFilter: "blur(12px)", top: "calc(50dvh - 22px)", maxHeight: "calc(100dvh - 132px)", width: panelWidth }}
       >
-        <div className="overflow-y-auto rounded-xl" style={{ maxHeight: "calc(100dvh - 68px)" }}>
+        <div className="overflow-y-auto rounded-xl" style={{ maxHeight: "calc(100dvh - 132px)" }}>
           <div className={`${containerClass} p-1.5`}>
             <Full>{viewActions.map(a => btn(a))}</Full>
 

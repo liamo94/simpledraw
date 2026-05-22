@@ -204,11 +204,12 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
   const finishWriting = useCallback(() => {
     const raw = writingTextRef.current;
+    const trimmedRaw = raw.replace(/(\n[ \t]*)+$/, '');
     if (editingStrokeRef.current) {
       // Editing an existing stroke in-place
       const stroke = editingStrokeRef.current;
       const oldText = editingOldTextRef.current;
-      const newText = raw.trim() ? raw : oldText; // revert to old text if cleared
+      const newText = trimmedRaw.trim() ? trimmedRaw : oldText; // revert to old text if cleared
       if (newText !== oldText) {
         stroke.text = newText;
         undoStackRef.current.push({ type: "edit", stroke, oldText, newText });
@@ -231,7 +232,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         style: "solid",
         lineWidth: 1,
         color: lineColorRef.current,
-        text: raw,
+        text: trimmedRaw || raw,
         fontSize: textSizeRef.current,
         fontFamily: fontFamilyRef.current,
         bold: writingBoldRef.current || undefined,
