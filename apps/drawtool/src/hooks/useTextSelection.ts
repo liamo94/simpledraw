@@ -647,6 +647,28 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         const pad = 3 / scale;
         const hs = 7 / scale;
 
+        // Double-click on any text stroke in the hit area, even when it's behind a non-text shape.
+        // When the selected stroke is already text, the body-click path below handles double-click.
+        if (e.pointerType !== "touch" && !e.shiftKey && !(selectedTextRef.current?.text)) {
+          for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+            const s = strokesRef.current[i];
+            if (s.locked || !s.text) continue;
+            const bb = textBBox(s);
+            if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
+                wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+              const now = performance.now();
+              const last = lastTextTapRef.current;
+              if (last && last.stroke === s && now - last.time < 300) {
+                lastTextTapRef.current = null;
+                startEditingStroke(s, undefined, true);
+                return;
+              }
+              lastTextTapRef.current = { time: now, stroke: s, count: 1 };
+              break;
+            }
+          }
+        }
+
         if (selectedTextRef.current) {
           const bb = anyStrokeBBox(selectedTextRef.current);
           const selShape = selectedTextRef.current.shape;
