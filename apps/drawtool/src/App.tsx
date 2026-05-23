@@ -131,6 +131,7 @@ export default function App() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [contentOffScreen, setContentOffScreen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
   const [exportFormat, setExportFormat] = useState<"png" | "svg">(
     () =>
       (localStorage.getItem("drawtool-export-format") as "png" | "svg") ??
@@ -199,6 +200,7 @@ export default function App() {
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
   const drawButtonRef = useRef<HTMLButtonElement>(null);
   const dashedButtonRef = useRef<HTMLButtonElement>(null);
+  const swipeStartRef = useRef<{ x: number; y: number } | null>(null);
 
   const settingsRef = useRef(settings);
   settingsRef.current = settings;
@@ -363,6 +365,7 @@ export default function App() {
   }, []);
 
   const importFileRef = useRef<HTMLInputElement>(null);
+  const imageFileRef = useRef<HTMLInputElement>(null);
   const [showImportModal, setShowImportModal] = useState(false);
   const [importMode, setImportMode] = useState<"canvas" | "workspace">("canvas");
   const [showStash, setShowStash] = useState(false);
@@ -571,10 +574,13 @@ export default function App() {
     window.addEventListener("drawtool:toggle-stash", onToggleStash);
     window.addEventListener("drawtool:save-to-stash-result", onSaveToStashResult);
     window.addEventListener("drawtool:close-stash", onCloseStash);
+    const onOpenImageInsert = () => imageFileRef.current?.click();
+    window.addEventListener("drawtool:open-image-insert", onOpenImageInsert);
     return () => {
       window.removeEventListener("drawtool:toggle-stash", onToggleStash);
       window.removeEventListener("drawtool:save-to-stash-result", onSaveToStashResult);
       window.removeEventListener("drawtool:close-stash", onCloseStash);
+      window.removeEventListener("drawtool:open-image-insert", onOpenImageInsert);
     };
   }, [showToast]);
 
@@ -1231,6 +1237,17 @@ export default function App() {
         className="hidden"
         onChange={handleImportFile}
       />
+      <input
+        ref={imageFileRef}
+        type="file"
+        accept="image/*"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) window.dispatchEvent(new CustomEvent("drawtool:insert-image", { detail: file }));
+          e.target.value = "";
+        }}
+      />
       <Canvas
         lineWidth={settings.lineWidth}
         lineColor={settings.lineColor}
@@ -1261,7 +1278,7 @@ export default function App() {
       )}
       {hasTouch ? (
         <>
-          {(showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker) && (
+          {(showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker || showColorPicker) && (
             <div
               className="fixed inset-0 z-40"
               onPointerDown={() => {
@@ -1269,12 +1286,13 @@ export default function App() {
                 setShowThicknessPicker(null);
                 setShowHighlightPicker(false);
                 setShowTextPicker(false);
+                setShowColorPicker(false);
               }}
             />
           )}
           {/* Undo / Redo / Delete — tablet: fixed bottom-left; mobile: above toolbar right-aligned */}
           {isTablet && (
-            <div className="fixed bottom-4 left-4 z-50 flex items-center gap-0.5">
+            <div className="fixed left-4 z-50 flex items-center gap-0.5" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
               <button
                 aria-label="Undo"
                 disabled={!canUndo}
@@ -1361,7 +1379,30 @@ export default function App() {
           )}
           <nav
             aria-label="Drawing tools"
-            className={`fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : "bottom-4"}`}
+            className={`fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : ""}`}
+            style={!isTablet ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" } : undefined}
+            onTouchStart={(e) => {
+              if (e.touches.length !== 1) return;
+              swipeStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }}
+            onTouchEnd={(e) => {
+              if (!swipeStartRef.current || e.changedTouches.length !== 1) return;
+              const dx = e.changedTouches[0].clientX - swipeStartRef.current.x;
+              const dy = e.changedTouches[0].clientY - swipeStartRef.current.y;
+              swipeStartRef.current = null;
+              if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+              if (showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker || showColorPicker) return;
+              e.preventDefault();
+              const next = dx < 0
+                ? (activeCanvas < 9 ? activeCanvas + 1 : 1)
+                : (activeCanvas > 1 ? activeCanvas - 1 : 9);
+              setActiveCanvas(next);
+              const name = localStorage.getItem(`drawtool-canvas-name-${next}`) ?? "";
+              setCanvasName(name);
+              canvasNameRef.current = name;
+              localStorage.setItem("drawtool-active-canvas", String(next));
+              showToast({ type: "text", message: `Canvas ${next}` }, 800);
+            }}
           >
             {/* Undo / Redo / Delete — mobile only: above top-right of toolbar. Nav is z-40 so menu (z-50) paints on top. */}
             {!isTablet && (
@@ -1372,9 +1413,10 @@ export default function App() {
                   onClick={() =>
                     window.dispatchEvent(new Event("drawtool:undo"))
                   }
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
                   <svg
+                    display="block"
                     width="20"
                     height="20"
                     viewBox="0 0 20 20"
@@ -1394,9 +1436,10 @@ export default function App() {
                   onClick={() =>
                     window.dispatchEvent(new Event("drawtool:redo"))
                   }
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
                   <svg
+                    display="block"
                     width="20"
                     height="20"
                     viewBox="0 0 20 20"
@@ -1421,9 +1464,10 @@ export default function App() {
                       }),
                     )
                   }
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
                   <svg
+                    display="block"
                     width="20"
                     height="20"
                     viewBox="0 0 20 20"
@@ -1444,9 +1488,9 @@ export default function App() {
                   aria-label="Save to stash"
                   disabled={!hasSelection}
                   onClick={() => window.dispatchEvent(new Event("drawtool:save-to-stash"))}
-                  className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
-                  <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <svg display="block" style={{ transform: "translateY(1px)" }} width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
                     <circle cx="10" cy="10" r="6.5" />
                     <circle cx="10" cy="10" r="2.3" />
                     <line x1="11.6" y1="8.4" x2="14.1" y2="5.9" />
@@ -1707,6 +1751,62 @@ export default function App() {
                   </button>
                 );
               })}
+              {/* Color swatch button */}
+              <div className={`w-px self-stretch mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              <button
+                aria-label={`Color: ${settings.lineColor}`}
+                onClick={() => {
+                  setShowColorPicker((v) => !v);
+                  setShowShapePicker(false);
+                  setShowThicknessPicker(null);
+                  setShowHighlightPicker(false);
+                  setShowTextPicker(false);
+                }}
+                className={`flex items-center justify-center px-2.5 py-2.5 sm:px-3 sm:py-3 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${showColorPicker ? isDark ? "bg-white/20" : "bg-black/20" : isDark ? "hover:bg-white/10" : "hover:bg-black/10"}`}
+              >
+                <span
+                  className="w-4 h-4 rounded-full block flex-shrink-0"
+                  style={{
+                    backgroundColor: settings.lineColor,
+                    boxShadow: isDark ? "0 0 0 1.5px rgba(255,255,255,0.3)" : "0 0 0 1.5px rgba(0,0,0,0.2)",
+                  }}
+                />
+              </button>
+              {showColorPicker && (
+                <div
+                  className={`absolute p-2 rounded-lg border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
+                  style={{
+                    background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
+                    borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                    right: 0,
+                  }}
+                  onPointerDown={(e) => e.stopPropagation()}
+                >
+                  <div className="flex flex-wrap gap-1.5 justify-center" style={{ maxWidth: "13rem" }}>
+                    {[
+                      isDark ? "#ffffff" : "#000000",
+                      "#ef4444", "#ff7f50", "#f97316", "#eab308", "#84cc16",
+                      "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#b096f8", "#ec4899",
+                    ].map((color) => (
+                      <button
+                        key={color}
+                        onClick={() => {
+                          updateSettings({ lineColor: color });
+                          setShowColorPicker(false);
+                        }}
+                        aria-label={`Color ${color}`}
+                        aria-pressed={settings.lineColor === color}
+                        className="w-8 h-8 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
+                        style={{
+                          backgroundColor: color,
+                          borderColor: settings.lineColor === color ? isDark ? "white" : "black" : "transparent",
+                          transform: settings.lineColor === color ? "scale(1.15)" : undefined,
+                        }}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
               {showThicknessPicker && (
                 <div
                   className={`absolute left-0 right-0 p-3 rounded-lg border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
@@ -1740,7 +1840,7 @@ export default function App() {
                         onClick={() => updateSettings({ lineColor: color })}
                         aria-label={`Color ${color}`}
                         aria-pressed={settings.lineColor === color}
-                        className="w-6 h-6 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
+                        className="w-8 h-8 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
                         style={{
                           backgroundColor: color,
                           borderColor:
@@ -2376,7 +2476,7 @@ export default function App() {
           aria-label="Scroll back to content"
           className={`fixed z-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium backdrop-blur-sm transition-colors duration-200 animate-fade-in-up ${isDark ? "bg-white/10 border-white/20 text-white/80 hover:bg-white/20 hover:text-white" : "bg-black/10 border-black/20 text-black/80 hover:bg-black/20 hover:text-black"}`}
           style={{
-            bottom: hasTouch ? "4.5rem" : "1rem",
+            bottom: hasTouch ? "calc(env(safe-area-inset-bottom, 0px) + 4.5rem)" : "1rem",
             left: "50%",
             transform: "translateX(-50%)",
           }}
@@ -2405,7 +2505,7 @@ export default function App() {
               : "bg-amber-50/90 border-amber-500/50 text-amber-900"
           }`}
           style={{
-            bottom: hasTouch ? "5rem" : "1rem",
+            bottom: hasTouch ? "calc(env(safe-area-inset-bottom, 0px) + 5rem)" : "1rem",
             left: "50%",
             transform: "translateX(-50%)",
             whiteSpace: "nowrap",
@@ -2606,6 +2706,69 @@ export default function App() {
                   Clear ({isMac ? "\u2318" : "Ctrl"}+X)
                 </span>
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {showOnboarding && hasTouch && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="Welcome to drawzilla"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm px-6"
+        >
+          <div
+            className={`w-full max-w-sm rounded-2xl border backdrop-blur-sm px-6 py-6 ${isDark ? "bg-black/80 border-white/15" : "bg-white/85 border-black/12"}`}
+          >
+            <div className="flex flex-col items-center mb-5">
+              <img src="/drawzillaicon.svg" alt="drawzilla" className="w-14 h-14 object-contain mb-2" />
+              <div
+                className="text-2xl select-none"
+                style={{ fontFamily: "Caveat Brush, cursive" }}
+              >
+                {[
+                  { letter: "d", color: "#3b82f6", rotate: -6 },
+                  { letter: "r", color: "#ef4444", rotate: 3 },
+                  { letter: "a", color: "#22c55e", rotate: -4 },
+                  { letter: "w", color: "#eab308", rotate: 5 },
+                  { letter: "z", color: "#ec4899", rotate: -3 },
+                  { letter: "i", color: "#f97316", rotate: 4 },
+                  { letter: "l", color: "#8b5cf6", rotate: -5 },
+                  { letter: "l", color: "#06b6d4", rotate: 3 },
+                  { letter: "a", color: "#ef4444", rotate: -4 },
+                ].map((l, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      color: l.color,
+                      display: "inline-block",
+                      marginLeft: i === 0 ? 0 : 2,
+                      transform: `rotate(${l.rotate}deg)`,
+                      textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22`,
+                    }}
+                  >
+                    {l.letter}
+                  </span>
+                ))}
+              </div>
+            </div>
+            <div className={`text-xs space-y-2.5 ${isDark ? "text-white/60" : "text-black/60"}`}>
+              {[
+                ["Draw", "select tool, then drag"],
+                ["Undo", "2-finger tap"],
+                ["Redo", "3-finger tap"],
+                ["More options", "long-press a tool"],
+                ["Switch canvas", "swipe toolbar"],
+                ["Zoom", "pinch"],
+              ].map(([action, gesture]) => (
+                <div key={action} className="flex justify-between items-center gap-4">
+                  <span>{action}</span>
+                  <span className={`shrink-0 text-[11px] ${isDark ? "text-white/35" : "text-black/35"}`}>{gesture}</span>
+                </div>
+              ))}
+            </div>
+            <div className={`text-[11px] text-center mt-5 ${isDark ? "text-white/25" : "text-black/25"}`}>
+              Tap anywhere to start
             </div>
           </div>
         </div>
@@ -3000,10 +3163,11 @@ export default function App() {
       )}
       {showTrainingNudge && !showTraining && (
         <div
-          className={`fixed ${hasTouch ? "bottom-24" : "bottom-4"} right-4 z-30 w-64 rounded-xl border backdrop-blur-md shadow-lg overflow-hidden animate-toast-in`}
+          className={`fixed ${hasTouch ? "" : "bottom-4"} right-4 z-30 w-64 rounded-xl border backdrop-blur-md shadow-lg overflow-hidden animate-toast-in`}
           style={{
             background: isDark ? "rgba(0,0,0,0.88)" : "rgba(255,255,255,0.92)",
             borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+            ...(hasTouch ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" } : {}),
           }}
         >
           {/* gradient top bar */}

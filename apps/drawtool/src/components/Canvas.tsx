@@ -2199,6 +2199,42 @@ function Canvas({
       scheduleRedraw();
     };
     window.addEventListener("drawtool:drop-stash-item", onDropStashItem);
+    const onInsertImage = async (e: Event) => {
+      const file = (e as CustomEvent<File>).detail;
+      if (!file) return;
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+      let result: { dataUrl: string; naturalW: number; naturalH: number };
+      let id: string;
+      try {
+        result = await processImageFile(file);
+        id = crypto.randomUUID();
+        await storeImage(id, result.dataUrl);
+      } catch { return; }
+      const { naturalW, naturalH } = result;
+      const view = viewRef.current;
+      const MAX_SCREEN_W = 600;
+      const worldW = Math.min(naturalW, MAX_SCREEN_W / view.scale);
+      const worldH = naturalH * (worldW / naturalW);
+      const screenCx = canvas.width / (2 * dprRef.current);
+      const screenCy = canvas.height / (2 * dprRef.current);
+      const worldCenter = screenToWorld(screenCx, screenCy, view);
+      const anchor = { x: worldCenter.x - worldW / 2, y: worldCenter.y - worldH / 2 };
+      const stroke: import("../canvas/types").Stroke = {
+        points: [anchor], style: "solid", lineWidth: 1, color: "#000000",
+        imageId: id, imageW: worldW, imageH: worldH,
+      };
+      strokesRef.current.push(stroke);
+      undoStackRef.current.push({ type: "draw", stroke });
+      redoStackRef.current = [];
+      selectedTextRef.current = stroke;
+      selectedGroupRef.current = [];
+      setZCursor("default");
+      strokesCacheRef.current = null; strokesBBoxRef.current = null;
+      persistStrokes();
+      scheduleRedraw();
+    };
+    window.addEventListener("drawtool:insert-image", onInsertImage);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:reset-view", onResetView);
@@ -2220,6 +2256,7 @@ function Canvas({
       window.removeEventListener("drawtool:redo", onRedoEvent);
       window.removeEventListener("drawtool:save-to-stash", onSaveToStash);
       window.removeEventListener("drawtool:drop-stash-item", onDropStashItem);
+      window.removeEventListener("drawtool:insert-image", onInsertImage);
     };
   }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomToSelection, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 

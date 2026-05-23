@@ -2217,6 +2217,25 @@ export default function Menu({
                       </div>
                     ))}
                   </div>
+                  {hasTouch && (
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <span className={`text-[11px] w-16 shrink-0 ${isDark ? "text-white/40" : "text-black/35"}`}>Image</span>
+                      <button
+                        onClick={() => {
+                          window.dispatchEvent(new Event("drawtool:open-image-insert"));
+                          closeMenu();
+                        }}
+                        className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
+                      >
+                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                          <rect x="1" y="2" width="12" height="10" rx="1.5" />
+                          <circle cx="4.5" cy="5.5" r="1.2" />
+                          <path d="M1 10l3-3 2.5 2.5L9 7l4 4" />
+                        </svg>
+                        Insert from photos
+                      </button>
+                    </div>
+                  )}
                 </div>
               </AccordionSection>
 
@@ -2331,6 +2350,9 @@ export default function Menu({
                           ),
                           "Tap a line or arrow to select it — drag any point to bend it. While drawing, tap to add a bend mid-stroke.",
                           "Double-tap text to edit it.",
+                          hasTouch && "Long-press any tool button to see more options.",
+                          hasTouch && "Two-finger tap to undo, three-finger tap to redo.",
+                          hasTouch && "Swipe the toolbar left or right to switch canvases.",
                           !hasTouch && (
                             <>
                               Hold{" "}
