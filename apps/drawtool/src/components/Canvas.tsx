@@ -426,30 +426,34 @@ function Canvas({
     const screenH = window.innerHeight;
     if (gridTypeRef.current === "dot") {
       const BASE = 12;
-      const DOT_RADIUS = 0.75;
-      const baseAlpha = isDark ? 0.4 : 0.65;
+      const DOT_RADIUS = 1.5;
+      const baseAlpha = isDark ? 0.45 : 0.7;
       const dotColor = gridColor;
 
       for (let spacing = BASE; spacing < 500000; spacing *= 5) {
         const screenGap = spacing * scale;
         if (screenGap < 4) continue;
         if (screenGap > Math.max(screenW, screenH) * 2) break;
-        const opacity = Math.max(0, Math.min(1, (screenGap - 6) / 20));
+        // Fade in 10–25px, fade out 60–80px — prevents multiple levels rendering simultaneously
+        const opacity =
+          Math.max(0, Math.min(1, (screenGap - 10) / 15)) *
+          Math.max(0, Math.min(1, (80 - screenGap) / 20));
         if (opacity <= 0) continue;
 
         const tileSize = Math.max(Math.round(screenGap), 1);
-        const patternScale = screenGap / tileSize;
-        const tileKey = `${tileSize},${themeKey}`;
+        const tileSizePx = tileSize * dpr;
+        const patternScale = screenGap / tileSizePx;
+        const tileKey = `dot-${tileSize},${themeKey},${dpr}`;
         let pattern = gridPatternCacheRef.current.get(tileKey);
         if (!pattern) {
           const tile = document.createElement("canvas");
-          tile.width = tileSize;
-          tile.height = tileSize;
+          tile.width = tileSizePx;
+          tile.height = tileSizePx;
           const tctx = tile.getContext("2d")!;
-          const half = tileSize / 2;
+          const half = tileSizePx / 2;
           tctx.fillStyle = dotColor;
           tctx.beginPath();
-          tctx.arc(half, half, DOT_RADIUS, 0, Math.PI * 2);
+          tctx.arc(half, half, DOT_RADIUS * dpr, 0, Math.PI * 2);
           tctx.fill();
           pattern = ctx.createPattern(tile, "repeat")!;
           gridPatternCacheRef.current.set(tileKey, pattern);
@@ -469,69 +473,56 @@ function Canvas({
       }
       ctx.globalAlpha = 1;
     } else if (gridTypeRef.current === "square") {
-      const canvasMax = Math.max(screenW, screenH);
+      // Direct line drawing — no pattern tiles, so no cache/transform bugs.
+      // Levels: 6, 30, 150, 750 world units (*5 per step).
+      // At 100% zoom: cw=30 → 30px dashed fine grid, cw=150 → 150px solid coarse grid.
+      // Matches Excalidraw's two-level look (fine dashes inside solid major cells).
+      // Fade window [5-200]px: T_out/T_in = 40 > level_ratio 5 → no dead zones.
+      const coarseAlpha = isDark ? 0.18 : 0.26; // solid major lines
+      const fineAlpha   = isDark ? 0.12 : 0.22; // dashed minor lines
+      const screenMax = Math.max(screenW, screenH);
 
-      const drawSqLevel = (sg: number, dashed: boolean, alpha: number) => {
-        if (alpha < 0.005) return;
-        const tileSize = Math.max(Math.round(sg), 1);
-        const patternScale = sg / tileSize;
-        const tileKey = `sq-${tileSize},${themeKey},${dashed ? "d" : "s"}`;
-        let pat = gridPatternCacheRef.current.get(tileKey);
-        if (!pat) {
-          const tile = document.createElement("canvas");
-          tile.width = tileSize; tile.height = tileSize;
-          const tc = tile.getContext("2d")!;
-          tc.strokeStyle = gridColor; tc.lineWidth = 1;
-          if (dashed) {
-            const du = Math.max(2, tileSize / 16);
-            tc.setLineDash([du, du]);
-          }
-          tc.beginPath(); tc.moveTo(tileSize - 0.5, 0); tc.lineTo(tileSize - 0.5, tileSize); tc.stroke();
-          tc.beginPath(); tc.moveTo(0, tileSize - 0.5); tc.lineTo(tileSize, tileSize - 0.5); tc.stroke();
-          pat = ctx.createPattern(tile, "repeat")!;
-          gridPatternCacheRef.current.set(tileKey, pat);
-        }
-        const ox = ((x % sg) + sg) % sg;
-        const oy = ((y % sg) + sg) % sg;
-        pat.setTransform(new DOMMatrix().translate(ox - sg, oy - sg).scale(patternScale));
+      ctx.strokeStyle = gridColor;
+      ctx.lineWidth = 1;
+
+      // Fade in fast (full at 20px), fade out 150-200px
+      const levelOp = (cs: number) =>
+        Math.max(0, Math.min(1, (cs - 5) / 15)) *
+        Math.max(0, Math.min(1, (200 - cs) / 50));
+
+      const drawLevel = (cellWorld: number, alpha: number, dashed: boolean) => {
+        if (alpha < 0.004) return;
+        const cs = cellWorld * scale;
+        if (cs < 3) return;
         ctx.globalAlpha = alpha;
-        ctx.fillStyle = pat;
-        ctx.fillRect(0, 0, screenW, screenH);
+        ctx.setLineDash(dashed ? [2, 2] : []);
+        ctx.beginPath();
+        const x0 = Math.floor(-x / cs) - 1;
+        const x1 = Math.ceil((screenW - x) / cs) + 1;
+        for (let n = x0; n <= x1; n++) {
+          const sx = n * cs + x;
+          ctx.moveTo(sx, 0); ctx.lineTo(sx, screenH);
+        }
+        const y0 = Math.floor(-y / cs) - 1;
+        const y1 = Math.ceil((screenH - y) / cs) + 1;
+        for (let n = y0; n <= y1; n++) {
+          const sy = n * cs + y;
+          ctx.moveTo(0, sy); ctx.lineTo(screenW, sy);
+        }
+        ctx.stroke();
       };
 
-      const zoomAlpha =
-        scale < 0.2  ? Math.max(0.15, scale / 0.2)
-        : scale > 3  ? Math.min(1.5, 1 + (scale - 3) / 6)
-        : 1.0;
-
-      if (scale >= 0.5) {
-        for (let spacing = 12; spacing < 500000; spacing *= 5) {
-          const sg = spacing * scale;
-          if (sg < 4) continue;
-          if (sg > canvasMax * 2) break;
-
-          const minorOp =
-            Math.max(0, Math.min(1, (sg - 10) / 20)) *
-            Math.max(0, Math.min(1, (50 - sg) / 20));
-          const majorOp =
-            Math.max(0, Math.min(1, (sg - 30) / 30)) *
-            Math.max(0, Math.min(1, (600 - sg) / 200));
-
-          const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
-          drawSqLevel(sg, true,  minorOp * zoomAlpha * (isDark ? 0.04 * darkAlphaScale : 0.08));
-          drawSqLevel(sg, false, majorOp * zoomAlpha * (isDark ? 0.07 * darkAlphaScale : 0.12));
-        }
-      } else {
-        const drawFixed = (spacing: number, dashed: boolean, baseAlpha: number) => {
-          const sg = spacing * scale;
-          if (sg < 2) return;
-          const op = Math.max(0, Math.min(1, (sg - 4) / 16));
-          drawSqLevel(sg, dashed, op * zoomAlpha * baseAlpha);
-        };
-        const darkAlphaScale = themeRef.current === "dark" ? 1.4 : 1;
-        drawFixed(60,  true,  isDark ? 0.04 * darkAlphaScale : 0.08);
-        drawFixed(300, false, isDark ? 0.07 * darkAlphaScale : 0.12);
+      for (let cw = 6; cw < 1e9; cw *= 5) {
+        const cs = cw * scale;
+        if (cs > screenMax * 3) break;
+        const op = levelOp(cs);
+        if (op <= 0.004) continue;
+        // If the 5x coarser level is also active, this is a minor subdivision → dashed
+        const isMinor = levelOp(cs * 5) > 0.1;
+        drawLevel(cw, op * (isMinor ? fineAlpha : coarseAlpha), isMinor);
       }
+
+      ctx.setLineDash([]);
       ctx.globalAlpha = 1;
     }
     ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * x, dpr * y);
