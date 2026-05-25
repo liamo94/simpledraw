@@ -567,7 +567,8 @@ export default function Menu({
             });
             (e.currentTarget as HTMLElement).blur();
           }}
-          className={`w-[38px] h-[38px] flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "bg-white/20 border-white/30 text-white" : "bg-black/20 border-black/30 text-black") : isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+          className={`w-[38px] h-[38px] flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "border-white/30 text-white" : "border-black/30 text-black") : isDark ? "border-white/20 text-white/70 hover:text-white" : "border-black/20 text-black/70 hover:text-black"}`}
+          style={{ background: getPanelBackground(settings.theme) }}
         >
           <span className="relative flex items-center justify-center w-full h-full">
             <span
@@ -606,7 +607,7 @@ export default function Menu({
         {open && (
           <nav
             aria-label="Settings menu"
-            className={`mt-2 p-4 rounded-xl border backdrop-blur-sm w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
+            className={`mt-2 p-4 rounded-xl border backdrop-blur-sm shadow-2xl w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
             style={{ background: getPanelBackground(settings.theme) }}
           >
             <style>{waveStyle}</style>

@@ -2404,17 +2404,18 @@ export default function App() {
         settings.showZoomControls && (
           <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
             <div
-              className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/20" : "border-black/20"}`}
+              className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
+              style={{ background: getPanelBackground(settings.theme) }}
             >
               <button
                 onClick={zoomOut}
                 aria-label="Zoom out"
-                className={`w-8 h-full flex items-center justify-center rounded-l-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "bg-white/10 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 text-black/70 hover:text-black hover:bg-black/20"}`}
+                className={`w-8 h-full flex items-center justify-center rounded-l-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "text-white/70 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/8"}`}
               >
                 -
               </button>
               <div
-                className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`}
+                className={`w-px h-full ${isDark ? "bg-white/15" : "bg-black/15"}`}
               />
               <div className="relative group/zoom h-full">
                 <div
@@ -2425,18 +2426,18 @@ export default function App() {
                 <button
                   onClick={resetView}
                   aria-label="Reset zoom to 100%"
-                  className={`min-w-[3.25rem] px-2 h-full flex items-center justify-center transition-colors text-xs tabular-nums focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "bg-white/10 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 text-black/70 hover:text-black hover:bg-black/20"}`}
+                  className={`min-w-[3.25rem] px-2 h-full flex items-center justify-center transition-colors text-xs tabular-nums focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "text-white/70 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/8"}`}
                 >
                   {Math.round(zoom * 100)}%
                 </button>
               </div>
               <div
-                className={`w-px h-full ${isDark ? "bg-white/20" : "bg-black/20"}`}
+                className={`w-px h-full ${isDark ? "bg-white/15" : "bg-black/15"}`}
               />
               <button
                 onClick={zoomIn}
                 aria-label="Zoom in"
-                className={`w-8 h-full flex items-center justify-center rounded-r-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "bg-white/10 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 text-black/70 hover:text-black hover:bg-black/20"}`}
+                className={`w-8 h-full flex items-center justify-center rounded-r-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "text-white/70 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/8"}`}
               >
                 +
               </button>
@@ -2450,7 +2451,8 @@ export default function App() {
               <button
                 onClick={centerView}
                 aria-label="Fit to content"
-                className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "bg-white/10 border-white/20 text-white/70 hover:text-white hover:bg-white/20" : "bg-black/10 border-black/20 text-black/70 hover:text-black hover:bg-black/20"}`}
+                className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "border-white/15 text-white/70 hover:text-white hover:bg-white/10" : "border-black/15 text-black/60 hover:text-black hover:bg-black/8"}`}
+                style={{ background: getPanelBackground(settings.theme) }}
               >
                 <svg
                   width="14"

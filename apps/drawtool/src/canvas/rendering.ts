@@ -27,9 +27,9 @@ export function getPanelBackground(theme: Theme): string {
   if (theme === "dark")     return "rgba(10,10,10,0.92)";
   if (theme === "lumber")   return "rgba(10,10,2,0.92)";
   if (theme === "slate")    return "rgba(18,22,28,0.92)";
-  if (theme === "journal")  return "rgba(255,252,224,0.92)";
-  if (theme === "sky")      return "rgba(234,244,251,0.92)";
-  if (theme === "sand")     return "rgba(245,237,232,0.92)";
+  if (theme === "journal")  return "rgba(255,254,238,0.97)";
+  if (theme === "sky")      return "rgba(242,249,254,0.97)";
+  if (theme === "sand")     return "rgba(251,245,241,0.97)";
   return "rgba(255,255,255,0.92)";
 }
 

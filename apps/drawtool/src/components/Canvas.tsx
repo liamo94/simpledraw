@@ -337,7 +337,6 @@ function Canvas({
   // Using createPattern lets the GPU tile it — panning is free (just update
   // the pattern transform offset) and zooming only creates a new tile when
   // the screen gap changes by ≥1px, instead of redrawing N² arcs each frame.
-  const gridPatternCacheRef = useRef<Map<string, CanvasPattern>>(new Map());
 
   // --- Completed strokes cache (item 8) ---
   const strokesCacheRef = useRef<{
@@ -419,78 +418,77 @@ function Canvas({
     // --- Grid via tiled patterns (drawn after strokes so it overlays filled shapes) ---
     // Use DPR-scaled screen space so grid coords stay in CSS pixels
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    if (gridPatternCacheRef.current.size > 120) gridPatternCacheRef.current.clear();
-    const themeKey = themeRef.current;
     const gridColor = getGridColor(themeRef.current);
     const screenW = window.innerWidth;
     const screenH = window.innerHeight;
     if (gridTypeRef.current === "dot") {
-      const BASE = 12;
-      const DOT_RADIUS = 1.5;
+      // Two dot levels drawn via direct arc() enumeration.
+      // Dynamic LOD: coarseWorld starts at 125wu and bumps ×5 if screen gap < 40px,
+      // so the coarse level is never too dense at low zoom (matches tldraw at 20%).
+      // Starting at 125 (not 25) prevents the grid jumping finer when zooming in past 160%.
+      let coarseWorld = 125;
+      while (coarseWorld * scale < 40) coarseWorld *= 5;  // low zoom: go coarser
+      while (coarseWorld * scale > 200) coarseWorld /= 5; // high zoom: go finer
+      const fineWorld = coarseWorld / 5;
+
       const baseAlpha = isDark ? 0.45 : 0.7;
-      const dotColor = gridColor;
 
-      for (let spacing = BASE; spacing < 500000; spacing *= 5) {
-        const screenGap = spacing * scale;
-        if (screenGap < 4) continue;
-        if (screenGap > Math.max(screenW, screenH) * 2) break;
-        // Fade in 10–25px, fade out 60–80px — prevents multiple levels rendering simultaneously
-        const opacity =
-          Math.max(0, Math.min(1, (screenGap - 10) / 15)) *
-          Math.max(0, Math.min(1, (80 - screenGap) / 20));
-        if (opacity <= 0) continue;
+      const sgC = coarseWorld * scale;
+      const sgF = fineWorld * scale; // always >= 8px (sgC >= 40, sgF = sgC/5 >= 8)
+      const fineOp = Math.max(0, Math.min(1, (sgF - 8) / 15));
+      const coarseOp = Math.max(0, Math.min(1, (sgC - 5) / 20));
 
-        const tileSize = Math.max(Math.round(screenGap), 1);
-        const tileSizePx = tileSize * dpr;
-        const patternScale = screenGap / tileSizePx;
-        const tileKey = `dot-${tileSize},${themeKey},${dpr}`;
-        let pattern = gridPatternCacheRef.current.get(tileKey);
-        if (!pattern) {
-          const tile = document.createElement("canvas");
-          tile.width = tileSizePx;
-          tile.height = tileSizePx;
-          const tctx = tile.getContext("2d")!;
-          const half = tileSizePx / 2;
-          tctx.fillStyle = dotColor;
-          tctx.beginPath();
-          tctx.arc(half, half, DOT_RADIUS * dpr, 0, Math.PI * 2);
-          tctx.fill();
-          pattern = ctx.createPattern(tile, "repeat")!;
-          gridPatternCacheRef.current.set(tileKey, pattern);
+      // Both levels share the same view.x/y anchor so coarse always lands on a fine position.
+      ctx.fillStyle = gridColor;
+
+      if (fineOp * baseAlpha * 0.4 >= 0.004) {
+        const x0 = x + Math.ceil(-x / sgF) * sgF;
+        const y0 = y + Math.ceil(-y / sgF) * sgF;
+        ctx.globalAlpha = fineOp * baseAlpha * 0.4;
+        ctx.beginPath();
+        for (let cx = x0; cx <= screenW; cx += sgF) {
+          for (let cy = y0; cy <= screenH; cy += sgF) {
+            ctx.moveTo(cx + 1.2, cy);
+            ctx.arc(cx, cy, 1.2, 0, Math.PI * 2);
+          }
         }
-
-        const ox = ((x % screenGap) + screenGap) % screenGap;
-        const oy = ((y % screenGap) + screenGap) % screenGap;
-        pattern.setTransform(
-          new DOMMatrix()
-            .translate(ox - screenGap / 2, oy - screenGap / 2)
-            .scale(patternScale),
-        );
-
-        ctx.globalAlpha = opacity * baseAlpha;
-        ctx.fillStyle = pattern;
-        ctx.fillRect(0, 0, screenW, screenH);
+        ctx.fill();
       }
+
+      if (coarseOp * baseAlpha >= 0.004) {
+        const x0 = x + Math.ceil(-x / sgC) * sgC;
+        const y0 = y + Math.ceil(-y / sgC) * sgC;
+        ctx.globalAlpha = coarseOp * baseAlpha;
+        ctx.beginPath();
+        for (let cx = x0; cx <= screenW; cx += sgC) {
+          for (let cy = y0; cy <= screenH; cy += sgC) {
+            ctx.moveTo(cx + 2, cy);
+            ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+          }
+        }
+        ctx.fill();
+      }
+
       ctx.globalAlpha = 1;
     } else if (gridTypeRef.current === "square") {
-      // Direct line drawing — no pattern tiles, so no cache/transform bugs.
-      // Levels: 6, 30, 150, 750 world units (*5 per step).
-      // At 100% zoom: cw=30 → 30px dashed fine grid, cw=150 → 150px solid coarse grid.
-      // Matches Excalidraw's two-level look (fine dashes inside solid major cells).
-      // Fade window [5-200]px: T_out/T_in = 40 > level_ratio 5 → no dead zones.
-      const coarseAlpha = isDark ? 0.18 : 0.26; // solid major lines
-      const fineAlpha   = isDark ? 0.12 : 0.22; // dashed minor lines
-      const screenMax = Math.max(screenW, screenH);
+      // Two fixed world-unit levels — no LOD repeating pattern.
+      // At 100% zoom: fine=40px dashed, coarse=200px solid.
+      // Fine fades out at low zoom; coarse always visible. No level transitions.
+      const coarseAlpha = isDark ? 0.18 : 0.36;
+      const fineAlpha   = isDark ? 0.07 : 0.22;
+      const FINE_WORLD   = 25;
+      const COARSE_WORLD = 125; // = FINE_WORLD * 5
 
       ctx.strokeStyle = gridColor;
       ctx.lineWidth = 1;
 
-      // Fade in fast (full at 20px), fade out 150-200px
-      const levelOp = (cs: number) =>
-        Math.max(0, Math.min(1, (cs - 5) / 15)) *
-        Math.max(0, Math.min(1, (200 - cs) / 50));
+      const fineCS   = FINE_WORLD   * scale;
+      const coarseCS = COARSE_WORLD * scale;
+      const fineOp   = Math.max(0, Math.min(1, (fineCS   - 5) / 15));
+      const coarseOp = Math.max(0, Math.min(1, (coarseCS - 5) / 15));
 
-      const drawLevel = (cellWorld: number, alpha: number, dashed: boolean) => {
+      // skipMajor: fine level skips n%5===0 positions so solid coarse lines draw clean.
+      const drawLevel = (cellWorld: number, alpha: number, dashed: boolean, skipMajor: boolean) => {
         if (alpha < 0.004) return;
         const cs = cellWorld * scale;
         if (cs < 3) return;
@@ -500,27 +498,22 @@ function Canvas({
         const x0 = Math.floor(-x / cs) - 1;
         const x1 = Math.ceil((screenW - x) / cs) + 1;
         for (let n = x0; n <= x1; n++) {
+          if (skipMajor && n % 5 === 0) continue;
           const sx = n * cs + x;
           ctx.moveTo(sx, 0); ctx.lineTo(sx, screenH);
         }
         const y0 = Math.floor(-y / cs) - 1;
         const y1 = Math.ceil((screenH - y) / cs) + 1;
         for (let n = y0; n <= y1; n++) {
+          if (skipMajor && n % 5 === 0) continue;
           const sy = n * cs + y;
           ctx.moveTo(0, sy); ctx.lineTo(screenW, sy);
         }
         ctx.stroke();
       };
 
-      for (let cw = 6; cw < 1e9; cw *= 5) {
-        const cs = cw * scale;
-        if (cs > screenMax * 3) break;
-        const op = levelOp(cs);
-        if (op <= 0.004) continue;
-        // If the 5x coarser level is also active, this is a minor subdivision → dashed
-        const isMinor = levelOp(cs * 5) > 0.1;
-        drawLevel(cw, op * (isMinor ? fineAlpha : coarseAlpha), isMinor);
-      }
+      if (fineOp   > 0.004) drawLevel(FINE_WORLD,   fineOp   * fineAlpha,   true,  true);
+      if (coarseOp > 0.004) drawLevel(COARSE_WORLD, coarseOp * coarseAlpha, false, false);
 
       ctx.setLineDash([]);
       ctx.globalAlpha = 1;
@@ -1286,7 +1279,6 @@ function Canvas({
       canvas.height = Math.round(window.innerHeight * dpr);
       canvas.style.width = window.innerWidth + "px";
       canvas.style.height = window.innerHeight + "px";
-      gridPatternCacheRef.current.clear();
       strokesCacheRef.current = null; strokesBBoxRef.current = null;
       redraw(); // immediate — must paint now
     };
@@ -1423,7 +1415,6 @@ function Canvas({
     eraseTrailRef.current = [];
     laserTrailRef.current = [];
     pendingEraseRef.current.clear();
-    gridPatternCacheRef.current.clear();
     strokesCacheRef.current = null; strokesBBoxRef.current = null;
 
     // Load any images referenced by the new canvas's strokes
