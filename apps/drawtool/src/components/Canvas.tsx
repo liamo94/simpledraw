@@ -2342,7 +2342,7 @@ function Canvas({
   // Keyboard shortcuts (keydown/keyup/blur/paste)
   useKeyboardShortcuts(
     {
-      canvasRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef, viewRef,
+      canvasRef, canvasIndexRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef, viewRef,
       isWritingRef, writingTextRef, caretPosRef, caretVisibleRef, selectionAnchorRef,
       textUndoRef, textRedoRef, editingStrokeRef, writingBoldRef, writingItalicRef, writingAlignRef,
       zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef, lastCycleRef,

@@ -48,7 +48,7 @@ External services:
 
 | | Free (local) | Free (signed in) | Pro £2.99/mo |
 |---|---|---|---|
-| Workspaces | 1 local (9 slots) | 1 cloud (9 slots) | Unlimited cloud |
+| Workspaces | 1 local (9 slots) | 1 cloud (3 slots) | Unlimited cloud |
 | Storage | localStorage | R2 | R2 |
 | PNG / SVG export | With watermark | With watermark | Clean |
 | View & fork share links | Yes | Yes | Yes |
@@ -228,9 +228,44 @@ Simple marketing page at `unleash.drawzil.la`. Same stack: React 19 + Vite + Tai
 
 ## Build order (suggested)
 
-1. **Backend repo** — D1 schema, R2 setup, core CRUD routes, Clerk webhook
+1. **Backend repo** — D1 schema, R2 setup, core CRUD routes, Clerk webhook ✅
 2. **Auth in drawtool** — Clerk provider, sign in/out, migration prompt
 3. **Cloud save** — auto-save to backend, workspace/canvas switcher UI
 4. **Stripe + landing page** — Checkout, webhook, plan gating in app
 5. **Share links** — generate token, public viewer, fork flow
 6. **Export watermark + Pro themes** — final polish
+
+---
+
+## Current status (handover)
+
+### Done
+- Full plan documented in this file
+- `drawzilla-backend` repo scaffolded at `/Users/liam/Documents/dev/drawzilla-backend/`
+  - Hono Workers app with all routes: `/workspaces`, `/canvases`, `/share`, `/migrate`, `/stripe/webhook`, `/clerk/webhook`
+  - D1 schema in `migrations/0001_initial.sql`
+  - Cron trigger in `src/index.ts` — runs daily at 2am UTC to clean up expired subscriptions
+  - Type-checks clean, deps installed
+
+### Next immediate steps
+1. Run these from `drawzilla-backend/` to provision CF resources:
+   ```bash
+   pnpm wrangler login          # if not already logged in
+   pnpm wrangler d1 create drawzilla-db          # paste returned database_id into wrangler.toml
+   pnpm wrangler r2 bucket create drawzilla-canvases
+   ```
+2. Copy `.dev.vars.example` → `.dev.vars` and fill in Clerk + Stripe keys
+3. `pnpm db:migrate:local` to apply schema locally
+4. `pnpm dev` to run the Worker locally
+5. Move on to **Step 2**: adding Clerk auth to `apps/drawtool/`
+
+### Key decisions made
+- Auth: Clerk (MAU-based billing, free to 10k MAU)
+- Payments: Stripe (existing account, ~10% cut on £2.99)
+- Infra: Cloudflare Workers + D1 + R2 (essentially free until meaningful scale)
+- Cancellation: 30-day grace period, then data deleted by cron
+- Share links: permanent (die naturally when data is deleted after grace period)
+- Free signed-in users: 1 cloud workspace, can view/fork shares, cannot create share links
+- Export: PNG/SVG with "Made with drawzil.la" watermark for free users, clean for Pro
+- No cookie banner needed (Clerk + Stripe are necessary cookies only); Privacy Policy + ToS needed (use Iubenda or Termly)
+- No real-time collaboration (deferred to v2)

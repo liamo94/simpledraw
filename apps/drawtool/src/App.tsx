@@ -37,6 +37,7 @@ import {
 import type { StashItem, Stroke } from "./canvas/types";
 import StashPanel from "./components/StashPanel";
 import SelectControls from "./components/SelectControls";
+import { CANVAS_LIMIT } from "./config";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -75,7 +76,7 @@ let _newRouteAllOccupied = false;
 
 if (window.location.pathname === "/new") {
   window.history.replaceState(null, "", "/");
-  const counts = Array.from({ length: 9 }, (_, i) => {
+  const counts = Array.from({ length: CANVAS_LIMIT }, (_, i) => {
     const raw = localStorage.getItem(strokesKey(i + 1));
     if (!raw) return 0;
     try {
@@ -1277,6 +1278,24 @@ export default function App() {
         rightClickTool={settings.rightClickTool}
         onContentOffScreen={setContentOffScreen}
       />
+      {activeCanvas > CANVAS_LIMIT && !showTraining && (
+        <div
+          className="fixed inset-0 z-10 flex items-center justify-center pointer-events-auto select-none"
+          onPointerDown={(e) => e.stopPropagation()}
+        >
+          <div className={`flex flex-col items-center gap-5 px-10 py-8 rounded-2xl backdrop-blur-md ${isDark ? "bg-white/[0.06] border border-white/10" : "bg-white/60 border border-black/8"}`}>
+            <img src="/drawzilla-simplifed.svg" className="w-14 h-14 opacity-80" draggable={false} />
+            <div className="text-center">
+              <p className={`text-lg font-semibold tracking-wide ${isDark ? "text-white/70" : "text-black/60"}`}>
+                Coming soon
+              </p>
+              <p className={`text-sm mt-1 ${isDark ? "text-white/40" : "text-black/40"}`}>
+                More canvases will be unleashed
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
       {settings.showSelectControls && hasSelection && (
         <SelectControls isDark={isDark} theme={settings.theme} selectionCount={selectionCount} selectionIsCombined={selectionIsCombined} selectionIsText={selectionIsText} selectionIsLocked={selectionIsLocked} />
       )}
@@ -1398,8 +1417,8 @@ export default function App() {
               if (showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker || showColorPicker) return;
               e.preventDefault();
               const next = dx < 0
-                ? (activeCanvas < 9 ? activeCanvas + 1 : 1)
-                : (activeCanvas > 1 ? activeCanvas - 1 : 9);
+                ? (activeCanvas < CANVAS_LIMIT ? activeCanvas + 1 : 1)
+                : (activeCanvas > 1 ? activeCanvas - 1 : CANVAS_LIMIT);
               setActiveCanvas(next);
               const name = localStorage.getItem(`drawtool-canvas-name-${next}`) ?? "";
               setCanvasName(name);
@@ -3350,7 +3369,7 @@ export default function App() {
                 if (file) {
                   setShowImportModal(false);
                   if (importMode === "workspace") processWorkspaceFile(file);
-                  else processImportFile(file);
+                  else if (activeCanvas <= CANVAS_LIMIT) processImportFile(file);
                 }
               }}
             >

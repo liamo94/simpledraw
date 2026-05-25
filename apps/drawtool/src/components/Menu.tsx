@@ -15,6 +15,7 @@ import {
   CONFIRM_CLEAR_STROKE_THRESHOLD,
   getPanelBackground,
 } from "../canvas/canvasUtils";
+import { CANVAS_LIMIT } from "../config";
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -1560,25 +1561,37 @@ export default function Menu({
               </button>
             </div>
             <div className="flex gap-1 mt-1 justify-center">
-              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-                <button
-                  key={n}
-                  onClick={() => onSwitchCanvas(n)}
-                  aria-label={`Canvas ${n}`}
-                  aria-pressed={activeCanvas === n}
-                  className={`w-8 h-8 flex items-center justify-center rounded text-sm tabular-nums transition-colors focus:outline-none ${
-                    activeCanvas === n
-                      ? isDark
-                        ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
-                        : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
-                      : isDark
-                        ? "text-white/40 hover:text-white/60 hover:bg-white/10"
-                        : "text-black/35 hover:text-black/55 hover:bg-black/10"
-                  }`}
-                >
-                  {n}
-                </button>
-              ))}
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
+                const locked = n > CANVAS_LIMIT;
+                return (
+                  <button
+                    key={n}
+                    onClick={() => onSwitchCanvas(n)}
+                    aria-label={`Canvas ${n}`}
+                    aria-pressed={activeCanvas === n}
+                    className={`relative w-8 h-8 flex items-center justify-center rounded text-sm tabular-nums transition-colors focus:outline-none ${
+                      locked
+                        ? activeCanvas === n
+                          ? isDark
+                            ? "bg-white/5 text-white/25 ring-1 ring-white/10"
+                            : "bg-black/5 text-black/20 ring-1 ring-black/10"
+                          : isDark
+                            ? "text-white/20 hover:text-white/30 hover:bg-white/5"
+                            : "text-black/15 hover:text-black/25 hover:bg-black/5"
+                        : activeCanvas === n
+                          ? isDark
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark
+                            ? "text-white/40 hover:text-white/60 hover:bg-white/10"
+                            : "text-black/35 hover:text-black/55 hover:bg-black/10"
+                    }`}
+                  >
+                    {locked && <Tooltip label="Coming soon with Unleashed" />}
+                    {n}
+                  </button>
+                );
+              })}
             </div>
 
             <button
@@ -2181,11 +2194,14 @@ export default function Menu({
                               { action: "Export", onClick: onExport, isExport: true },
                               { action: "Import", onClick: onImport, isExport: false },
                             ] as const
-                          ).map(({ action, onClick, isExport }) => (
+                          ).map(({ action, onClick, isExport }) => {
+                            const disabledImport = !isExport && label === "Canvas" && activeCanvas > CANVAS_LIMIT;
+                            return (
                             <button
                               key={action}
-                              onClick={onClick}
-                              className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
+                              onClick={disabledImport ? undefined : onClick}
+                              disabled={disabledImport}
+                              className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${disabledImport ? isDark ? "border-white/5 text-white/15 cursor-not-allowed" : "border-black/5 text-black/15 cursor-not-allowed" : isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
                             >
                               <svg
                                 width="11"
@@ -2213,7 +2229,7 @@ export default function Menu({
                               </svg>
                               {action}
                             </button>
-                          ))}
+                          );})}
                         </div>
                       </div>
                     ))}

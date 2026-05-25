@@ -5,6 +5,7 @@ import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import { cmdKey, isMac, textBBox, anyStrokeBBox, FONT_FAMILIES } from "../canvas/geometry";
 import { strokesKey } from "../canvas/storage";
 import { storeImage, processImageFile } from "../canvas/imageStore";
+import { CANVAS_LIMIT } from "../config";
 
 function deepCopyStroke(s: Stroke, dx = 0, dy = 0): Stroke {
   return {
@@ -39,6 +40,7 @@ function nextWordBoundary(text: string, pos: number): number {
 
 export type KeyboardRefs = {
   canvasRef: RefObject<HTMLCanvasElement | null>;
+  canvasIndexRef: MutableRefObject<number>;
   strokesRef: MutableRefObject<Stroke[]>;
   undoStackRef: MutableRefObject<UndoAction[]>;
   redoStackRef: MutableRefObject<UndoAction[]>;
@@ -136,7 +138,7 @@ export type KeyboardCallbacks = {
 
 export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCallbacks) {
   const {
-    canvasRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef, viewRef,
+    canvasRef, canvasIndexRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef, viewRef,
     isWritingRef, writingTextRef, caretPosRef, caretVisibleRef, selectionAnchorRef,
     textUndoRef, textRedoRef, editingStrokeRef, writingBoldRef, writingItalicRef, writingAlignRef,
     zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef,
@@ -1477,6 +1479,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     };
 
     const onPaste = (e: ClipboardEvent) => {
+      if (canvasIndexRef.current > CANVAS_LIMIT && !isWritingRef.current) return;
       if (isWritingRef.current) {
         // Primary handler is on the textarea element (fires when textarea has focus + stops propagation).
         // This window-level fallback handles the case where focus drifted away from the textarea.
