@@ -997,7 +997,11 @@ export default function App() {
   const isDark = isDarkTheme(settings.theme);
   const mod = isMac ? "\u2318" : "Ctrl";
   const alt = isMac ? "\u2325" : "Alt";
-
+  const visibleLineColor =
+    (settings.lineColor === "#000000" && isDark) ||
+    (settings.lineColor === "#ffffff" && !isDark)
+      ? "currentColor"
+      : settings.lineColor;
   const touchTools: { id: TouchTool; label: string; icon: ReactNode }[] =
     useMemo(
       () => [
@@ -1031,7 +1035,7 @@ export default function App() {
               height="17"
               viewBox="0 0 16 16"
               fill="none"
-              stroke={settings.lineColor}
+              stroke="currentColor"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -1050,7 +1054,7 @@ export default function App() {
               height="17"
               viewBox="0 0 16 16"
               fill="none"
-              stroke={settings.lineColor}
+              stroke="currentColor"
               strokeWidth="1.5"
               strokeLinecap="round"
               strokeDasharray="3 3"
@@ -1068,7 +1072,7 @@ export default function App() {
               height="17"
               viewBox="0 0 16 16"
               fill="none"
-              stroke={settings.lineColor}
+              stroke="currentColor"
               strokeWidth="1.5"
               strokeLinejoin="round"
             >
@@ -1117,7 +1121,7 @@ export default function App() {
               height="17"
               viewBox="0 0 16 16"
               fill="none"
-              stroke={settings.lineColor}
+              stroke="currentColor"
               strokeWidth="3"
               strokeLinecap="round"
               strokeOpacity="0.4"
@@ -1170,7 +1174,7 @@ export default function App() {
           ),
         },
       ],
-      [settings.lineColor, settings.activeShape],
+      [settings.activeShape],
     );
 
   return (
@@ -1713,7 +1717,7 @@ export default function App() {
                         height="17"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -1722,21 +1726,21 @@ export default function App() {
                           cx="1.5"
                           cy="3.5"
                           r="0.85"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <circle
                           cx="0.5"
                           cy="6.5"
                           r="0.75"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <circle
                           cx="1.5"
                           cy="9.5"
                           r="0.75"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <g transform="rotate(-12 9.5 10)">
@@ -1768,7 +1772,13 @@ export default function App() {
                   className="w-4 h-4 rounded-full block flex-shrink-0"
                   style={{
                     backgroundColor: settings.lineColor,
-                    boxShadow: isDark ? "0 0 0 1.5px rgba(255,255,255,0.3)" : "0 0 0 1.5px rgba(0,0,0,0.2)",
+                    boxShadow: settings.lineColor === "#000000" && isDark
+                      ? "0 0 0 2px white"
+                      : settings.lineColor === "#ffffff" && !isDark
+                        ? "0 0 0 2px rgba(0,0,0,0.55)"
+                        : isDark
+                          ? "0 0 0 1.5px rgba(255,255,255,0.3)"
+                          : "0 0 0 1.5px rgba(0,0,0,0.2)",
                   }}
                 />
               </button>
@@ -1785,6 +1795,7 @@ export default function App() {
                   <div className="flex flex-wrap gap-1.5 justify-center" style={{ maxWidth: "13rem" }}>
                     {[
                       isDark ? "#ffffff" : "#000000",
+                      isDark ? "#000000" : "#ffffff",
                       "#ef4444", "#ff7f50", "#f97316", "#eab308", "#84cc16",
                       "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#b096f8", "#ec4899",
                     ].map((color) => (
@@ -1799,7 +1810,11 @@ export default function App() {
                         className="w-8 h-8 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
                         style={{
                           backgroundColor: color,
-                          borderColor: settings.lineColor === color ? isDark ? "white" : "black" : "transparent",
+                          borderColor: settings.lineColor === color
+                            ? isDark ? "white" : "black"
+                            : color === "#000000" || color === "#ffffff"
+                              ? isDark ? "#555" : "#bbb"
+                              : "transparent",
                           transform: settings.lineColor === color ? "scale(1.15)" : undefined,
                         }}
                       />
@@ -1823,6 +1838,7 @@ export default function App() {
                   <div className="flex gap-1.5 flex-wrap justify-center mb-3">
                     {[
                       isDark ? "#ffffff" : "#000000",
+                      isDark ? "#000000" : "#ffffff",
                       "#ef4444",
                       "#ff7f50",
                       "#f97316",
@@ -1848,7 +1864,9 @@ export default function App() {
                               ? isDark
                                 ? "white"
                                 : "black"
-                              : "transparent",
+                              : color === "#000000" || color === "#ffffff"
+                                ? isDark ? "#555" : "#bbb"
+                                : "transparent",
                           transform:
                             settings.lineColor === color
                               ? "scale(1.15)"
@@ -1961,7 +1979,7 @@ export default function App() {
                         height="20"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeWidth="1.5"
                         strokeLinejoin="round"
                         opacity={settings.shapeFillEnabled ? 1 : 0.35}
@@ -1972,7 +1990,7 @@ export default function App() {
                           width="12"
                           height="12"
                           rx="1.5"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                         />
                       </svg>
                     )}
@@ -1982,7 +2000,7 @@ export default function App() {
                         height="20"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeWidth="1.5"
                         strokeLinejoin="round"
                         opacity={settings.shapeFillEnabled ? 1 : 0.35}
@@ -1992,28 +2010,28 @@ export default function App() {
                           cx="6"
                           cy="6.5"
                           r="1.2"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <circle
                           cx="10"
                           cy="6.5"
                           r="1.2"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <circle
                           cx="6"
                           cy="10.5"
                           r="1.2"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <circle
                           cx="10"
                           cy="10.5"
                           r="1.2"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                       </svg>
@@ -2024,7 +2042,7 @@ export default function App() {
                         height="20"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeLinejoin="round"
                         opacity={settings.shapeFillEnabled ? 1 : 0.35}
                       >
@@ -2047,7 +2065,7 @@ export default function App() {
                         height="20"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeLinejoin="round"
                         opacity={settings.shapeFillEnabled ? 1 : 0.35}
                       >
@@ -2087,7 +2105,7 @@ export default function App() {
                       height="20"
                       viewBox="0 0 16 16"
                       fill="none"
-                      stroke={settings.lineColor}
+                      stroke={visibleLineColor}
                       strokeWidth="1.5"
                       strokeLinejoin="round"
                       strokeDasharray="3.5 2.5"
@@ -2125,7 +2143,7 @@ export default function App() {
                         height="20"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeWidth="1.5"
                         strokeLinejoin="round"
                       >
@@ -2219,7 +2237,7 @@ export default function App() {
                         height="17"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeWidth="3"
                         strokeLinecap="round"
                         strokeOpacity="0.4"
@@ -2257,7 +2275,7 @@ export default function App() {
                         height="17"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={settings.lineColor}
+                        stroke={visibleLineColor}
                         strokeWidth="1.5"
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -2266,21 +2284,21 @@ export default function App() {
                           cx="1.5"
                           cy="3.5"
                           r="0.85"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <circle
                           cx="0.5"
                           cy="6.5"
                           r="0.75"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <circle
                           cx="1.5"
                           cy="9.5"
                           r="0.75"
-                          fill={settings.lineColor}
+                          fill={visibleLineColor}
                           stroke="none"
                         />
                         <g transform="rotate(-12 9.5 10)">
