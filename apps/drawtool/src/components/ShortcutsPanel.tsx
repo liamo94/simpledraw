@@ -115,7 +115,7 @@ const SprayIcon = () => (
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 
-export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; modal?: boolean }) {
+export default function ShortcutsPanel({ isDark, modal, isPro }: { isDark: boolean; modal?: boolean; isPro?: boolean }) {
   const kbdClass = isDark
     ? "shrink-0 font-mono px-1.5 py-0.5 rounded border border-white/10 bg-white/5 text-white/50"
     : "shrink-0 font-mono px-1.5 py-0.5 rounded border border-black/10 bg-black/[0.04] text-black/50";
@@ -212,6 +212,7 @@ export default function ShortcutsPanel({ isDark, modal }: { isDark: boolean; mod
         <Row label={<><ExportIcon />Export canvas</>} kbd={`${mod} + ⇧ + E`} />
         <Row label={<><MenuIcon />Menu</>} kbd="M" />
         <Row label="Canvas manager" kbd="⇧ + M" />
+        {isPro && <Row label="Workspace switcher" kbd={`${mod} + O`} />}
         <Row label={<><FullscreenIcon />Fullscreen</>} kbd={`${mod} + F`} />
         <Row label={<><GridIcon />Cycle grid</>} kbd="G" />
         <Row label="Cycle theme" kbd="D D" />

@@ -1,8 +1,10 @@
 # drawtool monorepo — CLAUDE.md
 
-Two apps deployed on Cloudflare Pages:
-- **drawtool.io** — infinite-canvas drawing tool (`apps/drawtool/`)
+Three apps deployed on Cloudflare Pages + one Cloudflare Worker backend:
+- **drawzil.la** — infinite-canvas drawing tool (`apps/drawtool/`)
 - **writing.drawtool.io** — freehand handwriting practice game (`apps/writing/`)
+- **unleash.drawzil.la** — Unleashed subscription landing page (`apps/unleashed/`)
+- **API** — Cloudflare Worker backend (`/Users/liam/Documents/dev/drawzilla-backend/`)
 
 Built with React 19 + TypeScript + Vite + Tailwind v4.
 
@@ -14,9 +16,12 @@ Built with React 19 + TypeScript + Vite + Tailwind v4.
   pnpm-workspace.yaml           # workspaces: ["apps/*"]
   .npmrc                        # prefer-offline=true
   apps/
-    drawtool/                   # drawtool.io
+    drawtool/                   # drawzil.la
     writing/                    # writing.drawtool.io
+    unleashed/                  # unleash.drawzil.la (Stripe subscription page)
 ```
+
+Backend lives separately at `/Users/liam/Documents/dev/drawzilla-backend/` — Hono on Cloudflare Workers, D1 (SQLite), R2 (canvas storage), Clerk JWT auth.
 
 ## Dev commands
 
@@ -39,27 +44,77 @@ Each app is its own Cloudflare Pages project with root directory set to its app 
 
 ---
 
+## Cloud & auth (`apps/drawtool/`)
+
+**Auth**: Clerk (`@clerk/clerk-react`). `useUser()` / `useAuth()` / `useClerk()`. Never show user email in UI (privacy — users may be streaming).
+
+**Plan**: `useUserPlan()` in `src/hooks/useUserPlan.ts` — fetches `/stripe/status`, returns `{ isPro, canvasLimit }`. Free = 3 canvases, Pro = 9.
+
+**Cloud canvas**: `useCloudCanvas()` in `src/hooks/useCloudCanvas.ts`.
+- Cloud users always use slot 1 as write-through cache. `activeId` (cloud canvas UUID) stored in `localStorage('drawtool-cloud-active-canvas')` to avoid flash on load.
+- Save hook debounces 2s then PUTs to `/canvases/:id`. Includes images as base64 (see below).
+- `fetchWorkspace()` loads all metadata; `switchCanvas()` flushes current before loading next.
+- Canvas query uses `staleTime: Infinity`, `refetchOnWindowFocus: false` — critical. Default `refetchOnWindowFocus: true` would bump `loadKey` mid-draw, remounting Canvas with stale server strokes.
+- `loadKey` counter: incrementing it remounts Canvas, which re-reads slot 1 from localStorage. The canvas query effect bumps `loadKey` after writing server data to slot 1.
+- `DIRTY_KEY = 'drawtool-cloud-dirty'` (localStorage): set when local strokes change, stored as the active canvas ID. Canvas query effect skips overwriting slot 1 if flag matches the active canvas. Cleared when server confirms the save. Prevents erase-then-refresh race: `keepalive` PUT from `onBeforeUnload` races against new page's query; dirty flag wins.
+- `onBeforeUnload` always saves (no early-return guard) — ensures viewport position is persisted even in pan-only sessions.
+- `planLoading` = `!clerkLoaded || (isPending && isSignedIn === true)` — `clerkLoaded` from `useUser().isLoaded` gates it during Clerk boot to prevent Unleashed button flash.
+
+**Image sync** (`src/canvas/imageStore.ts`):
+- Images stored in IDB locally. On cloud load, also embedded as base64 in R2 JSON (`images?: Record<string, string>`).
+- `collectImages(strokes)` — async, reads IDB by image ID, returns base64 map. Used in save and `flushCurrentCanvas`.
+- `collectImagesSync(strokes)` — sync, reads in-memory cache only. Used in `onBeforeUnload` (can't await in beforeunload).
+- On canvas query success: async IIFE stores images in IDB first, then writes strokes to slot 1, then bumps `loadKey`. This ensures images are in IDB before Canvas mounts.
+- Migration and share fork also collect and embed images.
+
+**Sharing**:
+- Free users: canvas shares only (live, naturally capped at 3 by canvas limit). Share token = 16 hex chars.
+- Pro users: canvas + workspace shares (both live).
+- Share viewer at `/s/:token` (canvas) and `/s/w/:token` (workspace) — rendered by `ShareViewer.tsx`, uses canvas slot 10.
+- `share_token` / `share_enabled` returned on every workspace fetch so share state persists across sessions.
+- ShareViewer keyboard shortcuts: `g`/`G` cycles grid, double-`d`/`D` (within 400 ms) cycles theme. Stroke colours re-adapted on theme change via `adaptStrokes()`. Uses `shareDataRef` / `activeIndexRef` to avoid stale closure in effect.
+- ShareViewer `loadSlot` is async — stores images in IDB (via `storeImage`) before `setCanvasKey`, so Canvas mounts only after images are available.
+
+**Export**:
+- PNG: free users get "drawzilla [icon]" watermark (Caveat Brush font, colored letters). Pro = clean.
+- SVG: Pro only (shown as locked in menu for free users).
+- Watermark logic in `src/canvas/watermark.ts`, uses `document.fonts.load()` before drawing.
+
+**Backend routes** (`drawzilla-backend/src/routes/`):
+- `workspaces.ts` — CRUD + share (workspace share = Pro only)
+- `canvases.ts` — CRUD + share (canvas share = all signed-in users)
+- `share.ts` — public read routes for share viewer
+- `stripe.ts` — checkout, portal, webhook, status
+
+---
+
 ## drawtool app (`apps/drawtool/`)
 
 ```
 src/
   App.tsx                        # Root: settings, canvas switching, event orchestration
-  main.tsx                       # Entry point
+  main.tsx                       # Entry point — also handles /s/* share routes → ShareViewer
   components/
     Canvas.tsx                   # Core drawing logic — input, rendering, undo, tools
     Menu.tsx                     # Toolbar UI (top/bottom bars, mobile controls)
+    ShareViewer.tsx              # Public share viewer (/s/:token, /s/w/:token)
     ShortcutsPanel.tsx           # Keyboard shortcuts overlay
+    MigrationModal.tsx           # One-time local→cloud migration prompt
   hooks/
     useSettings.ts               # Persisted settings hook (localStorage, debounced)
     useKeyboardShortcuts.ts      # All keyboard bindings
     useTextSelection.ts          # Text tool selection helpers
+    useCloudCanvas.ts            # Cloud canvas CRUD, switching, share/unshare
+    useUserPlan.ts               # Fetches /stripe/status → { isPro, canvasLimit }
+    useMigration.ts              # Local→cloud migration logic
   canvas/
     types.ts                     # Stroke, UndoAction, BBox, TouchTool, CanvasSnapshot
     geometry.ts                  # Math helpers: screenToWorld, distToSegment, buildFont, etc.
     rendering.ts                 # All canvas drawing: freehand, shapes, text, themes
     canvasUtils.ts               # Barrel re-export of all canvas/* modules
     storage.ts                   # localStorage read/write for strokes + view
-    svgExport.ts                 # SVG export logic
+    svgExport.ts                 # SVG export logic (Pro only)
+    watermark.ts                 # PNG watermark for free users — drawWatermark()
 ```
 
 ## writing app (`apps/writing/`)

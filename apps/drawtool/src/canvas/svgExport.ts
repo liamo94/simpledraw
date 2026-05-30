@@ -201,7 +201,19 @@ function flattenStrokes(strokes: Stroke[]): Stroke[] {
   return out;
 }
 
-export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Theme): string {
+const WATERMARK_LETTERS = [
+  { letter: "d", color: "#3b82f6" },
+  { letter: "r", color: "#ef4444" },
+  { letter: "a", color: "#22c55e" },
+  { letter: "w", color: "#eab308" },
+  { letter: "z", color: "#ec4899" },
+  { letter: "i", color: "#f97316" },
+  { letter: "l", color: "#8b5cf6" },
+  { letter: "l", color: "#06b6d4" },
+  { letter: "a", color: "#ef4444" },
+]
+
+export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Theme, watermark = false): string {
   if (!strokes.length) return "";
 
   const adaptColor = (c: string) => c;
@@ -551,6 +563,50 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
       if (dashArr) el2.setAttribute("stroke-dasharray", dashArr);
       strokeG.appendChild(el2);
     }
+  }
+
+  if (watermark) {
+    const fontSize = 13
+    const pad = 10
+    const prefix = "Made with "
+    // Approximate char widths at 13px Caveat Brush
+    const charW: Record<string, number> = { M: 10, a: 7, d: 8, e: 7, " ": 4, w: 10, i: 4, t: 6, h: 8, r: 6, z: 7, l: 5 }
+    const prefixWidth = Array.from(prefix).reduce((acc, ch) => acc + (charW[ch] ?? 7), 0)
+    const logoWidth = WATERMARK_LETTERS.reduce((acc, { letter }) => acc + (charW[letter] ?? 7), 0)
+    const totalWidth = prefixWidth + logoWidth
+
+    const wmG = svgEl("g", { opacity: "0.8" })
+    wmG.appendChild(svgEl("rect", {
+      x: pad - 4, y: svgH - pad - fontSize - 4,
+      width: totalWidth + 8, height: fontSize + 8,
+      fill: "rgba(0,0,0,0.3)", rx: 3,
+    }))
+    const prefixEl = svgEl("text", {
+      "font-family": "Caveat Brush, cursive",
+      "font-size": fontSize,
+      fill: "#cccccc",
+      x: pad,
+      y: svgH - pad,
+      "dominant-baseline": "auto",
+    })
+    prefixEl.textContent = prefix
+    wmG.appendChild(prefixEl)
+
+    let cx = pad + prefixWidth
+    for (const { letter, color } of WATERMARK_LETTERS) {
+      const el = svgEl("text", {
+        "font-family": "Caveat Brush, cursive",
+        "font-size": fontSize,
+        fill: color,
+        x: cx,
+        y: svgH - pad,
+        "dominant-baseline": "auto",
+      })
+      el.textContent = letter
+      wmG.appendChild(el)
+      cx += charW[letter] ?? 7
+    }
+    svg.appendChild(wmG)
   }
 
   return new XMLSerializer().serializeToString(svg);

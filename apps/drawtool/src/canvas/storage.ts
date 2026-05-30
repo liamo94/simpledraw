@@ -1,5 +1,12 @@
 import type { Stroke, StashItem } from "./types";
 
+// ─── Cloud save hook ──────────────────────────────────────────────────────────
+
+type SaveHook = (canvasIndex: number, strokes: Stroke[]) => void
+let _saveHook: SaveHook | null = null
+export function setSaveHook(fn: SaveHook | null) { _saveHook = fn }
+export function hasSaveHook(): boolean { return _saveHook !== null }
+
 // ─── Storage keys ─────────────────────────────────────────────────────────────
 
 export function strokesKey(n: number) {
@@ -24,7 +31,7 @@ export function loadStrokes(canvasIndex: number): Stroke[] {
 
 const _quotaHit = new Set<number>();
 
-export function saveStrokes(strokes: Stroke[], canvasIndex: number) {
+export function saveStrokes(strokes: Stroke[], canvasIndex: number, skipHook = false) {
   try {
     const json = JSON.stringify(strokes);
     if (json.length < 5_000_000) {
@@ -39,6 +46,7 @@ export function saveStrokes(strokes: Stroke[], canvasIndex: number) {
         window.dispatchEvent(new CustomEvent("drawtool:storage-quota", { detail: { canvasIndex } }));
       }
     }
+    if (!skipHook) _saveHook?.(canvasIndex, strokes);
   } catch {
     /* ignore */
   }

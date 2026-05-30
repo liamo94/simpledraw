@@ -20,7 +20,14 @@ import useSettings, {
   type FillStyle,
 } from "./hooks/useSettings";
 
-import { isDarkTheme, getBackgroundColor, CONFIRM_CLEAR_STROKE_THRESHOLD, getImageDataUrlFromIdb, storeImage } from "./canvas/canvasUtils";
+import {
+  isDarkTheme,
+  getBackgroundColor,
+  CONFIRM_CLEAR_STROKE_THRESHOLD,
+  getImageDataUrlFromIdb,
+  storeImage,
+} from "./canvas/canvasUtils";
+import { drawWatermark } from "./canvas/watermark";
 import { getPanelBackground } from "./canvas/rendering";
 import {
   loadStrokes,
@@ -37,7 +44,15 @@ import {
 import type { StashItem, Stroke } from "./canvas/types";
 import StashPanel from "./components/StashPanel";
 import SelectControls from "./components/SelectControls";
+import MigrationModal from "./components/MigrationModal";
+import WorkspaceSwitcherModal from "./components/WorkspaceSwitcherModal";
+import { useMigration } from "./hooks/useMigration";
+import { useCloudCanvas } from "./hooks/useCloudCanvas";
+import { useUserPlan, openBillingPortal } from "./hooks/useUserPlan";
+import { useCloudStash } from "./hooks/useCloudStash";
+import { useUser, useAuth } from "@clerk/clerk-react";
 import { CANVAS_LIMIT } from "./config";
+import { usePreferencesSync } from "./hooks/usePreferencesSync";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -73,6 +88,8 @@ if (window.location.pathname === "/training") {
 // Compute /new routing before first render
 let _newRouteCanvas: number | null = null;
 let _newRouteAllOccupied = false;
+// Cloud users need async handling — flag persists until useCloudCanvas picks it up
+export let _newRouteForCloud = window.location.pathname === "/new";
 
 if (window.location.pathname === "/new") {
   window.history.replaceState(null, "", "/");
@@ -97,17 +114,28 @@ if (window.location.pathname === "/new") {
 }
 
 function buildExportFilename(name: string, index: number): string {
-  const slug = name.trim().toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
   return slug ? `${slug}-${index}` : `canvas-${index}`;
 }
 
 export default function App() {
   const [settings, updateSettings] = useSettings();
+  usePreferencesSync(settings, updateSettings);
 
   const [zoom, setZoom] = useState(() => {
     try {
-      const stored = localStorage.getItem("drawtool-active-canvas");
-      const canvasIndex = stored ? parseInt(stored, 10) : 1;
+      // Cloud users always save their view to slot 1
+      const cloudId = localStorage.getItem("drawtool-cloud-active-canvas");
+      const canvasIndex = cloudId
+        ? 1
+        : (() => {
+            const stored = localStorage.getItem("drawtool-active-canvas");
+            return stored ? parseInt(stored, 10) : 1;
+          })();
       const raw = localStorage.getItem(`drawtool-view-${canvasIndex}`);
       if (raw) return (JSON.parse(raw) as { scale?: number }).scale ?? 1;
     } catch {}
@@ -132,24 +160,18 @@ export default function App() {
   const [isEditingName, setIsEditingName] = useState(false);
   const [contentOffScreen, setContentOffScreen] = useState(false);
   const [showShapePicker, setShowShapePicker] = useState(false);
+  const [tipIndex, setTipIndex] = useState(0);
+  const [tipVisible, setTipVisible] = useState(true);
   const [showColorPicker, setShowColorPicker] = useState(false);
-  const [exportFormat, setExportFormat] = useState<"png" | "svg">(
-    () =>
-      (localStorage.getItem("drawtool-export-format") as "png" | "svg") ??
-      "png",
-  );
-  const [exportTransparentBg, setExportTransparentBg] = useState(
-    () => localStorage.getItem("drawtool-export-transparent") === "1",
-  );
-  const [exportIncludeImages, setExportIncludeImages] = useState(
-    () => localStorage.getItem("drawtool-export-include-images") === "1",
-  );
-  const exportFormatRef = useRef(exportFormat);
-  const exportTransparentBgRef = useRef(exportTransparentBg);
-  const exportIncludeImagesRef = useRef(exportIncludeImages);
-  exportIncludeImagesRef.current = exportIncludeImages;
+  const exportFormatRef = useRef(settings.exportFormat);
+  const exportTransparentBgRef = useRef(settings.exportTransparentBg);
+  const exportIncludeImagesRef = useRef(settings.exportIncludeImages);
+  exportFormatRef.current = settings.exportFormat;
+  exportTransparentBgRef.current = settings.exportTransparentBg;
+  exportIncludeImagesRef.current = settings.exportIncludeImages;
   const canvasNameRef = useRef(canvasName);
   const activeCanvasRef = useRef(activeCanvas);
+  const cloudActiveIdRef = useRef<string | null>(null);
   canvasNameRef.current = canvasName;
   activeCanvasRef.current = activeCanvas;
   const [showThicknessPicker, setShowThicknessPicker] = useState<
@@ -166,7 +188,9 @@ export default function App() {
   >(null);
   const [toastFading, setToastFading] = useState(false);
   const toastTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const [storageQuotaCanvases, setStorageQuotaCanvases] = useState<Set<number>>(() => new Set());
+  const [storageQuotaCanvases, setStorageQuotaCanvases] = useState<Set<number>>(
+    () => new Set(),
+  );
   const toastFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
@@ -350,11 +374,38 @@ export default function App() {
     }
   }, []);
 
-  const exportPng = useCallback(() => {
+  const exportPng = useCallback(async () => {
     const canvas = document.querySelector("canvas");
     if (!canvas) return;
-    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
-    canvas.toBlob((blob) => {
+    const filename = buildExportFilename(
+      canvasNameRef.current,
+      activeCanvasRef.current,
+    );
+    if (isProRef.current) {
+      canvas.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `${filename}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+      return;
+    }
+    const offscreen = document.createElement("canvas");
+    offscreen.width = canvas.width;
+    offscreen.height = canvas.height;
+    const ctx = offscreen.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(canvas, 0, 0);
+    await drawWatermark(
+      ctx,
+      offscreen.width,
+      offscreen.height,
+      window.devicePixelRatio || 1,
+    );
+    offscreen.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -368,7 +419,9 @@ export default function App() {
   const importFileRef = useRef<HTMLInputElement>(null);
   const imageFileRef = useRef<HTMLInputElement>(null);
   const [showImportModal, setShowImportModal] = useState(false);
-  const [importMode, setImportMode] = useState<"canvas" | "workspace">("canvas");
+  const [importMode, setImportMode] = useState<"canvas" | "workspace">(
+    "canvas",
+  );
   const [showStash, setShowStash] = useState(false);
   const [stashItems, setStashItems] = useState<StashItem[]>(() => loadStash());
   const [dropZoneActive, setDropZoneActive] = useState(false);
@@ -379,7 +432,9 @@ export default function App() {
     const name = canvasNameRef.current || undefined;
     let images: Record<string, string> | undefined;
     if (exportIncludeImagesRef.current) {
-      const ids = [...new Set(strokes.map((s) => s.imageId).filter(Boolean) as string[])];
+      const ids = [
+        ...new Set(strokes.map((s) => s.imageId).filter(Boolean) as string[]),
+      ];
       if (ids.length > 0) {
         images = {};
         for (const id of ids) {
@@ -388,7 +443,12 @@ export default function App() {
         }
       }
     }
-    const file = { version: 1, strokes, ...(name ? { name } : {}), ...(images ? { images } : {}) };
+    const file = {
+      version: 1,
+      strokes,
+      ...(name ? { name } : {}),
+      ...(images ? { images } : {}),
+    };
     const blob = new Blob([JSON.stringify(file, null, 2)], {
       type: "application/json",
     });
@@ -398,17 +458,27 @@ export default function App() {
     a.download = `${buildExportFilename(canvasName, activeCanvas)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast({ type: "text", message: `Exported canvas ${activeCanvas}` }, 1500);
+    showToast(
+      { type: "text", message: `Exported canvas ${activeCanvas}` },
+      1500,
+    );
   }, [activeCanvas, canvasName, showToast]);
 
   const processImportFile = useCallback(
     (file: File) => {
       file.text().then((text) => {
         try {
-          const { strokes, name, images } = validateStrokesFile(JSON.parse(text));
-          saveStrokes(strokes, activeCanvas);
+          const { strokes, name, images } = validateStrokesFile(
+            JSON.parse(text),
+          );
+          const targetSlot = cloudActiveIdRef.current ? 1 : activeCanvas;
+          saveStrokes(strokes, targetSlot);
           if (name !== undefined) {
-            localStorage.setItem(`drawtool-canvas-name-${activeCanvas}`, name);
+            if (!cloudActiveIdRef.current)
+              localStorage.setItem(
+                `drawtool-canvas-name-${activeCanvas}`,
+                name,
+              );
             setCanvasName(name);
           }
           const imageEntries = images ? Object.entries(images) : [];
@@ -416,22 +486,31 @@ export default function App() {
             window.dispatchEvent(
               new CustomEvent("drawtool:import-strokes", { detail: strokes }),
             );
-            showToast({
-              type: "text",
-              message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}`,
-            }, 1500);
+            window.dispatchEvent(new Event("drawtool:center-view"));
+            showToast(
+              {
+                type: "text",
+                message: `Imported ${strokes.length} stroke${strokes.length !== 1 ? "s" : ""}`,
+              },
+              1500,
+            );
           };
           if (imageEntries.length > 0) {
-            Promise.all(imageEntries.map(([id, dataUrl]) => storeImage(id, dataUrl))).then(restoreAndDispatch);
+            Promise.all(
+              imageEntries.map(([id, dataUrl]) => storeImage(id, dataUrl)),
+            ).then(restoreAndDispatch);
           } else {
             restoreAndDispatch();
           }
         } catch (err) {
           console.error("Canvas import error:", err);
-          showToast({
-            type: "text",
-            message: `Import failed: ${(err as Error).message}`,
-          }, 5000);
+          showToast(
+            {
+              type: "text",
+              message: `Import failed: ${(err as Error).message}`,
+            },
+            5000,
+          );
         }
       });
     },
@@ -444,10 +523,15 @@ export default function App() {
         const index = i + 1;
         const strokes = loadStrokes(index);
         const view = loadView(index);
-        const name = localStorage.getItem(`drawtool-canvas-name-${index}`) || undefined;
+        const name =
+          localStorage.getItem(`drawtool-canvas-name-${index}`) || undefined;
         let images: Record<string, string> | undefined;
         if (exportIncludeImagesRef.current) {
-          const ids = [...new Set(strokes.map((s) => s.imageId).filter(Boolean) as string[])];
+          const ids = [
+            ...new Set(
+              strokes.map((s) => s.imageId).filter(Boolean) as string[],
+            ),
+          ];
           if (ids.length > 0) {
             images = {};
             for (const id of ids) {
@@ -456,7 +540,13 @@ export default function App() {
             }
           }
         }
-        return { index, strokes, view, ...(name ? { name } : {}), ...(images ? { images } : {}) };
+        return {
+          index,
+          strokes,
+          view,
+          ...(name ? { name } : {}),
+          ...(images ? { images } : {}),
+        };
       }),
     );
     const canvases = canvasEntries.filter((c) => c.strokes.length > 0);
@@ -468,7 +558,13 @@ export default function App() {
     a.download = `workspace-${new Date().toISOString().slice(0, 10)}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    showToast({ type: "text", message: `Exported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})` }, 1500);
+    showToast(
+      {
+        type: "text",
+        message: `Exported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})`,
+      },
+      1500,
+    );
   }, [showToast]);
 
   const processWorkspaceFile = useCallback(
@@ -480,11 +576,13 @@ export default function App() {
           for (const { index, strokes, view, name, images } of canvases) {
             saveStrokes(strokes, index);
             if (view) saveView(view, index);
-            if (name !== undefined) localStorage.setItem(`drawtool-canvas-name-${index}`, name);
+            if (name !== undefined)
+              localStorage.setItem(`drawtool-canvas-name-${index}`, name);
             else localStorage.removeItem(`drawtool-canvas-name-${index}`);
             if (images) allImageEntries.push(...Object.entries(images));
           }
-          const activeNameAfterImport = localStorage.getItem(`drawtool-canvas-name-${activeCanvas}`) ?? "";
+          const activeNameAfterImport =
+            localStorage.getItem(`drawtool-canvas-name-${activeCanvas}`) ?? "";
           setCanvasName(activeNameAfterImport);
           const dispatchWorkspace = () => {
             window.dispatchEvent(
@@ -492,22 +590,30 @@ export default function App() {
                 detail: loadStrokes(activeCanvas),
               }),
             );
-            showToast({
-              type: "text",
-              message: `Imported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})`,
-            }, 1500);
+            showToast(
+              {
+                type: "text",
+                message: `Imported workspace (${canvases.length} canvas${canvases.length !== 1 ? "es" : ""})`,
+              },
+              1500,
+            );
           };
           if (allImageEntries.length > 0) {
-            Promise.all(allImageEntries.map(([id, dataUrl]) => storeImage(id, dataUrl))).then(dispatchWorkspace);
+            Promise.all(
+              allImageEntries.map(([id, dataUrl]) => storeImage(id, dataUrl)),
+            ).then(dispatchWorkspace);
           } else {
             dispatchWorkspace();
           }
         } catch (err) {
           console.error("Workspace import error:", err);
-          showToast({
-            type: "text",
-            message: `Import failed: ${(err as Error).message}`,
-          }, 5000);
+          showToast(
+            {
+              type: "text",
+              message: `Import failed: ${(err as Error).message}`,
+            },
+            5000,
+          );
         }
       });
     },
@@ -550,10 +656,11 @@ export default function App() {
   }, [showImportModal]);
 
   useEffect(() => {
-    const onToggleStash = () => setShowStash((p) => {
-      if (!p) window.dispatchEvent(new Event("drawtool:close-menu"));
-      return !p;
-    });
+    const onToggleStash = () =>
+      setShowStash((p) => {
+        if (!p) window.dispatchEvent(new Event("drawtool:close-menu"));
+        return !p;
+      });
     const onSaveToStashResult = (e: Event) => {
       const strokes = (e as CustomEvent<Stroke[]>).detail;
       if (!strokes.length) return;
@@ -573,30 +680,51 @@ export default function App() {
     };
     const onCloseStash = () => setShowStash(false);
     window.addEventListener("drawtool:toggle-stash", onToggleStash);
-    window.addEventListener("drawtool:save-to-stash-result", onSaveToStashResult);
+    window.addEventListener(
+      "drawtool:save-to-stash-result",
+      onSaveToStashResult,
+    );
     window.addEventListener("drawtool:close-stash", onCloseStash);
     const onOpenImageInsert = () => imageFileRef.current?.click();
     window.addEventListener("drawtool:open-image-insert", onOpenImageInsert);
     return () => {
       window.removeEventListener("drawtool:toggle-stash", onToggleStash);
-      window.removeEventListener("drawtool:save-to-stash-result", onSaveToStashResult);
+      window.removeEventListener(
+        "drawtool:save-to-stash-result",
+        onSaveToStashResult,
+      );
       window.removeEventListener("drawtool:close-stash", onCloseStash);
-      window.removeEventListener("drawtool:open-image-insert", onOpenImageInsert);
+      window.removeEventListener(
+        "drawtool:open-image-insert",
+        onOpenImageInsert,
+      );
     };
   }, [showToast]);
 
   useEffect(() => {
     if (!showStash) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") { e.stopPropagation(); setShowStash(false); }
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setShowStash(false);
+      }
     };
     window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
   }, [showStash]);
 
   useEffect(() => {
     const onState = (e: Event) => {
-      const { canUndo, canRedo, hasSelection, selectionCount, selectionIsCombined, selectionIsText, selectionIsLocked } = (e as CustomEvent).detail;
+      const {
+        canUndo,
+        canRedo,
+        hasSelection,
+        selectionCount,
+        selectionIsCombined,
+        selectionIsText,
+        selectionIsLocked,
+      } = (e as CustomEvent).detail;
       setCanUndo(canUndo);
       setCanRedo(canRedo);
       setHasSelection(hasSelection);
@@ -717,11 +845,13 @@ export default function App() {
         localStorage.setItem("drawtool-active-canvas", String(n));
         setCanvasName(localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "");
         showToast({ type: "text", message: `Canvas ${n}` });
+        cloudSwitchRef.current?.(n);
       }
     };
     const onFocusCanvasName = () => {
       setIsEditingName(true);
     };
+    const onFindBlankCanvas = () => findBlankCanvasRef.current?.();
     window.addEventListener("drawtool:zoom", onZoom);
     window.addEventListener("drawtool:thickness", onThickness);
     window.addEventListener("drawtool:color-cycle", onColorCycle);
@@ -731,6 +861,7 @@ export default function App() {
     window.addEventListener("drawtool:cycle-shape", onCycleShape);
     window.addEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
     window.addEventListener("drawtool:switch-canvas", onSwitchCanvas);
+    window.addEventListener("drawtool:find-blank-canvas", onFindBlankCanvas);
     window.addEventListener("drawtool:focus-canvas-name", onFocusCanvasName);
     const onTextSize = (e: Event) => {
       const size = (e as CustomEvent).detail as TextSize;
@@ -756,14 +887,20 @@ export default function App() {
     const onToast = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (typeof detail === "object" && detail.type === "toggle") {
-        showToast({ type: "toggle", label: detail.label, on: detail.on }, detail.duration);
+        showToast(
+          { type: "toggle", label: detail.label, on: detail.on },
+          detail.duration,
+        );
         return;
       }
       const message =
         typeof detail === "object" ? detail.message : (detail as string);
       const duration = typeof detail === "object" ? detail.duration : undefined;
       const isChallenge = typeof detail === "object" && detail.challenge;
-      showToast({ type: isChallenge ? "challenge" : "text", message }, duration);
+      showToast(
+        { type: isChallenge ? "challenge" : "text", message },
+        duration,
+      );
     };
     const onToggleGrid = () => {
       const cycle: GridType[] = ["off", "dot", "square"];
@@ -846,15 +983,25 @@ export default function App() {
     window.addEventListener("drawtool:text-style-sync", onTextStyleSync);
     window.addEventListener("drawtool:toast", onToast);
     window.addEventListener("drawtool:cycle-theme", onCycleTheme);
-    const onTextPlaced = () => { if (hasTouch) setTouchTool("select"); };
+    const onTextPlaced = () => {
+      if (hasTouch) setTouchTool("select");
+    };
     window.addEventListener("drawtool:text-placed", onTextPlaced);
     const onStorageQuota = (e: Event) => {
       const idx = (e as CustomEvent).detail?.canvasIndex as number;
-      setStorageQuotaCanvases(prev => { const next = new Set(prev); next.add(idx); return next; });
+      setStorageQuotaCanvases((prev) => {
+        const next = new Set(prev);
+        next.add(idx);
+        return next;
+      });
     };
     const onStorageOk = (e: Event) => {
       const idx = (e as CustomEvent).detail?.canvasIndex as number;
-      setStorageQuotaCanvases(prev => { const next = new Set(prev); next.delete(idx); return next; });
+      setStorageQuotaCanvases((prev) => {
+        const next = new Set(prev);
+        next.delete(idx);
+        return next;
+      });
     };
     window.addEventListener("drawtool:storage-quota", onStorageQuota);
     window.addEventListener("drawtool:storage-ok", onStorageOk);
@@ -868,6 +1015,7 @@ export default function App() {
       window.removeEventListener("drawtool:cycle-shape", onCycleShape);
       window.removeEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
+      window.removeEventListener("drawtool:find-blank-canvas", onFindBlankCanvas);
       window.removeEventListener(
         "drawtool:focus-canvas-name",
         onFocusCanvasName,
@@ -893,7 +1041,14 @@ export default function App() {
       window.removeEventListener("drawtool:storage-quota", onStorageQuota);
       window.removeEventListener("drawtool:storage-ok", onStorageOk);
     };
-  }, [updateSettings, requestClear, showToast, toggleFullscreen, exportPng, exportData]);
+  }, [
+    updateSettings,
+    requestClear,
+    showToast,
+    toggleFullscreen,
+    exportPng,
+    exportData,
+  ]);
 
   // Confirmation overlay keyboard handler — capture phase to block Canvas
   useEffect(() => {
@@ -944,21 +1099,38 @@ export default function App() {
   }, []);
 
   const exportTransparent = useCallback(() => {
-    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
-    window.dispatchEvent(new CustomEvent("drawtool:export-transparent", { detail: { filename } }));
+    const filename = buildExportFilename(
+      canvasNameRef.current,
+      activeCanvasRef.current,
+    );
+    window.dispatchEvent(
+      new CustomEvent("drawtool:export-transparent", {
+        detail: { filename, watermark: !isProRef.current },
+      }),
+    );
   }, []);
 
   const exportSvgFn = useCallback((transparent: boolean) => {
-    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
+    const filename = buildExportFilename(
+      canvasNameRef.current,
+      activeCanvasRef.current,
+    );
     window.dispatchEvent(
-      new CustomEvent("drawtool:export-svg", { detail: { transparent, filename } }),
+      new CustomEvent("drawtool:export-svg", {
+        detail: { transparent, filename, watermark: false },
+      }),
     );
   }, []);
 
   const exportSelectionSvgFn = useCallback((transparent: boolean) => {
-    const filename = buildExportFilename(canvasNameRef.current, activeCanvasRef.current);
+    const filename = buildExportFilename(
+      canvasNameRef.current,
+      activeCanvasRef.current,
+    );
     window.dispatchEvent(
-      new CustomEvent("drawtool:export-selection-svg", { detail: { transparent, filename } }),
+      new CustomEvent("drawtool:export-selection-svg", {
+        detail: { transparent, filename, watermark: false },
+      }),
     );
   }, []);
 
@@ -981,7 +1153,9 @@ export default function App() {
 
   useEffect(() => {
     if (localStorage.getItem("drawtool-onboarded")) return;
-    document.fonts.load("400 20px 'Caveat Brush'").then(() => setShowOnboarding(true));
+    document.fonts
+      .load("400 20px 'Caveat Brush'")
+      .then(() => setShowOnboarding(true));
   }, []);
 
   useEffect(() => {
@@ -996,8 +1170,255 @@ export default function App() {
   }, [showOnboarding, dismissOnboarding]);
 
   const isDark = isDarkTheme(settings.theme);
+  const { isSignedIn } = useUser();
+  const { getToken } = useAuth();
+  const { canvasLimit, isPro, planLoading, subscription } = useUserPlan();
+  const cloudCanvas = useCloudCanvas(isDark, canvasLimit, planLoading, isPro, settings.lastActiveCanvasId, _newRouteForCloud);
+  cloudActiveIdRef.current = cloudCanvas.activeId;
+  const hasCloudCanvases = (cloudCanvas.workspace?.canvases.length ?? 0) > 0;
+
+  // When /new finds all cloud canvases occupied, open the dialog + blur
+  useEffect(() => {
+    if (cloudCanvas.newRouteAllOccupied) {
+      setNewCanvasDialogOpen(true);
+      setNewCanvasBlurred(true);
+    }
+  }, [cloudCanvas.newRouteAllOccupied]);
+  const migration = useMigration(
+    canvasLimit,
+    planLoading,
+    cloudCanvas.workspacesLoaded,
+    hasCloudCanvases,
+    isDark,
+  );
+  useCloudStash({
+    items: stashItems,
+    isPro,
+    isSignedIn,
+    onCloudLoad: setStashItems,
+  });
+
+  const isProRef = useRef(isPro);
+  isProRef.current = isPro;
+
+  // Ref so the stale-closure event handler can trigger cloud switching
+  const cloudSwitchRef = useRef<((n: number) => void) | null>(null);
+  cloudSwitchRef.current = (n: number) => {
+    if (!isSignedIn || !cloudCanvas.workspace) return;
+    const meta = cloudCanvas.workspace.canvases.find(
+      (c) => c.position === n - 1,
+    );
+    if (meta) {
+      cloudCanvas.switchCanvas(meta.id);
+    } else if (!isPro && n > canvasLimit) {
+      // blocked — upgrade modal handles the messaging
+    } else {
+      cloudCanvas.createCanvas("").then((newCanvas) => {
+        if (newCanvas) cloudCanvas.switchCanvas(newCanvas.id);
+      });
+    }
+  };
+
+  // Ref so the stale-closure event handler can find a blank canvas (cloud-aware)
+  const findBlankCanvasRef = useRef<(() => void) | null>(null);
+  findBlankCanvasRef.current = () => {
+    if (isSignedIn && cloudCanvas.workspace) {
+      const candidates = cloudCanvas.workspace.canvases.slice(0, canvasLimit);
+      const blank = candidates.find(c => c.stroke_count === 0);
+      const target = blank ?? [...candidates].sort((a, b) => a.updated_at - b.updated_at)[0];
+      if (target) {
+        const slotN = target.position + 1;
+        setActiveCanvas(slotN);
+        localStorage.setItem('drawtool-active-canvas', String(slotN));
+        setCanvasName(target.name);
+        cloudCanvas.switchCanvas(target.id);
+        showToast({ type: 'text', message: `Canvas ${slotN}` });
+      }
+    } else {
+      const counts = Array.from({ length: canvasLimit }, (_, i) => {
+        const raw = localStorage.getItem(strokesKey(i + 1));
+        if (!raw) return 0;
+        try { return (JSON.parse(raw) as unknown[]).length; } catch { return 0; }
+      });
+      const empty = counts.findIndex((n) => n === 0);
+      window.dispatchEvent(new CustomEvent('drawtool:switch-canvas', {
+        detail: empty !== -1 ? empty + 1 : counts.findIndex((n) => n === Math.min(...counts)) + 1,
+      }));
+    }
+  };
+
+  const exportWorkspacesZip = useCallback(async () => {
+    const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
+    const token = await getToken()
+    if (!token) return
+    const res = await fetch(`${API_URL}/workspaces/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+    if (!res.ok) return
+    const { workspaces } = await res.json() as {
+      workspaces: Array<{ name: string; canvases: Array<{ name: string; [k: string]: unknown }> }>
+    }
+    const { zipSync, strToU8 } = await import('fflate')
+    const files: Record<string, Uint8Array> = {}
+    for (const ws of workspaces) {
+      const safeName = ws.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+      for (const canvas of ws.canvases) {
+        const safeCanvas = canvas.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+        files[`${safeName}/${safeCanvas}.json`] = strToU8(JSON.stringify(canvas, null, 2))
+      }
+    }
+    const zip = zipSync(files)
+    const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }))
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'drawzilla-export.zip'
+    a.click()
+    URL.revokeObjectURL(url)
+  }, [getToken])
+
+  const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
+
+  // Save local activeCanvas before cloud takes over; restore it on logout
+  const prevSignedInRef = useRef<boolean | undefined>(undefined);
+  useEffect(() => {
+    if (isSignedIn === undefined) return;
+    const prev = prevSignedInRef.current;
+    prevSignedInRef.current = isSignedIn;
+
+    if (prev !== true && isSignedIn === true) {
+      // Just logged in — snapshot the current local slot so we can return to it on logout
+      localStorage.setItem(
+        "drawtool-precloud-active",
+        String(activeCanvasRef.current),
+      );
+    }
+
+    if (prev === true && isSignedIn === false) {
+      // Just logged out — restore the pre-login local canvas slot
+      const saved = localStorage.getItem("drawtool-precloud-active");
+      localStorage.removeItem("drawtool-precloud-active");
+      const slot = saved
+        ? Math.max(1, Math.min(9, parseInt(saved, 10) || 1))
+        : 1;
+      setActiveCanvas(slot);
+      activeCanvasRef.current = slot;
+      localStorage.setItem("drawtool-active-canvas", String(slot));
+      const name = localStorage.getItem(`drawtool-canvas-name-${slot}`) ?? "";
+      setCanvasName(name);
+      canvasNameRef.current = name;
+    }
+  }, [isSignedIn]);
+
+  // ⌘O opens workspace switcher (Pro only)
+  useEffect(() => {
+    if (!isSignedIn || !isPro) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.key === "o" &&
+        !e.shiftKey &&
+        !e.altKey
+      ) {
+        e.preventDefault();
+        setShowWorkspaceSwitcher((o) => !o);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [isSignedIn, isPro]);
+
+  // Load share links for the active cloud canvas
+  useEffect(() => {
+    if (!isSignedIn || !cloudCanvas.activeId) return;
+    cloudCanvas.loadCanvasShares(cloudCanvas.activeId);
+  }, [isSignedIn, cloudCanvas.activeId]);
+
+  // Persist active cloud canvas to settings so other devices restore it on sign-in
+  useEffect(() => {
+    if (!isSignedIn || !cloudCanvas.activeId) return;
+    updateSettings({ lastActiveCanvasId: cloudCanvas.activeId });
+  }, [cloudCanvas.activeId, isSignedIn]);
+
+  // Sync cloud canvas name and slot number into local state
+  useEffect(() => {
+    if (!cloudCanvas.activeCanvasMeta) return;
+    const n = cloudCanvas.activeCanvasMeta.position + 1;
+    setActiveCanvas(n);
+    activeCanvasRef.current = n;
+    localStorage.setItem("drawtool-active-canvas", String(n));
+    setCanvasName(cloudCanvas.activeCanvasMeta.name);
+    canvasNameRef.current = cloudCanvas.activeCanvasMeta.name;
+  }, [cloudCanvas.activeCanvasMeta?.id, cloudCanvas.activeCanvasMeta?.name]);
+
+  // Welcome toast after Stripe checkout
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("unleashed") === "1") {
+      window.history.replaceState(null, "", window.location.pathname);
+      showToast({ type: "text", message: "Welcome to Unleashed!" }, 3000);
+    }
+  }, []);
   const mod = isMac ? "\u2318" : "Ctrl";
   const alt = isMac ? "\u2325" : "Alt";
+  const shift = "\u21e7";
+
+  const K = ({ children }: { children: ReactNode }) => (
+    <kbd
+      style={{
+        fontFamily: "ui-monospace, monospace",
+        fontSize: 10,
+        padding: "0px 4px",
+        borderRadius: 3,
+        border: `1px solid ${isDark ? "rgba(255,255,255,0.18)" : "rgba(0,0,0,0.15)"}`,
+        background: isDark ? "rgba(255,255,255,0.07)" : "rgba(0,0,0,0.05)",
+        color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)",
+        display: "inline-block",
+        lineHeight: "1.5",
+      }}
+    >
+      {children}
+    </kbd>
+  );
+  const kbTips: ReactNode[] = [
+    <>Hold <K>Space</K> + drag to pan</>,
+    <>Hold <K>R</K> + drag for rectangle</>,
+    <>Hold <K>C</K> + drag for circle</>,
+    <>Hold <K>A</K> + drag for arrow</>,
+    <>Hold <K>S</K> + drag for shape</>,
+    <>Hold <K>{shift}</K> + <K>S</K> + drag for dashed shape</>,
+    <>Hold <K>F</K> + <K>S</K> + drag for filled shape</>,
+    <>Hold <K>{mod}</K> + drag to draw</>,
+    <>Hold <K>{mod}</K> + <K>{shift}</K> + drag for straight line</>,
+    <>Press <K>T</K> to enter text</>,
+    <>Hold <K>V</K> to select items</>,
+    <>Double-tap <K>V</K> for select mode</>,
+    <>Hold <K>{alt}</K> + drag to erase</>,
+    <>Hold <K>{shift}</K> + drag for dashed line</>,
+    <>Hold <K>W</K> + drag to highlight</>,
+    <>Hold <K>Q</K> + drag for laser pointer</>,
+    <>Press <K>.</K> to place a dot</>,
+    <><K>[</K> or <K>]</K> to cycle color</>,
+    <><K>,</K> to swap between last 2 colors</>,
+    <><K>{"{"}</K> or <K>{"}"}</K> to adjust thickness</>,
+    <>Press <K>G</K> to cycle grid</>,
+    <>Press <K>0</K> to jump to cleanest canvas</>,
+    <><K>{mod}</K> + <K>{shift}</K> + <K>S</K> to save selection to stash</>,
+    <>Press <K>?</K> to see all shortcuts</>,
+  ];
+
+  useEffect(() => {
+    if (!settings.showTips || hasTouch) return;
+    const INTERVAL = 8000;
+    const FADE = 400;
+    const timer = setInterval(() => {
+      setTipVisible(false);
+      setTimeout(() => {
+        setTipIndex((i) => (i + 1) % kbTips.length);
+        setTipVisible(true);
+      }, FADE);
+    }, INTERVAL);
+    return () => clearInterval(timer);
+  }, [settings.showTips, hasTouch, kbTips.length]);
   const visibleLineColor =
     (settings.lineColor === "#000000" && isDark) ||
     (settings.lineColor === "#ffffff" && !isDark)
@@ -1180,45 +1601,112 @@ export default function App() {
 
   return (
     <>
+      {showWorkspaceSwitcher && isSignedIn && (
+        <WorkspaceSwitcherModal
+          allWorkspaces={cloudCanvas.allWorkspaces}
+          activeWorkspaceId={cloudCanvas.workspace?.id ?? null}
+          activeCanvasId={cloudCanvas.activeId}
+          isPro={isPro}
+          loading={cloudCanvas.loading}
+          isDark={isDark}
+          theme={settings.theme}
+          onSelectCanvas={async (workspaceId, canvasId) => {
+            if (workspaceId !== cloudCanvas.workspace?.id) {
+              await cloudCanvas.switchWorkspace(workspaceId, canvasId);
+            } else {
+              await cloudCanvas.switchCanvas(canvasId);
+            }
+          }}
+          onSelectWorkspace={(id) => cloudCanvas.switchWorkspace(id)}
+          onCreateWorkspace={async (name) => {
+            const ws = await cloudCanvas.createWorkspace(name || undefined);
+            if (ws) {
+              await cloudCanvas.switchWorkspace(ws.id);
+            }
+          }}
+          onRenameCanvas={cloudCanvas.renameCanvas}
+          onRenameWorkspace={cloudCanvas.renameWorkspace}
+          onRemoveCanvas={async (id, isLast) => {
+            if (isLast) return cloudCanvas.clearCanvas(id)
+            return cloudCanvas.deleteCanvas(id)
+          }}
+          onDeleteWorkspace={cloudCanvas.deleteWorkspace}
+          onResetWorkspace={async (wsId) => {
+            const ws = cloudCanvas.allWorkspaces.find(w => w.id === wsId)
+            if (!ws) return false
+            await Promise.all(ws.canvases.slice(1).map(c => cloudCanvas.deleteCanvas(c.id)))
+            return cloudCanvas.clearCanvas(ws.canvases[0]?.id ?? '')
+          }}
+          onClose={() => setShowWorkspaceSwitcher(false)}
+          onPrefetchThumbnail={cloudCanvas.prefetchThumbnail}
+        />
+      )}
+      {migration.showModal && (
+        <MigrationModal
+          localCanvases={migration.localCanvases}
+          willMigrateCount={migration.willMigrateCount}
+          skippedCount={migration.skippedCount}
+          onMigrate={async () => {
+            await migration.migrate();
+            cloudCanvas.fetchWorkspace();
+          }}
+          onSkip={migration.skip}
+          migrating={migration.migrating}
+          error={migration.error}
+          isDark={isDark}
+        />
+      )}
+      {!isPro && !planLoading && (
+        <a
+          href="https://unleash.drawzil.la"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="fixed top-4 right-[62px] z-[51] h-[38px] px-3 flex items-center justify-center rounded-lg border border-green-400/30 backdrop-blur-sm text-white text-xs font-semibold tracking-wide select-none"
+          style={{
+            background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+            boxShadow: "0 2px 10px rgba(34,197,94,0.4)",
+          }}
+        >
+          Unleashed
+        </a>
+      )}
       <Menu
         settings={settings}
         updateSettings={updateSettings}
-        onExport={(format, transparent) => {
+        onExport={activeCanvas <= canvasLimit || isPro ? (format, transparent) => {
           if (format === "svg") exportSvgFn(transparent);
           else if (transparent) exportTransparent();
           else exportPng();
-        }}
-        exportFormat={exportFormat}
-        exportTransparentBg={exportTransparentBg}
-        onSetExportFormat={(f) => {
-          setExportFormat(f);
-          exportFormatRef.current = f;
-          localStorage.setItem("drawtool-export-format", f);
-        }}
-        onSetExportTransparentBg={(v) => {
-          setExportTransparentBg(v);
-          exportTransparentBgRef.current = v;
-          localStorage.setItem("drawtool-export-transparent", v ? "1" : "0");
-        }}
-        exportIncludeImages={exportIncludeImages}
-        onSetExportIncludeImages={(v) => {
-          setExportIncludeImages(v);
-          exportIncludeImagesRef.current = v;
-          localStorage.setItem("drawtool-export-include-images", v ? "1" : "0");
-        }}
+        } : undefined}
+        exportFormat={settings.exportFormat}
+        exportTransparentBg={settings.exportTransparentBg}
+        onSetExportFormat={(f) => updateSettings({ exportFormat: f })}
+        onSetExportTransparentBg={(v) =>
+          updateSettings({ exportTransparentBg: v })
+        }
+        exportIncludeImages={settings.exportIncludeImages}
+        onSetExportIncludeImages={(v) =>
+          updateSettings({ exportIncludeImages: v })
+        }
         hasTouch={hasTouch}
         activeCanvas={activeCanvas}
         onSwitchCanvas={(n) => {
-          setActiveCanvas(n);
-          const name = localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "";
-          setCanvasName(name);
-          canvasNameRef.current = name;
-          localStorage.setItem("drawtool-active-canvas", String(n));
+          if (isSignedIn && cloudCanvas.workspace) {
+            cloudSwitchRef.current?.(n);
+          } else {
+            setActiveCanvas(n);
+            const name =
+              localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "";
+            setCanvasName(name);
+            canvasNameRef.current = name;
+            localStorage.setItem("drawtool-active-canvas", String(n));
+          }
         }}
         onReorderCanvases={(newOrder) => {
           const newActivePos = newOrder.indexOf(activeCanvas) + 1;
           reorderCanvases(newOrder);
-          const newName = localStorage.getItem(`drawtool-canvas-name-${newActivePos}`) ?? "";
+          const newName =
+            localStorage.getItem(`drawtool-canvas-name-${newActivePos}`) ?? "";
           setActiveCanvas(newActivePos);
           setCanvasName(newName);
           canvasNameRef.current = newName;
@@ -1234,6 +1722,44 @@ export default function App() {
         stashCount={stashItems.length}
         selectionCount={selectionCount}
         onExportSelection={(transparent) => exportSelectionSvgFn(transparent)}
+        canvasLimit={canvasLimit}
+        isPro={isPro}
+        cloudCanvases={
+          isSignedIn && cloudCanvas.workspace
+            ? cloudCanvas.workspace.canvases
+            : undefined
+        }
+        activeCloudCanvasId={cloudCanvas.activeId}
+        onReorderCloud={cloudCanvas.reorderCanvases}
+        canvasShares={isSignedIn ? cloudCanvas.currentShares : undefined}
+        existingShareWorkspaceUrl={
+          cloudCanvas.workspace?.share_enabled
+            ? `${window.location.origin}/s/w/${cloudCanvas.workspace.share_token}`
+            : null
+        }
+        onShareCanvas={
+          isSignedIn && cloudCanvas.activeId && activeCanvas <= canvasLimit
+            ? () => cloudCanvas.createShare(cloudCanvas.activeId!)
+            : undefined
+        }
+        onDeleteShare={
+          isSignedIn && cloudCanvas.activeId && activeCanvas <= canvasLimit
+            ? (token) => cloudCanvas.deleteShare(cloudCanvas.activeId!, token)
+            : undefined
+        }
+        onShareWorkspace={
+          isSignedIn && cloudCanvas.workspace && isPro
+            ? () => cloudCanvas.shareWorkspace().then((r) => r?.url ?? null)
+            : undefined
+        }
+        onUnshareWorkspace={
+          isSignedIn && cloudCanvas.workspace && isPro
+            ? () => cloudCanvas.unshareWorkspace()
+            : undefined
+        }
+        subscription={subscription}
+        onExportWorkspacesZip={exportWorkspacesZip}
+        onResubscribe={() => openBillingPortal(getToken)}
       />
       <input
         ref={importFileRef}
@@ -1249,11 +1775,14 @@ export default function App() {
         className="hidden"
         onChange={(e) => {
           const file = e.target.files?.[0];
-          if (file) window.dispatchEvent(new CustomEvent("drawtool:insert-image", { detail: file }));
+          if (file)
+            window.dispatchEvent(
+              new CustomEvent("drawtool:insert-image", { detail: file }),
+            );
           e.target.value = "";
         }}
       />
-      <Canvas
+      {!cloudCanvas.newRoutePending && <Canvas
         lineWidth={settings.lineWidth}
         lineColor={settings.lineColor}
         dashGap={settings.dashGap}
@@ -1266,8 +1795,15 @@ export default function App() {
         fillOpacity={settings.fillOpacity}
         shapeDashed={settings.shapeDashed}
         shapeCorners={settings.shapeCorners}
-        key={showTraining ? "training" : String(activeCanvas)}
-        canvasIndex={showTraining ? 0 : activeCanvas}
+        key={
+          showTraining
+            ? "training"
+            : cloudCanvas.activeId
+              ? `${cloudCanvas.activeId}-lk${cloudCanvas.loadKey}${cloudCanvas.clearKey ? `-c${cloudCanvas.clearKey}` : ""}`
+              : String(activeCanvas)
+        }
+        canvasIndex={showTraining ? 0 : cloudCanvas.activeId ? 1 : activeCanvas}
+        canvasLimit={canvasLimit}
         textSize={settings.textSize}
         fontFamily={settings.fontFamily}
         textBold={settings.textBold}
@@ -1277,31 +1813,76 @@ export default function App() {
         leftClickTool={settings.leftClickTool}
         rightClickTool={settings.rightClickTool}
         onContentOffScreen={setContentOffScreen}
-      />
-      {activeCanvas > CANVAS_LIMIT && !showTraining && (
-        <div
-          className="fixed inset-0 z-10 flex items-center justify-center pointer-events-auto select-none"
-          onPointerDown={(e) => e.stopPropagation()}
-        >
-          <div className={`flex flex-col items-center gap-5 px-10 py-8 rounded-2xl backdrop-blur-md ${isDark ? "bg-white/[0.06] border border-white/10" : "bg-white/60 border border-black/8"}`}>
-            <img src="/drawzilla-simplifed.svg" className="w-14 h-14 opacity-80" draggable={false} />
-            <div className="text-center">
-              <p className={`text-lg font-semibold tracking-wide ${isDark ? "text-white/70" : "text-black/60"}`}>
-                Coming soon
-              </p>
-              <p className={`text-sm mt-1 ${isDark ? "text-white/40" : "text-black/40"}`}>
-                More canvases will be unleashed
-              </p>
+      />}
+      {activeCanvas > canvasLimit &&
+        !isPro &&
+        !planLoading &&
+        !showTraining && (
+          <div
+            className="fixed inset-0 z-10 flex items-center justify-center pointer-events-auto select-none"
+            onPointerDown={(e) => e.stopPropagation()}
+          >
+            <div
+              className={`relative flex flex-col items-center gap-5 px-8 py-7 rounded-2xl backdrop-blur-md overflow-hidden max-w-[260px] w-full text-center ${isDark ? "bg-white/[0.05] border border-white/[0.08]" : "bg-white/75 border border-black/[0.07]"}`}
+            >
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at 50% -10%, rgba(34,197,94,0.12) 0%, transparent 65%)",
+                }}
+              />
+              <img
+                src="/drawzillaicon.svg"
+                className="relative w-20 h-20"
+                draggable={false}
+              />
+              <div className="relative flex flex-col gap-1">
+                <p
+                  className={`text-sm font-semibold ${isDark ? "text-white/85" : "text-black/75"}`}
+                >
+                  Unlock 9 canvases
+                </p>
+                <p
+                  className={`text-xs leading-relaxed ${isDark ? "text-white/40" : "text-black/40"}`}
+                >
+                  More canvases, workspaces, clean exports &amp; live share
+                  links
+                </p>
+              </div>
+              <a
+                href="https://unleash.drawzil.la"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative px-5 py-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
+                style={{
+                  background:
+                    "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
+                  boxShadow: "0 2px 14px rgba(34,197,94,0.4)",
+                }}
+              >
+                Get Unleashed · £2.99/mo
+              </a>
             </div>
           </div>
-        </div>
-      )}
+        )}
       {settings.showSelectControls && hasSelection && (
-        <SelectControls isDark={isDark} theme={settings.theme} selectionCount={selectionCount} selectionIsCombined={selectionIsCombined} selectionIsText={selectionIsText} selectionIsLocked={selectionIsLocked} />
+        <SelectControls
+          isDark={isDark}
+          theme={settings.theme}
+          selectionCount={selectionCount}
+          selectionIsCombined={selectionIsCombined}
+          selectionIsText={selectionIsText}
+          selectionIsLocked={selectionIsLocked}
+        />
       )}
       {hasTouch ? (
         <>
-          {(showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker || showColorPicker) && (
+          {(showShapePicker ||
+            showThicknessPicker ||
+            showHighlightPicker ||
+            showTextPicker ||
+            showColorPicker) && (
             <div
               className="fixed inset-0 z-40"
               onPointerDown={() => {
@@ -1315,7 +1896,12 @@ export default function App() {
           )}
           {/* Undo / Redo / Delete — tablet: fixed bottom-left; mobile: above toolbar right-aligned */}
           {isTablet && (
-            <div className="fixed left-4 z-50 flex items-center gap-0.5" style={{ bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }}>
+            <div
+              className="fixed left-4 z-50 flex items-center gap-0.5"
+              style={{
+                bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
+              }}
+            >
               <button
                 aria-label="Undo"
                 disabled={!canUndo}
@@ -1389,10 +1975,18 @@ export default function App() {
               <button
                 aria-label="Save to stash"
                 disabled={!hasSelection}
-                onClick={() => window.dispatchEvent(new Event("drawtool:save-to-stash"))}
+                onClick={() =>
+                  window.dispatchEvent(new Event("drawtool:save-to-stash"))
+                }
                 className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
               >
-                <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" stroke="none">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                  stroke="none"
+                >
                   <path d="M7.5 7.5C3 9 2.5 12.5 2.5 14C2.5 17.5 6 19 10 19C14 19 17.5 17.5 17.5 14C17.5 12.5 17 9 12.5 7.5Z" />
                   <rect x="7.5" y="4.5" width="5" height="3.5" />
                   <path d="M10 4.5C9.5 3.5 8.5 2 7 2C5 2 5.5 4.5 7.5 4.5H12.5C14.5 4.5 15 2 13 2C11.5 2 10.5 3.5 10 4.5Z" />
@@ -1403,24 +1997,45 @@ export default function App() {
           <nav
             aria-label="Drawing tools"
             className={`fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : ""}`}
-            style={!isTablet ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" } : undefined}
+            style={
+              !isTablet
+                ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)" }
+                : undefined
+            }
             onTouchStart={(e) => {
               if (e.touches.length !== 1) return;
-              swipeStartRef.current = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+              swipeStartRef.current = {
+                x: e.touches[0].clientX,
+                y: e.touches[0].clientY,
+              };
             }}
             onTouchEnd={(e) => {
-              if (!swipeStartRef.current || e.changedTouches.length !== 1) return;
+              if (!swipeStartRef.current || e.changedTouches.length !== 1)
+                return;
               const dx = e.changedTouches[0].clientX - swipeStartRef.current.x;
               const dy = e.changedTouches[0].clientY - swipeStartRef.current.y;
               swipeStartRef.current = null;
               if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
-              if (showShapePicker || showThicknessPicker || showHighlightPicker || showTextPicker || showColorPicker) return;
+              if (
+                showShapePicker ||
+                showThicknessPicker ||
+                showHighlightPicker ||
+                showTextPicker ||
+                showColorPicker
+              )
+                return;
               e.preventDefault();
-              const next = dx < 0
-                ? (activeCanvas < CANVAS_LIMIT ? activeCanvas + 1 : 1)
-                : (activeCanvas > 1 ? activeCanvas - 1 : CANVAS_LIMIT);
+              const next =
+                dx < 0
+                  ? activeCanvas < canvasLimit
+                    ? activeCanvas + 1
+                    : 1
+                  : activeCanvas > 1
+                    ? activeCanvas - 1
+                    : canvasLimit;
               setActiveCanvas(next);
-              const name = localStorage.getItem(`drawtool-canvas-name-${next}`) ?? "";
+              const name =
+                localStorage.getItem(`drawtool-canvas-name-${next}`) ?? "";
               setCanvasName(name);
               canvasNameRef.current = name;
               localStorage.setItem("drawtool-active-canvas", String(next));
@@ -1510,10 +2125,23 @@ export default function App() {
                 <button
                   aria-label="Save to stash"
                   disabled={!hasSelection}
-                  onClick={() => window.dispatchEvent(new Event("drawtool:save-to-stash"))}
+                  onClick={() =>
+                    window.dispatchEvent(new Event("drawtool:save-to-stash"))
+                  }
                   className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
-                  <svg display="block" style={{ transform: "translateY(1px)" }} width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    display="block"
+                    style={{ transform: "translateY(1px)" }}
+                    width="20"
+                    height="20"
+                    viewBox="0 0 20 20"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.75"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <circle cx="10" cy="10" r="6.5" />
                     <circle cx="10" cy="10" r="2.3" />
                     <line x1="11.6" y1="8.4" x2="14.1" y2="5.9" />
@@ -1775,7 +2403,9 @@ export default function App() {
                 );
               })}
               {/* Color swatch button */}
-              <div className={`w-px self-stretch mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+              <div
+                className={`w-px self-stretch mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
+              />
               <button
                 aria-label={`Color: ${settings.lineColor}`}
                 onClick={() => {
@@ -1785,19 +2415,20 @@ export default function App() {
                   setShowHighlightPicker(false);
                   setShowTextPicker(false);
                 }}
-                className={`flex items-center justify-center px-2.5 py-2.5 sm:px-3 sm:py-3 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${showColorPicker ? isDark ? "bg-white/20" : "bg-black/20" : isDark ? "hover:bg-white/10" : "hover:bg-black/10"}`}
+                className={`flex items-center justify-center px-2.5 py-2.5 sm:px-3 sm:py-3 rounded transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${showColorPicker ? (isDark ? "bg-white/20" : "bg-black/20") : isDark ? "hover:bg-white/10" : "hover:bg-black/10"}`}
               >
                 <span
                   className="w-4 h-4 rounded-full block flex-shrink-0"
                   style={{
                     backgroundColor: settings.lineColor,
-                    boxShadow: settings.lineColor === "#000000" && isDark
-                      ? "0 0 0 2px white"
-                      : settings.lineColor === "#ffffff" && !isDark
-                        ? "0 0 0 2px rgba(0,0,0,0.55)"
-                        : isDark
-                          ? "0 0 0 1.5px rgba(255,255,255,0.3)"
-                          : "0 0 0 1.5px rgba(0,0,0,0.2)",
+                    boxShadow:
+                      settings.lineColor === "#000000" && isDark
+                        ? "0 0 0 2px white"
+                        : settings.lineColor === "#ffffff" && !isDark
+                          ? "0 0 0 2px rgba(0,0,0,0.55)"
+                          : isDark
+                            ? "0 0 0 1.5px rgba(255,255,255,0.3)"
+                            : "0 0 0 1.5px rgba(0,0,0,0.2)",
                   }}
                 />
               </button>
@@ -1805,18 +2436,34 @@ export default function App() {
                 <div
                   className={`absolute p-2 rounded-lg border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                   style={{
-                    background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
-                    borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                    background: isDark
+                      ? "rgba(0,0,0,0.85)"
+                      : "rgba(255,255,255,0.85)",
+                    borderColor: isDark
+                      ? "rgba(255,255,255,0.15)"
+                      : "rgba(0,0,0,0.15)",
                     right: 0,
                   }}
                   onPointerDown={(e) => e.stopPropagation()}
                 >
-                  <div className="flex flex-wrap gap-1.5 justify-center" style={{ maxWidth: "13rem" }}>
+                  <div
+                    className="flex flex-wrap gap-1.5 justify-center"
+                    style={{ maxWidth: "13rem" }}
+                  >
                     {[
                       isDark ? "#ffffff" : "#000000",
                       isDark ? "#000000" : "#ffffff",
-                      "#ef4444", "#ff7f50", "#f97316", "#eab308", "#84cc16",
-                      "#22c55e", "#06b6d4", "#3b82f6", "#8b5cf6", "#b096f8", "#ec4899",
+                      "#ef4444",
+                      "#ff7f50",
+                      "#f97316",
+                      "#eab308",
+                      "#84cc16",
+                      "#22c55e",
+                      "#06b6d4",
+                      "#3b82f6",
+                      "#8b5cf6",
+                      "#b096f8",
+                      "#ec4899",
                     ].map((color) => (
                       <button
                         key={color}
@@ -1829,12 +2476,20 @@ export default function App() {
                         className="w-8 h-8 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
                         style={{
                           backgroundColor: color,
-                          borderColor: settings.lineColor === color
-                            ? isDark ? "white" : "black"
-                            : color === "#000000" || color === "#ffffff"
-                              ? isDark ? "#555" : "#bbb"
-                              : "transparent",
-                          transform: settings.lineColor === color ? "scale(1.15)" : undefined,
+                          borderColor:
+                            settings.lineColor === color
+                              ? isDark
+                                ? "white"
+                                : "black"
+                              : color === "#000000" || color === "#ffffff"
+                                ? isDark
+                                  ? "#555"
+                                  : "#bbb"
+                                : "transparent",
+                          transform:
+                            settings.lineColor === color
+                              ? "scale(1.15)"
+                              : undefined,
                         }}
                       />
                     ))}
@@ -1884,7 +2539,9 @@ export default function App() {
                                 ? "white"
                                 : "black"
                               : color === "#000000" || color === "#ffffff"
-                                ? isDark ? "#555" : "#bbb"
+                                ? isDark
+                                  ? "#555"
+                                  : "#bbb"
                                 : "transparent",
                           transform:
                             settings.lineColor === color
@@ -2335,8 +2992,12 @@ export default function App() {
               <div
                 className={`absolute p-3 rounded-lg border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                 style={{
-                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
-                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                  background: isDark
+                    ? "rgba(0,0,0,0.85)"
+                    : "rgba(255,255,255,0.85)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(0,0,0,0.15)",
                   left: "50%",
                   transform: "translateX(-50%)",
                   minWidth: "14rem",
@@ -2354,8 +3015,12 @@ export default function App() {
                       aria-pressed={settings.textSize === size}
                       className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
                         settings.textSize === size
-                          ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
-                          : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                          ? isDark
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark
+                            ? "text-white/50 hover:text-white/70"
+                            : "text-black/40 hover:text-black/60"
                       }`}
                     >
                       {size.toUpperCase()}
@@ -2369,21 +3034,37 @@ export default function App() {
                       { key: "caveat", css: "'Caveat', cursive" },
                       { key: "comic", css: "'Bangers', cursive" },
                       { key: "cartoon", css: "'Boogaloo', cursive" },
-                      { key: "sans", css: "system-ui, -apple-system, sans-serif" },
+                      {
+                        key: "sans",
+                        css: "system-ui, -apple-system, sans-serif",
+                      },
                       { key: "serif", css: "Georgia, serif" },
-                      { key: "mono", css: "ui-monospace, 'Courier New', monospace" },
+                      {
+                        key: "mono",
+                        css: "ui-monospace, 'Courier New', monospace",
+                      },
                     ] as { key: FontFamily; css: string }[]
                   ).map(({ key, css }) => (
                     <button
                       key={key}
-                      onClick={() => window.dispatchEvent(new CustomEvent("drawtool:font-family", { detail: key }))}
+                      onClick={() =>
+                        window.dispatchEvent(
+                          new CustomEvent("drawtool:font-family", {
+                            detail: key,
+                          }),
+                        )
+                      }
                       aria-label={`Font ${key}`}
                       aria-pressed={settings.fontFamily === key}
                       style={{ fontFamily: css }}
                       className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 ${
                         settings.fontFamily === key
-                          ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
-                          : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                          ? isDark
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark
+                            ? "text-white/50 hover:text-white/70"
+                            : "text-black/40 hover:text-black/60"
                       }`}
                     >
                       Aa
@@ -2393,42 +3074,124 @@ export default function App() {
                 {/* Bold / Italic / Alignment row */}
                 <div className="flex items-center gap-1 mt-2">
                   <button
-                    onClick={() => window.dispatchEvent(new Event("drawtool:text-bold"))}
+                    onClick={() =>
+                      window.dispatchEvent(new Event("drawtool:text-bold"))
+                    }
                     aria-label="Bold"
                     aria-pressed={settings.textBold}
                     className={`flex-1 flex items-center justify-center py-1 rounded text-sm font-bold transition-all duration-150 ${
                       settings.textBold
-                        ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
-                        : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                        ? isDark
+                          ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                        : isDark
+                          ? "text-white/50 hover:text-white/70"
+                          : "text-black/40 hover:text-black/60"
                     }`}
-                  >B</button>
+                  >
+                    B
+                  </button>
                   <button
-                    onClick={() => window.dispatchEvent(new Event("drawtool:text-italic"))}
+                    onClick={() =>
+                      window.dispatchEvent(new Event("drawtool:text-italic"))
+                    }
                     aria-label="Italic"
                     aria-pressed={settings.textItalic}
                     className={`flex-1 flex items-center justify-center py-1 rounded text-sm italic transition-all duration-150 ${
                       settings.textItalic
-                        ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
-                        : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                        ? isDark
+                          ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                          : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                        : isDark
+                          ? "text-white/50 hover:text-white/70"
+                          : "text-black/40 hover:text-black/60"
                     }`}
-                  >I</button>
+                  >
+                    I
+                  </button>
                   {(["left", "center", "right"] as TextAlign[]).map((align) => (
                     <button
                       key={align}
-                      onClick={() => window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: align }))}
+                      onClick={() =>
+                        window.dispatchEvent(
+                          new CustomEvent("drawtool:text-align", {
+                            detail: align,
+                          }),
+                        )
+                      }
                       aria-label={`Align ${align}`}
                       aria-pressed={settings.textAlign === align}
                       className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
                         settings.textAlign === align
-                          ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
-                          : isDark ? "text-white/50 hover:text-white/70" : "text-black/40 hover:text-black/60"
+                          ? isDark
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark
+                            ? "text-white/50 hover:text-white/70"
+                            : "text-black/40 hover:text-black/60"
                       }`}
                     >
-                      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 14 14"
+                        fill="currentColor"
+                      >
                         <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
-                        {align === "left" && <><rect x="1" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="1" y="9" width="10" height="1.5" rx="0.75" /></>}
-                        {align === "center" && <><rect x="3" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="2" y="9" width="10" height="1.5" rx="0.75" /></>}
-                        {align === "right" && <><rect x="5" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="3" y="9" width="10" height="1.5" rx="0.75" /></>}
+                        {align === "left" && (
+                          <>
+                            <rect
+                              x="1"
+                              y="5.5"
+                              width="8"
+                              height="1.5"
+                              rx="0.75"
+                            />
+                            <rect
+                              x="1"
+                              y="9"
+                              width="10"
+                              height="1.5"
+                              rx="0.75"
+                            />
+                          </>
+                        )}
+                        {align === "center" && (
+                          <>
+                            <rect
+                              x="3"
+                              y="5.5"
+                              width="8"
+                              height="1.5"
+                              rx="0.75"
+                            />
+                            <rect
+                              x="2"
+                              y="9"
+                              width="10"
+                              height="1.5"
+                              rx="0.75"
+                            />
+                          </>
+                        )}
+                        {align === "right" && (
+                          <>
+                            <rect
+                              x="5"
+                              y="5.5"
+                              width="8"
+                              height="1.5"
+                              rx="0.75"
+                            />
+                            <rect
+                              x="3"
+                              y="9"
+                              width="10"
+                              height="1.5"
+                              rx="0.75"
+                            />
+                          </>
+                        )}
                       </svg>
                     </button>
                   ))}
@@ -2515,7 +3278,9 @@ export default function App() {
           aria-label="Scroll back to content"
           className={`fixed z-50 flex items-center gap-1.5 px-3 py-2 rounded-lg border text-xs font-medium backdrop-blur-sm transition-colors duration-200 animate-fade-in-up ${isDark ? "bg-white/10 border-white/20 text-white/80 hover:bg-white/20 hover:text-white" : "bg-black/10 border-black/20 text-black/80 hover:bg-black/20 hover:text-black"}`}
           style={{
-            bottom: hasTouch ? "calc(env(safe-area-inset-bottom, 0px) + 4.5rem)" : "1rem",
+            bottom: hasTouch
+              ? "calc(env(safe-area-inset-bottom, 0px) + 4.5rem)"
+              : "1rem",
             left: "50%",
             transform: "translateX(-50%)",
           }}
@@ -2544,20 +3309,38 @@ export default function App() {
               : "bg-amber-50/90 border-amber-500/50 text-amber-900"
           }`}
           style={{
-            bottom: hasTouch ? "calc(env(safe-area-inset-bottom, 0px) + 5rem)" : "1rem",
+            bottom: hasTouch
+              ? "calc(env(safe-area-inset-bottom, 0px) + 5rem)"
+              : "1rem",
             left: "50%",
             transform: "translateX(-50%)",
             whiteSpace: "nowrap",
           }}
         >
-          <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+          <svg
+            width="13"
+            height="13"
+            viewBox="0 0 16 16"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.75"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
             <path d="M8 2.5L14 13.5H2L8 2.5Z" />
             <line x1="8" y1="7" x2="8" y2="10" />
             <circle cx="8" cy="12" r="0.5" fill="currentColor" />
           </svg>
           Canvas full — new strokes won't survive a refresh
           <button
-            onClick={() => { exportPng(); setStorageQuotaCanvases(prev => { const next = new Set(prev); next.delete(activeCanvas); return next; }); }}
+            onClick={() => {
+              exportPng();
+              setStorageQuotaCanvases((prev) => {
+                const next = new Set(prev);
+                next.delete(activeCanvas);
+                return next;
+              });
+            }}
             className={`ml-0.5 px-2 py-0.5 rounded-md text-xs font-semibold transition-colors ${
               isDark
                 ? "bg-amber-500/25 hover:bg-amber-500/45 text-amber-200"
@@ -2567,7 +3350,13 @@ export default function App() {
             Export PNG
           </button>
           <button
-            onClick={() => setStorageQuotaCanvases(prev => { const next = new Set(prev); next.delete(activeCanvas); return next; })}
+            onClick={() =>
+              setStorageQuotaCanvases((prev) => {
+                const next = new Set(prev);
+                next.delete(activeCanvas);
+                return next;
+              })
+            }
             aria-label="Dismiss"
             className="opacity-50 hover:opacity-90 transition-opacity text-sm leading-none"
           >
@@ -2575,59 +3364,117 @@ export default function App() {
           </button>
         </div>
       )}
-      <div
-        className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5"
-        style={{ pointerEvents: isEditingName ? "auto" : "none" }}
-      >
-        <div
-          className="text-2xl tabular-nums tracking-wider pointer-events-none"
-          style={{
-            color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
-            fontFamily: "Caveat Brush, cursive",
-          }}
+      {isSignedIn !== false &&
+      (cloudCanvas.workspace || cloudCanvas.cachedWorkspaceName) ? (
+        <button
+          onClick={() => setShowWorkspaceSwitcher(true)}
+          className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5 overflow-hidden max-w-[min(38vw,280px)] rounded-lg px-1 py-0.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+          title={
+            isPro
+              ? "Switch workspace or canvas (⌘O)"
+              : "Switch workspace or canvas"
+          }
         >
-          {activeCanvas}
+          <span
+            className="shrink min-w-0 truncate text-[11px] font-medium tracking-wide uppercase"
+            style={{
+              color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+              fontFamily: "system-ui, sans-serif",
+            }}
+          >
+            {cloudCanvas.workspace?.name ?? cloudCanvas.cachedWorkspaceName}
+          </span>
+          {(cloudCanvas.activeCanvasMeta || cloudCanvas.cachedCanvasName) && (
+            <>
+              <span
+                className="shrink-0"
+                style={{
+                  color: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+                  fontFamily: "system-ui, sans-serif",
+                  fontSize: "0.65rem",
+                }}
+              >
+                /
+              </span>
+              <span
+                className="shrink-0 text-2xl tabular-nums tracking-wider"
+                style={{
+                  color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                  fontFamily: "Caveat Brush, cursive",
+                }}
+              >
+                {activeCanvas}
+              </span>
+              {!hasTouch && (
+                <span
+                  className="shrink min-w-0 truncate text-[19px]"
+                  style={{
+                    color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+                    fontFamily: "Caveat Brush, cursive",
+                  }}
+                >
+                  {cloudCanvas.activeCanvasMeta?.name ??
+                    cloudCanvas.cachedCanvasName}
+                </span>
+              )}
+            </>
+          )}
+        </button>
+      ) : isSignedIn === false ? (
+        <div
+          className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5"
+          style={{ pointerEvents: isEditingName ? "auto" : "none" }}
+        >
+          <div
+            className="text-2xl tabular-nums tracking-wider pointer-events-none"
+            style={{
+              color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+              fontFamily: "Caveat Brush, cursive",
+            }}
+          >
+            {activeCanvas}
+          </div>
+          {!hasTouch &&
+            (isEditingName ? (
+              <input
+                ref={canvasNameInputRef}
+                value={canvasName}
+                autoFocus
+                onFocus={(e) => e.currentTarget.select()}
+                onChange={(e) => {
+                  setCanvasName(e.target.value);
+                  localStorage.setItem(
+                    `drawtool-canvas-name-${activeCanvas}`,
+                    e.target.value,
+                  );
+                }}
+                onBlur={() => setIsEditingName(false)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === "Escape")
+                    e.currentTarget.blur();
+                  e.stopPropagation();
+                  e.nativeEvent.stopImmediatePropagation();
+                }}
+                className="w-auto bg-transparent border-none outline-none text-[19px]"
+                style={{
+                  width: `${canvasName?.length ? canvasName.length + 2 : 2}ch`,
+                  color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+                  fontFamily: "Caveat Brush, cursive",
+                }}
+              />
+            ) : (
+              <span
+                className="text-[19px] pointer-events-none select-none"
+                style={{
+                  color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+                  fontFamily: "Caveat Brush, cursive",
+                }}
+              >
+                {canvasName}
+              </span>
+            ))}
         </div>
-        {!hasTouch &&
-          (isEditingName ? (
-            <input
-              ref={canvasNameInputRef}
-              value={canvasName}
-              autoFocus
-              onFocus={(e) => e.currentTarget.select()}
-              onChange={(e) => {
-                setCanvasName(e.target.value);
-                localStorage.setItem(
-                  `drawtool-canvas-name-${activeCanvas}`,
-                  e.target.value,
-                );
-              }}
-              onBlur={() => setIsEditingName(false)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" || e.key === "Escape")
-                  e.currentTarget.blur();
-                e.stopPropagation();
-                e.nativeEvent.stopImmediatePropagation();
-              }}
-              className="w-auto bg-transparent border-none outline-none text-[19px]"
-              style={{
-                width: `${canvasName?.length ? canvasName.length + 2 : 2}ch`,
-                color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
-                fontFamily: "Caveat Brush, cursive",
-              }}
-            />
-          ) : (
-            <span
-              className="text-[19px] pointer-events-none select-none"
-              style={{
-                color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
-                fontFamily: "Caveat Brush, cursive",
-              }}
-            >
-              {canvasName}
-            </span>
-          ))}
-      </div>
+      ) : null}
       {newCanvasBlurred && newCanvasDialogOpen && (
         <div className="fixed inset-0 z-40 backdrop-blur-xl pointer-events-none" />
       )}
@@ -2760,7 +3607,11 @@ export default function App() {
             className={`w-full max-w-sm rounded-2xl border backdrop-blur-sm px-6 py-6 ${isDark ? "bg-black/80 border-white/15" : "bg-white/85 border-black/12"}`}
           >
             <div className="flex flex-col items-center mb-5">
-              <img src="/drawzillaicon.svg" alt="drawzilla" className="w-14 h-14 object-contain mb-2" />
+              <img
+                src="/drawzillaicon.svg"
+                alt="drawzilla"
+                className="w-14 h-14 object-contain mb-2"
+              />
               <div
                 className="text-2xl select-none"
                 style={{ fontFamily: "Caveat Brush, cursive" }}
@@ -2783,7 +3634,9 @@ export default function App() {
                       display: "inline-block",
                       marginLeft: i === 0 ? 0 : 2,
                       transform: `rotate(${l.rotate}deg)`,
-                      textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22`,
+                      textShadow: isDark
+                        ? `0 0 8px ${l.color}44`
+                        : `1px 1px 0 ${l.color}22`,
                     }}
                   >
                     {l.letter}
@@ -2791,7 +3644,9 @@ export default function App() {
                 ))}
               </div>
             </div>
-            <div className={`text-xs space-y-2.5 ${isDark ? "text-white/60" : "text-black/60"}`}>
+            <div
+              className={`text-xs space-y-2.5 ${isDark ? "text-white/60" : "text-black/60"}`}
+            >
               {[
                 ["Draw", "select tool, then drag"],
                 ["Undo", "2-finger tap"],
@@ -2800,13 +3655,22 @@ export default function App() {
                 ["Switch canvas", "swipe toolbar"],
                 ["Zoom", "pinch"],
               ].map(([action, gesture]) => (
-                <div key={action} className="flex justify-between items-center gap-4">
+                <div
+                  key={action}
+                  className="flex justify-between items-center gap-4"
+                >
                   <span>{action}</span>
-                  <span className={`shrink-0 text-[11px] ${isDark ? "text-white/35" : "text-black/35"}`}>{gesture}</span>
+                  <span
+                    className={`shrink-0 text-[11px] ${isDark ? "text-white/35" : "text-black/35"}`}
+                  >
+                    {gesture}
+                  </span>
                 </div>
               ))}
             </div>
-            <div className={`text-[11px] text-center mt-5 ${isDark ? "text-white/25" : "text-black/25"}`}>
+            <div
+              className={`text-[11px] text-center mt-5 ${isDark ? "text-white/25" : "text-black/25"}`}
+            >
               Tap anywhere to start
             </div>
           </div>
@@ -2822,7 +3686,11 @@ export default function App() {
           <div
             className={`px-8 py-6 rounded-lg border backdrop-blur-sm text-center max-w-xs ${isDark ? "bg-black/70 border-white/15" : "bg-white/70 border-black/15"}`}
           >
-            <img src="/drawzillaicon.svg" alt="drawzilla" className="w-20 h-20 mx-auto mb-3 object-contain" />
+            <img
+              src="/drawzillaicon.svg"
+              alt="drawzilla"
+              className="w-20 h-20 mx-auto mb-3 object-contain"
+            />
             <div
               className="text-xl mb-4 select-none"
               style={{ fontFamily: "Caveat Brush, cursive" }}
@@ -2911,21 +3779,62 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-4 right-16 z-40 flex items-center gap-2.5 px-3 py-2 rounded-xl pointer-events-none ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
+          className={`fixed z-[60] flex items-center gap-2.5 px-3 py-2 rounded-xl pointer-events-none ${isPro ? "top-4 right-16" : "top-14 right-4"} ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
             background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-            boxShadow: "0 6px 24px rgba(34,197,94,0.45), 0 2px 8px rgba(0,0,0,0.2)",
+            boxShadow:
+              "0 6px 24px rgba(34,197,94,0.45), 0 2px 8px rgba(0,0,0,0.2)",
             color: "#fff",
           }}
         >
-          <div style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,0.22)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <div
+            style={{
+              width: 28,
+              height: 28,
+              borderRadius: "50%",
+              background: "rgba(255,255,255,0.22)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              flexShrink: 0,
+            }}
+          >
+            <svg
+              width="15"
+              height="15"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="white"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
               <polyline points="4,12 9,18 20,6" />
             </svg>
           </div>
           <div>
-            <div style={{ fontSize: 9, fontWeight: 600, opacity: 0.75, letterSpacing: "0.07em", textTransform: "uppercase", lineHeight: 1 }}>Challenge complete</div>
-            <div style={{ fontSize: 12, fontWeight: 700, marginTop: 2, lineHeight: 1.2 }}>{toast.message}</div>
+            <div
+              style={{
+                fontSize: 9,
+                fontWeight: 600,
+                opacity: 0.75,
+                letterSpacing: "0.07em",
+                textTransform: "uppercase",
+                lineHeight: 1,
+              }}
+            >
+              Challenge complete
+            </div>
+            <div
+              style={{
+                fontSize: 12,
+                fontWeight: 700,
+                marginTop: 2,
+                lineHeight: 1.2,
+              }}
+            >
+              {toast.message}
+            </div>
           </div>
         </div>
       )}
@@ -2933,7 +3842,7 @@ export default function App() {
         <div
           role="status"
           aria-live="polite"
-          className={`fixed top-4 right-16 z-40 px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
+          className={`fixed z-[60] px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${isPro ? "top-4 right-16" : "top-14 right-4"} ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
             background: getPanelBackground(settings.theme),
             borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
@@ -3125,28 +4034,56 @@ export default function App() {
       {trainingFlash && (
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center pointer-events-none animate-training-flash"
-          style={{ background: isDark ? "rgba(0,0,0,0.72)" : "rgba(255,255,255,0.82)" }}
+          style={{
+            background: isDark ? "rgba(0,0,0,0.72)" : "rgba(255,255,255,0.82)",
+          }}
         >
-          <div className="flex items-center mb-2" style={{ fontFamily: "Caveat Brush, cursive", fontSize: 32 }}>
-            {([
-              { letter: "d", color: "#3b82f6", rotate: -6 },
-              { letter: "r", color: "#ef4444", rotate: 3 },
-              { letter: "a", color: "#22c55e", rotate: -4 },
-              { letter: "w", color: "#eab308", rotate: 5 },
-              { letter: "z", color: "#ec4899", rotate: -3 },
-              { letter: "i", color: "#f97316", rotate: 4 },
-              { letter: "l", color: "#8b5cf6", rotate: -5 },
-              { letter: "l", color: "#06b6d4", rotate: 3 },
-              { letter: "a", color: "#ef4444", rotate: -4 },
-            ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
-              <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)` }}>
-                <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 16px ${l.color}66` : `2px 2px 0 ${l.color}22` }}>
+          <div
+            className="flex items-center mb-2"
+            style={{ fontFamily: "Caveat Brush, cursive", fontSize: 32 }}
+          >
+            {(
+              [
+                { letter: "d", color: "#3b82f6", rotate: -6 },
+                { letter: "r", color: "#ef4444", rotate: 3 },
+                { letter: "a", color: "#22c55e", rotate: -4 },
+                { letter: "w", color: "#eab308", rotate: 5 },
+                { letter: "z", color: "#ec4899", rotate: -3 },
+                { letter: "i", color: "#f97316", rotate: 4 },
+                { letter: "l", color: "#8b5cf6", rotate: -5 },
+                { letter: "l", color: "#06b6d4", rotate: 3 },
+                { letter: "a", color: "#ef4444", rotate: -4 },
+              ] as { letter: string; color: string; rotate: number }[]
+            ).map((l, i) => (
+              <span
+                key={i}
+                style={{
+                  display: "inline-block",
+                  marginLeft: i === 0 ? 0 : 1,
+                  transform: `rotate(${l.rotate}deg)`,
+                }}
+              >
+                <span
+                  style={{
+                    color: l.color,
+                    display: "inline-block",
+                    textShadow: isDark
+                      ? `0 0 16px ${l.color}66`
+                      : `2px 2px 0 ${l.color}22`,
+                  }}
+                >
                   {l.letter}
                 </span>
               </span>
             ))}
           </div>
-          <div className="text-sm font-mono tracking-widest uppercase" style={{ color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)", letterSpacing: "0.25em" }}>
+          <div
+            className="text-sm font-mono tracking-widest uppercase"
+            style={{
+              color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+              letterSpacing: "0.25em",
+            }}
+          >
             training mode
           </div>
         </div>
@@ -3159,31 +4096,69 @@ export default function App() {
             borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
           }}
         >
-          <div className="px-3 py-1 flex items-center pointer-events-none" style={{ fontFamily: "Caveat Brush, cursive", fontSize: 17 }}>
-            {([
-              { letter: "d", color: "#3b82f6", rotate: -6 },
-              { letter: "r", color: "#ef4444", rotate: 3 },
-              { letter: "a", color: "#22c55e", rotate: -4 },
-              { letter: "w", color: "#eab308", rotate: 5 },
-              { letter: "z", color: "#ec4899", rotate: -3 },
-              { letter: "i", color: "#f97316", rotate: 4 },
-              { letter: "l", color: "#8b5cf6", rotate: -5 },
-              { letter: "l", color: "#06b6d4", rotate: 3 },
-              { letter: "a", color: "#ef4444", rotate: -4 },
-            ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
-              <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
-                <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22` }}>
+          <div
+            className="px-3 py-1 flex items-center pointer-events-none"
+            style={{ fontFamily: "Caveat Brush, cursive", fontSize: 17 }}
+          >
+            {(
+              [
+                { letter: "d", color: "#3b82f6", rotate: -6 },
+                { letter: "r", color: "#ef4444", rotate: 3 },
+                { letter: "a", color: "#22c55e", rotate: -4 },
+                { letter: "w", color: "#eab308", rotate: 5 },
+                { letter: "z", color: "#ec4899", rotate: -3 },
+                { letter: "i", color: "#f97316", rotate: 4 },
+                { letter: "l", color: "#8b5cf6", rotate: -5 },
+                { letter: "l", color: "#06b6d4", rotate: 3 },
+                { letter: "a", color: "#ef4444", rotate: -4 },
+              ] as { letter: string; color: string; rotate: number }[]
+            ).map((l, i) => (
+              <span
+                key={i}
+                style={{
+                  display: "inline-block",
+                  marginLeft: i === 0 ? 0 : 2,
+                  transform: `rotate(${l.rotate}deg)`,
+                }}
+              >
+                <span
+                  style={{
+                    color: l.color,
+                    display: "inline-block",
+                    textShadow: isDark
+                      ? `0 0 8px ${l.color}44`
+                      : `1px 1px 0 ${l.color}22`,
+                  }}
+                >
                   {l.letter}
                 </span>
               </span>
             ))}
-            <span className="ml-2 text-[11px]" style={{ fontFamily: "ui-monospace, monospace", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}>training mode</span>
+            <span
+              className="ml-2 text-[11px]"
+              style={{
+                fontFamily: "ui-monospace, monospace",
+                color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)",
+              }}
+            >
+              training mode
+            </span>
           </div>
-          <div className="self-stretch w-px" style={{ background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)" }} />
+          <div
+            className="self-stretch w-px"
+            style={{
+              background: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.1)",
+            }}
+          />
           <button
-            onClick={() => { history.pushState(null, "", "/"); setShowTraining(false); }}
+            onClick={() => {
+              history.pushState(null, "", "/");
+              setShowTraining(false);
+            }}
             className="px-3 py-1 text-[11px] rounded-r-full transition-colors"
-            style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)" }}
+            style={{
+              color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)",
+            }}
           >
             Exit
           </button>
@@ -3206,42 +4181,90 @@ export default function App() {
           style={{
             background: isDark ? "rgba(0,0,0,0.88)" : "rgba(255,255,255,0.92)",
             borderColor: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
-            ...(hasTouch ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" } : {}),
+            ...(hasTouch
+              ? { bottom: "calc(env(safe-area-inset-bottom, 0px) + 6rem)" }
+              : {}),
           }}
         >
           {/* gradient top bar */}
-          <div className="h-0.5" style={{ background: "linear-gradient(90deg, #3b82f6, #ec4899)" }} />
+          <div
+            className="h-0.5"
+            style={{ background: "linear-gradient(90deg, #3b82f6, #ec4899)" }}
+          />
           <div className="p-3.5">
             <div className="flex items-start justify-between gap-2 mb-2">
-              <div className="flex items-center" style={{ fontFamily: "Caveat Brush, cursive", fontSize: 17 }}>
-                {([
-                  { letter: "d", color: "#3b82f6", rotate: -6 },
-                  { letter: "r", color: "#ef4444", rotate: 3 },
-                  { letter: "a", color: "#22c55e", rotate: -4 },
-                  { letter: "w", color: "#eab308", rotate: 5 },
-                  { letter: "z", color: "#ec4899", rotate: -3 },
-                  { letter: "i", color: "#f97316", rotate: 4 },
-                  { letter: "l", color: "#8b5cf6", rotate: -5 },
-                  { letter: "l", color: "#06b6d4", rotate: 3 },
-                  { letter: "a", color: "#ef4444", rotate: -4 },
-                ] as { letter: string; color: string; rotate: number }[]).map((l, i) => (
-                  <span key={i} style={{ display: "inline-block", marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)` }}>
-                    <span style={{ color: l.color, display: "inline-block", textShadow: isDark ? `0 0 8px ${l.color}44` : `1px 1px 0 ${l.color}22` }}>{l.letter}</span>
+              <div
+                className="flex items-center"
+                style={{ fontFamily: "Caveat Brush, cursive", fontSize: 17 }}
+              >
+                {(
+                  [
+                    { letter: "d", color: "#3b82f6", rotate: -6 },
+                    { letter: "r", color: "#ef4444", rotate: 3 },
+                    { letter: "a", color: "#22c55e", rotate: -4 },
+                    { letter: "w", color: "#eab308", rotate: 5 },
+                    { letter: "z", color: "#ec4899", rotate: -3 },
+                    { letter: "i", color: "#f97316", rotate: 4 },
+                    { letter: "l", color: "#8b5cf6", rotate: -5 },
+                    { letter: "l", color: "#06b6d4", rotate: 3 },
+                    { letter: "a", color: "#ef4444", rotate: -4 },
+                  ] as { letter: string; color: string; rotate: number }[]
+                ).map((l, i) => (
+                  <span
+                    key={i}
+                    style={{
+                      display: "inline-block",
+                      marginLeft: i === 0 ? 0 : 2,
+                      transform: `rotate(${l.rotate}deg)`,
+                    }}
+                  >
+                    <span
+                      style={{
+                        color: l.color,
+                        display: "inline-block",
+                        textShadow: isDark
+                          ? `0 0 8px ${l.color}44`
+                          : `1px 1px 0 ${l.color}22`,
+                      }}
+                    >
+                      {l.letter}
+                    </span>
                   </span>
                 ))}
-                <span className="text-[11px] font-mono ml-1.5" style={{ fontFamily: "ui-monospace, monospace", color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)" }}>training</span>
+                <span
+                  className="text-[11px] font-mono ml-1.5"
+                  style={{
+                    fontFamily: "ui-monospace, monospace",
+                    color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.4)",
+                  }}
+                >
+                  training
+                </span>
               </div>
               <button
                 onClick={() => dismissNudge(true)}
                 className="shrink-0 mt-0.5 transition-opacity opacity-30 hover:opacity-60"
               >
-                <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                <svg
+                  width="10"
+                  height="10"
+                  viewBox="0 0 10 10"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                >
                   <line x1="1" y1="1" x2="9" y2="9" />
                   <line x1="9" y1="1" x2="1" y2="9" />
                 </svg>
               </button>
             </div>
-            <p className="text-[11px] leading-relaxed mb-3" style={{ color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)" }}>
+            <p
+              className="text-[11px] leading-relaxed mb-3"
+              style={{
+                color: isDark ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.45)",
+              }}
+            >
               Learn all the tools and shortcuts with step-by-step challenges.
             </p>
             <button
@@ -3250,7 +4273,11 @@ export default function App() {
                 openTraining();
               }}
               className="w-full py-1.5 rounded-lg text-[11px] font-medium transition-colors"
-              style={{ background: "linear-gradient(90deg, #3b82f620, #ec489920)", color: isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.65)", border: "1px solid #3b82f630" }}
+              style={{
+                background: "linear-gradient(90deg, #3b82f620, #ec489920)",
+                color: isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.65)",
+                border: "1px solid #3b82f630",
+              }}
             >
               Start training →
             </button>
@@ -3266,7 +4293,9 @@ export default function App() {
           onClose={() => setShowStash(false)}
           onDrop={(item) => {
             window.dispatchEvent(
-              new CustomEvent("drawtool:drop-stash-item", { detail: { strokes: item.strokes, savedDark: item.savedDark } }),
+              new CustomEvent("drawtool:drop-stash-item", {
+                detail: { strokes: item.strokes, savedDark: item.savedDark },
+              }),
             );
             setShowStash(false);
             showToast({ type: "text", message: `"${item.name}" dropped` });
@@ -3289,7 +4318,8 @@ export default function App() {
             setStashItems((prev) => {
               const fromIdx = prev.findIndex((i) => i.id === fromId);
               let toIdx = prev.findIndex((i) => i.id === toId);
-              if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx) return prev;
+              if (fromIdx === -1 || toIdx === -1 || fromIdx === toIdx)
+                return prev;
               const next = [...prev];
               const [item] = next.splice(fromIdx, 1);
               if (toIdx > fromIdx) toIdx--;
@@ -3314,7 +4344,9 @@ export default function App() {
         <div
           role="dialog"
           aria-modal="true"
-          aria-label={importMode === "workspace" ? "Import workspace" : "Import canvas"}
+          aria-label={
+            importMode === "workspace" ? "Import workspace" : "Import canvas"
+          }
           className="fixed inset-0 z-[300] flex items-center justify-center"
           style={{
             background: isDark ? "rgba(0,0,0,0.6)" : "rgba(0,0,0,0.35)",
@@ -3328,7 +4360,9 @@ export default function App() {
             <div
               className={`text-sm font-medium ${isDark ? "text-white/80" : "text-black/80"}`}
             >
-              {importMode === "workspace" ? "Import workspace" : "Import canvas"}
+              {importMode === "workspace"
+                ? "Import workspace"
+                : "Import canvas"}
             </div>
             {/* Drop zone */}
             <div
@@ -3369,7 +4403,7 @@ export default function App() {
                 if (file) {
                   setShowImportModal(false);
                   if (importMode === "workspace") processWorkspaceFile(file);
-                  else if (activeCanvas <= CANVAS_LIMIT) processImportFile(file);
+                  else if (activeCanvas <= canvasLimit) processImportFile(file);
                 }
               }}
             >
@@ -3405,6 +4439,133 @@ export default function App() {
                 or click to browse
               </span>
             </div>
+          </div>
+        </div>
+      )}
+      {settings.showTips && !hasTouch && (
+        <div
+          className={`fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none flex items-center gap-px ${isTablet ? "top-[58px]" : "top-3"}`}
+          style={{
+            background: isDark ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.6)",
+            borderRadius: 8,
+            border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+            backdropFilter: "blur(8px)",
+            padding: "3px 6px",
+            maxWidth: "min(calc(100vw - 300px), 780px)",
+            overflowX: "auto",
+            msOverflowStyle: "none",
+            scrollbarWidth: "none",
+          }}
+        >
+          {([
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
+                </svg>
+              ),
+              label: `${mod} + drag`,
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2.5">
+                  <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
+                </svg>
+              ),
+              label: `${shift} + drag`,
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <line x1="3" y1="13" x2="13" y2="3" />
+                </svg>
+              ),
+              label: `${mod} + ${shift} + drag`,
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <defs>
+                    <linearGradient id="tip-eg" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="50%" stopColor="#89CFF0" />
+                      <stop offset="50%" stopColor="#FA8072" />
+                    </linearGradient>
+                  </defs>
+                  <rect x="2" y="4" width="12" height="8" rx="1.5" transform="rotate(-15 8 8)" fill="url(#tip-eg)" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
+                </svg>
+              ),
+              label: `${alt} + drag`,
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
+                  <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+                </svg>
+              ),
+              label: "Q / L + drag",
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
+                  <rect x="2" y="3" width="12" height="10" rx="1" />
+                </svg>
+              ),
+              label: "S + drag",
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <line x1="3" y1="4" x2="13" y2="4" />
+                  <line x1="8" y1="4" x2="8" y2="13" />
+                </svg>
+              ),
+              label: "T",
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M4 2 L4 12 L7 9.5 L9 13.5 L10.5 12.8 L8.5 8.8 L12 8.8 Z" />
+                </svg>
+              ),
+              label: "Hold V",
+            },
+          ] as { icon: ReactNode; label: string }[]).map(({ icon, label }, i, arr) => (
+            <span key={i} className="flex items-center">
+              <span
+                className="flex items-center gap-1 px-2 py-0.5 whitespace-nowrap"
+                style={{
+                  color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+                  fontSize: 10,
+                  fontFamily: "system-ui, sans-serif",
+                }}
+              >
+                {icon}
+                {label}
+              </span>
+              {i < arr.length - 1 && (
+                <span style={{ width: 1, height: 12, background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", display: "inline-block" }} />
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+      {settings.showTips && !hasTouch && (
+        <div
+          className="fixed bottom-4 right-4 z-20 pointer-events-none select-none"
+          style={{ maxWidth: "16rem" }}
+        >
+          <div
+            style={{
+              opacity: tipVisible ? 1 : 0,
+              transition: "opacity 0.4s ease",
+              color: isDark ? "rgba(255,255,255,0.28)" : "rgba(0,0,0,0.22)",
+              fontSize: 12,
+              fontFamily: "system-ui, sans-serif",
+              textAlign: "right",
+            }}
+          >
+            {kbTips[tipIndex]}
           </div>
         </div>
       )}

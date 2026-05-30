@@ -3,9 +3,7 @@ import type { MutableRefObject, RefObject } from "react";
 import type { ShapeKind, TextSize, FontFamily, TextAlign, FillStyle } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
 import { cmdKey, isMac, textBBox, anyStrokeBBox, FONT_FAMILIES } from "../canvas/geometry";
-import { strokesKey } from "../canvas/storage";
 import { storeImage, processImageFile } from "../canvas/imageStore";
-import { CANVAS_LIMIT } from "../config";
 
 function deepCopyStroke(s: Stroke, dx = 0, dy = 0): Stroke {
   return {
@@ -46,6 +44,7 @@ export type KeyboardRefs = {
   redoStackRef: MutableRefObject<UndoAction[]>;
   strokesCacheRef: MutableRefObject<{ canvas: HTMLCanvasElement; key: string } | null>;
   viewRef: MutableRefObject<{ x: number; y: number; scale: number }>;
+  canvasLimitRef: MutableRefObject<number>;
   isWritingRef: MutableRefObject<boolean>;
   writingTextRef: MutableRefObject<string>;
   caretPosRef: MutableRefObject<number>;
@@ -148,7 +147,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-    sprayKeyRef, lastCycleRef, textareaRef,
+    sprayKeyRef, lastCycleRef, textareaRef, canvasLimitRef,
   } = refs;
 
   const {
@@ -167,6 +166,8 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
   useEffect(() => {
     let mounted = true;
     const onKeyDown = (e: KeyboardEvent) => {
+      // Don't intercept shortcuts when focus is inside a native text input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       // Handle text input while in writing mode
       if (isWritingRef.current) {
         // Escape / Cmd+Enter → accept text
@@ -1001,25 +1002,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           new CustomEvent("drawtool:switch-canvas", { detail: parseInt(e.key) }),
         );
       }
-      // 0 → jump to cleanest canvas (empty first, else fewest strokes)
+      // 0 → jump to blank/least-used canvas; App.tsx handles cloud vs local logic
       if (e.key === "0" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
-        const counts = Array.from({ length: 9 }, (_, i) => {
-          const raw = localStorage.getItem(strokesKey(i + 1));
-          if (!raw) return 0;
-          try { return (JSON.parse(raw) as unknown[]).length; } catch { return 0; }
-        });
-        const empty = counts.findIndex((n) => n === 0);
-        if (empty !== -1) {
-          window.dispatchEvent(
-            new CustomEvent("drawtool:switch-canvas", { detail: empty + 1 }),
-          );
-        } else {
-          const min = Math.min(...counts);
-          const least = counts.findIndex((n) => n === min);
-          window.dispatchEvent(
-            new CustomEvent("drawtool:switch-canvas", { detail: least + 1 }),
-          );
-        }
+        window.dispatchEvent(new CustomEvent("drawtool:find-blank-canvas"));
       }
       if (e.key === "k" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey && !isWritingRef.current) {
         const group = selectedGroupRef.current;
@@ -1479,7 +1464,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     };
 
     const onPaste = (e: ClipboardEvent) => {
-      if (canvasIndexRef.current > CANVAS_LIMIT && !isWritingRef.current) return;
+      if (canvasIndexRef.current > canvasLimitRef.current && !isWritingRef.current) return;
       if (isWritingRef.current) {
         // Primary handler is on the textarea element (fires when textarea has focus + stops propagation).
         // This window-level fallback handles the case where focus drifted away from the textarea.

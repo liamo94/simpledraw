@@ -296,9 +296,13 @@ function Btn({
   return (
     <button
       aria-label={a.label}
-      onClick={a.action}
+      onPointerDown={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        a.action();
+      }}
       className={`flex items-center justify-center w-full h-10 rounded-lg transition-colors duration-150 ${isDark ? "hover:bg-white/[0.08]" : "hover:bg-black/[0.05]"}`}
-      style={{ color }}
+      style={{ color, touchAction: "manipulation" }}
       onPointerEnter={(e) => {
         const rect = e.currentTarget.getBoundingClientRect();
         onHover(a.label, rect.top + rect.height / 2);
