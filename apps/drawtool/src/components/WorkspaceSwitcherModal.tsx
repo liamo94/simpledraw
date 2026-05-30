@@ -19,6 +19,7 @@ type Props = {
   onRemoveCanvas: (id: string, isLast: boolean) => Promise<boolean>
   onDeleteWorkspace: (id: string) => Promise<boolean>
   onResetWorkspace: (id: string) => Promise<boolean>
+  showTips: boolean
   onClose: () => void
   onPrefetchThumbnail: (id: string) => Promise<string | null>
 }
@@ -30,7 +31,7 @@ type Editing =
 
 function TrashIcon() {
   return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
       <line x1="1.5" y1="2.5" x2="8.5" y2="2.5" />
       <path d="M3.5 2.5V1.5h3v1" />
       <rect x="2" y="2.5" width="6" height="6.5" rx="0.75" />
@@ -42,7 +43,7 @@ function TrashIcon() {
 
 function PencilIcon() {
   return (
-    <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+    <svg width="13" height="13" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
       <path d="M7 1.5l1.5 1.5L3 8.5H1.5V7L7 1.5z" />
     </svg>
   )
@@ -56,6 +57,7 @@ export default function WorkspaceSwitcherModal({
   loading,
   isDark,
   theme,
+  showTips,
   onSelectCanvas,
   onSelectWorkspace,
   onCreateWorkspace,
@@ -185,7 +187,7 @@ export default function WorkspaceSwitcherModal({
     onClose()
   }
 
-  const iconBtn = `shrink-0 w-6 h-6 flex items-center justify-center rounded-md transition-colors ${isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'}`
+  const iconBtn = `shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors ${isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'}`
 
   return (
     <div
@@ -199,6 +201,14 @@ export default function WorkspaceSwitcherModal({
         onKeyDown={e => {
           if (editing || creatingWs) return
           if (e.key === 'Escape') { e.preventDefault(); onClose() }
+          if (e.ctrlKey && e.key === 'n' && isPro && !loading) { e.preventDefault(); setCreatingWs(true) }
+          if (!q && !showAllWs && viewingWs) {
+            const num = parseInt(e.key)
+            if (num >= 1 && num <= 9) {
+              const canvas = viewingWs.canvases.find(c => c.position + 1 === num)
+              if (canvas) { e.preventDefault(); activate(viewingWs.id, canvas.id) }
+            }
+          }
         }}
       >
         {/* Search header */}
@@ -213,6 +223,14 @@ export default function WorkspaceSwitcherModal({
               onChange={e => setQuery(e.target.value)}
               onKeyDown={e => {
                 if (e.key !== 'Escape') { e.stopPropagation(); e.nativeEvent.stopImmediatePropagation() }
+                if (e.ctrlKey && e.key === 'n' && isPro && !loading) { e.preventDefault(); setCreatingWs(true) }
+                if (!query && !showAllWs && viewingWs) {
+                  const num = parseInt(e.key)
+                  if (num >= 1 && num <= 9) {
+                    const canvas = viewingWs.canvases.find(c => c.position + 1 === num)
+                    if (canvas) { e.preventDefault(); activate(viewingWs.id, canvas.id) }
+                  }
+                }
               }}
               placeholder="Search workspaces and canvases…"
               className={`flex-1 bg-transparent outline-none text-sm placeholder:opacity-30 ${isDark ? 'text-white/85' : 'text-black/85'}`}
@@ -222,9 +240,9 @@ export default function WorkspaceSwitcherModal({
           )}
           <button
             onClick={onClose}
-            className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'}`}
+            className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'}`}
           >
-            <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
+            <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
               <line x1="1" y1="1" x2="9" y2="9" /><line x1="9" y1="1" x2="1" y2="9" />
             </svg>
           </button>
@@ -317,7 +335,7 @@ export default function WorkspaceSwitcherModal({
                       : isDark ? 'text-white/35 hover:text-white/65 hover:bg-white/[0.06]' : 'text-black/35 hover:text-black/65 hover:bg-black/[0.04]'
                   }`}
                 >
-                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
+                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
                     <line x1="1" y1="3" x2="11" y2="3" /><line x1="1" y1="6" x2="11" y2="6" /><line x1="1" y1="9" x2="11" y2="9" />
                   </svg>
                   All
@@ -570,6 +588,7 @@ export default function WorkspaceSwitcherModal({
                       <line x1="4.5" y1="1" x2="4.5" y2="8" /><line x1="1" y1="4.5" x2="8" y2="4.5" />
                     </svg>
                     New workspace
+                    {showTips && <span className={`opacity-40 font-mono text-[10px]`}>⌃N</span>}
                   </button>
                 ) : (
                   <span className={`text-[10px] ${isDark ? 'text-white/18' : 'text-black/18'}`}>Multiple workspaces · Pro</span>

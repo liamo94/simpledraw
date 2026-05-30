@@ -314,7 +314,6 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     if (isSignedIn === undefined) return
     if (!isSignedIn) {
       useCloudSessionStore.getState().setActiveCanvas(null)
-      setSaveHook(null)
       setSlot1BackedUp(false)
 
       // Restore slot 1 to whatever was there before cloud took it over.
@@ -384,9 +383,19 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => {
       window.removeEventListener('beforeunload', onBeforeUnload)
-      setSaveHook(null)
+      // Set a no-op instead of null so hasSaveHook() stays true while the cloud Canvas
+      // is still unmounting. Canvas cleanup skips its localStorage flush when
+      // hasSaveHook() is true, which prevents it from overwriting the pre-cloud
+      // strokes that the !isSignedIn branch restores to slot 1.
+      setSaveHook(() => {})
     }
   }, [isSignedIn])
+
+  // Clear the no-op save hook after the cloud Canvas has unmounted (activeId → null).
+  // This runs after Canvas cleanup, so local-mode canvas switches flush correctly.
+  useEffect(() => {
+    if (activeId === null && isSignedIn === false) setSaveHook(null)
+  }, [activeId, isSignedIn])
 
   // ── Canvas switching helpers ──────────────────────────────────────────────
 

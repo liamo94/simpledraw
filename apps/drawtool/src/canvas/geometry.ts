@@ -6,7 +6,7 @@ import type { Stroke, BBox } from "./types";
 export const isMac = navigator.platform.toUpperCase().includes("MAC");
 
 export function cmdKey(e: { metaKey: boolean; ctrlKey: boolean }) {
-  return e.metaKey || e.ctrlKey;
+  return isMac ? e.metaKey : e.metaKey || e.ctrlKey;
 }
 
 // ─── Coordinate utilities ─────────────────────────────────────────────────────

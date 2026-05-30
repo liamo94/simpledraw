@@ -1416,10 +1416,14 @@ export default function App() {
     <>Hold <K>R</K> + drag for rectangle</>,
     <>Hold <K>C</K> + drag for circle</>,
     <>Hold <K>A</K> + drag for arrow</>,
+    <>Hold <K>{shift}</K> + drag for a dashed stroke</>,
     <>Hold <K>{shift}</K> + <K>S</K> + drag for dashed shape</>,
     <>Hold <K>F</K> + <K>S</K> + drag for filled shape</>,
+    <>Hold <K>{shift}</K> + <K>F</K> + <K>S</K> + drag for dashed filled shape</>,
     <>Double-tap <K>V</K> for select mode</>,
     <>Hold <K>W</K> + drag to highlight</>,
+    <>Hold <K>B</K> + drag for spray paint</>,
+    <>Hold <K>Q</K> / <K>L</K> + drag for laser pointer</>,
     <>Press <K>.</K> to place a dot</>,
     <><K>[</K> or <K>]</K> to cycle color</>,
     <><K>,</K> to swap between last 2 colors</>,
@@ -1434,11 +1438,24 @@ export default function App() {
     <><K>{mod}</K> + <K>C</K> / <K>X</K> / <K>V</K> to copy, cut, paste</>,
     <>Arrow keys to pan (or nudge selection)</>,
     <><K>+</K> / <K>-</K> to zoom in / out</>,
-    <><K>{mod}</K> + scroll to zoom</>,
+    <><K>{isMac ? "Ctrl" : mod}</K> + scroll to zoom</>,
     <><K>{shift}</K> + <K>1</K> to fit view, <K>{shift}</K> + <K>2</K> to center</>,
+    <>Press <K>T</K> to add text</>,
+    <><K>1</K>–<K>9</K> to switch canvas</>,
+    <><K>{mod}</K> + <K>E</K> to export</>,
+    <>Press <K>K</K> to lock / unlock selection</>,
+    <>Press <K>E</K> to toggle sharp corners</>,
+    <><K>{mod}</K> + <K>{shift}</K> + <K>H</K> / <K>V</K> to flip selection</>,
+    <><K>{mod}</K> + <K>J</K> to combine strokes, <K>{shift}</K> + <K>{mod}</K> + <K>J</K> to uncombine</>,
+    <><K>{mod}</K> + <K>,</K> to rename canvas</>,
     <>Press <K>M</K> to toggle menu</>,
     <>Press <K>?</K> to see all shortcuts</>,
   ];
+
+  const tipOrderRef = useRef<number[] | null>(null);
+  if (!tipOrderRef.current || tipOrderRef.current.length !== kbTips.length) {
+    tipOrderRef.current = Array.from({ length: kbTips.length }, (_, i) => i).sort(() => Math.random() - 0.5);
+  }
 
   useEffect(() => {
     if (!settings.showTips || hasTouch) return;
@@ -1681,6 +1698,7 @@ export default function App() {
             await Promise.all(ws.canvases.slice(1).map(c => cloudCanvas.deleteCanvas(c.id)))
             return cloudCanvas.clearCanvas(ws.canvases[0]?.id ?? '')
           }}
+          showTips={settings.showTips}
           onClose={() => setShowWorkspaceSwitcher(false)}
           onPrefetchThumbnail={cloudCanvas.prefetchThumbnail}
         />
@@ -4529,7 +4547,7 @@ export default function App() {
         <div
           className={`fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none flex items-center gap-px ${isTablet ? "top-[58px]" : "top-3"}`}
           style={{
-            background: isDark ? "rgba(0,0,0,0.55)" : "rgba(255,255,255,0.6)",
+            background: getPanelBackground(settings.theme),
             borderRadius: 8,
             border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
             backdropFilter: "blur(8px)",
@@ -4656,7 +4674,7 @@ export default function App() {
               textAlign: "right",
             }}
           >
-            {kbTips[tipIndex]}
+            {kbTips[tipOrderRef.current![tipIndex]]}
           </div>
         </div>
       )}
@@ -4664,7 +4682,7 @@ export default function App() {
         <div
           className={`fixed ${isWide ? "bottom-4" : "bottom-14"} left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none`}
           style={{
-            background: isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.6)",
+            background: getPanelBackground(settings.theme),
             borderRadius: 8,
             border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
             backdropFilter: "blur(8px)",
