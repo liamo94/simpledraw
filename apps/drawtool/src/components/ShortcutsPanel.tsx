@@ -212,10 +212,10 @@ export default function ShortcutsPanel({ isDark, modal, isPro }: { isDark: boole
         <Row label={<><ExportIcon />Export canvas</>} kbd={`${mod} + ⇧ + E`} />
         <Row label={<><MenuIcon />Menu</>} kbd="M" />
         <Row label="Canvas manager" kbd="⇧ + M" />
-        {isPro && <Row label="Workspace switcher" kbd={`${mod} + O`} />}
+        {isPro && <Row label="Workspace manager" kbd={`${mod} + O`} />}
         <Row label={<><FullscreenIcon />Fullscreen</>} kbd={`${mod} + F`} />
-        <Row label={<><GridIcon />Cycle grid</>} kbd="G" />
-        <Row label="Cycle theme" kbd="D D" />
+        <Row label={<><GridIcon />Cycle grid</>} kbd="G / ⇧G" />
+        <Row label="Cycle theme" kbd="D D / ⇧D D" />
         <Row label={<><StashIcon />Stash</>} kbd="⇧ + B" />
         <Row label={<><StashIcon />Save to stash</>} kbd={`${mod} ⇧ S`} />
       </div>

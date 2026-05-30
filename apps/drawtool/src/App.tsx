@@ -162,6 +162,8 @@ export default function App() {
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
   const [tipVisible, setTipVisible] = useState(true);
+  const [selectHintVisible, setSelectHintVisible] = useState(false);
+  const selectHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const exportFormatRef = useRef(settings.exportFormat);
   const exportTransparentBgRef = useRef(settings.exportTransparentBg);
@@ -206,8 +208,12 @@ export default function App() {
   const [selectionIsLocked, setSelectionIsLocked] = useState(false);
   const [, setMenuOpen] = useState(false);
   const [isTablet, setIsTablet] = useState(() => window.innerWidth >= 768);
+  const [isWide, setIsWide] = useState(() => window.innerWidth >= 1280);
   useEffect(() => {
-    const onResize = () => setIsTablet(window.innerWidth >= 768);
+    const onResize = () => {
+      setIsTablet(window.innerWidth >= 768);
+      setIsWide(window.innerWidth >= 1280);
+    };
     window.addEventListener("resize", onResize);
     return () => window.removeEventListener("resize", onResize);
   }, []);
@@ -884,9 +890,34 @@ export default function App() {
         },
       );
     };
+    const onSelectHeld = (e: Event) => {
+      const { on } = (e as CustomEvent).detail as { on: boolean };
+      if (on) {
+        if (!selectHintTimerRef.current) {
+          selectHintTimerRef.current = setTimeout(() => {
+            selectHintTimerRef.current = null;
+            setSelectHintVisible(true);
+          }, 1200);
+        }
+      } else {
+        if (selectHintTimerRef.current) {
+          clearTimeout(selectHintTimerRef.current);
+          selectHintTimerRef.current = null;
+        }
+        setSelectHintVisible(false);
+      }
+    };
+    window.addEventListener("drawtool:select-held", onSelectHeld);
     const onToast = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (typeof detail === "object" && detail.type === "toggle") {
+        if (detail.label === "Select mode") {
+          if (selectHintTimerRef.current) {
+            clearTimeout(selectHintTimerRef.current);
+            selectHintTimerRef.current = null;
+          }
+          setSelectHintVisible(detail.on);
+        }
         showToast(
           { type: "toggle", label: detail.label, on: detail.on },
           detail.duration,
@@ -1006,6 +1037,7 @@ export default function App() {
     window.addEventListener("drawtool:storage-quota", onStorageQuota);
     window.addEventListener("drawtool:storage-ok", onStorageOk);
     return () => {
+      window.removeEventListener("drawtool:select-held", onSelectHeld);
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
       window.removeEventListener("drawtool:color-cycle", onColorCycle);
@@ -1323,8 +1355,8 @@ export default function App() {
         setShowWorkspaceSwitcher((o) => !o);
       }
     };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
   }, [isSignedIn, isPro]);
 
   // Load share links for the active cloud canvas
@@ -1384,18 +1416,10 @@ export default function App() {
     <>Hold <K>R</K> + drag for rectangle</>,
     <>Hold <K>C</K> + drag for circle</>,
     <>Hold <K>A</K> + drag for arrow</>,
-    <>Hold <K>S</K> + drag for shape</>,
     <>Hold <K>{shift}</K> + <K>S</K> + drag for dashed shape</>,
     <>Hold <K>F</K> + <K>S</K> + drag for filled shape</>,
-    <>Hold <K>{mod}</K> + drag to draw</>,
-    <>Hold <K>{mod}</K> + <K>{shift}</K> + drag for straight line</>,
-    <>Press <K>T</K> to enter text</>,
-    <>Hold <K>V</K> to select items</>,
     <>Double-tap <K>V</K> for select mode</>,
-    <>Hold <K>{alt}</K> + drag to erase</>,
-    <>Hold <K>{shift}</K> + drag for dashed line</>,
     <>Hold <K>W</K> + drag to highlight</>,
-    <>Hold <K>Q</K> + drag for laser pointer</>,
     <>Press <K>.</K> to place a dot</>,
     <><K>[</K> or <K>]</K> to cycle color</>,
     <><K>,</K> to swap between last 2 colors</>,
@@ -1403,6 +1427,16 @@ export default function App() {
     <>Press <K>G</K> to cycle grid</>,
     <>Press <K>0</K> to jump to cleanest canvas</>,
     <><K>{mod}</K> + <K>{shift}</K> + <K>S</K> to save selection to stash</>,
+    <><K>{mod}</K> + <K>Z</K> to undo, <K>{shift}</K> + <K>{mod}</K> + <K>Z</K> to redo</>,
+    <><K>{mod}</K> + <K>A</K> to select all</>,
+    <><K>{mod}</K> + <K>D</K> to duplicate selection</>,
+    <><K>Backspace</K> to delete selection</>,
+    <><K>{mod}</K> + <K>C</K> / <K>X</K> / <K>V</K> to copy, cut, paste</>,
+    <>Arrow keys to pan (or nudge selection)</>,
+    <><K>+</K> / <K>-</K> to zoom in / out</>,
+    <><K>{mod}</K> + scroll to zoom</>,
+    <><K>{shift}</K> + <K>1</K> to fit view, <K>{shift}</K> + <K>2</K> to center</>,
+    <>Press <K>M</K> to toggle menu</>,
     <>Press <K>?</K> to see all shortcuts</>,
   ];
 
@@ -1419,6 +1453,16 @@ export default function App() {
     }, INTERVAL);
     return () => clearInterval(timer);
   }, [settings.showTips, hasTouch, kbTips.length]);
+
+  // Reset select hint when switching canvas
+  useEffect(() => {
+    if (selectHintTimerRef.current) {
+      clearTimeout(selectHintTimerRef.current);
+      selectHintTimerRef.current = null;
+    }
+    setSelectHintVisible(false);
+  }, [activeCanvas, cloudCanvas.activeId, cloudCanvas.loadKey, cloudCanvas.clearKey]);
+
   const visibleLineColor =
     (settings.lineColor === "#000000" && isDark) ||
     (settings.lineColor === "#ffffff" && !isDark)
@@ -3366,6 +3410,64 @@ export default function App() {
       )}
       {isSignedIn !== false &&
       (cloudCanvas.workspace || cloudCanvas.cachedWorkspaceName) ? (
+        isEditingName && !hasTouch && cloudCanvas.activeId ? (
+          <div className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5 overflow-hidden max-w-[min(38vw,280px)] rounded-lg px-1 py-0.5">
+            <span
+              className="shrink min-w-0 truncate text-[11px] font-medium tracking-wide uppercase"
+              style={{
+                color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                fontFamily: "system-ui, sans-serif",
+              }}
+            >
+              {cloudCanvas.workspace?.name ?? cloudCanvas.cachedWorkspaceName}
+            </span>
+            <span
+              className="shrink-0"
+              style={{
+                color: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
+                fontFamily: "system-ui, sans-serif",
+                fontSize: "0.65rem",
+              }}
+            >
+              /
+            </span>
+            <span
+              className="shrink-0 text-2xl tabular-nums tracking-wider"
+              style={{
+                color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                fontFamily: "Caveat Brush, cursive",
+              }}
+            >
+              {activeCanvas}
+            </span>
+            <input
+              ref={canvasNameInputRef}
+              value={canvasName}
+              autoFocus
+              onFocus={(e) => e.currentTarget.select()}
+              onChange={(e) => setCanvasName(e.target.value)}
+              onBlur={async () => {
+                await cloudCanvas.renameCanvas(cloudCanvas.activeId!, canvasName);
+                setIsEditingName(false);
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") e.currentTarget.blur();
+                if (e.key === "Escape") {
+                  setCanvasName(cloudCanvas.activeCanvasMeta?.name ?? cloudCanvas.cachedCanvasName ?? "");
+                  setIsEditingName(false);
+                }
+                e.stopPropagation();
+                e.nativeEvent.stopImmediatePropagation();
+              }}
+              className="shrink min-w-0 bg-transparent border-none outline-none text-[19px]"
+              style={{
+                width: `${canvasName?.length ? canvasName.length + 2 : 2}ch`,
+                color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+                fontFamily: "Caveat Brush, cursive",
+              }}
+            />
+          </div>
+        ) : (
         <button
           onClick={() => setShowWorkspaceSwitcher(true)}
           className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5 overflow-hidden max-w-[min(38vw,280px)] rounded-lg px-1 py-0.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
@@ -3420,6 +3522,7 @@ export default function App() {
             </>
           )}
         </button>
+        )
       ) : isSignedIn === false ? (
         <div
           className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5"
@@ -4498,15 +4601,6 @@ export default function App() {
             },
             {
               icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
-                  <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
-                </svg>
-              ),
-              label: "Q / L + drag",
-            },
-            {
-              icon: (
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
                   <rect x="2" y="3" width="12" height="10" rx="1" />
                 </svg>
@@ -4529,6 +4623,24 @@ export default function App() {
                 </svg>
               ),
               label: "Hold V",
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5,8 L2,8 M14,8 L11,8 M8,5 L8,2 M8,14 L8,11" />
+                  <path d="M3,8 L5,6.5 M3,8 L5,9.5 M13,8 L11,6.5 M13,8 L11,9.5 M8,3 L6.5,5 M8,3 L9.5,5 M8,13 L6.5,11 M8,13 L9.5,11" />
+                </svg>
+              ),
+              label: "Space + drag",
+            },
+            {
+              icon: (
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
+                  <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+                </svg>
+              ),
+              label: "Q / L + drag",
             },
           ] as { icon: ReactNode; label: string }[]).map(({ icon, label }, i, arr) => (
             <span key={i} className="flex items-center">
@@ -4567,6 +4679,28 @@ export default function App() {
           >
             {kbTips[tipIndex]}
           </div>
+        </div>
+      )}
+      {settings.showTips && !hasTouch && selectHintVisible && !hasSelection && (
+        <div
+          className={`fixed ${isWide ? "bottom-4" : "bottom-14"} left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none`}
+          style={{
+            background: isDark ? "rgba(0,0,0,0.5)" : "rgba(255,255,255,0.6)",
+            borderRadius: 8,
+            border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
+            backdropFilter: "blur(8px)",
+            padding: "4px 10px",
+            fontSize: 11,
+            fontFamily: "system-ui, sans-serif",
+            color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)",
+            whiteSpace: "nowrap",
+            maxWidth: "calc(100vw - 2rem)",
+            overflowX: "auto",
+            msOverflowStyle: "none",
+            scrollbarWidth: "none",
+          }}
+        >
+          Click to select &nbsp;·&nbsp; Drag to box-select &nbsp;·&nbsp; <K>{shift}</K> + drag for fully enclosed only &nbsp;·&nbsp; <K>{shift}</K> + click to add &nbsp;·&nbsp; <K>V</K><K>V</K> to lock &nbsp;·&nbsp; <K>Esc</K> to exit
         </div>
       )}
     </>

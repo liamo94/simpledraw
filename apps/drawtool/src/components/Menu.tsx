@@ -2138,7 +2138,14 @@ export default function Menu({
                   <line x1="7" y1="4.5" x2="7" y2="12.5" />
                   <rect x="1" y="2.75" width="12" height="2.5" rx="0.75" />
                 </svg>
-                Stash
+                <span className="flex flex-col items-start gap-0.5">
+                  Stash
+                  {settings.showTips && (
+                    <span className={`text-[9px] font-normal leading-tight ${isDark ? "text-white/25" : "text-black/25"}`}>
+                      Save &amp; reuse content across canvases
+                    </span>
+                  )}
+                </span>
                 <span className="ml-auto flex items-center gap-1">
                   {settings.showTips && (
                     <span className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>

@@ -498,6 +498,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         }
         zKeyRef.current = true;
         setZCursor("default");
+        window.dispatchEvent(new CustomEvent("drawtool:select-held", { detail: { on: true } }));
       }
       if (e.key === "T" && e.shiftKey && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         const sizes: TextSize[] = ["xs", "s", "m", "l", "xl"];
@@ -1045,6 +1046,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         zKeyRef.current = false;
         setZCursor(null);
         scheduleRedraw();
+        window.dispatchEvent(new CustomEvent("drawtool:select-held", { detail: { on: false } }));
         return;
       }
       if ((e.key === "Backspace" || e.key === "Delete") && selectedGroupRef.current.length > 0 && !isWritingRef.current) {
@@ -1209,6 +1211,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           if (!selectedTextRef.current && selectedGroupRef.current.length === 0) {
             setZCursor(null);
           }
+          window.dispatchEvent(new CustomEvent("drawtool:select-held", { detail: { on: false } }));
         }
       }
       if (e.key === " ") {
