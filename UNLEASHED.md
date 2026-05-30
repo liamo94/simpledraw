@@ -162,7 +162,7 @@ POST   /stripe/portal               open Stripe customer portal (manage/cancel)
 POST   /stripe/webhook              handle subscription lifecycle events
 
 # Clerk
-POST   /clerk/webhook               user.created → provision free account in D1
+POST   /clerk/webhook               user.created → provision free account + workspace in D1; user.deleted → delete all user data + R2 blobs
 ```
 
 ---
@@ -441,6 +441,12 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
   - `public/_redirects` added for Cloudflare Pages SPA fallback
   - Shared items list: thin 4px custom scrollbar (CSS `scrollbar-thin` class); copy button gets `cursor-pointer`
 
+- **Auth & account lifecycle hardening** (`drawzilla-backend/`)
+  - `user.deleted` Clerk webhook: `deleteUserCompletely()` in `cleanup.ts` deletes all R2 blobs (canvases, frozen shares, stash) and removes workspaces, subscriptions, and user row from D1 — no blank workspace restored (unlike subscription expiry path)
+  - `requireAuth` fallback now batches user + workspace creation together — a user who slips through a missed `user.created` webhook no longer lands with an empty workspace list
+  - `past_due` Stripe webhook no longer immediately downgrades plan — only updates subscription status row so Pro access is preserved during Stripe's retry window; `unpaid` and `paused` still downgrade immediately
+  - Rate limiting via Cloudflare Workers Rate Limiting binding (`RATE_LIMITER`, 20 req/60 s per user) applied to `POST /canvases/:id/share`, `POST /workspaces/:id/share`, and `POST /migrate`; share endpoints share a `{clerkId}:share` key, migrate uses `{clerkId}:migrate`; binding declared in `wrangler.toml` under `[[unsafe.bindings]]` (locally no-ops)
+
 ### Deployment status
 
 - **Not deployed.** Everything runs locally unless explicitly stated otherwise.
@@ -451,7 +457,8 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
   1. ~~`npx wrangler d1 migrations apply drawzilla-db --remote`~~ ✓ (all 8 migrations now on remote)
   2. `wrangler secret put STRIPE_PRICE_ID`
   3. `npx wrangler deploy`
-  4. Add Cloudflare WAF Rate Limiting rule: `POST /canvases/*/share` — 20 req/min per IP
+  4. ~~Add Cloudflare WAF Rate Limiting rule~~ — replaced by in-code `RATE_LIMITER` binding
+  5. Add `user.deleted` to subscribed events in Clerk dashboard webhook config
 
 ### Pending / next
 

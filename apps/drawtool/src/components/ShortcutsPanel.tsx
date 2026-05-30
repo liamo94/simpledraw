@@ -171,7 +171,7 @@ export default function ShortcutsPanel({ isDark, modal, isPro }: { isDark: boole
       <div className={`${headingClass} ${sectionClass} ${!modal ? "mt-3" : ""}`}>Shapes</div>
       <div className={`space-y-1.5 ${textClass}`}>
         <Row label="Draw shape" kbd="S + drag" />
-        <Row label="Cycle shape" kbd="S tap" />
+        <Row label="Cycle shape" kbd="S / ⇧ S" />
         <Row label="Peek active shape" kbd="Hold S" />
         <Row label={<><RectIcon />Rectangle</>} kbd="R + drag" />
         <Row label={<><CircleIcon />Circle</>} kbd="C + drag" />

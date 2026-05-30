@@ -2024,16 +2024,10 @@ export default function App() {
                 }
                 className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
               >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                  stroke="none"
-                >
-                  <path d="M7.5 7.5C3 9 2.5 12.5 2.5 14C2.5 17.5 6 19 10 19C14 19 17.5 17.5 17.5 14C17.5 12.5 17 9 12.5 7.5Z" />
-                  <rect x="7.5" y="4.5" width="5" height="3.5" />
-                  <path d="M10 4.5C9.5 3.5 8.5 2 7 2C5 2 5.5 4.5 7.5 4.5H12.5C14.5 4.5 15 2 13 2C11.5 2 10.5 3.5 10 4.5Z" />
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                  <path d="M6 6C2.4 7.2 2 10 2 11.2C2 14 4.8 15.2 8 15.2C11.2 15.2 14 14 14 11.2C14 10 13.6 7.2 10 6Z" />
+                  <rect x="6" y="3.6" width="4" height="2.8" />
+                  <path d="M8 3.6C7.6 2.8 6.8 1.6 5.6 1.6C4 1.6 4.4 3.6 6 3.6H10C11.6 3.6 12 1.6 10.4 1.6C9.2 1.6 8.4 2.8 8 3.6Z" />
                 </svg>
               </button>
             </div>
@@ -2174,24 +2168,10 @@ export default function App() {
                   }
                   className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
-                  <svg
-                    display="block"
-                    style={{ transform: "translateY(1px)" }}
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="10" cy="10" r="6.5" />
-                    <circle cx="10" cy="10" r="2.3" />
-                    <line x1="11.6" y1="8.4" x2="14.1" y2="5.9" />
-                    <line x1="11.6" y1="11.6" x2="14.1" y2="14.1" />
-                    <line x1="8.4" y1="11.6" x2="5.9" y2="14.1" />
-                    <line x1="8.4" y1="8.4" x2="5.9" y2="5.9" />
+                  <svg display="block" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" stroke="none">
+                    <path d="M6 6C2.4 7.2 2 10 2 11.2C2 14 4.8 15.2 8 15.2C11.2 15.2 14 14 14 11.2C14 10 13.6 7.2 10 6Z" />
+                    <rect x="6" y="3.6" width="4" height="2.8" />
+                    <path d="M8 3.6C7.6 2.8 6.8 1.6 5.6 1.6C4 1.6 4.4 3.6 6 3.6H10C11.6 3.6 12 1.6 10.4 1.6C9.2 1.6 8.4 2.8 8 3.6Z" />
                   </svg>
                 </button>
               </div>
@@ -4609,9 +4589,8 @@ export default function App() {
             },
             {
               icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <line x1="3" y1="4" x2="13" y2="4" />
-                  <line x1="8" y1="4" x2="8" y2="13" />
+                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                  <text x="8" y="13" textAnchor="middle" fill="currentColor" stroke="none" fontSize="14" fontWeight="700" fontFamily="Georgia,serif">A</text>
                 </svg>
               ),
               label: "T",
