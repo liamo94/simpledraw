@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { Trash2, Pencil, Star, Pin, Search, X, Plus, AlignJustify, ChevronRight, LayoutDashboard } from 'lucide-react'
 import type { CloudWorkspace } from '../hooks/useCloudCanvas'
 import type { Theme } from '../hooks/useSettings'
 import { getPanelBackground } from '../canvas/canvasUtils'
@@ -16,6 +17,8 @@ type Props = {
   onCreateWorkspace: (name: string) => void
   onRenameCanvas: (id: string, name: string) => Promise<boolean>
   onRenameWorkspace: (id: string, name: string) => Promise<boolean>
+  onPinWorkspace: (id: string, pinned: boolean) => Promise<boolean>
+  onFavouriteWorkspace: (id: string, fav: boolean) => Promise<boolean>
   onRemoveCanvas: (id: string, isLast: boolean) => Promise<boolean>
   onDeleteWorkspace: (id: string) => Promise<boolean>
   onResetWorkspace: (id: string) => Promise<boolean>
@@ -29,25 +32,7 @@ type Editing =
   | { kind: 'canvas'; id: string; name: string }
   | null
 
-function TrashIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <line x1="1.5" y1="2.5" x2="8.5" y2="2.5" />
-      <path d="M3.5 2.5V1.5h3v1" />
-      <rect x="2" y="2.5" width="6" height="6.5" rx="0.75" />
-      <line x1="4" y1="4.5" x2="4" y2="7.5" />
-      <line x1="6" y1="4.5" x2="6" y2="7.5" />
-    </svg>
-  )
-}
-
-function PencilIcon() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M7 1.5l1.5 1.5L3 8.5H1.5V7L7 1.5z" />
-    </svg>
-  )
-}
+const ICON_SIZE = 14
 
 export default function WorkspaceSwitcherModal({
   allWorkspaces,
@@ -63,6 +48,8 @@ export default function WorkspaceSwitcherModal({
   onCreateWorkspace,
   onRenameCanvas,
   onRenameWorkspace,
+  onPinWorkspace,
+  onFavouriteWorkspace,
   onRemoveCanvas,
   onDeleteWorkspace,
   onResetWorkspace,
@@ -76,6 +63,7 @@ export default function WorkspaceSwitcherModal({
   const [newWsName, setNewWsName] = useState('')
   const [viewingWsId, setViewingWsId] = useState<string | null>(null)
   const [showAllWs, setShowAllWs] = useState(false)
+  const [showFavsOnly, setShowFavsOnly] = useState(false)
   const [thumbnails, setThumbnails] = useState<Map<string, string>>(() => {
     const map = new Map<string, string>()
     for (const ws of allWorkspaces) {
@@ -116,14 +104,20 @@ export default function WorkspaceSwitcherModal({
 
   const q = query.trim().toLowerCase()
 
-  const filtered = allWorkspaces
+  const sortedWorkspaces = [...allWorkspaces].sort((a, b) => {
+    if (a.is_pinned && !b.is_pinned) return -1
+    if (!a.is_pinned && b.is_pinned) return 1
+    return 0
+  })
+
+  const filtered = sortedWorkspaces
     .map(ws => ({
       ...ws,
       canvases: q
         ? ws.canvases.filter(c => c.name.toLowerCase().includes(q) || ws.name.toLowerCase().includes(q))
         : ws.canvases,
     }))
-    .filter(ws => !q || ws.canvases.length > 0 || ws.name.toLowerCase().includes(q))
+    .filter(ws => (!q || ws.canvases.length > 0 || ws.name.toLowerCase().includes(q)) && (!showFavsOnly || ws.is_favourite))
 
   const viewingWs = filtered.find(w => w.id === (viewingWsId ?? activeWorkspaceId)) ?? filtered[0] ?? null
 
@@ -213,9 +207,7 @@ export default function WorkspaceSwitcherModal({
       >
         {/* Search header */}
         <div className={`flex items-center gap-3 px-4 py-3 border-b shrink-0 ${isDark ? 'border-white/10' : 'border-black/8'}`}>
-          <svg width="14" height="14" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" className={`shrink-0 ${isDark ? 'text-white/30' : 'text-black/30'}`}>
-            <circle cx="7" cy="7" r="5" /><line x1="11" y1="11" x2="15" y2="15" />
-          </svg>
+          <Search size={15} strokeWidth={1.5} className={`shrink-0 ${isDark ? 'text-white/30' : 'text-black/30'}`} />
           {isPro ? (
             <input
               ref={searchRef}
@@ -242,9 +234,7 @@ export default function WorkspaceSwitcherModal({
             onClick={onClose}
             className={`shrink-0 w-8 h-8 flex items-center justify-center rounded-lg transition-colors ${isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'}`}
           >
-            <svg width="12" height="12" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-              <line x1="1" y1="1" x2="9" y2="9" /><line x1="9" y1="1" x2="1" y2="9" />
-            </svg>
+            <X size={14} strokeWidth={2} />
           </button>
         </div>
 
@@ -264,10 +254,7 @@ export default function WorkspaceSwitcherModal({
                     : isDark ? 'hover:bg-white/[0.05]' : 'hover:bg-black/[0.03]'
                 }`}
               >
-                <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4"
-                  className={ws.id === activeWorkspaceId ? isDark ? 'text-[#3b82f6]/70' : 'text-blue-500/70' : isDark ? 'text-white/30' : 'text-black/25'}>
-                  <rect x="1" y="1" width="10" height="10" rx="2" /><line x1="1" y1="4.5" x2="11" y2="4.5" /><line x1="4" y1="4.5" x2="4" y2="11" />
-                </svg>
+                <LayoutDashboard size={ICON_SIZE} strokeWidth={1.5} className={ws.id === activeWorkspaceId ? isDark ? 'text-[#3b82f6]/70' : 'text-blue-500/70' : isDark ? 'text-white/30' : 'text-black/25'} />
                 <span className={`flex-1 text-[11px] font-bold uppercase tracking-widest truncate ${
                   ws.id === activeWorkspaceId ? isDark ? 'text-[#93c5fd]' : 'text-blue-600' : isDark ? 'text-white/55' : 'text-black/50'
                 }`}>{ws.name}</span>
@@ -303,7 +290,7 @@ export default function WorkspaceSwitcherModal({
         ) : (
           <>
             {/* ── Workspace tab strip ── */}
-            <div className={`shrink-0 flex items-center border-b ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
+            <div className={`shrink-0 flex items-center border-b min-h-[52px] ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
               <div className="flex items-center gap-1.5 px-4 py-3 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
                 {filtered.map(ws => {
                   const isViewing = !showAllWs && ws.id === (viewingWsId ?? activeWorkspaceId)
@@ -319,15 +306,34 @@ export default function WorkspaceSwitcherModal({
                       }`}
                     >
                       {isActiveWs && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isDark ? 'bg-[#93c5fd]' : 'bg-blue-500'}`} />}
+                      {ws.is_pinned && !isActiveWs && (
+                        <Pin size={10} strokeWidth={2} className={`shrink-0 ${isDark ? 'text-blue-400/60' : 'text-blue-500/60'}`} />
+                      )}
+                      {ws.is_favourite && (
+                        <Star size={10} strokeWidth={2} fill="currentColor" className={`shrink-0 ${isDark ? 'text-amber-400/70' : 'text-amber-500/70'}`} />
+                      )}
                       <span className="uppercase tracking-wider">{ws.name}</span>
                       <span className={`tabular-nums ${isViewing ? 'opacity-50' : 'opacity-40'}`}>{ws.canvases.length}</span>
                     </button>
                   )
                 })}
               </div>
-              <div className={`shrink-0 px-2 py-1.5 border-l ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
+              <div className={`shrink-0 flex items-center gap-1 px-2 py-1.5 border-l ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
                 <button
-                  onClick={() => setShowAllWs(v => !v)}
+                  onClick={() => { setShowFavsOnly(v => !v); setShowAllWs(false) }}
+                  className={`relative group flex items-center justify-center w-7 h-7 rounded-lg transition-all ${
+                    showFavsOnly
+                      ? isDark ? 'text-amber-400 bg-amber-400/15' : 'text-amber-500 bg-amber-500/12'
+                      : isDark ? 'text-white/35 hover:text-white/65 hover:bg-white/[0.06]' : 'text-black/35 hover:text-black/65 hover:bg-black/[0.04]'
+                  }`}
+                >
+                  <Star size={ICON_SIZE} strokeWidth={1.75} fill={showFavsOnly ? 'currentColor' : 'none'} />
+                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50">
+                    {showFavsOnly ? 'Show all' : 'Show favourites only'}
+                  </span>
+                </button>
+                <button
+                  onClick={() => { setShowAllWs(v => !v); setShowFavsOnly(false) }}
                   title="View all workspaces"
                   className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold transition-all whitespace-nowrap ${
                     showAllWs
@@ -335,13 +341,20 @@ export default function WorkspaceSwitcherModal({
                       : isDark ? 'text-white/35 hover:text-white/65 hover:bg-white/[0.06]' : 'text-black/35 hover:text-black/65 hover:bg-black/[0.04]'
                   }`}
                 >
-                  <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                    <line x1="1" y1="3" x2="11" y2="3" /><line x1="1" y1="6" x2="11" y2="6" /><line x1="1" y1="9" x2="11" y2="9" />
-                  </svg>
+                  <AlignJustify size={ICON_SIZE} strokeWidth={1.75} />
                   All
                 </button>
               </div>
             </div>
+
+            {/* ── Favourites empty state ── */}
+            {showFavsOnly && filtered.length === 0 && !showAllWs && (
+              <div className="flex-1 flex flex-col items-center justify-center gap-2">
+                <Star size={18} strokeWidth={1.5} className={`${isDark ? 'text-white/20' : 'text-black/20'}`} />
+                <p className={`text-sm ${isDark ? 'text-white/30' : 'text-black/30'}`}>No favourites yet</p>
+                <p className={`text-xs ${isDark ? 'text-white/20' : 'text-black/20'}`}>Open a workspace and press ★ to favourite it</p>
+              </div>
+            )}
 
             {/* ── All workspaces list ── */}
             {showAllWs && (
@@ -351,37 +364,45 @@ export default function WorkspaceSwitcherModal({
                   const emptyCount = ws.canvases.filter(c => c.stroke_count === 0).length
                   const usedCount = ws.canvases.length - emptyCount
                   return (
-                    <button
+                    <div
                       key={ws.id}
-                      onClick={() => { setViewingWsId(ws.id); setShowAllWs(false) }}
-                      className={`w-full flex items-center gap-3 px-4 py-3 mb-1 rounded-xl text-left transition-all ${
+                      className={`group w-full flex items-center gap-3 px-4 py-3 mb-1 rounded-xl text-left transition-all cursor-pointer ${
                         isActiveWs
                           ? isDark ? 'bg-[#3b82f6]/10 ring-1 ring-[#3b82f6]/25' : 'bg-blue-500/7 ring-1 ring-blue-500/20'
                           : isDark ? 'hover:bg-white/[0.05]' : 'hover:bg-black/[0.03]'
                       }`}
+                      onClick={() => { setViewingWsId(ws.id); setShowAllWs(false) }}
                     >
-                      <svg width="14" height="14" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4"
-                        className={isActiveWs ? isDark ? 'text-[#93c5fd]' : 'text-blue-500' : isDark ? 'text-white/30' : 'text-black/25'}>
-                        <rect x="1" y="1" width="10" height="10" rx="2" /><line x1="1" y1="4.5" x2="11" y2="4.5" /><line x1="4" y1="4.5" x2="4" y2="11" />
-                      </svg>
+                      <LayoutDashboard size={ICON_SIZE} strokeWidth={1.5} className={isActiveWs ? isDark ? 'text-[#93c5fd]' : 'text-blue-500' : isDark ? 'text-white/30' : 'text-black/25'} />
                       <span className={`flex-1 text-sm font-semibold truncate ${
                         isActiveWs ? isDark ? 'text-[#93c5fd]' : 'text-blue-600' : isDark ? 'text-white/75' : 'text-black/70'
                       }`}>{ws.name}</span>
+                      {ws.is_pinned ? (
+                        <Pin size={12} strokeWidth={2} className={`${isDark ? 'text-blue-400/70' : 'text-blue-500/70'}`} />
+                      ) : null}
                       <span className={`text-[11px] tabular-nums ${isDark ? 'text-white/30' : 'text-black/30'}`}>
                         {usedCount}/{ws.canvases.length}
                       </span>
-                      <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"
-                        className={isDark ? 'text-white/20' : 'text-black/20'}>
-                        <path d="M3 2l4 3-4 3" />
-                      </svg>
-                    </button>
+                      <button
+                        onClick={e => { e.stopPropagation(); onFavouriteWorkspace(ws.id, !ws.is_favourite) }}
+                        title={ws.is_favourite ? 'Remove from favourites' : 'Add to favourites'}
+                        className={`opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center rounded-md transition-all ${
+                          ws.is_favourite
+                            ? `opacity-100 ${isDark ? 'text-amber-400' : 'text-amber-500'}`
+                            : isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'
+                        }`}
+                      >
+                        <Star size={ICON_SIZE} strokeWidth={1.75} fill={ws.is_favourite ? 'currentColor' : 'none'} />
+                      </button>
+                      <ChevronRight size={13} strokeWidth={2} className={`shrink-0 ${isDark ? 'text-white/20' : 'text-black/20'}`} />
+                    </div>
                   )
                 })}
               </div>
             )}
 
             {/* ── Canvas grid ── */}
-            {!showAllWs && <div className="flex-1 min-h-0 overflow-y-auto p-5">
+            {!showAllWs && !(showFavsOnly && filtered.length === 0) && <div className="flex-1 min-h-0 overflow-y-auto p-5">
               {viewingWs ? (
                 <>
                   {/* Workspace header */}
@@ -414,8 +435,22 @@ export default function WorkspaceSwitcherModal({
                           </>
                         ) : !isEditingWs && (
                           <div className="flex items-center gap-0.5">
-                            <button onClick={e => startEdit(e, 'workspace', viewingWs.id, viewingWs.name)} className={iconBtn}><PencilIcon /></button>
-                            <button onClick={e => requestDelete(e, 'workspace', viewingWs.id)} className={iconBtn}><TrashIcon /></button>
+                            <button
+                              onClick={e => { e.stopPropagation(); onFavouriteWorkspace(viewingWs.id, !viewingWs.is_favourite) }}
+                              title={viewingWs.is_favourite ? 'Remove from favourites' : 'Add to favourites'}
+                              className={`${iconBtn} ${viewingWs.is_favourite ? isDark ? 'text-amber-400' : 'text-amber-500' : ''}`}
+                            >
+                              <Star size={ICON_SIZE} strokeWidth={1.75} fill={viewingWs.is_favourite ? 'currentColor' : 'none'} />
+                            </button>
+                            <button
+                              onClick={e => { e.stopPropagation(); onPinWorkspace(viewingWs.id, !viewingWs.is_pinned) }}
+                              title={viewingWs.is_pinned ? 'Unpin workspace' : 'Pin to front'}
+                              className={`${iconBtn} ${viewingWs.is_pinned ? isDark ? 'text-blue-400' : 'text-blue-500' : ''}`}
+                            >
+                              <Pin size={ICON_SIZE} strokeWidth={1.75} fill={viewingWs.is_pinned ? 'currentColor' : 'none'} />
+                            </button>
+                            <button onClick={e => startEdit(e, 'workspace', viewingWs.id, viewingWs.name)} className={iconBtn}><Pencil size={ICON_SIZE} strokeWidth={1.75} /></button>
+                            <button onClick={e => requestDelete(e, 'workspace', viewingWs.id)} className={iconBtn}><Trash2 size={ICON_SIZE} strokeWidth={1.75} /></button>
                           </div>
                         )}
                       </div>
@@ -492,8 +527,8 @@ export default function WorkspaceSwitcherModal({
                             {/* Hover actions */}
                             {!isConfirmingCanvas && (
                               <div className="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className={iconBtn}><PencilIcon /></button>
-                                <button onClick={e => requestDelete(e, 'canvas', canvas.id)} className={iconBtn}><TrashIcon /></button>
+                                <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className={iconBtn}><Pencil size={ICON_SIZE} strokeWidth={1.75} /></button>
+                                <button onClick={e => requestDelete(e, 'canvas', canvas.id)} className={iconBtn}><Trash2 size={ICON_SIZE} strokeWidth={1.75} /></button>
                               </div>
                             )}
 
@@ -560,9 +595,7 @@ export default function WorkspaceSwitcherModal({
                 Create
               </button>
               <button onClick={() => { setCreatingWs(false); setNewWsName('') }} className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md transition-colors ${isDark ? 'text-white/25 hover:text-white/55 hover:bg-white/8' : 'text-black/20 hover:text-black/50 hover:bg-black/5'}`}>
-                <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                  <line x1="1" y1="1" x2="9" y2="9" /><line x1="9" y1="1" x2="1" y2="9" />
-                </svg>
+                <X size={11} strokeWidth={2} />
               </button>
             </div>
           ) : (
@@ -573,9 +606,7 @@ export default function WorkspaceSwitcherModal({
                   onClick={() => { onClose(); window.dispatchEvent(new CustomEvent('drawtool:open-canvas-manager')) }}
                   className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md transition-colors ${isDark ? 'text-white/35 hover:text-white/70 hover:bg-white/[0.07]' : 'text-black/30 hover:text-black/65 hover:bg-black/[0.04]'}`}
                 >
-                  <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="1" y="1" width="10" height="10" rx="1.5" /><line x1="1" y1="4.5" x2="11" y2="4.5" /><line x1="4" y1="4.5" x2="4" y2="11" />
-                  </svg>
+                  <LayoutDashboard size={13} strokeWidth={1.75} />
                   Canvas manager
                 </button>
                 {isPro ? (
@@ -584,9 +615,7 @@ export default function WorkspaceSwitcherModal({
                     disabled={loading}
                     className={`flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md transition-colors disabled:opacity-50 ${isDark ? 'text-white/35 hover:text-white/70 hover:bg-white/[0.07]' : 'text-black/30 hover:text-black/65 hover:bg-black/[0.04]'}`}
                   >
-                    <svg width="9" height="9" viewBox="0 0 9 9" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round">
-                      <line x1="4.5" y1="1" x2="4.5" y2="8" /><line x1="1" y1="4.5" x2="8" y2="4.5" />
-                    </svg>
+                  <Plus size={13} strokeWidth={2} />
                     New workspace
                     {showTips && <span className={`opacity-40 font-mono text-[10px]`}>⌃N</span>}
                   </button>

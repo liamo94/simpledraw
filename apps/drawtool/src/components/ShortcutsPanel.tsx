@@ -1,4 +1,5 @@
 import React from "react";
+import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame } from "lucide-react";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl";
@@ -11,10 +12,10 @@ const I = (props: React.SVGProps<SVGSVGElement>) => (
     strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" {...props} />
 );
 
-const PanIcon = () => <I><path d="M5,8 L2,8 M14,8 L11,8 M8,5 L8,2 M8,14 L8,11" /><path d="M3,8 L5,6.5 M3,8 L5,9.5 M13,8 L11,6.5 M13,8 L11,9.5 M8,3 L6.5,5 M8,3 L9.5,5 M8,13 L6.5,11 M8,13 L9.5,11" /></I>;
-const ZoomIcon = () => <I><circle cx="7" cy="7" r="5" /><line x1="10.5" y1="10.5" x2="14" y2="14" /></I>;
-const ZoomInIcon = () => <I><circle cx="7" cy="7" r="5" /><line x1="10.5" y1="10.5" x2="14" y2="14" /><line x1="5" y1="7" x2="9" y2="7" /><line x1="7" y1="5" x2="7" y2="9" /></I>;
-const ZoomOutIcon = () => <I><circle cx="7" cy="7" r="5" /><line x1="10.5" y1="10.5" x2="14" y2="14" /><line x1="5" y1="7" x2="9" y2="7" /></I>;
+const PanIcon = () => <Hand size={12} strokeWidth={1.5} />;
+const ZoomIcon = () => <Search size={12} strokeWidth={1.5} />;
+const ZoomInIcon = () => <ZoomIn size={12} strokeWidth={1.5} />;
+const ZoomOutIcon = () => <ZoomOut size={12} strokeWidth={1.5} />;
 const ResetZoomIcon = () => <I><path d="M2,8 L14,8 M8,2 L8,14" /><rect x="4" y="4" width="8" height="8" rx="0.5" strokeDasharray="1.5 1.5" /></I>;
 const FitIcon = () => <I><rect x="2" y="2" width="12" height="12" rx="1" /><path d="M5,6 L8,4 L11,6 L11,10 L8,12 L5,10 Z" /></I>;
 const DrawIcon = () => <I><path d="M3,12 Q5,4 8,8 Q11,12 13,4" /></I>;
@@ -31,7 +32,7 @@ const PressureIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill=
 const CornersIcon = () => <I><path d="M4,13 L4,4 L13,4" /></I>;
 const RectIcon = () => <I><rect x="2" y="3" width="12" height="10" rx="0.5" /></I>;
 const CircleIcon = () => <I><circle cx="8" cy="8" r="6" /></I>;
-const ArrowIcon = () => <I><line x1="2" y1="8" x2="12" y2="8" /><polyline points="9,5 12,8 9,11" /></I>;
+const ArrowIcon = () => <MoveRight size={12} strokeWidth={1.5} />;
 const DashedRectIcon = () => <I strokeDasharray="3 2"><rect x="2" y="3" width="12" height="10" rx="0.5" /></I>;
 const FilledRectIcon = () => <svg width="12" height="12" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="0.5" fill="currentColor" fillOpacity="0.4" stroke="currentColor" strokeWidth="1.5" /></svg>;
 const LaserIcon = () => (
@@ -40,8 +41,8 @@ const LaserIcon = () => (
     <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
   </svg>
 );
-const UndoIcon = () => <I><path d="M12,11 C12,4 4,4 4,9" /><polyline points="2,8 4,10 6,8" /></I>;
-const RedoIcon = () => <I><path d="M4,11 C4,4 12,4 12,9" /><polyline points="14,8 12,10 10,8" /></I>;
+const UndoIcon = () => <Undo2 size={12} strokeWidth={1.5} />;
+const RedoIcon = () => <Redo2 size={12} strokeWidth={1.5} />;
 const ColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="none"><circle cx="4" cy="8" r="2.5" fill="#22c55e" opacity="0.7" /><circle cx="11" cy="8" r="2.5" fill="#3b82f6" /></svg>;
 const SwapColorIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="none"><circle cx="3.5" cy="8" r="2.5" fill="#22c55e" /><circle cx="12.5" cy="8" r="2.5" fill="#3b82f6" /><path d="M9.5 6.5 L6.5 8 L9.5 9.5" fill="currentColor" opacity="0.35" /><path d="M6.5 6.5 L9.5 8 L6.5 9.5" fill="currentColor" opacity="0.35" /></svg>;
 const CanvasIcon = () => <I strokeWidth="1.2"><rect x="2" y="2" width="12" height="12" rx="1.5" /><line x1="6" y1="5" x2="6" y2="11" /><line x1="10" y1="5" x2="10" y2="11" /><line x1="2" y1="8" x2="14" y2="8" /></I>;
@@ -75,31 +76,31 @@ const AlignTextIcon = () => <I strokeWidth="1.3"><line x1="2" y1="4" x2="14" y2=
 const ClearIcon = () => <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I>;
 const ExportIcon = () => <I><path d="M3 13h10M8 3v7M5 7l3 3 3-3" /></I>;
 const MenuIcon = () => <I><line x1="3" y1="4" x2="13" y2="4" /><line x1="3" y1="8" x2="13" y2="8" /><line x1="3" y1="12" x2="13" y2="12" /></I>;
-const FullscreenIcon = () => <I><rect x="2" y="2" width="12" height="12" rx="1.5" /><path d="M2,6 L6,6 L6,2 M10,2 L10,6 L14,6 M14,10 L10,10 L10,14 M6,14 L6,10 L2,10" /></I>;
-const GridIcon = () => <I strokeOpacity="0.5"><line x1="4" y1="2" x2="4" y2="14" /><line x1="8" y1="2" x2="8" y2="14" /><line x1="12" y1="2" x2="12" y2="14" /><line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="14" y2="8" /><line x1="2" y1="12" x2="14" y2="12" /></I>;
-const SelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" /><path d="M8 5v6M5 8h6" strokeWidth="1.2" /></I>;
-const BoxSelectIcon = () => <I><rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" /></I>;
-const AddSelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" /><path d="M9 5l3 3-3 3" strokeWidth="1.2" /></I>;
+const FullscreenIcon = () => <Maximize2 size={12} strokeWidth={1.5} />;
+const GridIcon = () => <Frame size={12} strokeWidth={1.5} />;
+const SelectIcon = () => <MousePointer2 size={12} strokeWidth={1.5} />;
+const BoxSelectIcon = () => <BoxSelect size={12} strokeWidth={1.5} />;
+const AddSelectIcon = () => <SquareDashedMousePointer size={12} strokeWidth={1.5} />;
 const CycleIcon = () => <I><circle cx="8" cy="8" r="5" /><circle cx="8" cy="8" r="2" strokeOpacity="0.5" /></I>;
 const SelectAllIcon = () => <I><rect x="2" y="2" width="12" height="12" rx="1" /><path d="M5 8h6" strokeWidth="1.2" /></I>;
-const CopyIcon = () => <I><rect x="2" y="4" width="8" height="10" rx="1" /><path d="M6 4V2.5A.5.5 0 016.5 2h7a.5.5 0 01.5.5v9a.5.5 0 01-.5.5H12" strokeOpacity="0.5" /></I>;
-const PasteIcon = () => <I><rect x="2" y="4" width="8" height="10" rx="1" /><path d="M10 2h2.5a.5.5 0 01.5.5v9a.5.5 0 01-.5.5H10" strokeOpacity="0.5" /><path d="M5 9l2 2 4-4" strokeWidth="1.2" /></I>;
-const CutIcon = () => <I><path d="M4 4l8 8M4 12l8-8" strokeWidth="1.2" /><rect x="2" y="2" width="12" height="12" rx="1" strokeOpacity="0.3" /></I>;
-const DuplicateIcon = () => <I><rect x="1.5" y="3.5" width="8" height="10" rx="1" /><rect x="6.5" y="1.5" width="8" height="10" rx="1" strokeOpacity="0.5" /></I>;
+const CopyIcon = () => <Copy size={12} strokeWidth={1.5} />;
+const PasteIcon = () => <ClipboardPaste size={12} strokeWidth={1.5} />;
+const CutIcon = () => <Scissors size={12} strokeWidth={1.5} />;
+const DuplicateIcon = () => <CopyPlus size={12} strokeWidth={1.5} />;
 const LayerIcon = () => <I><rect x="2" y="6" width="8" height="8" rx="1" /><rect x="6" y="2" width="8" height="8" rx="1" strokeOpacity="0.4" /><path d="M10 5V3" strokeOpacity="0.8" /></I>;
-const LayerExtremeIcon = () => <I><rect x="2" y="6" width="8" height="8" rx="1" /><rect x="6" y="2" width="8" height="8" rx="1" strokeOpacity="0.4" /><path d="M10 5V2M8.5 3.5L10 2l1.5 1.5" strokeOpacity="0.8" /></I>;
+const LayerExtremeIcon = () => <BringToFront size={12} strokeWidth={1.5} />;
 const DeleteIcon = () => <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I>;
 const NudgeIcon = () => <I><path d="M8 3v10M3 8h10" /></I>;
 const DeselectIcon = () => <I><path d="M3 8h10M8 3v10" strokeOpacity="0.4" /><circle cx="8" cy="8" r="3" /></I>;
-const RotateIcon = () => <I><path d="M4 8a4 4 0 1 0 4-4" /><path d="M8 2v3M8 5l2-1.5M8 5l-2-1.5" /></I>;
-const ZoomSelIcon = () => <I><rect x="2" y="2" width="12" height="12" rx="1" strokeDasharray="2.5 2" /><path d="M8 5v6M5 8h6" strokeWidth="1.4" /><path d="M12 12l2.5 2.5" strokeWidth="1.2" /></I>;
+const RotateIcon = () => <RotateCw size={12} strokeWidth={1.5} />;
+const ZoomSelIcon = () => <ScanSearch size={12} strokeWidth={1.5} />;
 const FlipHIcon = () => <I><line x1="8" y1="3" x2="8" y2="13" /><path d="M5 6l-3 2 3 2" /><path d="M11 6l3 2-3 2" strokeOpacity="0.45" /></I>;
 const FlipVIcon = () => <I><line x1="3" y1="8" x2="13" y2="8" /><path d="M6 5l2-3 2 3" /><path d="M6 11l2 3 2-3" strokeOpacity="0.45" /></I>;
 const LockSelectIcon = () => <I strokeWidth="1.4"><rect x="2" y="2" width="12" height="12" rx="1" /><circle cx="8" cy="8" r="2.5" /></I>;
 const ShieldLockIcon = () => <I strokeWidth="1.4"><path d="M8 2.5 L13 4.5 L13 9 Q13 13 8 14.5 Q3 13 3 9 L3 4.5 Z" /></I>;
-const CombineIcon = () => <I><path d="M2 5.5L7 5.5" strokeOpacity="0.5"/><path d="M2 10.5L7 10.5" strokeOpacity="0.5"/><path d="M7 5.5Q10 5.5 10 8Q10 10.5 7 10.5"/><path d="M10 8L14 8"/></I>;
-const StashIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><path d="M6 6C2.4 7.2 2 10 2 11.2C2 14 4.8 15.2 8 15.2C11.2 15.2 14 14 14 11.2C14 10 13.6 7.2 10 6Z" /><rect x="6" y="3.6" width="4" height="2.8" /><path d="M8 3.6C7.6 2.8 6.8 1.6 5.6 1.6C4 1.6 4.4 3.6 6 3.6H10C11.6 3.6 12 1.6 10.4 1.6C9.2 1.6 8.4 2.8 8 3.6Z" /></svg>;
-const UncombineIcon = () => <I><path d="M2 8L6 8"/><path d="M6 8Q9 8 9 5.5L14 5.5" strokeOpacity="0.6"/><path d="M6 8Q9 8 9 10.5L14 10.5" strokeOpacity="0.6"/></I>;
+const CombineIcon = () => <Combine size={12} strokeWidth={1.5} />;
+const StashIcon = () => <Layers size={12} strokeWidth={1.5} />;
+const UncombineIcon = () => <Ungroup size={12} strokeWidth={1.5} />;
 const SprayIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
     <circle cx="1.5" cy="3.5" r="0.85" fill="currentColor" stroke="none" />

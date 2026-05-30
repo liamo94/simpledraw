@@ -38,6 +38,8 @@ export type CloudWorkspace = {
   name: string
   share_token: string | null
   share_enabled: number
+  is_pinned: number
+  is_favourite: number
   canvases: CloudCanvasMeta[]
 }
 
@@ -524,7 +526,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     mutationFn: (name?: string) =>
       api.post<{ id: string; name: string }>('/workspaces', { name }),
     onSuccess: ({ id, name: wsName }) => {
-      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, canvases: [] }
+      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) => [...old, newWs])
     },
   })
@@ -532,7 +534,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   async function createWorkspace(name?: string): Promise<CloudWorkspace | null> {
     try {
       const { id, name: wsName } = await createWorkspaceMutation.mutateAsync(name)
-      return { id, name: wsName, share_token: null, share_enabled: 0, canvases: [] }
+      return { id, name: wsName, share_token: null, share_enabled: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
     } catch {
       return null
     }
@@ -565,6 +567,36 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   async function renameWorkspace(id: string, name: string): Promise<boolean> {
     try { await renameWorkspaceMutation.mutateAsync({ id, name }); return true }
+    catch { return false }
+  }
+
+  const pinWorkspaceMutation = useMutation({
+    mutationFn: ({ id, is_pinned }: { id: string; is_pinned: boolean }) =>
+      api.patch<void>(`/workspaces/${id}`, { is_pinned }),
+    onSuccess: (_, { id, is_pinned }) => {
+      queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
+        old.map(w => w.id === id ? { ...w, is_pinned: is_pinned ? 1 : 0 } : { ...w, is_pinned: 0 })
+      )
+    },
+  })
+
+  async function pinWorkspace(id: string, is_pinned: boolean): Promise<boolean> {
+    try { await pinWorkspaceMutation.mutateAsync({ id, is_pinned }); return true }
+    catch { return false }
+  }
+
+  const favouriteWorkspaceMutation = useMutation({
+    mutationFn: ({ id, is_favourite }: { id: string; is_favourite: boolean }) =>
+      api.patch<void>(`/workspaces/${id}`, { is_favourite }),
+    onSuccess: (_, { id, is_favourite }) => {
+      queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
+        old.map(w => w.id === id ? { ...w, is_favourite: is_favourite ? 1 : 0 } : w)
+      )
+    },
+  })
+
+  async function favouriteWorkspace(id: string, is_favourite: boolean): Promise<boolean> {
+    try { await favouriteWorkspaceMutation.mutateAsync({ id, is_favourite }); return true }
     catch { return false }
   }
 
@@ -792,7 +824,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     newRouteAllOccupied, newRoutePending,
     switchCanvas, switchWorkspace, createCanvas, createWorkspace,
     fetchWorkspace: () => { workspacesQuery.refetch() },
-    renameCanvas, renameWorkspace,
+    renameCanvas, renameWorkspace, pinWorkspace, favouriteWorkspace,
     clearCanvas, deleteCanvas, clearKey, loadKey, deleteWorkspace, reorderCanvases,
     currentShares, loadCanvasShares, createShare, deleteShare,
     shareWorkspace, unshareWorkspace,

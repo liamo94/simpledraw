@@ -1,4 +1,5 @@
 import { memo, useState, useCallback, useEffect } from "react";
+import { Layers, Scissors, Combine, Ungroup, BringToFront, SendToBack, CopyPlus, ScanSearch } from "lucide-react";
 import type React from "react";
 import { getPanelBackground } from "../canvas/rendering";
 import type { Theme } from "../hooks/useSettings";
@@ -12,27 +13,13 @@ const COMMON_ACTIONS: Action[] = [
   {
     label: "Zoom to selection",
     group: "view",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="5.5" y="5.5" width="9" height="9" rx="1" strokeDasharray="2.5 2" />
-        <path d="M2 5V2H5" />
-        <path d="M15 2H18V5" />
-        <path d="M18 15V18H15" />
-        <path d="M5 18H2V15" />
-      </svg>
-    ),
+    icon: <ScanSearch size={20} strokeWidth={1.75} />,
     action: () => kd({ key: "4", shiftKey: true }),
   },
   {
     label: "To front",
     group: "layer",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="10" width="12" height="8" rx="1.5" />
-        <path d="M7.5 8 L10 5.5 L12.5 8" />
-        <path d="M7.5 5 L10 2.5 L12.5 5" />
-      </svg>
-    ),
+    icon: <BringToFront size={20} strokeWidth={1.75} />,
     action: () => kd({ key: "]", code: "BracketRight", metaKey: true }),
   },
   {
@@ -62,13 +49,7 @@ const COMMON_ACTIONS: Action[] = [
   {
     label: "To back",
     group: "layer",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="4" y="2" width="12" height="8" rx="1.5" />
-        <path d="M7.5 12 L10 14.5 L12.5 12" />
-        <path d="M7.5 15 L10 17.5 L12.5 15" />
-      </svg>
-    ),
+    icon: <SendToBack size={20} strokeWidth={1.75} />,
     action: () => kd({ key: "[", code: "BracketLeft", metaKey: true }),
   },
   {
@@ -85,37 +66,19 @@ const COMMON_ACTIONS: Action[] = [
   {
     label: "Cut",
     group: "edit",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <circle cx="5" cy="15" r="2.5" />
-        <circle cx="5" cy="5" r="2.5" />
-        <path d="M7.5 13.5L16 4" />
-        <path d="M7.5 6.5L16 16" />
-      </svg>
-    ),
+    icon: <Scissors size={20} strokeWidth={1.75} />,
     action: () => kd({ key: "x", metaKey: true }),
   },
   {
     label: "Duplicate",
     group: "edit",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <rect x="2" y="5" width="10" height="13" rx="1.5" />
-        <rect x="8" y="2" width="10" height="13" rx="1.5" strokeOpacity="0.4" />
-      </svg>
-    ),
+    icon: <CopyPlus size={20} strokeWidth={1.75} />,
     action: () => kd({ key: "d", metaKey: true }),
   },
   {
     label: "Save to stash",
     group: "edit",
-    icon: (
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" stroke="none">
-        <path d="M7.5 7.5C3 9 2.5 12.5 2.5 14C2.5 17.5 6 19 10 19C14 19 17.5 17.5 17.5 14C17.5 12.5 17 9 12.5 7.5Z" />
-        <rect x="7.5" y="4.5" width="5" height="3.5" />
-        <path d="M10 4.5C9.5 3.5 8.5 2 7 2C5 2 5.5 4.5 7.5 4.5H12.5C14.5 4.5 15 2 13 2C11.5 2 10.5 3.5 10 4.5Z" />
-      </svg>
-    ),
+    icon: <Layers size={20} strokeWidth={1.75} />,
     action: () => window.dispatchEvent(new Event("drawtool:save-to-stash")),
   },
 ];
@@ -248,24 +211,14 @@ const DANGER_ACTION: Action = {
 const COMBINE_ACTION: Action = {
   label: "Combine",
   group: "combine",
-  icon: (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 7L8 7" strokeOpacity="0.5" /><path d="M2 13L8 13" strokeOpacity="0.5" />
-      <path d="M8 7Q12 7 12 10Q12 13 8 13" /><path d="M12 10L17 10" />
-    </svg>
-  ),
+  icon: <Combine size={20} strokeWidth={1.75} />,
   action: () => kd({ key: "j", metaKey: true }),
 };
 
 const UNCOMBINE_ACTION: Action = {
   label: "Uncombine",
   group: "combine",
-  icon: (
-    <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M2 10L7 10" /><path d="M7 10Q11 10 11 7L17 7" strokeOpacity="0.6" />
-      <path d="M7 10Q11 10 11 13L17 13" strokeOpacity="0.6" />
-    </svg>
-  ),
+  icon: <Ungroup size={20} strokeWidth={1.75} />,
   action: () => kd({ key: "j", metaKey: true, shiftKey: true }),
 };
 

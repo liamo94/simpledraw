@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Layers, Keyboard, Upload, Info, HelpCircle, X, Hand } from "lucide-react";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser, useClerk } from "@clerk/clerk-react";
 import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
@@ -99,21 +100,7 @@ const CLICK_TOOL_OPTIONS: {
   {
     value: "pan",
     label: "Pan",
-    icon: (
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M5,8 L2,8 M14,8 L11,8 M8,5 L8,2 M8,14 L8,11" />
-        <path d="M3,8 L5,6.5 M3,8 L5,9.5 M13,8 L11,6.5 M13,8 L11,9.5 M8,3 L6.5,5 M8,3 L9.5,5 M8,13 L6.5,11 M8,13 L9.5,11" />
-      </svg>
-    ),
+    icon: <Hand size={12} strokeWidth={1.5} />,
   },
   {
     value: "laser",
@@ -589,18 +576,7 @@ export default function Menu({
                 onClick={() => setShowKeysModal(false)}
                 className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white/50 hover:text-white/80 hover:bg-white/10" : "text-black/40 hover:text-black/70 hover:bg-black/[0.07]"}`}
               >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                >
-                  <line x1="1" y1="1" x2="9" y2="9" />
-                  <line x1="9" y1="1" x2="1" y2="9" />
-                </svg>
+                <X size={13} strokeWidth={2} />
               </button>
             </div>
             <div className="overflow-y-auto px-6 pb-6">
@@ -2123,21 +2099,7 @@ export default function Menu({
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
               >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="1.75" y="4.5" width="10.5" height="8" rx="0.75" />
-                  <line x1="1.75" y1="8" x2="12.25" y2="8" />
-                  <line x1="7" y1="4.5" x2="7" y2="12.5" />
-                  <rect x="1" y="2.75" width="12" height="2.5" rx="0.75" />
-                </svg>
+                <Layers size={13} strokeWidth={1.75} />
                 <span className="flex flex-col items-start gap-0.5">
                   Stash
                   {settings.showTips && (
@@ -2169,43 +2131,7 @@ export default function Menu({
                   }}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
                 >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="1" y="4" width="12" height="7" rx="1.5" />
-                    <line
-                      x1="3.5"
-                      y1="6.8"
-                      x2="3.5"
-                      y2="6.8"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <line
-                      x1="7"
-                      y1="6.8"
-                      x2="7"
-                      y2="6.8"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <line
-                      x1="10.5"
-                      y1="6.8"
-                      x2="10.5"
-                      y2="6.8"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <line x1="4.5" y1="9" x2="9.5" y2="9" />
-                  </svg>
+                  <Keyboard size={13} strokeWidth={1.75} />
                   Keys
                   {settings.showTips && (
                     <span className={`ml-auto text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
@@ -2218,22 +2144,7 @@ export default function Menu({
               <AccordionSection
                 label="Export"
                 dim={!onExport}
-                icon={
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M7 10V3" />
-                    <path d="M4.5 5 7 2l2.5 3" />
-                    <line x1="2" y1="12.5" x2="12" y2="12.5" />
-                  </svg>
-                }
+                icon={<Upload size={13} strokeWidth={1.75} />}
                 open={showExport}
                 onToggle={() =>
                   setShowExport((v) => {
@@ -2510,28 +2421,7 @@ export default function Menu({
               <AccordionSection
                 label="Help"
                 dim
-                icon={
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="7" cy="7" r="5.5" />
-                    <path d="M5.5 5.5a1.5 1.5 0 0 1 3 0c0 1-1.5 1.5-1.5 2.5" />
-                    <circle
-                      cx="7"
-                      cy="10"
-                      r="0.6"
-                      fill="currentColor"
-                      stroke="none"
-                    />
-                  </svg>
-                }
+                icon={<HelpCircle size={13} strokeWidth={1.75} />}
                 open={showHelp}
                 onToggle={() =>
                   setShowHelp((v) => {
@@ -2713,34 +2603,7 @@ export default function Menu({
               <AccordionSection
                 label="About"
                 dim
-                icon={
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="7" cy="7" r="5.5" />
-                    <line
-                      x1="7"
-                      y1="6.5"
-                      x2="7"
-                      y2="10"
-                      strokeLinecap="round"
-                    />
-                    <circle
-                      cx="7"
-                      cy="4.5"
-                      r="0.6"
-                      fill="currentColor"
-                      stroke="none"
-                    />
-                  </svg>
-                }
+                icon={<Info size={13} strokeWidth={1.75} />}
                 open={showAbout}
                 onToggle={() =>
                   setShowAbout((v) => {

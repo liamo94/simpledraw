@@ -53,6 +53,7 @@ import { useCloudStash } from "./hooks/useCloudStash";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { CANVAS_LIMIT } from "./config";
 import { usePreferencesSync } from "./hooks/usePreferencesSync";
+import { Layers, Hand } from "lucide-react";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -1417,6 +1418,9 @@ export default function App() {
     <>Hold <K>C</K> + drag for circle</>,
     <>Hold <K>A</K> + drag for arrow</>,
     <>Hold <K>{shift}</K> + drag for a dashed stroke</>,
+    <>Hold <K>{shift}</K> + <K>A</K> + drag for dashed arrow</>,
+    <>Hold <K>{shift}</K> + <K>R</K> + drag for dashed rectangle</>,
+    <>Hold <K>F</K> + <K>C</K> + drag for filled circle</>,
     <>Hold <K>{shift}</K> + <K>S</K> + drag for dashed shape</>,
     <>Hold <K>F</K> + <K>S</K> + drag for filled shape</>,
     <>Hold <K>{shift}</K> + <K>F</K> + <K>S</K> + drag for dashed filled shape</>,
@@ -1444,7 +1448,8 @@ export default function App() {
     <><K>1</K>–<K>9</K> to switch canvas</>,
     <><K>{mod}</K> + <K>E</K> to export</>,
     <>Press <K>K</K> to lock / unlock selection</>,
-    <>Press <K>E</K> to toggle sharp corners</>,
+    <>Press <K>E</K> to toggle sharp / rounded corners</>,
+    <>Press <K>P</K> to toggle dynamic stroke on / off</>,
     <><K>{mod}</K> + <K>{shift}</K> + <K>H</K> / <K>V</K> to flip selection</>,
     <><K>{mod}</K> + <K>J</K> to combine strokes, <K>{shift}</K> + <K>{mod}</K> + <K>J</K> to uncombine</>,
     <><K>{mod}</K> + <K>,</K> to rename canvas</>,
@@ -1687,6 +1692,8 @@ export default function App() {
           }}
           onRenameCanvas={cloudCanvas.renameCanvas}
           onRenameWorkspace={cloudCanvas.renameWorkspace}
+          onPinWorkspace={cloudCanvas.pinWorkspace}
+          onFavouriteWorkspace={cloudCanvas.favouriteWorkspace}
           onRemoveCanvas={async (id, isLast) => {
             if (isLast) return cloudCanvas.clearCanvas(id)
             return cloudCanvas.deleteCanvas(id)
@@ -2042,11 +2049,7 @@ export default function App() {
                 }
                 className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
               >
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor" stroke="none">
-                  <path d="M6 6C2.4 7.2 2 10 2 11.2C2 14 4.8 15.2 8 15.2C11.2 15.2 14 14 14 11.2C14 10 13.6 7.2 10 6Z" />
-                  <rect x="6" y="3.6" width="4" height="2.8" />
-                  <path d="M8 3.6C7.6 2.8 6.8 1.6 5.6 1.6C4 1.6 4.4 3.6 6 3.6H10C11.6 3.6 12 1.6 10.4 1.6C9.2 1.6 8.4 2.8 8 3.6Z" />
-                </svg>
+                <Layers size={20} strokeWidth={1.75} />
               </button>
             </div>
           )}
@@ -2186,11 +2189,7 @@ export default function App() {
                   }
                   className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
-                  <svg display="block" width="20" height="20" viewBox="0 0 16 16" fill="currentColor" stroke="none">
-                    <path d="M6 6C2.4 7.2 2 10 2 11.2C2 14 4.8 15.2 8 15.2C11.2 15.2 14 14 14 11.2C14 10 13.6 7.2 10 6Z" />
-                    <rect x="6" y="3.6" width="4" height="2.8" />
-                    <path d="M8 3.6C7.6 2.8 6.8 1.6 5.6 1.6C4 1.6 4.4 3.6 6 3.6H10C11.6 3.6 12 1.6 10.4 1.6C9.2 1.6 8.4 2.8 8 3.6Z" />
-                  </svg>
+                  <Layers size={20} strokeWidth={1.75} />
                 </button>
               </div>
             )}
@@ -4622,12 +4621,7 @@ export default function App() {
               label: "Hold V",
             },
             {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5,8 L2,8 M14,8 L11,8 M8,5 L8,2 M8,14 L8,11" />
-                  <path d="M3,8 L5,6.5 M3,8 L5,9.5 M13,8 L11,6.5 M13,8 L11,9.5 M8,3 L6.5,5 M8,3 L9.5,5 M8,13 L6.5,11 M8,13 L9.5,11" />
-                </svg>
-              ),
+              icon: <Hand size={12} strokeWidth={1.5} />,
               label: "Space + drag",
             },
             {
