@@ -1466,6 +1466,48 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
     };
 
+    const doPasteInternal = () => {
+      const srcs = clipboardRef.current;
+      if (!srcs) return;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const s of srcs) {
+        const bb = anyStrokeBBox(s);
+        minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
+        maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
+      }
+      const cx = (minX + maxX) / 2;
+      const cy = (minY + maxY) / 2;
+      const rawCursor = cursorWorldRef.current;
+      const cursor = (rawCursor.x !== 0 || rawCursor.y !== 0) ? rawCursor : (() => {
+        const view = viewRef.current;
+        const canvas = canvasRef.current;
+        const w = canvas ? canvas.offsetWidth : window.innerWidth;
+        const h = canvas ? canvas.offsetHeight : window.innerHeight;
+        return { x: (w / 2 - view.x) / view.scale, y: (h / 2 - view.y) / view.scale };
+      })();
+      const dx = cursor.x - cx;
+      const dy = cursor.y - cy;
+      const newStrokes: Stroke[] = srcs.map(src => deepCopyStroke(src, dx, dy));
+      strokesRef.current.push(...newStrokes);
+      if (newStrokes.length === 1) {
+        undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });
+      } else {
+        undoStackRef.current.push({ type: "multi-draw", strokes: newStrokes });
+      }
+      redoStackRef.current = [];
+      if (newStrokes.length === 1) {
+        selectedTextRef.current = newStrokes[0];
+        selectedGroupRef.current = [];
+      } else {
+        selectedGroupRef.current = newStrokes;
+        selectedTextRef.current = null;
+      }
+      setZCursor("default");
+      strokesCacheRef.current = null;
+      scheduleRedraw();
+      persistStrokes();
+    };
+
     const onPaste = (e: ClipboardEvent) => {
       if (canvasIndexRef.current > canvasLimitRef.current && !isWritingRef.current) return;
       if (isWritingRef.current) {
@@ -1498,44 +1540,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       // If our sentinel is in the system clipboard, the last copy was a shape — use internal clipboard
       if (hasDrawtoolClip && clipboardRef.current) {
         e.preventDefault();
-        const srcs = clipboardRef.current;
-        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-        for (const s of srcs) {
-          const bb = anyStrokeBBox(s);
-          minX = Math.min(minX, bb.x); minY = Math.min(minY, bb.y);
-          maxX = Math.max(maxX, bb.x + bb.w); maxY = Math.max(maxY, bb.y + bb.h);
-        }
-        const cx = (minX + maxX) / 2;
-        const cy = (minY + maxY) / 2;
-        const rawCursor = cursorWorldRef.current;
-        const cursor = (rawCursor.x !== 0 || rawCursor.y !== 0) ? rawCursor : (() => {
-          const view = viewRef.current;
-          const canvas = canvasRef.current;
-          const w = canvas ? canvas.offsetWidth : window.innerWidth;
-          const h = canvas ? canvas.offsetHeight : window.innerHeight;
-          return { x: (w / 2 - view.x) / view.scale, y: (h / 2 - view.y) / view.scale };
-        })();
-        const dx = cursor.x - cx;
-        const dy = cursor.y - cy;
-        const newStrokes: Stroke[] = srcs.map(src => deepCopyStroke(src, dx, dy));
-        strokesRef.current.push(...newStrokes);
-        if (newStrokes.length === 1) {
-          undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });
-        } else {
-          undoStackRef.current.push({ type: "multi-draw", strokes: newStrokes });
-        }
-        redoStackRef.current = [];
-        if (newStrokes.length === 1) {
-          selectedTextRef.current = newStrokes[0];
-          selectedGroupRef.current = [];
-        } else {
-          selectedGroupRef.current = newStrokes;
-          selectedTextRef.current = null;
-        }
-        setZCursor("default");
-        strokesCacheRef.current = null;
-        scheduleRedraw();
-        persistStrokes();
+        doPasteInternal();
         return;
       }
 
@@ -1586,16 +1591,24 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
     };
 
+    const onPasteInternal = () => {
+      if (canvasIndexRef.current > canvasLimitRef.current) return;
+      if (isWritingRef.current) return;
+      doPasteInternal();
+    };
+
     window.addEventListener("keydown", onKeyDown);
     window.addEventListener("keyup", onKeyUp);
     window.addEventListener("blur", onBlur);
     window.addEventListener("paste", onPaste);
+    window.addEventListener("drawtool:paste", onPasteInternal);
     return () => {
       mounted = false;
       window.removeEventListener("keydown", onKeyDown);
       window.removeEventListener("keyup", onKeyUp);
       window.removeEventListener("blur", onBlur);
       window.removeEventListener("paste", onPaste);
+      window.removeEventListener("drawtool:paste", onPasteInternal);
     };
   }, [
     clearCanvas,

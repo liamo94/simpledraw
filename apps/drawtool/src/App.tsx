@@ -198,6 +198,7 @@ export default function App() {
   const toastFadeRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
+  const [showSelectPicker, setShowSelectPicker] = useState(false);
   const [lastMarkTool, setLastMarkTool] = useState<
     "highlight" | "laser" | "spray"
   >("highlight");
@@ -228,6 +229,7 @@ export default function App() {
     null,
   );
   const textLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const selectLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const longPressFiredRef = useRef(false);
   const handLastTapRef = useRef<number>(0);
   const shapeButtonRef = useRef<HTMLButtonElement>(null);
@@ -2083,6 +2085,7 @@ export default function App() {
             showThicknessPicker ||
             showHighlightPicker ||
             showTextPicker ||
+            showSelectPicker ||
             showColorPicker) && (
             <div
               className="fixed inset-0 z-40"
@@ -2091,6 +2094,7 @@ export default function App() {
                 setShowThicknessPicker(null);
                 setShowHighlightPicker(false);
                 setShowTextPicker(false);
+                setShowSelectPicker(false);
                 setShowColorPicker(false);
               }}
             />
@@ -2212,6 +2216,7 @@ export default function App() {
                 showThicknessPicker ||
                 showHighlightPicker ||
                 showTextPicker ||
+                showSelectPicker ||
                 showColorPicker
               )
                 return;
@@ -2239,7 +2244,7 @@ export default function App() {
                 style={{
                   fontSize: 20,
                   fontFamily: "Caveat, cursive",
-                  color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+                  color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
                 }}
               >
                 {isTablet ? (
@@ -2363,7 +2368,8 @@ export default function App() {
                   t.id === "dashed" ||
                   t.id === "line" ||
                   t.id === "highlight" ||
-                  t.id === "text";
+                  t.id === "text" ||
+                  t.id === "select";
                 const buttonRef =
                   t.id === "shape"
                     ? shapeButtonRef
@@ -2429,6 +2435,7 @@ export default function App() {
                       setShowThicknessPicker(null);
                       setShowHighlightPicker(false);
                       setShowTextPicker(false);
+                      setShowSelectPicker(false);
                     }}
                     onPointerDown={
                       hasLongPress
@@ -2476,6 +2483,16 @@ export default function App() {
                                 textLongPressRef.current = null;
                                 longPressFiredRef.current = true;
                               }, 400);
+                            } else if (t.id === "select") {
+                              selectLongPressRef.current = setTimeout(() => {
+                                setShowSelectPicker(true);
+                                setShowThicknessPicker(null);
+                                setShowShapePicker(false);
+                                setShowHighlightPicker(false);
+                                setShowTextPicker(false);
+                                selectLongPressRef.current = null;
+                                longPressFiredRef.current = true;
+                              }, 400);
                             }
                           }
                         : undefined
@@ -2497,6 +2514,10 @@ export default function App() {
                         clearTimeout(textLongPressRef.current);
                         textLongPressRef.current = null;
                       }
+                      if (selectLongPressRef.current) {
+                        clearTimeout(selectLongPressRef.current);
+                        selectLongPressRef.current = null;
+                      }
                     }}
                     onPointerLeave={() => {
                       if (shapeLongPressRef.current) {
@@ -2514,6 +2535,10 @@ export default function App() {
                       if (textLongPressRef.current) {
                         clearTimeout(textLongPressRef.current);
                         textLongPressRef.current = null;
+                      }
+                      if (selectLongPressRef.current) {
+                        clearTimeout(selectLongPressRef.current);
+                        selectLongPressRef.current = null;
                       }
                     }}
                     className={`flex items-center gap-1 px-2.5 py-2.5 sm:px-3 sm:py-3 rounded text-xs transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${
@@ -3179,6 +3204,48 @@ export default function App() {
                     )}
                   </button>
                 ))}
+              </div>
+            )}
+            {showSelectPicker && (
+              <div
+                className={`absolute p-1.5 rounded-lg border backdrop-blur-sm flex gap-1 ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
+                style={{
+                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
+                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                  left: "50%",
+                  transform: "translateX(-50%)",
+                }}
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                <button
+                  aria-label="Select All"
+                  onClick={() => {
+                    window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", metaKey: true, bubbles: true }));
+                    setShowSelectPicker(false);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                >
+                  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1.5" y="1.5" width="13" height="13" rx="1" strokeDasharray="2.5 1.5" />
+                    <path d="M4 8h8M8 4v8" />
+                  </svg>
+                  All
+                </button>
+                <button
+                  aria-label="Paste"
+                  onClick={() => {
+                    window.dispatchEvent(new Event("drawtool:paste"));
+                    setShowSelectPicker(false);
+                  }}
+                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                >
+                  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="1.5" y="4" width="8" height="10.5" rx="1" />
+                    <path d="M5.5 4V2.5A1 1 0 016.5 1.5h6A1 1 0 0113.5 2.5v9a1 1 0 01-1 1H10" strokeOpacity="0.45" />
+                    <path d="M3.5 7.5h4M3.5 9.5h5M3.5 11.5h3" strokeOpacity="0.55" />
+                  </svg>
+                  Paste
+                </button>
               </div>
             )}
             {showTextPicker && (

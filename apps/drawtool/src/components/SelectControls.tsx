@@ -76,6 +76,18 @@ const COMMON_ACTIONS: Action[] = [
     action: () => kd({ key: "d", metaKey: true }),
   },
   {
+    label: "Paste",
+    group: "edit",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="2" y="5" width="10" height="13" rx="1.5" />
+        <path d="M7 5V3.5A1.5 1.5 0 018.5 2h7A1.5 1.5 0 0117 3.5v11a1.5 1.5 0 01-1.5 1.5H14" strokeOpacity="0.45" />
+        <path d="M5 9h4M5 12h6M5 15h3" strokeOpacity="0.6" />
+      </svg>
+    ),
+    action: () => window.dispatchEvent(new Event("drawtool:paste")),
+  },
+  {
     label: "Save to stash",
     group: "edit",
     icon: <Layers size={20} strokeWidth={1.75} />,
