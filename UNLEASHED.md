@@ -462,7 +462,7 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
 
 ### Pending / next
 
-- **Share viewer design polish** — functional and read-only-safe; visual design still rough.
+- ~~**Share viewer design polish**~~ ✅
 - **Prod deployment** — see deployment checklist in "Deployment status" above. Nothing is deployed yet.
 - **Transactional email (nice-to-have)** — send a "your data will be deleted on {date}" email when a subscription enters `cancelling` state. Options: Resend (3k/mo free) or Cloudflare Email Workers + MailChannels (free, requires SPF/DKIM DNS). Stripe already handles receipts.
 
