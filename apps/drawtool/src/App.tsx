@@ -147,6 +147,7 @@ export default function App() {
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
   );
   const [showOnboarding, setShowOnboarding] = useState(false);
+  const showHoldHint = true;
   const [activeCanvas, setActiveCanvas] = useState(() => {
     const stored = localStorage.getItem("drawtool-active-canvas");
     const n = stored ? parseInt(stored, 10) : 1;
@@ -1048,7 +1049,10 @@ export default function App() {
       window.removeEventListener("drawtool:cycle-shape", onCycleShape);
       window.removeEventListener("drawtool:cycle-shape-back", onCycleShapeBack);
       window.removeEventListener("drawtool:switch-canvas", onSwitchCanvas);
-      window.removeEventListener("drawtool:find-blank-canvas", onFindBlankCanvas);
+      window.removeEventListener(
+        "drawtool:find-blank-canvas",
+        onFindBlankCanvas,
+      );
       window.removeEventListener(
         "drawtool:focus-canvas-name",
         onFocusCanvasName,
@@ -1202,11 +1206,19 @@ export default function App() {
     };
   }, [showOnboarding, dismissOnboarding]);
 
+
   const isDark = isDarkTheme(settings.theme);
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
   const { canvasLimit, isPro, planLoading, subscription } = useUserPlan();
-  const cloudCanvas = useCloudCanvas(isDark, canvasLimit, planLoading, isPro, settings.lastActiveCanvasId, _newRouteForCloud);
+  const cloudCanvas = useCloudCanvas(
+    isDark,
+    canvasLimit,
+    planLoading,
+    isPro,
+    settings.lastActiveCanvasId,
+    _newRouteForCloud,
+  );
   cloudActiveIdRef.current = cloudCanvas.activeId;
   const hasCloudCanvases = (cloudCanvas.workspace?.canvases.length ?? 0) > 0;
 
@@ -1257,57 +1269,74 @@ export default function App() {
   findBlankCanvasRef.current = () => {
     if (isSignedIn && cloudCanvas.workspace) {
       const candidates = cloudCanvas.workspace.canvases.slice(0, canvasLimit);
-      const blank = candidates.find(c => c.stroke_count === 0);
-      const target = blank ?? [...candidates].sort((a, b) => a.updated_at - b.updated_at)[0];
+      const blank = candidates.find((c) => c.stroke_count === 0);
+      const target =
+        blank ?? [...candidates].sort((a, b) => a.updated_at - b.updated_at)[0];
       if (target) {
         const slotN = target.position + 1;
         setActiveCanvas(slotN);
-        localStorage.setItem('drawtool-active-canvas', String(slotN));
+        localStorage.setItem("drawtool-active-canvas", String(slotN));
         setCanvasName(target.name);
         cloudCanvas.switchCanvas(target.id);
-        showToast({ type: 'text', message: `Canvas ${slotN}` });
+        showToast({ type: "text", message: `Canvas ${slotN}` });
       }
     } else {
       const counts = Array.from({ length: canvasLimit }, (_, i) => {
         const raw = localStorage.getItem(strokesKey(i + 1));
         if (!raw) return 0;
-        try { return (JSON.parse(raw) as unknown[]).length; } catch { return 0; }
+        try {
+          return (JSON.parse(raw) as unknown[]).length;
+        } catch {
+          return 0;
+        }
       });
       const empty = counts.findIndex((n) => n === 0);
-      window.dispatchEvent(new CustomEvent('drawtool:switch-canvas', {
-        detail: empty !== -1 ? empty + 1 : counts.findIndex((n) => n === Math.min(...counts)) + 1,
-      }));
+      window.dispatchEvent(
+        new CustomEvent("drawtool:switch-canvas", {
+          detail:
+            empty !== -1
+              ? empty + 1
+              : counts.findIndex((n) => n === Math.min(...counts)) + 1,
+        }),
+      );
     }
   };
 
   const exportWorkspacesZip = useCallback(async () => {
-    const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
-    const token = await getToken()
-    if (!token) return
+    const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8787";
+    const token = await getToken();
+    if (!token) return;
     const res = await fetch(`${API_URL}/workspaces/export`, {
       headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) return
-    const { workspaces } = await res.json() as {
-      workspaces: Array<{ name: string; canvases: Array<{ name: string; [k: string]: unknown }> }>
-    }
-    const { zipSync, strToU8 } = await import('fflate')
-    const files: Record<string, Uint8Array> = {}
+    });
+    if (!res.ok) return;
+    const { workspaces } = (await res.json()) as {
+      workspaces: Array<{
+        name: string;
+        canvases: Array<{ name: string; [k: string]: unknown }>;
+      }>;
+    };
+    const { zipSync, strToU8 } = await import("fflate");
+    const files: Record<string, Uint8Array> = {};
     for (const ws of workspaces) {
-      const safeName = ws.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
+      const safeName = ws.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "-");
       for (const canvas of ws.canvases) {
-        const safeCanvas = canvas.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, '-')
-        files[`${safeName}/${safeCanvas}.json`] = strToU8(JSON.stringify(canvas, null, 2))
+        const safeCanvas = canvas.name.replace(/[<>:"/\\|?*\x00-\x1f]/g, "-");
+        files[`${safeName}/${safeCanvas}.json`] = strToU8(
+          JSON.stringify(canvas, null, 2),
+        );
       }
     }
-    const zip = zipSync(files)
-    const url = URL.createObjectURL(new Blob([zip], { type: 'application/zip' }))
-    const a = document.createElement('a')
-    a.href = url
-    a.download = 'drawzilla-export.zip'
-    a.click()
-    URL.revokeObjectURL(url)
-  }, [getToken])
+    const zip = zipSync(files);
+    const url = URL.createObjectURL(
+      new Blob([zip], { type: "application/zip" }),
+    );
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "drawzilla-export.zip";
+    a.click();
+    URL.revokeObjectURL(url);
+  }, [getToken]);
 
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
 
@@ -1357,7 +1386,8 @@ export default function App() {
       }
     };
     window.addEventListener("keydown", onKey, { capture: true });
-    return () => window.removeEventListener("keydown", onKey, { capture: true });
+    return () =>
+      window.removeEventListener("keydown", onKey, { capture: true });
   }, [isSignedIn, isPro]);
 
   // Load share links for the active cloud canvas
@@ -1413,53 +1443,140 @@ export default function App() {
     </kbd>
   );
   const kbTips: ReactNode[] = [
-    <>Hold <K>Space</K> + drag to pan</>,
-    <>Hold <K>R</K> + drag for rectangle</>,
-    <>Hold <K>C</K> + drag for circle</>,
-    <>Hold <K>A</K> + drag for arrow</>,
-    <>Hold <K>{shift}</K> + drag for a dashed stroke</>,
-    <>Hold <K>{shift}</K> + <K>A</K> + drag for dashed arrow</>,
-    <>Hold <K>{shift}</K> + <K>R</K> + drag for dashed rectangle</>,
-    <>Hold <K>F</K> + <K>C</K> + drag for filled circle</>,
-    <>Hold <K>{shift}</K> + <K>S</K> + drag for dashed shape</>,
-    <>Hold <K>F</K> + <K>S</K> + drag for filled shape</>,
-    <>Hold <K>{shift}</K> + <K>F</K> + <K>S</K> + drag for dashed filled shape</>,
-    <>Double-tap <K>V</K> for select mode</>,
-    <>Hold <K>W</K> + drag to highlight</>,
-    <>Hold <K>B</K> + drag for spray paint</>,
-    <>Hold <K>Q</K> / <K>L</K> + drag for laser pointer</>,
-    <>Press <K>.</K> to place a dot</>,
-    <><K>[</K> or <K>]</K> to cycle color</>,
-    <><K>,</K> to swap between last 2 colors</>,
-    <><K>{"{"}</K> or <K>{"}"}</K> to adjust thickness</>,
-    <>Press <K>G</K> to cycle grid</>,
-    <>Press <K>0</K> to jump to cleanest canvas</>,
-    <><K>{mod}</K> + <K>{shift}</K> + <K>S</K> to save selection to stash</>,
-    <><K>{mod}</K> + <K>Z</K> to undo, <K>{shift}</K> + <K>{mod}</K> + <K>Z</K> to redo</>,
-    <><K>{mod}</K> + <K>A</K> to select all</>,
-    <><K>{mod}</K> + <K>D</K> to duplicate selection</>,
-    <><K>Backspace</K> to delete selection</>,
-    <><K>{mod}</K> + <K>C</K> / <K>X</K> / <K>V</K> to copy, cut, paste</>,
+    <>
+      Hold <K>Space</K> + drag to pan
+    </>,
+    <>
+      Hold <K>R</K> + drag for rectangle
+    </>,
+    <>
+      Hold <K>C</K> + drag for circle
+    </>,
+    <>
+      Hold <K>A</K> + drag for arrow
+    </>,
+    <>
+      Hold <K>{shift}</K> + drag for a dashed stroke
+    </>,
+    <>
+      Hold <K>{shift}</K> + <K>A</K> + drag for dashed arrow
+    </>,
+    <>
+      Hold <K>{shift}</K> + <K>R</K> + drag for dashed rectangle
+    </>,
+    <>
+      Hold <K>F</K> + <K>C</K> + drag for filled circle
+    </>,
+    <>
+      Hold <K>{shift}</K> + <K>S</K> + drag for dashed shape
+    </>,
+    <>
+      Hold <K>F</K> + <K>S</K> + drag for filled shape
+    </>,
+    <>
+      Hold <K>{shift}</K> + <K>F</K> + <K>S</K> + drag for dashed filled shape
+    </>,
+    <>
+      Double-tap <K>V</K> for select mode
+    </>,
+    <>
+      Hold <K>W</K> + drag to highlight
+    </>,
+    <>
+      Hold <K>B</K> + drag for spray paint
+    </>,
+    <>
+      Hold <K>Q</K> / <K>L</K> + drag for laser pointer
+    </>,
+    <>
+      Press <K>.</K> to place a dot
+    </>,
+    <>
+      <K>[</K> or <K>]</K> to cycle color
+    </>,
+    <>
+      <K>,</K> to swap between last 2 colors
+    </>,
+    <>
+      <K>{"{"}</K> or <K>{"}"}</K> to adjust thickness
+    </>,
+    <>
+      Press <K>G</K> to cycle grid
+    </>,
+    <>
+      Press <K>0</K> to jump to cleanest canvas
+    </>,
+    <>
+      <K>{mod}</K> + <K>{shift}</K> + <K>S</K> to save selection to stash
+    </>,
+    <>
+      <K>{mod}</K> + <K>Z</K> to undo, <K>{shift}</K> + <K>{mod}</K> + <K>Z</K>{" "}
+      to redo
+    </>,
+    <>
+      <K>{mod}</K> + <K>A</K> to select all
+    </>,
+    <>
+      <K>{mod}</K> + <K>D</K> to duplicate selection
+    </>,
+    <>
+      <K>Backspace</K> to delete selection
+    </>,
+    <>
+      <K>{mod}</K> + <K>C</K> / <K>X</K> / <K>V</K> to copy, cut, paste
+    </>,
     <>Arrow keys to pan (or nudge selection)</>,
-    <><K>+</K> / <K>-</K> to zoom in / out</>,
-    <><K>{isMac ? "Ctrl" : mod}</K> + scroll to zoom</>,
-    <><K>{shift}</K> + <K>1</K> to fit view, <K>{shift}</K> + <K>2</K> to center</>,
-    <>Press <K>T</K> to add text</>,
-    <><K>1</K>–<K>9</K> to switch canvas</>,
-    <><K>{mod}</K> + <K>E</K> to export</>,
-    <>Press <K>K</K> to lock / unlock selection</>,
-    <>Press <K>E</K> to toggle sharp / rounded corners</>,
-    <>Press <K>P</K> to toggle dynamic stroke on / off</>,
-    <><K>{mod}</K> + <K>{shift}</K> + <K>H</K> / <K>V</K> to flip selection</>,
-    <><K>{mod}</K> + <K>J</K> to combine strokes, <K>{shift}</K> + <K>{mod}</K> + <K>J</K> to uncombine</>,
-    <><K>{mod}</K> + <K>,</K> to rename canvas</>,
-    <>Press <K>M</K> to toggle menu</>,
-    <>Press <K>?</K> to see all shortcuts</>,
+    <>
+      <K>+</K> / <K>-</K> to zoom in / out
+    </>,
+    <>
+      <K>{isMac ? "Ctrl" : mod}</K> + scroll to zoom
+    </>,
+    <>
+      <K>{shift}</K> + <K>1</K> to fit view, <K>{shift}</K> + <K>2</K> to center
+    </>,
+    <>
+      Press <K>T</K> to add text
+    </>,
+    <>
+      <K>1</K>–<K>9</K> to switch canvas
+    </>,
+    <>
+      <K>{mod}</K> + <K>E</K> to export
+    </>,
+    <>
+      Press <K>K</K> to lock / unlock selection
+    </>,
+    <>
+      Press <K>E</K> to toggle sharp / rounded corners
+    </>,
+    <>
+      Press <K>P</K> to toggle dynamic stroke on / off
+    </>,
+    <>
+      <K>{mod}</K> + <K>{shift}</K> + <K>H</K> / <K>V</K> to flip selection
+    </>,
+    <>
+      <K>{mod}</K> + <K>J</K> to combine strokes, <K>{shift}</K> + <K>{mod}</K>{" "}
+      + <K>J</K> to uncombine
+    </>,
+    <>
+      <K>{mod}</K> + <K>,</K> to rename canvas
+    </>,
+    <>
+      Press <K>M</K> to toggle menu
+    </>,
+    <>
+      Press <K>?</K> to see all shortcuts
+    </>,
   ];
 
   const tipOrderRef = useRef<number[] | null>(null);
   if (!tipOrderRef.current || tipOrderRef.current.length !== kbTips.length) {
-    tipOrderRef.current = Array.from({ length: kbTips.length }, (_, i) => i).sort(() => Math.random() - 0.5);
+    tipOrderRef.current = Array.from(
+      { length: kbTips.length },
+      (_, i) => i,
+    ).sort(() => Math.random() - 0.5);
   }
 
   useEffect(() => {
@@ -1483,7 +1600,12 @@ export default function App() {
       selectHintTimerRef.current = null;
     }
     setSelectHintVisible(false);
-  }, [activeCanvas, cloudCanvas.activeId, cloudCanvas.loadKey, cloudCanvas.clearKey]);
+  }, [
+    activeCanvas,
+    cloudCanvas.activeId,
+    cloudCanvas.loadKey,
+    cloudCanvas.clearKey,
+  ]);
 
   const visibleLineColor =
     (settings.lineColor === "#000000" && isDark) ||
@@ -1695,15 +1817,17 @@ export default function App() {
           onPinWorkspace={cloudCanvas.pinWorkspace}
           onFavouriteWorkspace={cloudCanvas.favouriteWorkspace}
           onRemoveCanvas={async (id, isLast) => {
-            if (isLast) return cloudCanvas.clearCanvas(id)
-            return cloudCanvas.deleteCanvas(id)
+            if (isLast) return cloudCanvas.clearCanvas(id);
+            return cloudCanvas.deleteCanvas(id);
           }}
           onDeleteWorkspace={cloudCanvas.deleteWorkspace}
           onResetWorkspace={async (wsId) => {
-            const ws = cloudCanvas.allWorkspaces.find(w => w.id === wsId)
-            if (!ws) return false
-            await Promise.all(ws.canvases.slice(1).map(c => cloudCanvas.deleteCanvas(c.id)))
-            return cloudCanvas.clearCanvas(ws.canvases[0]?.id ?? '')
+            const ws = cloudCanvas.allWorkspaces.find((w) => w.id === wsId);
+            if (!ws) return false;
+            await Promise.all(
+              ws.canvases.slice(1).map((c) => cloudCanvas.deleteCanvas(c.id)),
+            );
+            return cloudCanvas.clearCanvas(ws.canvases[0]?.id ?? "");
           }}
           showTips={settings.showTips}
           onClose={() => setShowWorkspaceSwitcher(false)}
@@ -1742,11 +1866,15 @@ export default function App() {
       <Menu
         settings={settings}
         updateSettings={updateSettings}
-        onExport={activeCanvas <= canvasLimit || isPro ? (format, transparent) => {
-          if (format === "svg") exportSvgFn(transparent);
-          else if (transparent) exportTransparent();
-          else exportPng();
-        } : undefined}
+        onExport={
+          activeCanvas <= canvasLimit || isPro
+            ? (format, transparent) => {
+                if (format === "svg") exportSvgFn(transparent);
+                else if (transparent) exportTransparent();
+                else exportPng();
+              }
+            : undefined
+        }
         exportFormat={settings.exportFormat}
         exportTransparentBg={settings.exportTransparentBg}
         onSetExportFormat={(f) => updateSettings({ exportFormat: f })}
@@ -1851,38 +1979,42 @@ export default function App() {
           e.target.value = "";
         }}
       />
-      {!cloudCanvas.newRoutePending && <Canvas
-        lineWidth={settings.lineWidth}
-        lineColor={settings.lineColor}
-        dashGap={settings.dashGap}
-        gridType={settings.gridType}
-        theme={settings.theme}
-        touchTool={touchTool}
-        activeShape={settings.activeShape}
-        shapeFill={settings.shapeFill}
-        shapeFillEnabled={settings.shapeFillEnabled}
-        fillOpacity={settings.fillOpacity}
-        shapeDashed={settings.shapeDashed}
-        shapeCorners={settings.shapeCorners}
-        key={
-          showTraining
-            ? "training"
-            : cloudCanvas.activeId
-              ? `${cloudCanvas.activeId}-lk${cloudCanvas.loadKey}${cloudCanvas.clearKey ? `-c${cloudCanvas.clearKey}` : ""}`
-              : String(activeCanvas)
-        }
-        canvasIndex={showTraining ? 0 : cloudCanvas.activeId ? 1 : activeCanvas}
-        canvasLimit={canvasLimit}
-        textSize={settings.textSize}
-        fontFamily={settings.fontFamily}
-        textBold={settings.textBold}
-        textItalic={settings.textItalic}
-        textAlign={settings.textAlign}
-        pressureSensitivity={settings.pressureSensitivity}
-        leftClickTool={settings.leftClickTool}
-        rightClickTool={settings.rightClickTool}
-        onContentOffScreen={setContentOffScreen}
-      />}
+      {!cloudCanvas.newRoutePending && (
+        <Canvas
+          lineWidth={settings.lineWidth}
+          lineColor={settings.lineColor}
+          dashGap={settings.dashGap}
+          gridType={settings.gridType}
+          theme={settings.theme}
+          touchTool={touchTool}
+          activeShape={settings.activeShape}
+          shapeFill={settings.shapeFill}
+          shapeFillEnabled={settings.shapeFillEnabled}
+          fillOpacity={settings.fillOpacity}
+          shapeDashed={settings.shapeDashed}
+          shapeCorners={settings.shapeCorners}
+          key={
+            showTraining
+              ? "training"
+              : cloudCanvas.activeId
+                ? `${cloudCanvas.activeId}-lk${cloudCanvas.loadKey}${cloudCanvas.clearKey ? `-c${cloudCanvas.clearKey}` : ""}`
+                : String(activeCanvas)
+          }
+          canvasIndex={
+            showTraining ? 0 : cloudCanvas.activeId ? 1 : activeCanvas
+          }
+          canvasLimit={canvasLimit}
+          textSize={settings.textSize}
+          fontFamily={settings.fontFamily}
+          textBold={settings.textBold}
+          textItalic={settings.textItalic}
+          textAlign={settings.textAlign}
+          pressureSensitivity={settings.pressureSensitivity}
+          leftClickTool={settings.leftClickTool}
+          rightClickTool={settings.rightClickTool}
+          onContentOffScreen={setContentOffScreen}
+        />
+      )}
       {activeCanvas > canvasLimit &&
         !isPro &&
         !planLoading &&
@@ -2101,6 +2233,26 @@ export default function App() {
               showToast({ type: "text", message: `Canvas ${next}` }, 800);
             }}
           >
+            {showHoldHint && (
+              <div
+                className={`absolute left-3 pointer-events-none select-none ${isTablet ? "top-full mt-1" : "bottom-full mb-1"}`}
+                style={{
+                  fontSize: 20,
+                  fontFamily: "Caveat, cursive",
+                  color: isDark ? "rgba(255,255,255,0.45)" : "rgba(0,0,0,0.4)",
+                }}
+              >
+                {isTablet ? (
+                  <span className="flex items-center gap-1">
+                    Hold for more options
+                    <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M1 15 H8 V1" />
+                      <path d="M5 4 L8 1 L11 4" />
+                    </svg>
+                  </span>
+                ) : "Hold for more ↴"}
+              </div>
+            )}
             {/* Undo / Redo / Delete — mobile only: above top-right of toolbar. Nav is z-40 so menu (z-50) paints on top. */}
             {!isTablet && (
               <div className="absolute right-1 bottom-full mb-1 flex items-center gap-0.5">
@@ -3444,13 +3596,20 @@ export default function App() {
               onFocus={(e) => e.currentTarget.select()}
               onChange={(e) => setCanvasName(e.target.value)}
               onBlur={async () => {
-                await cloudCanvas.renameCanvas(cloudCanvas.activeId!, canvasName);
+                await cloudCanvas.renameCanvas(
+                  cloudCanvas.activeId!,
+                  canvasName,
+                );
                 setIsEditingName(false);
               }}
               onKeyDown={(e) => {
                 if (e.key === "Enter") e.currentTarget.blur();
                 if (e.key === "Escape") {
-                  setCanvasName(cloudCanvas.activeCanvasMeta?.name ?? cloudCanvas.cachedCanvasName ?? "");
+                  setCanvasName(
+                    cloudCanvas.activeCanvasMeta?.name ??
+                      cloudCanvas.cachedCanvasName ??
+                      "",
+                  );
                   setIsEditingName(false);
                 }
                 e.stopPropagation();
@@ -3465,60 +3624,64 @@ export default function App() {
             />
           </div>
         ) : (
-        <button
-          onClick={() => setShowWorkspaceSwitcher(true)}
-          className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5 overflow-hidden max-w-[min(38vw,280px)] rounded-lg px-1 py-0.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
-          title={
-            isPro
-              ? "Switch workspace or canvas (⌘O)"
-              : "Switch workspace or canvas"
-          }
-        >
-          <span
-            className="shrink min-w-0 truncate text-[11px] font-medium tracking-wide uppercase"
-            style={{
-              color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
-              fontFamily: "system-ui, sans-serif",
-            }}
+          <button
+            onClick={() => setShowWorkspaceSwitcher(true)}
+            className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5 overflow-hidden max-w-[min(38vw,280px)] rounded-lg px-1 py-0.5 transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+            title={
+              isPro
+                ? "Switch workspace or canvas (⌘O)"
+                : "Switch workspace or canvas"
+            }
           >
-            {cloudCanvas.workspace?.name ?? cloudCanvas.cachedWorkspaceName}
-          </span>
-          {(cloudCanvas.activeCanvasMeta || cloudCanvas.cachedCanvasName) && (
-            <>
-              <span
-                className="shrink-0"
-                style={{
-                  color: isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.12)",
-                  fontFamily: "system-ui, sans-serif",
-                  fontSize: "0.65rem",
-                }}
-              >
-                /
-              </span>
-              <span
-                className="shrink-0 text-2xl tabular-nums tracking-wider"
-                style={{
-                  color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
-                  fontFamily: "Caveat Brush, cursive",
-                }}
-              >
-                {activeCanvas}
-              </span>
-              {!hasTouch && (
+            <span
+              className="shrink min-w-0 truncate text-[11px] font-medium tracking-wide uppercase"
+              style={{
+                color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
+                fontFamily: "system-ui, sans-serif",
+              }}
+            >
+              {cloudCanvas.workspace?.name ?? cloudCanvas.cachedWorkspaceName}
+            </span>
+            {(cloudCanvas.activeCanvasMeta || cloudCanvas.cachedCanvasName) && (
+              <>
                 <span
-                  className="shrink min-w-0 truncate text-[19px]"
+                  className="shrink-0"
                   style={{
-                    color: isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.3)",
+                    color: isDark
+                      ? "rgba(255,255,255,0.12)"
+                      : "rgba(0,0,0,0.12)",
+                    fontFamily: "system-ui, sans-serif",
+                    fontSize: "0.65rem",
+                  }}
+                >
+                  /
+                </span>
+                <span
+                  className="shrink-0 text-2xl tabular-nums tracking-wider"
+                  style={{
+                    color: isDark ? "rgba(255,255,255,0.2)" : "rgba(0,0,0,0.2)",
                     fontFamily: "Caveat Brush, cursive",
                   }}
                 >
-                  {cloudCanvas.activeCanvasMeta?.name ??
-                    cloudCanvas.cachedCanvasName}
+                  {activeCanvas}
                 </span>
-              )}
-            </>
-          )}
-        </button>
+                {!hasTouch && (
+                  <span
+                    className="shrink min-w-0 truncate text-[19px]"
+                    style={{
+                      color: isDark
+                        ? "rgba(255,255,255,0.3)"
+                        : "rgba(0,0,0,0.3)",
+                      fontFamily: "Caveat Brush, cursive",
+                    }}
+                  >
+                    {cloudCanvas.activeCanvasMeta?.name ??
+                      cloudCanvas.cachedCanvasName}
+                  </span>
+                )}
+              </>
+            )}
+          </button>
         )
       ) : isSignedIn === false ? (
         <div
@@ -4544,96 +4707,175 @@ export default function App() {
       )}
       {settings.showTips && !hasTouch && (
         <div
-          className={`fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none flex items-center gap-px ${isTablet ? "top-[58px]" : "top-3"}`}
+          className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none flex flex-wrap items-center gap-px justify-center"
           style={{
+            top: isWide ? 32 : 40,
             background: getPanelBackground(settings.theme),
             borderRadius: 8,
             border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
             backdropFilter: "blur(8px)",
             padding: "3px 6px",
-            maxWidth: "min(calc(100vw - 300px), 780px)",
-            overflowX: "auto",
-            msOverflowStyle: "none",
-            scrollbarWidth: "none",
+            width: "min(calc(100vw - 160px), 780px)",
           }}
         >
-          {([
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
-                </svg>
-              ),
-              label: `${mod} + drag`,
-            },
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="2 2.5">
-                  <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
-                </svg>
-              ),
-              label: `${shift} + drag`,
-            },
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round">
-                  <line x1="3" y1="13" x2="13" y2="3" />
-                </svg>
-              ),
-              label: `${mod} + ${shift} + drag`,
-            },
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <defs>
-                    <linearGradient id="tip-eg" x1="0" y1="0" x2="1" y2="0">
-                      <stop offset="50%" stopColor="#89CFF0" />
-                      <stop offset="50%" stopColor="#FA8072" />
-                    </linearGradient>
-                  </defs>
-                  <rect x="2" y="4" width="12" height="8" rx="1.5" transform="rotate(-15 8 8)" fill="url(#tip-eg)" stroke="currentColor" strokeWidth="1" strokeOpacity="0.4" />
-                </svg>
-              ),
-              label: `${alt} + drag`,
-            },
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round">
-                  <rect x="2" y="3" width="12" height="10" rx="1" />
-                </svg>
-              ),
-              label: "S + drag",
-            },
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <text x="8" y="13" textAnchor="middle" fill="currentColor" stroke="none" fontSize="14" fontWeight="700" fontFamily="Georgia,serif">A</text>
-                </svg>
-              ),
-              label: "T",
-            },
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M4 2 L4 12 L7 9.5 L9 13.5 L10.5 12.8 L8.5 8.8 L12 8.8 Z" />
-                </svg>
-              ),
-              label: "Hold V",
-            },
-            {
-              icon: <Hand size={12} strokeWidth={1.5} />,
-              label: "Space + drag",
-            },
-            {
-              icon: (
-                <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
-                  <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
-                  <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
-                </svg>
-              ),
-              label: "Q / L + drag",
-            },
-          ] as { icon: ReactNode; label: string }[]).map(({ icon, label }, i, arr) => (
+          {(
+            [
+              {
+                icon: (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
+                  </svg>
+                ),
+                label: `${mod} + drag`,
+              },
+              {
+                icon: (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeDasharray="2 2.5"
+                  >
+                    <path d="M3,12 Q5,4 8,8 Q11,12 13,4" />
+                  </svg>
+                ),
+                label: `${shift} + drag`,
+              },
+              {
+                icon: (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                  >
+                    <line x1="3" y1="13" x2="13" y2="3" />
+                  </svg>
+                ),
+                label: `${mod} + ${shift} + drag`,
+              },
+              {
+                icon: (
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <defs>
+                      <linearGradient id="tip-eg" x1="0" y1="0" x2="1" y2="0">
+                        <stop offset="50%" stopColor="#89CFF0" />
+                        <stop offset="50%" stopColor="#FA8072" />
+                      </linearGradient>
+                    </defs>
+                    <rect
+                      x="2"
+                      y="4"
+                      width="12"
+                      height="8"
+                      rx="1.5"
+                      transform="rotate(-15 8 8)"
+                      fill="url(#tip-eg)"
+                      stroke="currentColor"
+                      strokeWidth="1"
+                      strokeOpacity="0.4"
+                    />
+                  </svg>
+                ),
+                label: `${alt} + drag`,
+              },
+              {
+                icon: (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinejoin="round"
+                  >
+                    <rect x="2" y="3" width="12" height="10" rx="1" />
+                  </svg>
+                ),
+                label: "S + drag",
+              },
+              {
+                icon: (
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <text
+                      x="8"
+                      y="13"
+                      textAnchor="middle"
+                      fill="currentColor"
+                      stroke="none"
+                      fontSize="14"
+                      fontWeight="700"
+                      fontFamily="Georgia,serif"
+                    >
+                      A
+                    </text>
+                  </svg>
+                ),
+                label: "T",
+              },
+              {
+                icon: (
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <path d="M4 2 L4 12 L7 9.5 L9 13.5 L10.5 12.8 L8.5 8.8 L12 8.8 Z" />
+                  </svg>
+                ),
+                label: "Hold V",
+              },
+              {
+                icon: <Hand size={12} strokeWidth={1.5} />,
+                label: "Space + drag",
+              },
+              {
+                icon: (
+                  <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="3"
+                      fill="#ff3030"
+                      fillOpacity="0.9"
+                    />
+                    <circle
+                      cx="8"
+                      cy="8"
+                      r="5.5"
+                      stroke="#ff3030"
+                      strokeWidth="1"
+                      strokeOpacity="0.4"
+                    />
+                  </svg>
+                ),
+                label: "Q / L + drag",
+              },
+            ] as { icon: ReactNode; label: string }[]
+          ).map(({ icon, label }, i, arr) => (
             <span key={i} className="flex items-center">
               <span
                 className="flex items-center gap-1 px-2 py-0.5 whitespace-nowrap"
@@ -4647,7 +4889,16 @@ export default function App() {
                 {label}
               </span>
               {i < arr.length - 1 && (
-                <span style={{ width: 1, height: 12, background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)", display: "inline-block" }} />
+                <span
+                  style={{
+                    width: 1,
+                    height: 12,
+                    background: isDark
+                      ? "rgba(255,255,255,0.1)"
+                      : "rgba(0,0,0,0.1)",
+                    display: "inline-block",
+                  }}
+                />
               )}
             </span>
           ))}
@@ -4656,7 +4907,7 @@ export default function App() {
       {settings.showTips && !hasTouch && (
         <div
           className="fixed bottom-4 right-4 z-20 pointer-events-none select-none"
-          style={{ maxWidth: "16rem" }}
+          style={{ maxWidth: "18rem" }}
         >
           <div
             style={{
@@ -4691,7 +4942,10 @@ export default function App() {
             scrollbarWidth: "none",
           }}
         >
-          Click to select &nbsp;·&nbsp; Drag to box-select &nbsp;·&nbsp; <K>{shift}</K> + drag for fully enclosed only &nbsp;·&nbsp; <K>{shift}</K> + click to add &nbsp;·&nbsp; <K>V</K><K>V</K> to lock &nbsp;·&nbsp; <K>Esc</K> to exit
+          Click to select &nbsp;·&nbsp; Drag to box-select &nbsp;·&nbsp;{" "}
+          <K>{shift}</K> + drag for fully enclosed only &nbsp;·&nbsp;{" "}
+          <K>{shift}</K> + click to add &nbsp;·&nbsp; <K>V</K>
+          <K>V</K> to lock &nbsp;·&nbsp; <K>Esc</K> to exit
         </div>
       )}
     </>

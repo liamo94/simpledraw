@@ -402,6 +402,7 @@ export default function Menu({
   const alt = isMac ? "⌥" : "Alt";
 
   const isDark = isDarkTheme(settings.theme);
+  const showTips = settings.showTips && !hasTouch;
   const { user } = useUser();
   const { signOut } = useClerk();
   const waveStyle = `@keyframes dtWave {
@@ -716,7 +717,7 @@ export default function Menu({
                 >
                   Line thickness
                 </span>
-                {settings.showTips && (
+                {showTips && (
                   <>
                     <span
                       className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
@@ -772,7 +773,7 @@ export default function Menu({
                 >
                   Dash gap
                 </span>
-                {settings.showTips && (
+                {showTips && (
                   <span
                     className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                   >
@@ -821,7 +822,7 @@ export default function Menu({
               >
                 Color
               </div>
-              {settings.showTips && (
+              {showTips && (
                 <span
                   className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                 >
@@ -868,7 +869,7 @@ export default function Menu({
                   >
                     Text size
                   </div>
-                  {settings.showTips && (
+                  {showTips && (
                     <>
                       <span
                         className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
@@ -910,7 +911,7 @@ export default function Menu({
                   >
                     Font
                   </div>
-                  {settings.showTips && (
+                  {showTips && (
                     <span
                       className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                     >
@@ -1115,7 +1116,7 @@ export default function Menu({
               >
                 Shape
               </div>
-              {settings.showTips && (
+              {showTips && (
                 <span
                   className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                 >
@@ -1219,7 +1220,7 @@ export default function Menu({
               >
                 Fill
               </div>
-              {settings.showTips && (
+              {showTips && (
                 <span
                   className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                 >
@@ -1465,7 +1466,7 @@ export default function Menu({
               <span>Style</span>
               <span className="flex items-baseline gap-1.5">
                 Grid
-                {settings.showTips && (
+                {showTips && (
                   <span
                     className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                   >
@@ -1517,7 +1518,7 @@ export default function Menu({
                   </svg>
                 </button>
               ))}
-              {settings.showTips && (
+              {showTips && (
                 <span
                   className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                 >
@@ -1583,7 +1584,7 @@ export default function Menu({
                   </svg>
                 </button>
               ))}
-              {settings.showTips && (
+              {showTips && (
                 <span
                   className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                 >
@@ -1691,7 +1692,7 @@ export default function Menu({
                 >
                   Canvas
                 </span>
-                {settings.showTips && (
+                {showTips && (
                   <span
                     className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                   >
@@ -1813,7 +1814,7 @@ export default function Menu({
               </svg>
               <span className="relative flex items-center gap-1.5">
                 {clearConfirming ? "Are you sure?" : "Clear screen"}
-                {settings.showTips && !clearConfirming && (
+                {showTips && !clearConfirming && (
                   <span
                     className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}
                   >
@@ -1829,7 +1830,7 @@ export default function Menu({
               >
                 Theme
               </div>
-              {settings.showTips && (
+              {showTips && (
                 <span
                   className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
                 >
@@ -2002,6 +2003,7 @@ export default function Menu({
                   />
                 </span>
               </button>
+              {!hasTouch && (
               <button
                 role="switch"
                 aria-checked={settings.showTips}
@@ -2031,6 +2033,7 @@ export default function Menu({
                   />
                 </span>
               </button>
+              )}
               {!hasTouch && (
                 <div className="flex items-center justify-between w-full text-sm">
                   <span>Mouse buttons</span>
@@ -2085,7 +2088,7 @@ export default function Menu({
                     <path d="M6 14H2v-4" />
                   </svg>
                   Fullscreen
-                  {settings.showTips && (
+                  {showTips && (
                     <span className={`ml-auto text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
                       {mod} + F
                     </span>
@@ -2102,14 +2105,14 @@ export default function Menu({
                 <Layers size={13} strokeWidth={1.75} />
                 <span className="flex flex-col items-start gap-0.5">
                   Stash
-                  {settings.showTips && (
+                  {showTips && (
                     <span className={`text-[9px] font-normal leading-tight ${isDark ? "text-white/25" : "text-black/25"}`}>
                       Save &amp; reuse content across canvases
                     </span>
                   )}
                 </span>
                 <span className="ml-auto flex items-center gap-1">
-                  {settings.showTips && (
+                  {showTips && (
                     <span className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
                       ⇧ + B
                     </span>
@@ -2133,7 +2136,7 @@ export default function Menu({
                 >
                   <Keyboard size={13} strokeWidth={1.75} />
                   Keys
-                  {settings.showTips && (
+                  {showTips && (
                     <span className={`ml-auto text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
                       ?
                     </span>
@@ -2161,7 +2164,7 @@ export default function Menu({
                   })
                 }
                 isDark={isDark}
-                tip={settings.showTips ? (
+                tip={showTips ? (
                   <span className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
                     {mod} + E
                   </span>
