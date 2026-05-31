@@ -2020,19 +2020,15 @@ export default function App() {
                   links
                 </p>
               </div>
-              <a
-                href="https://unleash.drawzil.la"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="relative px-5 py-2 rounded-lg text-xs font-semibold text-white transition-opacity hover:opacity-90 active:scale-95"
+              <span
+                className="relative px-5 py-2 rounded-lg text-xs font-semibold text-white cursor-default opacity-60"
                 style={{
                   background:
                     "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-                  boxShadow: "0 2px 14px rgba(34,197,94,0.4)",
                 }}
               >
-                Get Unleashed · £2.99/mo
-              </a>
+                Coming soon...
+              </span>
             </div>
           </div>
         )}
