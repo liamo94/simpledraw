@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+html, body {
+  background: #06060f;
+}
+
+@keyframes float-calm {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes float-energetic {
+  0%, 100% { transform: translateY(0) scale(1); }
+  50% { transform: translateY(-18px) scale(1.06); }
+}
+
+@keyframes evolve-shake {
+  0%, 100% { transform: translateY(0); }
+  20% { transform: translateY(-3px) translateX(-2px); }
+  40% { transform: translateY(-1px) translateX(3px); }
+  60% { transform: translateY(-4px) translateX(-1px); }
+  80% { transform: translateY(-2px) translateX(2px); }
+}
+
+@keyframes evolve-burst {
+  0%   { transform: scale(1)    translateY(0);    }
+  20%  { transform: scale(1.22) translateY(-14px);}
+  50%  { transform: scale(0.96) translateY(2px);  }
+  70%  { transform: scale(1.08) translateY(-5px); }
+  100% { transform: scale(1)    translateY(0);    }
+}
+
+@keyframes evolve-glow {
+  0%   { filter: url(#remove-white-bg) drop-shadow(0 0 30px rgba(57,255,20,0.95)) brightness(1.5); }
+  50%  { filter: url(#remove-white-bg) drop-shadow(0 0 10px rgba(57,255,20,0.3)); }
+  100% { filter: url(#remove-white-bg); }
+}
+
+
+.mascot-float {
+  animation: float-energetic 3s ease-in-out infinite;
+}
+
+.scrollbar-thin {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,0.12) transparent;
+}
+.scrollbar-thin::-webkit-scrollbar {
+  width: 4px;
+}
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: transparent;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12);
+  border-radius: 2px;
+}
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: rgba(255,255,255,0.22);
+}

@@ -1,4 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
+import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud } from "lucide-react";
+import { SignInButton, SignedIn, SignedOut, UserButton, useUser, useClerk } from "@clerk/clerk-react";
 import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
   Settings,
@@ -15,7 +17,26 @@ import {
   CONFIRM_CLEAR_STROKE_THRESHOLD,
   getPanelBackground,
 } from "../canvas/canvasUtils";
-import { CANVAS_LIMIT } from "../config";
+import type { ShareLink } from "../hooks/useCloudCanvas";
+import type { Subscription } from "../hooks/useUserPlan";
+
+function formatExpiry(expiresAt: number): string {
+  const secs = expiresAt - Math.floor(Date.now() / 1000)
+  if (secs <= 0) return 'expired'
+  const days = Math.ceil(secs / 86400)
+  if (days > 1) return `${days}d left`
+  if (days === 1) return '1d left'
+  const hours = Math.floor(secs / 3600)
+  return hours > 0 ? `${hours}h left` : 'expires soon'
+}
+
+function expiryUrgency(expiresAt: number): 'ok' | 'warn' | 'urgent' {
+  const days = (expiresAt - Math.floor(Date.now() / 1000)) / 86400
+  if (days <= 1) return 'urgent'
+  if (days <= 3) return 'warn'
+  return 'ok'
+}
+
 
 function Tooltip({ label }: { label: string }) {
   return (
@@ -79,21 +100,7 @@ const CLICK_TOOL_OPTIONS: {
   {
     value: "pan",
     label: "Pan",
-    icon: (
-      <svg
-        width="12"
-        height="12"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M5,8 L2,8 M14,8 L11,8 M8,5 L8,2 M8,14 L8,11" />
-        <path d="M3,8 L5,6.5 M3,8 L5,9.5 M13,8 L11,6.5 M13,8 L11,9.5 M8,3 L6.5,5 M8,3 L9.5,5 M8,13 L6.5,11 M8,13 L9.5,11" />
-      </svg>
-    ),
+    icon: <Hand size={12} strokeWidth={1.5} />,
   },
   {
     value: "laser",
@@ -233,6 +240,7 @@ function AccordionSection({
   isDark,
   children,
   action,
+  tip,
   dim,
 }: {
   label: string;
@@ -242,6 +250,7 @@ function AccordionSection({
   isDark: boolean;
   children: React.ReactNode;
   action?: React.ReactNode;
+  tip?: React.ReactNode;
   dim?: boolean;
 }) {
   return (
@@ -261,19 +270,22 @@ function AccordionSection({
             {icon}
             {label}
           </span>
-          <svg
-            width="10"
-            height="10"
-            viewBox="0 0 10 10"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="1.5"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            className={`transition-transform ${open ? "rotate-90" : ""}`}
-          >
-            <path d="M3.5 1.5L7 5L3.5 8.5" />
-          </svg>
+          <span className="flex items-center gap-2">
+            {tip}
+            <svg
+              width="10"
+              height="10"
+              viewBox="0 0 10 10"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              className={`transition-transform ${open ? "rotate-90" : ""}`}
+            >
+              <path d="M3.5 1.5L7 5L3.5 8.5" />
+            </svg>
+          </span>
         </button>
         {action}
       </div>
@@ -285,7 +297,7 @@ function AccordionSection({
 type Props = {
   settings: Settings;
   updateSettings: (partial: Partial<Settings>) => void;
-  onExport: (format: "png" | "svg", transparent: boolean) => void;
+  onExport?: (format: "png" | "svg", transparent: boolean) => void;
   exportFormat: "png" | "svg";
   exportTransparentBg: boolean;
   onSetExportFormat: (f: "png" | "svg") => void;
@@ -306,6 +318,21 @@ type Props = {
   stashCount: number;
   selectionCount: number;
   onExportSelection: (transparent: boolean) => void;
+  canvasLimit: number;
+  isPro: boolean;
+  cloudCanvases?: { id: string; name: string; position: number }[];
+  activeCloudCanvasId?: string | null;
+  onReorderCloud?: (ids: string[]) => Promise<boolean>;
+  canvasShares?: ShareLink[];
+  existingShareWorkspaceUrl?: string | null;
+  onShareCanvas?: () => Promise<(ShareLink & { url: string }) | null>;
+  onDeleteShare?: (token: string) => Promise<boolean>;
+  onShareWorkspace?: () => Promise<string | null>;
+  onUnshareWorkspace?: () => Promise<boolean>;
+  subscription?: Subscription | null;
+  onExportWorkspacesZip?: () => void;
+  onResubscribe?: () => void;
+  cloudEnabled?: boolean;
 };
 
 export default function Menu({
@@ -332,6 +359,21 @@ export default function Menu({
   stashCount,
   selectionCount,
   onExportSelection,
+  canvasLimit,
+  isPro,
+  cloudCanvases,
+  activeCloudCanvasId,
+  onReorderCloud,
+  canvasShares,
+  existingShareWorkspaceUrl,
+  onShareCanvas,
+  onDeleteShare,
+  onShareWorkspace,
+  onUnshareWorkspace,
+  subscription,
+  onExportWorkspacesZip,
+  onResubscribe,
+  cloudEnabled = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
@@ -342,6 +384,12 @@ export default function Menu({
   const [showAbout, setShowAbout] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showReorder, setShowReorder] = useState(false);
+  const [shareWorkspaceUrl, setShareWorkspaceUrl] = useState<string | null>(existingShareWorkspaceUrl ?? null);
+  const [sharing, setSharing] = useState<'canvas' | 'workspace' | null>(null);
+  const [copiedShareToken, setCopiedShareToken] = useState<string | null>(null);
+  const copiedShareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => { setShareWorkspaceUrl(existingShareWorkspaceUrl ?? null); }, [existingShareWorkspaceUrl]);
   const [clearWipe, setClearWipe] = useState(0);
   const [clearConfirming, setClearConfirming] = useState(false);
   const clearConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -356,6 +404,9 @@ export default function Menu({
   const alt = isMac ? "⌥" : "Alt";
 
   const isDark = isDarkTheme(settings.theme);
+  const showTips = settings.showTips && !hasTouch;
+  const { user } = useUser();
+  const { signOut } = useClerk();
   const waveStyle = `@keyframes dtWave {
     0%   { transform: translateY(0) scale(1); }
     35%  { transform: translateY(-7px) scale(1.2); }
@@ -498,6 +549,9 @@ export default function Menu({
           onReorderCanvases={onReorderCanvases}
           onSwitchCanvas={onSwitchCanvas}
           onClose={() => setShowReorder(false)}
+          cloudCanvases={cloudCanvases}
+          activeCloudCanvasId={activeCloudCanvasId}
+          onReorderCloud={onReorderCloud}
         />
       )}
       {showKeysModal && (
@@ -525,22 +579,11 @@ export default function Menu({
                 onClick={() => setShowKeysModal(false)}
                 className={`w-7 h-7 flex items-center justify-center rounded-lg transition-colors ${isDark ? "text-white/50 hover:text-white/80 hover:bg-white/10" : "text-black/40 hover:text-black/70 hover:bg-black/[0.07]"}`}
               >
-                <svg
-                  width="10"
-                  height="10"
-                  viewBox="0 0 10 10"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.6"
-                  strokeLinecap="round"
-                >
-                  <line x1="1" y1="1" x2="9" y2="9" />
-                  <line x1="9" y1="1" x2="1" y2="9" />
-                </svg>
+                <X size={13} strokeWidth={2} />
               </button>
             </div>
             <div className="overflow-y-auto px-6 pb-6">
-              <ShortcutsPanel isDark={isDark} modal />
+              <ShortcutsPanel isDark={isDark} modal isPro={isPro} />
             </div>
           </div>
         </div>
@@ -550,59 +593,59 @@ export default function Menu({
         className="fixed top-4 right-4 z-50 flex flex-col items-end"
       >
         <button
-          aria-label="Menu"
-          aria-expanded={open}
-          onClick={(e) => {
-            if (!open && !hasWavedRef.current) {
-              hasWavedRef.current = true;
-              sessionStorage.setItem("drawtool-logo-waved", "1");
-              setLogoAnimate(true);
-            }
-            setOpen((o) => {
-              if (o) {
-                setShowAbout(false);
-                setClearWipe(0);
-                setLogoAnimate(false);
+            aria-label="Menu"
+            aria-expanded={open}
+            onClick={(e) => {
+              if (!open && !hasWavedRef.current) {
+                hasWavedRef.current = true;
+                sessionStorage.setItem("drawtool-logo-waved", "1");
+                setLogoAnimate(true);
               }
-              return !o;
-            });
-            (e.currentTarget as HTMLElement).blur();
-          }}
-          className={`w-[38px] h-[38px] flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "border-white/30 text-white" : "border-black/30 text-black") : isDark ? "border-white/20 text-white/70 hover:text-white" : "border-black/20 text-black/70 hover:text-black"}`}
-          style={{ background: getPanelBackground(settings.theme) }}
-        >
-          <span className="relative flex items-center justify-center w-full h-full">
-            <span
-              className={`absolute inset-[15%] transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
-            >
-              <img
-                src="/drawzilla-simplifed.svg"
-                alt=""
-                style={{
-                  display: "block",
-                  width: "100%",
-                  height: "100%",
-                  objectFit: "contain",
-                }}
-              />
-            </span>
-            <span
-              className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${open ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                stroke="#ec4899"
-                strokeWidth="2.5"
-                strokeLinecap="round"
+              setOpen((o) => {
+                if (o) {
+                  setShowAbout(false);
+                  setClearWipe(0);
+                  setLogoAnimate(false);
+                }
+                return !o;
+              });
+              (e.currentTarget as HTMLElement).blur();
+            }}
+            className={`w-[38px] h-[38px] flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "border-white/30 text-white" : "border-black/30 text-black") : isDark ? "border-white/20 text-white/70 hover:text-white" : "border-black/20 text-black/70 hover:text-black"}`}
+            style={{ background: getPanelBackground(settings.theme) }}
+          >
+            <span className="relative flex items-center justify-center w-full h-full">
+              <span
+                className={`absolute inset-[15%] transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
               >
-                <line x1="2" y1="2.5" x2="14" y2="13.5" />
-                <line x1="14" y1="2.5" x2="2" y2="13.5" />
-              </svg>
+                <img
+                  src="/drawzilla-simplifed.svg"
+                  alt=""
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                  }}
+                />
+              </span>
+              <span
+                className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${open ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="#ec4899"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                >
+                  <line x1="2" y1="2.5" x2="14" y2="13.5" />
+                  <line x1="14" y1="2.5" x2="2" y2="13.5" />
+                </svg>
+              </span>
             </span>
-          </span>
         </button>
 
         {open && (
@@ -664,11 +707,32 @@ export default function Menu({
                 </span>
               ))}
             </a>
+            {isPro && (
+              <div className="text-center -mt-3 mb-3">
+                <span className="animate-unleashed text-[10px] font-black tracking-widest">UNLEASHED</span>
+              </div>
+            )}
             <div className="flex items-center justify-between">
-              <span
-                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-              >
-                Line thickness
+              <span className="flex items-baseline gap-2">
+                <span
+                  className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                >
+                  Line thickness
+                </span>
+                {showTips && (
+                  <>
+                    <span
+                      className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                    >
+                      {"{ or }"}
+                    </span>
+                    <span
+                      className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                    >
+                      {mod} + drag
+                    </span>
+                  </>
+                )}
               </span>
               <span
                 className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
@@ -705,10 +769,19 @@ export default function Menu({
             </div>
 
             <div className="flex items-center justify-between mt-5">
-              <span
-                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-              >
-                Dash gap
+              <span className="flex items-baseline gap-2">
+                <span
+                  className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                >
+                  Dash gap
+                </span>
+                {showTips && (
+                  <span
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                  >
+                    ⇧ + drag
+                  </span>
+                )}
               </span>
               <span
                 className={`text-xs tabular-nums ${isDark ? "text-white/50" : "text-black/50"}`}
@@ -745,10 +818,55 @@ export default function Menu({
               ))}
             </div>
 
-            <div
-              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-            >
-              Color
+            <div className="mt-5 flex items-center gap-2">
+              <div
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Color
+              </div>
+              {showTips && (
+                <span
+                  className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                >
+                  {"[ or ]"}
+                </span>
+              )}
+              {isPro && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <label
+                    className={`relative w-5 h-5 flex items-center justify-center rounded cursor-pointer transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
+                    title="Pick custom color"
+                  >
+                    <input
+                      type="color"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      value={settings.customColor ?? "#ff6600"}
+                      onChange={(e) => {
+                        const c = e.target.value;
+                        updateSettings({ customColor: c });
+                        window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: c }));
+                      }}
+                    />
+                    <Pipette size={11} strokeWidth={2} />
+                  </label>
+                  <button
+                    onClick={() => {
+                      const c = settings.customColor ?? "#ff6600";
+                      window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: c }));
+                    }}
+                    aria-label={`Use custom color ${settings.customColor}`}
+                    aria-pressed={settings.lineColor === settings.customColor}
+                    className="w-[18px] h-[18px] rounded-full border-2 transition-transform focus:outline-none shrink-0"
+                    style={{
+                      backgroundColor: settings.customColor ?? "#ff6600",
+                      borderColor: settings.lineColor === settings.customColor
+                        ? isDark ? "white" : "black"
+                        : isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)",
+                      transform: settings.lineColor === settings.customColor ? "scale(1.2)" : undefined,
+                    }}
+                  />
+                </div>
+              )}
             </div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
               {palette.map((color) => (
@@ -783,10 +901,26 @@ export default function Menu({
 
             {!hasTouch && (
               <>
-                <div
-                  className={`mt-4 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-                >
-                  Text size
+                <div className="mt-4 flex items-baseline gap-2">
+                  <div
+                    className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                  >
+                    Text size
+                  </div>
+                  {showTips && (
+                    <>
+                      <span
+                        className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                      >
+                        T
+                      </span>
+                      <span
+                        className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                      >
+                        ⇧ + T
+                      </span>
+                    </>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 mt-1">
                   {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
@@ -809,10 +943,19 @@ export default function Menu({
                     </button>
                   ))}
                 </div>
-                <div
-                  className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-                >
-                  Font
+                <div className="mt-3 flex items-baseline gap-2">
+                  <div
+                    className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                  >
+                    Font
+                  </div>
+                  {showTips && (
+                    <span
+                      className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                    >
+                      ⇧ + Y
+                    </span>
+                  )}
                 </div>
                 <div className="flex items-center gap-1 mt-1">
                   {(
@@ -1005,10 +1148,19 @@ export default function Menu({
               </>
             )}
 
-            <div
-              className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-            >
-              Shape
+            <div className="mt-3 flex items-baseline gap-2">
+              <div
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Shape
+              </div>
+              {showTips && (
+                <span
+                  className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                >
+                  Hold S + drag
+                </span>
+              )}
             </div>
             <div className="flex gap-1.5 mt-1 justify-center">
               {(
@@ -1041,69 +1193,43 @@ export default function Menu({
                   }`}
                 >
                   <Tooltip label={s.charAt(0).toUpperCase() + s.slice(1)} />
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke={
-                      settings.activeShape === s
-                        ? isDark
-                          ? "#93c5fd"
-                          : "#3b82f6"
-                        : isDark
-                          ? "white"
-                          : "black"
-                    }
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
-                    strokeOpacity={settings.activeShape === s ? 1 : 0.5}
-                  >
-                    {s === "line" && (
-                      <line
-                        x1="3"
-                        y1="13"
-                        x2="13"
-                        y2="3"
-                        strokeLinecap="round"
-                      />
-                    )}
-                    {s === "rectangle" && (
-                      <rect x="2" y="3" width="12" height="10" rx="0.5" />
-                    )}
-                    {s === "circle" && <circle cx="8" cy="8" r="6" />}
-                    {s === "triangle" && <polygon points="8,2 14,14 2,14" />}
-                    {s === "diamond" && <polygon points="8,1 15,8 8,15 1,8" />}
-                    {s === "pentagon" && (
-                      <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-                    )}
-                    {s === "hexagon" && (
-                      <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-                    )}
-                    {s === "star" && (
-                      <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-                    )}
-                    {s === "arrow" && (
-                      <>
-                        <line x1="2" y1="8" x2="12" y2="8" />
-                        <polyline
-                          points="9,5 12,8 9,11"
-                          strokeLinecap="round"
-                        />
-                      </>
-                    )}
-                    {s === "cloud" && (
-                      <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
-                    )}
-                  </svg>
+                  {(() => {
+                    const isActive = settings.activeShape === s;
+                    const shapeStroke = isActive ? (isDark ? "#93c5fd" : "#3b82f6") : (isDark ? "white" : "black");
+                    const shapeOpacity = isActive ? 1 : 0.5;
+                    const p = { size: 16, strokeWidth: 2, stroke: shapeStroke, strokeOpacity: shapeOpacity, fill: "none" } as const;
+                    if (s === "circle") return <Circle {...p} />;
+                    if (s === "rectangle") return <Square {...p} />;
+                    if (s === "triangle") return <Triangle {...p} />;
+                    if (s === "diamond") return <Diamond {...p} />;
+                    if (s === "hexagon") return <Hexagon {...p} />;
+                    if (s === "star") return <Star {...p} />;
+                    if (s === "arrow") return <ArrowRight {...p} />;
+                    if (s === "cloud") return <Cloud {...p} />;
+                    if (s === "pentagon") return <Pentagon {...p} />;
+                    return (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={shapeStroke} strokeWidth="1.5" strokeLinejoin="round" strokeOpacity={shapeOpacity}>
+                        {s === "line" && <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />}
+                      </svg>
+                    );
+                  })()}
                 </button>
               ))}
             </div>
 
-            <div
-              className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-            >
-              Fill
+            <div className="mt-3 flex items-baseline gap-2">
+              <div
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Fill
+              </div>
+              {showTips && (
+                <span
+                  className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                >
+                  Hold F + S + drag
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
               {(["solid", "dots", "hatch", "crosshatch"] as FillStyle[]).map(
@@ -1341,7 +1467,16 @@ export default function Menu({
               className={`mt-3 flex items-center justify-between text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
             >
               <span>Style</span>
-              <span>Grid</span>
+              <span className="flex items-baseline gap-1.5">
+                Grid
+                {showTips && (
+                  <span
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                  >
+                    G
+                  </span>
+                )}
+              </span>
             </div>
             <div className="flex items-center gap-1.5 mt-1">
               {(["rounded", "sharp"] as const).map((c) => (
@@ -1386,6 +1521,13 @@ export default function Menu({
                   </svg>
                 </button>
               ))}
+              {showTips && (
+                <span
+                  className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                >
+                  E
+                </span>
+              )}
               <div
                 className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
               />
@@ -1445,6 +1587,13 @@ export default function Menu({
                   </svg>
                 </button>
               ))}
+              {showTips && (
+                <span
+                  className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                >
+                  P
+                </span>
+              )}
               <div className="flex-1" />
               <div
                 className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
@@ -1540,10 +1689,19 @@ export default function Menu({
             </div>
 
             <div className="flex items-center justify-between mt-3">
-              <span
-                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-              >
-                Canvas
+              <span className="flex items-baseline gap-2">
+                <span
+                  className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+                >
+                  Canvas
+                </span>
+                {showTips && (
+                  <span
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                  >
+                    1–9
+                  </span>
+                )}
               </span>
               <button
                 onClick={() => setShowReorder(true)}
@@ -1562,7 +1720,7 @@ export default function Menu({
             </div>
             <div className="flex gap-1 mt-1 justify-center">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
-                const locked = n > CANVAS_LIMIT;
+                const locked = n > canvasLimit;
                 return (
                   <button
                     key={n}
@@ -1587,7 +1745,7 @@ export default function Menu({
                             : "text-black/35 hover:text-black/55 hover:bg-black/10"
                     }`}
                   >
-                    {locked && <Tooltip label="Coming soon with Unleashed" />}
+                    {locked && <Tooltip label="Unlock with Unleashed" />}
                     {n}
                   </button>
                 );
@@ -1657,15 +1815,31 @@ export default function Menu({
                 <line x1="6.5" y1="7.5" x2="6.5" y2="11" />
                 <line x1="9.5" y1="7.5" x2="9.5" y2="11" />
               </svg>
-              <span className="relative">
+              <span className="relative flex items-center gap-1.5">
                 {clearConfirming ? "Are you sure?" : "Clear screen"}
+                {showTips && !clearConfirming && (
+                  <span
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}
+                  >
+                    {mod} + X
+                  </span>
+                )}
               </span>
             </button>
 
-            <div
-              className={`mt-5 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
-            >
-              Theme
+            <div className="mt-5 flex items-baseline gap-2">
+              <div
+                className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
+              >
+                Theme
+              </div>
+              {showTips && (
+                <span
+                  className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                >
+                  D D
+                </span>
+              )}
             </div>
             <div className="grid grid-cols-8 gap-2 mt-1.5">
               {[
@@ -1833,6 +2007,37 @@ export default function Menu({
                 </span>
               </button>
               {!hasTouch && (
+              <button
+                role="switch"
+                aria-checked={settings.showTips}
+                onClick={() =>
+                  updateSettings({ showTips: !settings.showTips })
+                }
+                className="flex items-center justify-between w-full text-sm cursor-pointer group"
+              >
+                <span>Show tips</span>
+                <span
+                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                    settings.showTips
+                      ? "bg-[#3b82f6]"
+                      : isDark
+                        ? "bg-white/15 group-hover:bg-white/25"
+                        : "bg-black/12 group-hover:bg-black/20"
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                      settings.showTips
+                        ? "translate-x-[16px] bg-white"
+                        : isDark
+                          ? "bg-white/70"
+                          : "bg-white"
+                    }`}
+                  />
+                </span>
+              </button>
+              )}
+              {!hasTouch && (
                 <div className="flex items-center justify-between w-full text-sm">
                   <span>Mouse buttons</span>
                   <div className="flex items-center gap-1.5">
@@ -1886,6 +2091,11 @@ export default function Menu({
                     <path d="M6 14H2v-4" />
                   </svg>
                   Fullscreen
+                  {showTips && (
+                    <span className={`ml-auto text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
+                      {mod} + F
+                    </span>
+                  )}
                 </button>
               )}
               <button
@@ -1895,29 +2105,29 @@ export default function Menu({
                 }}
                 className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
               >
-                <svg
-                  width="12"
-                  height="12"
-                  viewBox="0 0 14 14"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="1.75" y="4.5" width="10.5" height="8" rx="0.75" />
-                  <line x1="1.75" y1="8" x2="12.25" y2="8" />
-                  <line x1="7" y1="4.5" x2="7" y2="12.5" />
-                  <rect x="1" y="2.75" width="12" height="2.5" rx="0.75" />
-                </svg>
-                Stash
-                {stashCount > 0 && (
-                  <span
-                    className={`ml-auto text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${isDark ? "bg-white/10 text-white/40" : "bg-black/[0.07] text-black/40"}`}
-                  >
-                    {stashCount}
-                  </span>
-                )}
+                <Layers size={13} strokeWidth={1.75} />
+                <span className="flex flex-col items-start gap-0.5">
+                  Stash
+                  {showTips && (
+                    <span className={`text-[9px] font-normal leading-tight ${isDark ? "text-white/25" : "text-black/25"}`}>
+                      Save &amp; reuse content across canvases
+                    </span>
+                  )}
+                </span>
+                <span className="ml-auto flex items-center gap-1">
+                  {showTips && (
+                    <span className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
+                      ⇧ + B
+                    </span>
+                  )}
+                  {stashCount > 0 && (
+                    <span
+                      className={`text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${isDark ? "bg-white/10 text-white/40" : "bg-black/[0.07] text-black/40"}`}
+                    >
+                      {stashCount}
+                    </span>
+                  )}
+                </span>
               </button>
               {!hasTouch && (
                 <button
@@ -1927,65 +2137,20 @@ export default function Menu({
                   }}
                   className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
                 >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="1" y="4" width="12" height="7" rx="1.5" />
-                    <line
-                      x1="3.5"
-                      y1="6.8"
-                      x2="3.5"
-                      y2="6.8"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <line
-                      x1="7"
-                      y1="6.8"
-                      x2="7"
-                      y2="6.8"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <line
-                      x1="10.5"
-                      y1="6.8"
-                      x2="10.5"
-                      y2="6.8"
-                      strokeWidth="2"
-                      strokeLinecap="round"
-                    />
-                    <line x1="4.5" y1="9" x2="9.5" y2="9" />
-                  </svg>
+                  <Keyboard size={13} strokeWidth={1.75} />
                   Keys
+                  {showTips && (
+                    <span className={`ml-auto text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
+                      ?
+                    </span>
+                  )}
                 </button>
               )}
 
               <AccordionSection
                 label="Export"
-                icon={
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M7 10V3" />
-                    <path d="M4.5 5 7 2l2.5 3" />
-                    <line x1="2" y1="12.5" x2="12" y2="12.5" />
-                  </svg>
-                }
+                dim={!onExport}
+                icon={<Upload size={13} strokeWidth={1.75} />}
                 open={showExport}
                 onToggle={() =>
                   setShowExport((v) => {
@@ -2002,6 +2167,11 @@ export default function Menu({
                   })
                 }
                 isDark={isDark}
+                tip={showTips ? (
+                  <span className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
+                    {mod} + E
+                  </span>
+                ) : undefined}
               >
                 <div ref={exportContentRef} className="space-y-3">
                   {/* Format + transparent + export on one row */}
@@ -2012,25 +2182,22 @@ export default function Menu({
                     >
                       {(["PNG", "SVG"] as const).map((fmt) => {
                         const active = exportFormat === fmt.toLowerCase();
+                        const locked = fmt === "SVG" && !isPro;
                         return (
                           <button
                             key={fmt}
-                            onClick={() =>
-                              onSetExportFormat(
-                                fmt.toLowerCase() as "png" | "svg",
-                              )
-                            }
-                            className={`px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none ${
-                              active
-                                ? isDark
-                                  ? "bg-white/15 text-white"
-                                  : "bg-black/10 text-black"
-                                : isDark
-                                  ? "text-white/40 hover:text-white/70"
-                                  : "text-black/35 hover:text-black/60"
+                            onClick={() => !locked && onSetExportFormat(fmt.toLowerCase() as "png" | "svg")}
+                            title={locked ? "SVG export requires Unleashed" : undefined}
+                            className={`px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none flex items-center gap-1 ${
+                              locked
+                                ? isDark ? "text-white/20 cursor-default" : "text-black/20 cursor-default"
+                                : active
+                                  ? isDark ? "bg-white/15 text-white" : "bg-black/10 text-black"
+                                  : isDark ? "text-white/40 hover:text-white/70" : "text-black/35 hover:text-black/60"
                             }`}
                           >
                             {fmt}
+                            {locked && <span className="text-[9px] opacity-60">Pro</span>}
                           </button>
                         );
                       })}
@@ -2102,24 +2269,12 @@ export default function Menu({
                     {/* Export button */}
                     <button
                       onClick={() =>
-                        onExport(exportFormat, exportTransparentBg)
+                        onExport?.(exportFormat, exportTransparentBg)
                       }
+                      disabled={!onExport}
                       className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none bg-[#3b82f6] text-white hover:bg-[#2563eb]"
                     >
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M7 2v8" />
-                        <path d="M4.5 8 7 11l2.5-3" />
-                        <line x1="2" y1="13" x2="12" y2="13" />
-                      </svg>
+                      <Download size={11} strokeWidth={1.4} />
                       Export
                     </button>
                   </div>
@@ -2132,24 +2287,17 @@ export default function Menu({
                         {selectionCount} selected
                       </span>
                       <button
-                        onClick={() => onExportSelection(exportTransparentBg)}
-                        className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none border ${isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"}`}
+                        onClick={() => isPro && onExportSelection(exportTransparentBg)}
+                        title={!isPro ? "Export selection requires Unleashed" : undefined}
+                        className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none border ${
+                          !isPro
+                            ? isDark ? "border-white/8 text-white/20 cursor-default" : "border-black/8 text-black/20 cursor-default"
+                            : isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"
+                        }`}
                       >
-                        <svg
-                          width="11"
-                          height="11"
-                          viewBox="0 0 14 14"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.4"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M7 2v8" />
-                          <path d="M4.5 8 7 11l2.5-3" />
-                          <line x1="2" y1="13" x2="12" y2="13" />
-                        </svg>
+                        <Download size={11} strokeWidth={1.4} />
                         Export selection
+                        {!isPro && <span className="text-[9px] opacity-60">Pro</span>}
                       </button>
                     </div>
                   )}
@@ -2170,11 +2318,7 @@ export default function Menu({
                               : "text-black/35 border-black/10 hover:text-black/60"
                         }`}
                       >
-                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="1" y="2" width="12" height="10" rx="1.5" />
-                          <circle cx="4.5" cy="5.5" r="1.2" />
-                          <path d="M1 10l3-3 2.5 2.5L9 7l4 4" />
-                        </svg>
+                        <Image size={11} strokeWidth={1.4} />
                         <span>Include images</span>
                       </button>
                     </div>
@@ -2195,7 +2339,7 @@ export default function Menu({
                               { action: "Import", onClick: onImport, isExport: false },
                             ] as const
                           ).map(({ action, onClick, isExport }) => {
-                            const disabledImport = !isExport && label === "Canvas" && activeCanvas > CANVAS_LIMIT;
+                            const disabledImport = !isExport && label === "Canvas" && activeCanvas > canvasLimit;
                             return (
                             <button
                               key={action}
@@ -2203,30 +2347,7 @@ export default function Menu({
                               disabled={disabledImport}
                               className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${disabledImport ? isDark ? "border-white/5 text-white/15 cursor-not-allowed" : "border-black/5 text-black/15 cursor-not-allowed" : isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
                             >
-                              <svg
-                                width="11"
-                                height="11"
-                                viewBox="0 0 14 14"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.4"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                {isExport ? (
-                                  <>
-                                    <path d="M7 10V3" />
-                                    <path d="M4.5 5 7 2l2.5 3" />
-                                    <line x1="2" y1="13" x2="12" y2="13" />
-                                  </>
-                                ) : (
-                                  <>
-                                    <path d="M7 2v8" />
-                                    <path d="M4.5 8 7 11l2.5-3" />
-                                    <line x1="2" y1="13" x2="12" y2="13" />
-                                  </>
-                                )}
-                              </svg>
+                              {isExport ? <Upload size={11} strokeWidth={1.4} /> : <Download size={11} strokeWidth={1.4} />}
                               {action}
                             </button>
                           );})}
@@ -2244,11 +2365,7 @@ export default function Menu({
                         }}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
                       >
-                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="1" y="2" width="12" height="10" rx="1.5" />
-                          <circle cx="4.5" cy="5.5" r="1.2" />
-                          <path d="M1 10l3-3 2.5 2.5L9 7l4 4" />
-                        </svg>
+                        <Image size={11} strokeWidth={1.4} />
                         Insert from photos
                       </button>
                     </div>
@@ -2259,28 +2376,7 @@ export default function Menu({
               <AccordionSection
                 label="Help"
                 dim
-                icon={
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="7" cy="7" r="5.5" />
-                    <path d="M5.5 5.5a1.5 1.5 0 0 1 3 0c0 1-1.5 1.5-1.5 2.5" />
-                    <circle
-                      cx="7"
-                      cy="10"
-                      r="0.6"
-                      fill="currentColor"
-                      stroke="none"
-                    />
-                  </svg>
-                }
+                icon={<HelpCircle size={13} strokeWidth={1.75} />}
                 open={showHelp}
                 onToggle={() =>
                   setShowHelp((v) => {
@@ -2462,34 +2558,7 @@ export default function Menu({
               <AccordionSection
                 label="About"
                 dim
-                icon={
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 14 14"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.5"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <circle cx="7" cy="7" r="5.5" />
-                    <line
-                      x1="7"
-                      y1="6.5"
-                      x2="7"
-                      y2="10"
-                      strokeLinecap="round"
-                    />
-                    <circle
-                      cx="7"
-                      cy="4.5"
-                      r="0.6"
-                      fill="currentColor"
-                      stroke="none"
-                    />
-                  </svg>
-                }
+                icon={<Info size={13} strokeWidth={1.75} />}
                 open={showAbout}
                 onToggle={() =>
                   setShowAbout((v) => {
@@ -2526,6 +2595,130 @@ export default function Menu({
                 </div>
               </AccordionSection>
             </div>
+
+            {(onShareCanvas || onShareWorkspace) && (() => {
+              const hasLiveCanvas = canvasShares?.some(s => s.type === 'live') ?? false
+              const clipboardIcon = <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="1" width="9" height="11" rx="1.5" /><path d="M2 4.5V14a1 1 0 0 0 1 1h8" /></svg>
+              const checkIcon = <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1.5,6.5 4.5,9.5 10.5,2.5" /></svg>
+              const xIcon = <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="1" y1="1" x2="9" y2="9" /><line x1="9" y1="1" x2="1" y2="9" /></svg>
+              const labelCls = `shrink-0 text-[11px] font-medium w-[62px] ${isDark ? "text-white/35" : "text-black/35"}`
+              const inputCls = `flex-1 min-w-0 text-[11px] px-2 py-1 rounded truncate ${isDark ? "bg-white/6 text-white/50" : "bg-black/4 text-black/50"}`
+              const iconBtnCls = (active: boolean) => `shrink-0 p-1 rounded transition-colors group relative ${active ? isDark ? "text-green-400" : "text-green-600" : isDark ? "hover:bg-white/10 text-white/35 hover:text-white/65" : "hover:bg-black/8 text-black/30 hover:text-black/60"}`
+              const tipCls = `absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white z-50`
+              return (
+                <div className="mt-2 flex flex-col gap-1.5">
+                  {/* Header */}
+                  <div className="flex items-center gap-2 px-1 py-0.5">
+                    <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" className={isDark ? "text-white/40" : "text-black/40"}>
+                      <circle cx="13" cy="3" r="2" /><circle cx="3" cy="8" r="2" /><circle cx="13" cy="13" r="2" />
+                      <line x1="5" y1="7" x2="11" y2="4" /><line x1="5" y1="9" x2="11" y2="12" />
+                    </svg>
+                    <span className={`text-xs font-medium ${isDark ? "text-white/50" : "text-black/50"}`}>Share</span>
+                  </div>
+
+                  {/* Canvas rows */}
+                  {canvasShares?.map(share => {
+                    const url = `${window.location.origin}/s/${share.token}`
+                    const urgency = share.expires_at ? expiryUrgency(share.expires_at) : 'ok'
+                    const expiryBadge = urgency === 'urgent'
+                      ? isDark ? 'bg-red-500/20 text-red-300' : 'bg-red-500/15 text-red-600'
+                      : urgency === 'warn'
+                        ? isDark ? 'bg-orange-500/20 text-orange-300' : 'bg-orange-500/15 text-orange-600'
+                        : isDark ? 'bg-yellow-500/15 text-yellow-400/80' : 'bg-yellow-500/12 text-yellow-700'
+                    return (
+                      <div key={share.token} className="flex items-center gap-1">
+                        <span className={labelCls}>Canvas</span>
+                        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${share.type === 'live' ? isDark ? 'bg-green-500/15 text-green-400' : 'bg-green-500/12 text-green-700' : isDark ? 'bg-white/8 text-white/40' : 'bg-black/6 text-black/40'}`}>
+                          {share.type === 'live' ? 'Live' : 'Snap'}
+                        </span>
+                        {share.expires_at && <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${expiryBadge}`}>{formatExpiry(share.expires_at)}</span>}
+                        <input readOnly value={url} className={inputCls} />
+                        <button
+                          onClick={() => { navigator.clipboard.writeText(url); setCopiedShareToken(share.token); if (copiedShareTimerRef.current) clearTimeout(copiedShareTimerRef.current); copiedShareTimerRef.current = setTimeout(() => setCopiedShareToken(null), 1500); }}
+                          className={iconBtnCls(copiedShareToken === share.token)}
+                        >
+                          <span className={tipCls}>Copy</span>
+                          {copiedShareToken === share.token ? checkIcon : clipboardIcon}
+                        </button>
+                        {onDeleteShare && (
+                          <button title="" onClick={() => onDeleteShare(share.token)} className={iconBtnCls(false)}>
+                            <span className={tipCls}>Unshare</span>
+                            {xIcon}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                  {/* Canvas + Workspace idle buttons — shown side by side when neither is active */}
+                  {onShareCanvas && !hasLiveCanvas && onShareWorkspace && !shareWorkspaceUrl ? (
+                    <div className="flex gap-1.5">
+                      <button
+                        disabled={sharing === 'canvas'}
+                        onClick={async () => { setSharing('canvas'); const result = await onShareCanvas(); if (result) navigator.clipboard.writeText(result.url); setSharing(null); }}
+                        className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                      >
+                        {sharing === 'canvas' ? '…' : canvasShares?.length ? '+ Canvas link' : 'Canvas'}
+                      </button>
+                      <button
+                        disabled={sharing === 'workspace'}
+                        onClick={async () => { setSharing('workspace'); const url = await onShareWorkspace(); if (url) { setShareWorkspaceUrl(url); navigator.clipboard.writeText(url); } setSharing(null); }}
+                        className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                      >
+                        {sharing === 'workspace' ? '…' : 'Workspace'}
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Canvas create button — only when canvas not yet live */}
+                      {onShareCanvas && !hasLiveCanvas && (
+                        <div className="flex items-center gap-1">
+                          <span className={labelCls}>Canvas</span>
+                          <button
+                            disabled={sharing === 'canvas'}
+                            onClick={async () => { setSharing('canvas'); const result = await onShareCanvas(); if (result) navigator.clipboard.writeText(result.url); setSharing(null); }}
+                            className={`text-[11px] px-2 py-0.5 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                          >
+                            {sharing === 'canvas' ? '…' : canvasShares?.length ? '+ New link' : 'Share'}
+                          </button>
+                        </div>
+                      )}
+
+                      {/* Workspace row — Pro only */}
+                      {onShareWorkspace && (
+                        <div className="flex items-center gap-1">
+                          <span className={labelCls}>Workspace</span>
+                          {shareWorkspaceUrl ? (<>
+                            <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${isDark ? 'bg-green-500/15 text-green-400' : 'bg-green-500/12 text-green-700'}`}>Live</span>
+                            <input readOnly value={shareWorkspaceUrl} className={inputCls} />
+                            <button
+                              onClick={() => { navigator.clipboard.writeText(shareWorkspaceUrl); setCopiedShareToken('workspace'); if (copiedShareTimerRef.current) clearTimeout(copiedShareTimerRef.current); copiedShareTimerRef.current = setTimeout(() => setCopiedShareToken(null), 1500); }}
+                              className={iconBtnCls(copiedShareToken === 'workspace')}
+                            >
+                              <span className={tipCls}>Copy</span>
+                              {copiedShareToken === 'workspace' ? checkIcon : clipboardIcon}
+                            </button>
+                            {onUnshareWorkspace && (
+                              <button title="" onClick={async () => { await onUnshareWorkspace(); setShareWorkspaceUrl(null); }} className={iconBtnCls(false)}>
+                                <span className={tipCls}>Unshare</span>
+                                {xIcon}
+                              </button>
+                            )}
+                          </>) : (
+                            <button
+                              disabled={sharing === 'workspace'}
+                              onClick={async () => { setSharing('workspace'); const url = await onShareWorkspace(); if (url) { setShareWorkspaceUrl(url); navigator.clipboard.writeText(url); } setSharing(null); }}
+                              className={`text-[11px] px-2 py-0.5 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                            >
+                              {sharing === 'workspace' ? '…' : 'Share'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })()}
 
             <div className="mt-4 space-y-1.5">
               <button
@@ -2605,6 +2798,58 @@ export default function Menu({
                 </div>
               </a>
             </div>
+
+            {subscription?.status === 'cancelling' && subscription.cancelAt && (
+              <div className={`mt-2 pt-2 border-t ${isDark ? "border-white/10" : "border-black/8"}`}>
+                <div className={`rounded-lg px-3 py-2.5 text-xs ${isDark ? "bg-amber-900/40 text-amber-200/80" : "bg-amber-50 text-amber-800"}`}>
+                  <div className="mb-2">
+                    Subscription ends {new Date(subscription.cancelAt * 1000).toLocaleDateString(undefined, { month: 'long', day: 'numeric', year: 'numeric' })}. Resubscribe to carry on where you left off, or export your data before it's gone.
+                  </div>
+                  <div className="flex gap-2">
+                    {onExportWorkspacesZip && (
+                      <button
+                        onClick={onExportWorkspacesZip}
+                        className={`px-2.5 py-1 rounded font-medium transition-colors ${isDark ? "bg-amber-500/20 hover:bg-amber-500/30 text-amber-200" : "bg-amber-100 hover:bg-amber-200 text-amber-800"}`}
+                      >
+                        Export data
+                      </button>
+                    )}
+                    {onResubscribe && (
+                      <button
+                        onClick={onResubscribe}
+                        className={`px-2.5 py-1 rounded font-medium transition-colors ${isDark ? "bg-white/10 hover:bg-white/15 text-white/70" : "bg-white/60 hover:bg-white/80 text-black/60"}`}
+                      >
+                        Resubscribe
+                      </button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {cloudEnabled && (
+              <div className="mt-2">
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button className={`w-full text-xs px-3 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/12 text-white/70 hover:text-white/90" : "bg-black/5 hover:bg-black/9 text-black/60 hover:text-black/80"}`}>
+                      Sign in
+                    </button>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <div className="flex items-center gap-2 px-1 py-1">
+                    <UserButton afterSignOutUrl="/" />
+                    <span className={`text-xs flex-1 ${isDark ? "text-white/50" : "text-black/50"}`}>{user ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "Account" : "Account"}</span>
+                    <button
+                      onClick={() => signOut({ redirectUrl: "/" })}
+                      className={`text-xs transition-colors ${isDark ? "text-white/30 hover:text-white/60" : "text-black/30 hover:text-black/60"}`}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </SignedIn>
+              </div>
+            )}
 
             <div className={`mt-2 pt-2 text-center`}>
               <a

@@ -1219,3 +1219,40 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
     }
   }
 }
+
+export function generateCanvasThumbnail(strokes: Stroke[], isDark: boolean, w = 360, h = 234): string | null {
+  const drawable = strokes.filter(s => !s.imageId);
+  if (drawable.length === 0) return null;
+
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  for (const stroke of drawable) {
+    if (!stroke.subStrokes && stroke.points.length === 0) continue;
+    const bb = anyStrokeBBox(stroke);
+    if (bb.x < minX) minX = bb.x;
+    if (bb.y < minY) minY = bb.y;
+    if (bb.x + bb.w > maxX) maxX = bb.x + bb.w;
+    if (bb.y + bb.h > maxY) maxY = bb.y + bb.h;
+  }
+  if (!isFinite(minX)) return null;
+
+  const pad = 16;
+  const scale = Math.min((w - pad * 2) / Math.max(maxX - minX, 1), (h - pad * 2) / Math.max(maxY - minY, 1));
+  const dx = (w - (maxX - minX) * scale) / 2 - minX * scale;
+  const dy = (h - (maxY - minY) * scale) / 2 - minY * scale;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = isDark ? '#111111' : '#f5f5f0';
+  ctx.fillRect(0, 0, w, h);
+  ctx.save();
+  ctx.translate(dx, dy);
+  ctx.scale(scale, scale);
+  renderStrokesToCtx(ctx, drawable);
+  ctx.restore();
+
+  return canvas.toDataURL('image/jpeg', 0.88);
+}

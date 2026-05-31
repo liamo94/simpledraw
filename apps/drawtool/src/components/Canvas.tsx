@@ -3,10 +3,11 @@ import type { ShapeKind, Theme, TextSize, GridType, FontFamily, TextAlign, Click
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useTextSelection } from "../hooks/useTextSelection";
 import { generateSvg } from "../canvas/svgExport";
+import { drawWatermark } from "../canvas/watermark";
 import {
   isDarkTheme, getBackgroundColor, getGridColor,
   TEXT_SIZE_MAP, buildFont, fontLineHeight, dispatchTextStyleSync,
-  loadStrokes, saveStrokes, loadView, saveView,
+  loadStrokes, saveStrokes, hasSaveHook, loadView, saveView,
   distToSegment, cmdKey, screenToWorld, smoothPoints,
   shapeToSegments,
   textBBox, anyStrokeBBox, visualStrokeBBox,
@@ -59,6 +60,7 @@ function Canvas({
   shapeDashed,
   shapeCorners,
   canvasIndex,
+  canvasLimit,
   textSize,
   fontFamily,
   textBold,
@@ -67,6 +69,7 @@ function Canvas({
   pressureSensitivity,
   leftClickTool,
   rightClickTool,
+  readOnly,
   onContentOffScreen,
 }: {
   lineWidth: number;
@@ -82,6 +85,7 @@ function Canvas({
   shapeDashed: boolean;
   shapeCorners: "rounded" | "sharp";
   canvasIndex: number;
+  canvasLimit: number;
   textSize: TextSize;
   fontFamily: FontFamily;
   textBold: boolean;
@@ -90,12 +94,14 @@ function Canvas({
   pressureSensitivity: boolean;
   leftClickTool: ClickTool;
   rightClickTool: ClickTool;
+  readOnly?: boolean;
   onContentOffScreen?: (offScreen: boolean) => void;
 }) {
   const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canvasIndexRef = useRef(canvasIndex);
+  const canvasLimitRef = useRef(canvasLimit);
   const dprRef = useRef(window.devicePixelRatio || 1);
   const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
   const strokesRef = useRef<Stroke[]>(loadedStrokes);
@@ -947,6 +953,7 @@ function Canvas({
 
   // --- Content off-screen detection ---
   const contentOffScreenRef = useRef(false);
+  const contentOffScreenSyncedRef = useRef(false); // false = parent state is unknown (fresh mount)
   const strokesBBoxRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
   const checkContentOffScreen = useCallback(() => {
     const cb = onContentOffScreenRef.current;
@@ -954,7 +961,11 @@ function Canvas({
     const strokes = strokesRef.current;
     if (strokes.length === 0) {
       strokesBBoxRef.current = null;
-      if (contentOffScreenRef.current) { contentOffScreenRef.current = false; cb(false); }
+      if (contentOffScreenRef.current || !contentOffScreenSyncedRef.current) {
+        contentOffScreenRef.current = false;
+        contentOffScreenSyncedRef.current = true;
+        cb(false);
+      }
       return;
     }
     // Recompute world-space bbox only when invalidated (strokesCacheRef null clears it too)
@@ -974,8 +985,9 @@ function Canvas({
     const offScreen =
       maxX * scale + x < 0 || minX * scale + x > window.innerWidth ||
       maxY * scale + y < 0 || minY * scale + y > window.innerHeight;
-    if (offScreen !== contentOffScreenRef.current) {
+    if (offScreen !== contentOffScreenRef.current || !contentOffScreenSyncedRef.current) {
       contentOffScreenRef.current = offScreen;
+      contentOffScreenSyncedRef.current = true;
       cb(offScreen);
     }
   }, []);
@@ -1031,6 +1043,29 @@ function Canvas({
       }
     };
   }, []);
+
+  // Live sync: replace strokes in-place without remounting (preserves viewport)
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { slot, strokes } = (e as CustomEvent<{ slot: number; strokes: Stroke[] }>).detail
+      if (slot !== canvasIndex) return
+      strokesRef.current = strokes
+      strokesCacheRef.current = null
+      strokesBBoxRef.current = null
+      selectedTextRef.current = null
+      selectedGroupRef.current = []
+      undoStackRef.current = []
+      redoStackRef.current = []
+      const ids = strokes.filter(s => s.imageId).map(s => s.imageId!)
+      if (ids.length > 0) {
+        loadImages(ids).then(() => scheduleRedraw())
+      } else {
+        scheduleRedraw()
+      }
+    }
+    window.addEventListener('drawtool:sync-strokes', handler)
+    return () => window.removeEventListener('drawtool:sync-strokes', handler)
+  }, [canvasIndex, scheduleRedraw])
 
   // Apply fill style / fill opacity / corners to selected shape strokes when settings change
   const prevShapeFillForApply = useRef(shapeFill);
@@ -1283,13 +1318,7 @@ function Canvas({
       redraw(); // immediate — must paint now
     };
 
-    // Size canvas immediately so layout is correct, but defer the first draw
-    // until fonts are usable to avoid a flash of fallback fonts on a cold load.
-    // document.fonts.ready is insufficient — it resolves before unloaded fonts
-    // start downloading. document.fonts.load() actively triggers the download
-    // and resolves only when the font is truly ready to paint.
-    // Google Fonts CSS is render-blocking so @font-face rules are registered by
-    // this point; load() will find them. A 2s timeout guards against network issues.
+    // Size and draw immediately — grid and strokes appear at once, no blank period.
     {
       const dpr = window.devicePixelRatio || 1;
       dprRef.current = dpr;
@@ -1297,22 +1326,26 @@ function Canvas({
       canvas.height = Math.round(window.innerHeight * dpr);
       canvas.style.width = window.innerWidth + "px";
       canvas.style.height = window.innerHeight + "px";
+      redraw();
     }
 
-    let firstDrawDone = false;
-    const firstDraw = () => {
-      if (firstDrawDone) return;
-      firstDrawDone = true;
+    // Redraw once custom fonts are ready to correct any text strokes rendered
+    // with fallback fonts. On repeat visits fonts are already cached so this
+    // resolves instantly. 2s timeout guards against network failure.
+    let fontRedrawDone = false;
+    const fontRedraw = () => {
+      if (fontRedrawDone) return;
+      fontRedrawDone = true;
       strokesCacheRef.current = null; strokesBBoxRef.current = null;
-      redraw();
+      scheduleRedraw();
     };
-    const fontTimeout = setTimeout(firstDraw, 2000);
+    const fontTimeout = setTimeout(fontRedraw, 2000);
     Promise.all([
       document.fonts.load("400 32px Caveat"),
       document.fonts.load("700 32px Caveat"),
       document.fonts.load("400 32px Bangers"),
       document.fonts.load("400 32px Boogaloo"),
-    ]).then(firstDraw, firstDraw);
+    ]).then(fontRedraw, fontRedraw);
 
     window.addEventListener("resize", resize);
 
@@ -1346,7 +1379,8 @@ function Canvas({
       if (persistDebounceRef.current) {
         clearTimeout(persistDebounceRef.current);
         persistDebounceRef.current = null;
-        saveStrokes(strokesRef.current, canvasIndexRef.current);
+        // Cloud mode: flushCurrentCanvas handled the save; writing here corrupts the slot pre-populated for the next canvas.
+        if (!hasSaveHook()) saveStrokes(strokesRef.current, canvasIndexRef.current);
       }
       if (gcDebounceRef.current) {
         clearTimeout(gcDebounceRef.current);
@@ -1427,6 +1461,7 @@ function Canvas({
     }
 
     canvasIndexRef.current = canvasIndex;
+    canvasLimitRef.current = canvasLimit;
     broadcastZoom();
     scheduleRedraw();
   }, [canvasIndex, scheduleRedraw, broadcastZoom]);
@@ -1561,7 +1596,7 @@ function Canvas({
     animateView(target);
   }, [animateView]);
 
-  const exportTransparent = useCallback((filename?: string) => {
+  const exportTransparent = useCallback(async (filename?: string, watermark = false) => {
     const strokes = strokesRef.current;
     if (strokes.length === 0) return;
     let minX = Infinity,
@@ -1607,6 +1642,7 @@ function Canvas({
     const ctx = offscreen.getContext("2d")!;
     ctx.translate(-minX + pad, -minY + pad);
     renderStrokesToCtx(ctx, strokes);
+    if (watermark) await drawWatermark(ctx, offscreen.width, offscreen.height);
     offscreen.toBlob((blob) => {
       if (!blob) return;
       const url = URL.createObjectURL(blob);
@@ -1621,10 +1657,10 @@ function Canvas({
     });
   }, []);
 
-  const exportSvg = useCallback((transparent: boolean, filename?: string) => {
+  const exportSvg = useCallback((transparent: boolean, filename?: string, watermark = false) => {
     const strokes = strokesRef.current;
     if (strokes.length === 0) return;
-    const svgStr = generateSvg(strokes, transparent, theme);
+    const svgStr = generateSvg(strokes, transparent, theme, watermark);
     if (!svgStr) return;
     const blob = new Blob([svgStr], { type: "image/svg+xml" });
     const url = URL.createObjectURL(blob);
@@ -1926,17 +1962,17 @@ function Canvas({
     const onQueryCount = (e: Event) => {
       (e as CustomEvent).detail.count = strokesRef.current.length;
     };
-    const onExportTransparent = (e: Event) => exportTransparent((e as CustomEvent).detail?.filename);
-    const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false, (e as CustomEvent).detail?.filename);
+    const onExportTransparent = (e: Event) => exportTransparent((e as CustomEvent).detail?.filename, (e as CustomEvent).detail?.watermark ?? false);
+    const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false, (e as CustomEvent).detail?.filename, (e as CustomEvent).detail?.watermark ?? false);
     const onExportSelectionSvg = (e: Event) => {
-      const { transparent = true, filename } = (e as CustomEvent).detail ?? {};
+      const { transparent = true, filename, watermark = false } = (e as CustomEvent).detail ?? {};
       const strokes = selectedGroupRef.current.length > 0
         ? selectedGroupRef.current
         : selectedTextRef.current
         ? [selectedTextRef.current]
         : [];
       if (!strokes.length) return;
-      const svgStr = generateSvg(strokes, transparent, theme);
+      const svgStr = generateSvg(strokes, transparent, theme, watermark);
       if (!svgStr) return;
       const blob = new Blob([svgStr], { type: "image/svg+xml" });
       const url = URL.createObjectURL(blob);
@@ -2352,7 +2388,7 @@ function Canvas({
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
       shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
       lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-      sprayKeyRef, textareaRef,
+      sprayKeyRef, textareaRef, canvasLimitRef,
     },
     {
       scheduleRedraw, persistStrokes, persistView, clearCanvas,
@@ -3061,27 +3097,31 @@ function Canvas({
         }
       } else if (e.pointerType === "pen" && isTouchDevice) {
         // Apple Pencil on iPad: follow touchTool like a finger, but always draw in hand/select mode
-        const down = (e.buttons & 1) !== 0;
-        if (!down) {
-          modifier = null;
+        if ((e.buttons & 32) !== 0) {
+          modifier = "alt"; // eraser button (Apple Pencil Pro squeeze / Wacom eraser tip)
         } else {
-          const tool = touchToolRef.current;
-          modifier =
-            tool === "dashed"
-              ? "shift"
-              : tool === "line"
-                ? "line"
-                : tool === "erase"
-                  ? "alt"
-                  : tool === "shape"
-                    ? "shape"
-                    : tool === "highlight"
-                      ? "highlight"
-                      : tool === "laser"
-                        ? "laser"
-                        : tool === "spray"
-                          ? "spray"
-                          : "meta"; // draw, hand, select, text → freehand
+          const down = (e.buttons & 1) !== 0;
+          if (!down) {
+            modifier = null;
+          } else {
+            const tool = touchToolRef.current;
+            modifier =
+              tool === "dashed"
+                ? "shift"
+                : tool === "line"
+                  ? "line"
+                  : tool === "erase"
+                    ? "alt"
+                    : tool === "shape"
+                      ? "shape"
+                      : tool === "highlight"
+                        ? "highlight"
+                        : tool === "laser"
+                          ? "laser"
+                          : tool === "spray"
+                            ? "spray"
+                            : "meta"; // draw, hand, select, text → freehand
+          }
         }
       } else {
         modifier = isZoomingRef.current
@@ -3096,7 +3136,9 @@ function Canvas({
           ? "highlight"
           : keyShapeRef.current
             ? "shape"
-            : e.altKey
+            : (e.buttons & 32) !== 0
+                ? "alt" // eraser button (stylus eraser tip)
+                : e.altKey
                 ? "alt"
                 : cmdKey(e) && e.shiftKey
                     ? "line"
@@ -3110,6 +3152,8 @@ function Canvas({
                             ? (leftClickToolRef.current === "draw" ? "meta" : leftClickToolRef.current === "dashed" ? "shift" : leftClickToolRef.current === "laser" ? "laser" : leftClickToolRef.current === "erase" ? "alt" : null)
                             : null;
       }
+
+      if (readOnly) modifier = null;
 
       if (!modifier) {
         if (isDrawingRef.current) {
@@ -3602,7 +3646,9 @@ function Canvas({
       ? zCursor
       : panning
         ? "grabbing"
-        : lasering
+        : (readOnly && leftClickTool === "pan")
+          ? "grab"
+          : lasering
           ? laserCursor
           : spraying
             ? sprayCursor

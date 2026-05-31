@@ -63,6 +63,12 @@ export type Settings = {
   leftClickTool: ClickTool;
   rightClickTool: ClickTool;
   showSelectControls: boolean;
+  showTips: boolean;
+  exportFormat: "png" | "svg";
+  exportTransparentBg: boolean;
+  exportIncludeImages: boolean;
+  lastActiveCanvasId?: string;
+  customColor: string;
 };
 
 const STORAGE_KEY = "drawtool-settings";
@@ -102,6 +108,11 @@ function getDefaults(): Settings {
     leftClickTool: "draw" as ClickTool,
     rightClickTool: "dashed" as ClickTool,
     showSelectControls: true,
+    showTips: true,
+    exportFormat: "png" as const,
+    exportTransparentBg: false,
+    exportIncludeImages: false,
+    customColor: "#ff6600",
   };
 }
 
@@ -127,6 +138,19 @@ function load(): Settings {
       if (parsed.shapeFill === false) {
         parsed.shapeFill = "solid";
         parsed.shapeFillEnabled = false;
+      }
+      // Migrate export settings from their old standalone localStorage keys
+      if (!("exportFormat" in parsed)) {
+        const fmt = localStorage.getItem("drawtool-export-format");
+        if (fmt === "png" || fmt === "svg") parsed.exportFormat = fmt;
+      }
+      if (!("exportTransparentBg" in parsed)) {
+        parsed.exportTransparentBg =
+          localStorage.getItem("drawtool-export-transparent") === "1";
+      }
+      if (!("exportIncludeImages" in parsed)) {
+        parsed.exportIncludeImages =
+          localStorage.getItem("drawtool-export-include-images") === "1";
       }
       return { ...defaults, ...parsed };
     }
