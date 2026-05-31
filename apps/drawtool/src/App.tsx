@@ -55,6 +55,9 @@ import { CANVAS_LIMIT } from "./config";
 import { usePreferencesSync } from "./hooks/usePreferencesSync";
 import { Layers, Hand, Pipette, Pencil, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, Undo2, Redo2, Trash2 } from "lucide-react";
 
+// Set localStorage key 'drawtool-cloud' to '1' in browser console to enable cloud/auth features
+const CLOUD_ENABLED = localStorage.getItem('drawtool-cloud') === '1'
+
 const SHAPES: ShapeKind[] = [
   "line",
   "rectangle",
@@ -1922,6 +1925,7 @@ export default function App() {
         subscription={subscription}
         onExportWorkspacesZip={exportWorkspacesZip}
         onResubscribe={() => openBillingPortal(getToken)}
+        cloudEnabled={CLOUD_ENABLED}
       />
       <input
         ref={importFileRef}

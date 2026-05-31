@@ -51,7 +51,18 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+        <ClerkProvider publishableKey={PUBLISHABLE_KEY} appearance={{
+          variables: {
+            colorPrimary: '#3b82f6',
+            colorBackground: '#1a1a2e',
+            colorText: '#ffffff',
+            colorTextSecondary: 'rgba(255,255,255,0.5)',
+            colorInputBackground: 'rgba(255,255,255,0.06)',
+            colorInputText: '#ffffff',
+            colorInputPlaceholder: 'rgba(255,255,255,0.3)',
+            borderRadius: '10px',
+          },
+        }}>
           {shareMatch ? (
             <ShareViewer
               token={shareMatch[2]}

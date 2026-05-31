@@ -332,6 +332,7 @@ type Props = {
   subscription?: Subscription | null;
   onExportWorkspacesZip?: () => void;
   onResubscribe?: () => void;
+  cloudEnabled?: boolean;
 };
 
 export default function Menu({
@@ -372,6 +373,7 @@ export default function Menu({
   subscription,
   onExportWorkspacesZip,
   onResubscribe,
+  cloudEnabled = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
@@ -2825,27 +2827,29 @@ export default function Menu({
               </div>
             )}
 
-            <div className="mt-2">
-              <SignedOut>
-                <SignInButton mode="modal">
-                  <button className={`w-full text-xs px-3 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/12 text-white/70 hover:text-white/90" : "bg-black/5 hover:bg-black/9 text-black/60 hover:text-black/80"}`}>
-                    Sign in
-                  </button>
-                </SignInButton>
-              </SignedOut>
-              <SignedIn>
-                <div className="flex items-center gap-2 px-1 py-1">
-                  <UserButton afterSignOutUrl="/" />
-                  <span className={`text-xs flex-1 ${isDark ? "text-white/50" : "text-black/50"}`}>{user ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "Account" : "Account"}</span>
-                  <button
-                    onClick={() => signOut({ redirectUrl: "/" })}
-                    className={`text-xs transition-colors ${isDark ? "text-white/30 hover:text-white/60" : "text-black/30 hover:text-black/60"}`}
-                  >
-                    Sign out
-                  </button>
-                </div>
-              </SignedIn>
-            </div>
+            {cloudEnabled && (
+              <div className="mt-2">
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <button className={`w-full text-xs px-3 py-2 rounded-lg font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/12 text-white/70 hover:text-white/90" : "bg-black/5 hover:bg-black/9 text-black/60 hover:text-black/80"}`}>
+                      Sign in
+                    </button>
+                  </SignInButton>
+                </SignedOut>
+                <SignedIn>
+                  <div className="flex items-center gap-2 px-1 py-1">
+                    <UserButton afterSignOutUrl="/" />
+                    <span className={`text-xs flex-1 ${isDark ? "text-white/50" : "text-black/50"}`}>{user ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "Account" : "Account"}</span>
+                    <button
+                      onClick={() => signOut({ redirectUrl: "/" })}
+                      className={`text-xs transition-colors ${isDark ? "text-white/30 hover:text-white/60" : "text-black/30 hover:text-black/60"}`}
+                    >
+                      Sign out
+                    </button>
+                  </div>
+                </SignedIn>
+              </div>
+            )}
 
             <div className={`mt-2 pt-2 text-center`}>
               <a

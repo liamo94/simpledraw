@@ -476,24 +476,27 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
 
 ### Deployment status
 
-- **Not deployed.** Everything runs locally unless explicitly stated otherwise.
+- **Backend deployed** at `https://drawzilla-backend.lleeum.workers.dev` ✓
 - All `wrangler` / `d1` commands should use `--local` by default. Never add `--remote` unless the user explicitly asks.
-- Migrations 0001–0010 applied locally ✓. Migrations 0006–0008 applied to remote ✓ (0001–0005 were already on remote). **Migration 0009–0010 not yet on remote.**
-- `STRIPE_PRICE_ID` must be set as a secret (`wrangler secret put STRIPE_PRICE_ID`) before first remote deploy.
-- First remote deploy checklist:
-  1. `npx wrangler d1 migrations apply drawzilla-db --remote` (applies 0009 + 0010)
-  2. `wrangler secret put STRIPE_PRICE_ID`
-  3. `npx wrangler deploy`
-  4. ~~Add Cloudflare WAF Rate Limiting rule~~ — replaced by in-code `RATE_LIMITER` binding
-  5. Confirm Clerk dashboard webhook has **both** `user.created` and `user.deleted` subscribed
-  6. Verify `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are live-mode keys (not `sk_test_*`)
-  7. Add OG image asset (`og-image.png`, 1200×630px) to `apps/unleashed/public/` and uncomment OG meta tags in `index.html`
+- Migrations 0001–0010 applied locally ✓. Migrations 0001–0010 applied to remote ✓.
+- Backend secrets set: `CLERK_SECRET_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `CLERK_WEBHOOK_SECRET`, `STRIPE_PRICE_ID` ✓
+- Clerk production instance configured: domain `drawzil.la`, webhooks (`user.created` + `user.deleted`) pointing at Worker ✓
+- Stripe webhook pointing at `https://drawzilla-backend.lleeum.workers.dev/stripe/webhook` ✓
+- R2 bucket `drawzilla-canvases` exists on remote ✓
+- `apps/drawtool` Pages env vars set: `VITE_CLERK_PUBLISHABLE_KEY` (pk_live_*), `VITE_API_URL` ✓
+- Clerk appearance customised: dark theme + blue accent for drawtool, dark + green for unleashed ✓
+- **`apps/unleashed` Pages env vars: not yet set**
+- **`apps/unleashed` not yet deployed to Cloudflare Pages**
+- **`apps/drawtool` not yet deployed to Cloudflare Pages**
 
 ### Pending / next
 
 - ~~**Share viewer design polish**~~ ✅
 - ~~**Pre-launch hardening**~~ ✅
-- **Prod deployment** — see deployment checklist in "Deployment status" above. Nothing is deployed yet.
+- ~~**Backend deployment**~~ ✅
+- **Deploy `apps/unleashed`** — set `VITE_CLERK_PUBLISHABLE_KEY` + `VITE_API_URL` in Pages env vars, then deploy to Cloudflare Pages
+- **Deploy `apps/drawtool`** — deploy to Cloudflare Pages (env vars already set)
+- **Smoke test** — sign up, draw, subscribe via Stripe, cancel, share a canvas
 - **OG image** — create `apps/unleashed/public/og-image.png` (1200×630px) and uncomment the OG/Twitter meta tags in `apps/unleashed/index.html`
 - **Transactional email (nice-to-have)** — send a "your data will be deleted on {date}" email when a subscription enters `cancelling` state. Options: Resend (3k/mo free) or Cloudflare Email Workers + MailChannels (free, requires SPF/DKIM DNS). Stripe already handles receipts.
 

@@ -25,10 +25,23 @@ if (path === '/privacy') {
 
 const needsClerk = Page === App
 
+const clerkAppearance = {
+  variables: {
+    colorPrimary: '#39ff14',
+    colorBackground: '#0d0d1a',
+    colorText: '#ffffff',
+    colorTextSecondary: 'rgba(255,255,255,0.5)',
+    colorInputBackground: 'rgba(255,255,255,0.06)',
+    colorInputText: '#ffffff',
+    colorInputPlaceholder: 'rgba(255,255,255,0.3)',
+    borderRadius: '10px',
+  },
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     {needsClerk ? (
-      <ClerkProvider publishableKey={PUBLISHABLE_KEY}>
+      <ClerkProvider publishableKey={PUBLISHABLE_KEY} appearance={clerkAppearance}>
         <QueryClientProvider client={queryClient}>
           <App />
         </QueryClientProvider>
