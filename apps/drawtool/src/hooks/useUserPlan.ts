@@ -33,6 +33,8 @@ export function useUserPlan() {
     },
     enabled: isSignedIn === true,
     staleTime: 5 * 60 * 1000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
   })
 
   const plan = data?.plan ?? 'free'

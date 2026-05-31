@@ -346,6 +346,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       saveTimerRef.current = setTimeout(async () => {
         const id = useCloudSessionStore.getState().activeId
         if (!id || id !== forId) return // canvas switched since timer was scheduled
+        if (localStorage.getItem(DIRTY_KEY) !== forId) return // dirty-recovery path already handled this save
         const view = loadView(CLOUD_SLOT)
         const images = await collectImages(strokes)
         api.put<{ ok: true }>(`/canvases/${id}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }).then(() => {
