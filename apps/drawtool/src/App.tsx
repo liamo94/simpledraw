@@ -1813,7 +1813,7 @@ export default function App() {
           isDark={isDark}
         />
       )}
-      {!isPro && !planLoading && (
+      {CLOUD_ENABLED && !isPro && !planLoading && (
         <a
           href="https://unleash.drawzil.la"
           target="_blank"
