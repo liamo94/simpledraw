@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Layers, Keyboard, Upload, Info, HelpCircle, X, Hand } from "lucide-react";
+import { Layers, Keyboard, Upload, Info, HelpCircle, X, Hand, Pipette } from "lucide-react";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser, useClerk } from "@clerk/clerk-react";
 import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
@@ -816,7 +816,7 @@ export default function Menu({
               ))}
             </div>
 
-            <div className="mt-5 flex items-baseline gap-2">
+            <div className="mt-5 flex items-center gap-2">
               <div
                 className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
               >
@@ -828,6 +828,42 @@ export default function Menu({
                 >
                   {"[ or ]"}
                 </span>
+              )}
+              {isPro && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <label
+                    className={`relative w-5 h-5 flex items-center justify-center rounded cursor-pointer transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
+                    title="Pick custom color"
+                  >
+                    <input
+                      type="color"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      value={settings.customColor ?? "#ff6600"}
+                      onChange={(e) => {
+                        const c = e.target.value;
+                        updateSettings({ customColor: c });
+                        window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: c }));
+                      }}
+                    />
+                    <Pipette size={11} strokeWidth={2} />
+                  </label>
+                  <button
+                    onClick={() => {
+                      const c = settings.customColor ?? "#ff6600";
+                      window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: c }));
+                    }}
+                    aria-label={`Use custom color ${settings.customColor}`}
+                    aria-pressed={settings.lineColor === settings.customColor}
+                    className="w-[18px] h-[18px] rounded-full border-2 transition-transform focus:outline-none shrink-0"
+                    style={{
+                      backgroundColor: settings.customColor ?? "#ff6600",
+                      borderColor: settings.lineColor === settings.customColor
+                        ? isDark ? "white" : "black"
+                        : isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)",
+                      transform: settings.lineColor === settings.customColor ? "scale(1.2)" : undefined,
+                    }}
+                  />
+                </div>
               )}
             </div>
             <div className="flex gap-1.5 mt-1.5 justify-center">
@@ -2297,8 +2333,13 @@ export default function Menu({
                         {selectionCount} selected
                       </span>
                       <button
-                        onClick={() => onExportSelection(exportTransparentBg)}
-                        className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none border ${isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"}`}
+                        onClick={() => isPro && onExportSelection(exportTransparentBg)}
+                        title={!isPro ? "Export selection requires Unleashed" : undefined}
+                        className={`ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none border ${
+                          !isPro
+                            ? isDark ? "border-white/8 text-white/20 cursor-default" : "border-black/8 text-black/20 cursor-default"
+                            : isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"
+                        }`}
                       >
                         <svg
                           width="11"
@@ -2315,6 +2356,7 @@ export default function Menu({
                           <line x1="2" y1="13" x2="12" y2="13" />
                         </svg>
                         Export selection
+                        {!isPro && <span className="text-[9px] opacity-60">Pro</span>}
                       </button>
                     </div>
                   )}

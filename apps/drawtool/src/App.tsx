@@ -1856,10 +1856,14 @@ export default function App() {
           href="https://unleash.drawzil.la"
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed top-4 right-[62px] z-[51] h-[38px] px-3 flex items-center justify-center rounded-lg border border-green-400/30 backdrop-blur-sm text-white text-xs font-semibold tracking-wide select-none"
+          className="fixed top-[20px] right-[62px] z-[51] h-[30px] px-2.5 flex items-center justify-center rounded-md backdrop-blur-sm select-none transition-opacity opacity-40 hover:opacity-75"
           style={{
-            background: "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
-            boxShadow: "0 2px 10px rgba(34,197,94,0.4)",
+            background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+            border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.10)",
+            color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)",
+            fontSize: "11px",
+            fontWeight: 500,
+            letterSpacing: "0.02em",
           }}
         >
           Unleashed

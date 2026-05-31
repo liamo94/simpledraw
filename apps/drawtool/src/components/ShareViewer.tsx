@@ -1,13 +1,10 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useAuth, useUser, UserButton, SignInButton } from '@clerk/clerk-react'
+import { useEffect, useRef, useState } from 'react'
 import Canvas from './Canvas'
-import { loadStrokes, saveStrokes, saveView } from '../canvas/storage'
+import { saveStrokes, saveView } from '../canvas/storage'
 import { storeImage } from '../canvas/imageStore'
 import type { Stroke } from '../canvas/types'
 import { isDarkTheme, getPanelBackground } from '../canvas/rendering'
 import type { Theme, GridType } from '../hooks/useSettings'
-import { createApi } from '../lib/api'
-import { useCloudSessionStore } from '../stores/cloudSessionStore'
 
 function loadViewerSettings(): { theme: Theme; gridType: GridType } {
   try {
@@ -57,18 +54,10 @@ function adaptStrokes(data: CanvasData, viewerIsDark: boolean): Stroke[] {
 
 // token and isWorkspace are derived from the URL by App.tsx
 export default function ShareViewer({ token, isWorkspace }: { token: string; isWorkspace: boolean }) {
-  const { isSignedIn } = useUser()
-  const { getToken } = useAuth()
-  const api = useMemo(() => createApi(getToken), [getToken])
   const [shareData, setShareData] = useState<ShareData | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [error, setError] = useState(false)
   const [canvasKey, setCanvasKey] = useState(0)
-  type ForkStatus = 'idle' | 'loading' | 'done' | 'error'
-  const [workspaceStatus, setWorkspaceStatus] = useState<ForkStatus>('idle')
-  const [canvasStatus, setCanvasStatus] = useState<ForkStatus | 'conflict'>('idle')
-  const [canvasLimitHit, setCanvasLimitHit] = useState(false)
-  const [pendingEntry, setPendingEntry] = useState<CanvasEntry | null>(null)
   const [viewerSettings, setViewerSettings] = useState(loadViewerSettings)
   const shareDataRef = useRef<ShareData | null>(null)
   shareDataRef.current = shareData
@@ -156,87 +145,10 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
   function switchCanvas(idx: number) {
     if (!shareData || shareData.type !== 'workspace') return
     setActiveIndex(idx)
-    setCanvasStatus('idle')
-    setCanvasLimitHit(false)
     loadSlot(shareData, idx, isDarkTheme(viewerSettings.theme))
   }
 
-  function getActiveEntry(): CanvasEntry {
-    if (!shareData) return { id: 'single', name: '', position: 0, data: { strokes: [], view: { x: 0, y: 0, scale: 1 } } }
-    if (shareData.type === 'canvas') return { id: 'single', name: shareData.name, position: 0, data: shareData.data }
-    return shareData.canvases[activeIndex] ?? shareData.canvases[0]
-  }
-
-  async function getActiveWorkspace(): Promise<{ id: string; canvases: Array<{ id: string }> } | null> {
-    try {
-      const workspaces = await api.get<Array<{ id: string; canvases: Array<{ id: string }> }>>('/workspaces')
-      const activeWorkspaceId = useCloudSessionStore.getState().activeWorkspaceId
-      return (activeWorkspaceId ? workspaces.find(w => w.id === activeWorkspaceId) : null) ?? workspaces[0] ?? null
-    } catch { return null }
-  }
-
-  async function createAndFillCanvas(workspaceId: string, entry: CanvasEntry) {
-    const { id } = await api.post<{ id: string }>('/canvases', { workspaceId, name: entry.name })
-    await api.put<void>(`/canvases/${id}`, entry.data)
-  }
-
-  async function forkCanvas() {
-    if (!shareData || canvasStatus === 'loading') return
-    const entry = getActiveEntry()
-    setCanvasLimitHit(false)
-    setCanvasStatus('loading')
-
-    if (isSignedIn) {
-      try {
-        const ws = await getActiveWorkspace()
-        if (!ws) throw new Error('no workspace')
-        await createAndFillCanvas(ws.id, entry)
-        setCanvasStatus('done')
-      } catch (e) {
-        if ((e as { status?: number }).status === 403) {
-          setCanvasLimitHit(true)
-          setPendingEntry(entry)
-        }
-        setCanvasStatus('error')
-      }
-    } else {
-      const freeSlot = [1, 2, 3, 4, 5, 6, 7, 8, 9].find(n => loadStrokes(n).length === 0)
-      if (freeSlot !== undefined) {
-        saveStrokes(entry.data.strokes, freeSlot)
-        saveView(entry.data.view, freeSlot)
-        localStorage.setItem('drawtool-active-canvas', String(freeSlot))
-        setCanvasStatus('done')
-      } else {
-        setPendingEntry(entry)
-        setCanvasStatus('conflict')
-      }
-    }
-  }
-
-  async function replaceFirstCloudCanvas() {
-    if (!pendingEntry) return
-    setCanvasStatus('loading')
-    try {
-      const ws = await getActiveWorkspace()
-      const canvasId = ws?.canvases[0]?.id
-      if (!canvasId) throw new Error('no canvas')
-      await api.put<void>(`/canvases/${canvasId}`, pendingEntry.data)
-      setCanvasStatus('done')
-    } catch {
-      setCanvasStatus('error')
-    }
-  }
-
-  function forkCanvasOverwrite() {
-    if (!pendingEntry) return
-    saveStrokes(pendingEntry.data.strokes, 1)
-    saveView(pendingEntry.data.view, 1)
-    localStorage.setItem('drawtool-active-canvas', '1')
-    setCanvasStatus('done')
-  }
-
-  function downloadCanvas() {
-    const entry = pendingEntry ?? getActiveEntry()
+  function downloadEntry(entry: CanvasEntry) {
     const blob = new Blob([JSON.stringify(entry.data)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
@@ -246,27 +158,13 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
     URL.revokeObjectURL(url)
   }
 
-  async function forkWorkspace() {
-    if (!shareData || shareData.type !== 'workspace' || workspaceStatus === 'loading') return
-
-    if (!isSignedIn) {
-      window.location.href = 'https://unleash.drawzil.la'
-      return
+  function download() {
+    if (!shareData) return
+    if (shareData.type === 'canvas') {
+      downloadEntry({ id: 'single', name: shareData.name, position: 0, data: shareData.data })
+    } else {
+      for (const entry of shareData.canvases) downloadEntry(entry)
     }
-
-    setWorkspaceStatus('loading')
-    try {
-      const { id: newWorkspaceId } = await api.post<{ id: string }>('/workspaces', { name: shareData.name })
-      await Promise.all(shareData.canvases.map(entry => createAndFillCanvas(newWorkspaceId, entry)))
-      setWorkspaceStatus('done')
-    } catch (e) {
-      if ((e as { status?: number }).status === 403) { window.location.href = 'https://unleash.drawzil.la'; return }
-      setWorkspaceStatus('error')
-    }
-  }
-
-  function openApp() {
-    window.location.href = '/'
   }
 
   const expiresAt = shareData?.type === 'canvas' ? (shareData.expires_at ?? null) : null
@@ -364,75 +262,12 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
         )}
 
         <div className="ml-auto flex items-center gap-2">
-          <>
-              {/* Open CTAs — appear once forked, sit alongside other buttons */}
-              {canvasStatus === 'done' && (
-                <button onClick={openApp} className="px-3 py-1.5 rounded text-[12px] font-medium bg-[#3b82f6] text-white hover:bg-[#2563eb] transition-colors">
-                  Open canvas in drawzil.la →
-                </button>
-              )}
-              {workspaceStatus === 'done' && (
-                <button onClick={openApp} className="px-3 py-1.5 rounded text-[12px] font-medium bg-[#3b82f6] text-white hover:bg-[#2563eb] transition-colors">
-                  Open workspace in drawzil.la →
-                </button>
-              )}
-
-              {/* Fork workspace — workspace shares only */}
-              {shareData.type === 'workspace' && (
-                <button
-                  onClick={forkWorkspace}
-                  disabled={workspaceStatus === 'loading'}
-                  className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors disabled:opacity-50 ${ghostBtn}`}
-                >
-                  {workspaceStatus === 'loading' ? '…' : workspaceStatus === 'error' ? 'Failed' : 'Fork workspace'}
-                </button>
-              )}
-
-              {/* Fork canvas */}
-              {canvasStatus === 'conflict' ? (
-                <>
-                  <span className={`text-[11px] ${fgMuted}`}>All 9 slots full</span>
-                  <button onClick={forkCanvasOverwrite} className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}>
-                    Replace slot 1
-                  </button>
-                  <button onClick={downloadCanvas} className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}>
-                    Download copy
-                  </button>
-                </>
-              ) : canvasStatus === 'error' && canvasLimitHit ? (
-                <>
-                  <a href="https://unleash.drawzil.la" className="px-3 py-1.5 rounded text-[12px] font-medium bg-[#3b82f6] text-white hover:bg-[#2563eb] transition-colors">
-                    Upgrade →
-                  </a>
-                  <button onClick={downloadCanvas} className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}>
-                    Download copy
-                  </button>
-                  <button onClick={replaceFirstCloudCanvas} className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}>
-                    Replace canvas
-                  </button>
-                </>
-              ) : (
-                <button
-                  onClick={forkCanvas}
-                  disabled={canvasStatus === 'loading'}
-                  className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors disabled:opacity-50 ${canvasStatus === 'done' ? ghostBtn : 'bg-[#3b82f6] text-white hover:bg-[#2563eb]'}`}
-                >
-                  {canvasStatus === 'loading' ? '…' : canvasStatus === 'error' ? 'Failed — retry' : 'Fork canvas'}
-                </button>
-              )}
-
-              {/* Auth status */}
-              {isSignedIn
-                ? <UserButton />
-                : isSignedIn === false && (
-                  <SignInButton mode="modal">
-                    <button className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}>
-                      Sign in
-                    </button>
-                  </SignInButton>
-                )
-              }
-          </>
+          <button
+            onClick={download}
+            className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}
+          >
+            {shareData.type === 'workspace' ? 'Download all' : 'Download'}
+          </button>
         </div>
       </div>
 

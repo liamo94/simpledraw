@@ -1,4 +1,4 @@
-const DRAW_URL = 'https://drawzil.la'
+const DRAW_URL = import.meta.env.DEV ? 'http://localhost:5173' : 'https://drawzil.la'
 
 const LOGO_LETTERS = [
   { letter: 'd', color: '#3b82f6', rotate: -6 },

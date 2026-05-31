@@ -68,6 +68,7 @@ export type Settings = {
   exportTransparentBg: boolean;
   exportIncludeImages: boolean;
   lastActiveCanvasId?: string;
+  customColor: string;
 };
 
 const STORAGE_KEY = "drawtool-settings";
@@ -111,6 +112,7 @@ function getDefaults(): Settings {
     exportFormat: "png" as const,
     exportTransparentBg: false,
     exportIncludeImages: false,
+    customColor: "#ff6600",
   };
 }
 

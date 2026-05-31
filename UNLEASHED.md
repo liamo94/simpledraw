@@ -51,7 +51,8 @@ External services:
 | Workspaces | 1 local (9 slots) | 1 cloud (3 slots) | Unlimited cloud |
 | Storage | localStorage | R2 | R2 |
 | PNG / SVG export | With watermark | With watermark | Clean |
-| View & fork share links | Yes | Yes | Yes |
+| Export selection | No | No | Yes |
+| View & download share links | Yes | Yes | Yes |
 | Create share links | No | Frozen (7-day) | Live (permanent) |
 | Themes | Standard | Standard | Standard |
 | Priority support | No | No | Yes |
@@ -419,6 +420,13 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
   - `GET /workspaces/shared` backend endpoint: joins `shares` → `canvases` → `workspaces` for canvas shares; separate query for workspace shares with `share_enabled = 1`
   - Profile card redesigned: dark `rgba(15,15,30,0.97)` background with subtle green glow border; type badges (live=green, snap=amber, workspace=blue); row hover states; scrollable list capped at ~8 visible rows
 
+- **Custom colour picker** (`apps/drawtool/`)
+  - Pipette icon + circle swatch in the COLOR header — pipette opens native OS colour picker to set `customColor`; changing the colour auto-sets it as the active drawing colour live
+  - `customColor` stored in `Settings` and synced via `usePreferencesSync` — persists across sessions
+
+- **Export selection gated** (`apps/drawtool/`)
+  - "Export selection" button in the export panel is Pro-only; shown dimmed with "Pro" badge for free users, matching the SVG export locked pattern
+
 - **UI polish** (`apps/drawtool/`)
   - Top-left indicator: workspace name in `system-ui` (11px, uppercase, dim), canvas name/number in Caveat Brush — two-font approach chosen to give clear hierarchy without clutter
   - Share section: when both canvas and workspace unshared, two buttons collapse into a single `flex gap-1` row instead of stacking with dead space
@@ -472,8 +480,9 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
 - Infra: Cloudflare Workers + D1 + R2 (essentially free until meaningful scale)
 - Cancellation: 30-day grace period with full Pro access; cron deletes data and restores blank free workspace
 - Share links: frozen snapshots (7-day) for free signed-in; live permanent for Pro; both types use `savedDark` flag to ensure colours look right on any viewer theme
-- Free signed-in users: 1 cloud workspace, 3 canvases, can create frozen share links, can view/fork shares
-- Export: PNG watermarked for free, SVG gated (not watermarked — cleaner)
+- Free signed-in users: 1 cloud workspace, 3 canvases, can create frozen share links, can view/download shares
+- Export: PNG watermarked for free, SVG gated (not watermarked — cleaner), export selection gated
+- Colour tools: custom colour picker (`customColor` in Settings, synced via preferences)
 - Preferences: full settings object synced; `pressureSensitivity` and `shapeFillEnabled` intentionally included (user can override)
 - No cookie banner needed (Clerk + Stripe are necessary-only cookies); Privacy Policy + ToS written by hand (no Iubenda/Termly)
 - No real-time collaboration (deferred to v2)
