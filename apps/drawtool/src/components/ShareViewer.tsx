@@ -148,23 +148,43 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
     loadSlot(shareData, idx, isDarkTheme(viewerSettings.theme))
   }
 
-  function downloadEntry(entry: CanvasEntry) {
-    const blob = new Blob([JSON.stringify(entry.data)], { type: 'application/json' })
+  function triggerDownload(filename: string, data: unknown) {
+    const blob = new Blob([JSON.stringify(data)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `${entry.name || 'canvas'}.json`
+    a.download = filename
     a.click()
     URL.revokeObjectURL(url)
   }
 
-  function download() {
+  function downloadCanvas() {
     if (!shareData) return
-    if (shareData.type === 'canvas') {
-      downloadEntry({ id: 'single', name: shareData.name, position: 0, data: shareData.data })
-    } else {
-      for (const entry of shareData.canvases) downloadEntry(entry)
-    }
+    const entry = shareData.type === 'canvas'
+      ? { name: shareData.name, data: shareData.data }
+      : shareData.canvases[activeIndex]
+    if (!entry) return
+    triggerDownload(`${entry.name || 'canvas'}.json`, {
+      version: 1,
+      strokes: entry.data.strokes,
+      ...(entry.name ? { name: entry.name } : {}),
+      ...(entry.data.images ? { images: entry.data.images } : {}),
+    })
+  }
+
+  function downloadWorkspace() {
+    if (!shareData || shareData.type !== 'workspace') return
+    triggerDownload(`${shareData.name || 'workspace'}.json`, {
+      version: 1,
+      type: 'workspace',
+      canvases: shareData.canvases.map((c, i) => ({
+        index: i + 1,
+        strokes: c.data.strokes,
+        view: c.data.view,
+        ...(c.name ? { name: c.name } : {}),
+        ...(c.data.images ? { images: c.data.images } : {}),
+      })),
+    })
   }
 
   const expiresAt = shareData?.type === 'canvas' ? (shareData.expires_at ?? null) : null
@@ -263,11 +283,19 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
 
         <div className="ml-auto flex items-center gap-2">
           <button
-            onClick={download}
+            onClick={downloadCanvas}
             className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}
           >
-            {shareData.type === 'workspace' ? 'Download all' : 'Download'}
+            Download canvas
           </button>
+          {shareData.type === 'workspace' && (
+            <button
+              onClick={downloadWorkspace}
+              className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}
+            >
+              Download workspace
+            </button>
+          )}
         </div>
       </div>
 

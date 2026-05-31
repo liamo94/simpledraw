@@ -48,7 +48,7 @@ External services:
 
 | | Free (local) | Free (signed in) | Pro £2.99/mo |
 |---|---|---|---|
-| Workspaces | 1 local (9 slots) | 1 cloud (3 slots) | Unlimited cloud |
+| Workspaces | 1 local (3 slots) | 1 cloud (3 slots) | Unlimited cloud |
 | Storage | localStorage | R2 | R2 |
 | PNG / SVG export | With watermark | With watermark | Clean |
 | Export selection | No | No | Yes |
@@ -175,8 +175,7 @@ POST   /clerk/webhook               user.created → provision free account + wo
 3. **Workspace + canvas switcher** — replaces the 1–9 slot UI for signed-in users; local slot UI remains for signed-out free users
 4. **Auto-save** — debounced save to backend on canvas change (signed-in users)
 5. **Share button** — Pro only; generates `drawzil.la/s/{token}`; read-only public viewer built into the app
-6. **Fork** — any user visiting a share link can pull it into their workspace / local slots
-7. **Export watermark** — on PNG and SVG export, if not Pro, stamp "Made with drawzil.la" in bottom-right corner before download
+6. **Export watermark** — on PNG and SVG export, if not Pro, stamp "Made with drawzil.la" in bottom-right corner before download
 
 ---
 
@@ -316,15 +315,13 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
   - Multiple share links per canvas supported; each managed independently (create / copy / revoke)
   - `shares` table (migration 0005) decouples share metadata from `canvases`; frozen links stored at `shares/{token}.json` in R2
   - Cron cleanup for expired frozen shares runs daily alongside subscription cleanup
-  - `ShareViewer.tsx`: tab bar for workspace shares, fork button (cloud or local slot), unshare (×), Copy feedback
+  - `ShareViewer.tsx`: tab bar for workspace shares; "Download canvas" + "Download workspace" buttons in header
   - Share viewer header: workspace name + logo / canvas tabs for workspace shares; logo / canvas name for canvas shares
-  - Fork workspace: Pro-gated — non-Pro redirected to `unleash.drawzil.la`
-  - Fork canvas: available to all; fills a free slot, warns if all 9 slots full (signed-out) or canvas limit hit (free signed-in); offers replace-slot and download alternatives; fork targets the user's active workspace (falls back to first workspace)
-  - Auth status visible in share viewer: `UserButton` when signed in, "Sign in" button when signed out
   - Share viewer: Caveat Brush multicolor per-letter-rotated "drawzilla" branding + SVG logo in header
+  - No fork / import — share viewer is view + download only (decided against fork to keep viewer simple)
+  - Download canvas → `{name}.json` (`{ version: 1, strokes, name?, images? }`); Download workspace → `{name}.json` (`{ version: 1, type: "workspace", canvases: [...] }`) — both match the menu export format so they import cleanly
   - Share viewer: `g`/`G` cycles grid (forward/back), double-`d`/`D` (within 400 ms) cycles theme (forward/back)
   - Stroke colours re-adapted on theme change (black/white swap via `savedDark`; refs avoid stale closure)
-  - Fork parallelized: all workspace canvases forked concurrently via `Promise.all`
   - Share viewer read-only: drawing and erasing fully blocked (`readOnly` prop forces `modifier = null`); cursor shows grab/hand in pan mode
   - Share list UI: rows show "Snapshot · Xh ago" label instead of truncated URL; coloured expiry badge (yellow/orange/red) keyed to urgency; `created_at` added to share POST responses to fix "NaNd ago"
   - Share viewer expiry warning: yellow/orange/red badge in viewer header for free users showing time remaining on frozen links; `expires_at` included in `GET /share/:token` response
@@ -425,6 +422,13 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
   - Mobile (Pro): pipette + custom colour swatch row at the bottom of the touch colour picker popup; tapping pipette opens native colour picker; swatch applies stored colour and closes popup
   - `customColor` stored in `Settings` and synced via `usePreferencesSync` — persists across sessions and devices
 
+- **Workspace import limit** (`apps/drawtool/`)
+  - `processWorkspaceFile` checks `!isPro && canvases.length > canvasLimit` before importing
+  - If exceeded: sets `pendingWorkspaceImport` state and shows a confirmation modal instead of importing
+  - Modal shows canvas count, their limit, "Upgrade to import all →" link, Cancel + "Import N" buttons
+  - On confirm: re-reads file with `confirmedLimit` param, slices canvases array to limit, imports normally
+  - Applies to all non-Pro users (both local and signed-in free) — canvas limit is 3 for all non-Pro
+
 - **Export selection gated** (`apps/drawtool/`)
   - "Export selection" button in the export panel is Pro-only; shown dimmed with "Pro" badge for free users, matching the SVG export locked pattern
 
@@ -499,6 +503,8 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
 - Infra: Cloudflare Workers + D1 + R2 (essentially free until meaningful scale)
 - Cancellation: 30-day grace period with full Pro access; cron deletes data and restores blank free workspace
 - Share links: frozen snapshots (7-day) for free signed-in; live permanent for Pro; both types use `savedDark` flag to ensure colours look right on any viewer theme
+- No fork/import from share viewer — viewer is read-only + download only; keeping it simple was the right call
+- Canvas limit of 3 applies to ALL non-Pro users — both local (localStorage) and signed-in free; gate on `!isPro`, not `isSignedIn && !isPro`
 - Free signed-in users: 1 cloud workspace, 3 canvases, can create frozen share links, can view/download shares
 - Export: PNG watermarked for free, SVG gated (not watermarked — cleaner), export selection gated
 - Colour tools: custom colour picker (`customColor` in Settings, synced via preferences)

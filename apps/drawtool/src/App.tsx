@@ -432,6 +432,9 @@ export default function App() {
   const [importMode, setImportMode] = useState<"canvas" | "workspace">(
     "canvas",
   );
+  const [pendingWorkspaceImport, setPendingWorkspaceImport] = useState<{ file: File; total: number } | null>(null);
+  // Refs so processWorkspaceFile (defined early) can read plan data at call time
+  const canvasLimitImportRef = useRef(3);
   const [showStash, setShowStash] = useState(false);
   const [stashItems, setStashItems] = useState<StashItem[]>(() => loadStash());
   const [dropZoneActive, setDropZoneActive] = useState(false);
@@ -578,10 +581,16 @@ export default function App() {
   }, [showToast]);
 
   const processWorkspaceFile = useCallback(
-    (file: File) => {
+    (file: File, confirmedLimit?: number) => {
       file.text().then((text) => {
         try {
-          const canvases = validateWorkspaceFile(JSON.parse(text));
+          let canvases = validateWorkspaceFile(JSON.parse(text));
+          // Non-Pro users: intercept if workspace exceeds their canvas limit
+          if (confirmedLimit === undefined && !isProRef.current && canvases.length > canvasLimitImportRef.current) {
+            setPendingWorkspaceImport({ file, total: canvases.length });
+            return;
+          }
+          if (confirmedLimit !== undefined) canvases = canvases.slice(0, confirmedLimit);
           const allImageEntries: [string, string][] = [];
           for (const { index, strokes, view, name, images } of canvases) {
             saveStrokes(strokes, index);
@@ -1247,6 +1256,7 @@ export default function App() {
 
   const isProRef = useRef(isPro);
   isProRef.current = isPro;
+  canvasLimitImportRef.current = canvasLimit;
 
   // Ref so the stale-closure event handler can trigger cloud switching
   const cloudSwitchRef = useRef<((n: number) => void) | null>(null);
@@ -4572,6 +4582,45 @@ export default function App() {
             showToast({ type: "text", message: "Stash imported" });
           }}
         />
+      )}
+      {pendingWorkspaceImport && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm px-6"
+        >
+          <div className={`w-full max-w-sm rounded-2xl border px-6 py-5 ${isDark ? "bg-black/80 border-white/15" : "bg-white/90 border-black/12"}`}>
+            <p className={`text-[14px] font-semibold mb-1 ${isDark ? "text-white" : "text-black"}`}>
+              Workspace has {pendingWorkspaceImport.total} canvases
+            </p>
+            <p className={`text-[13px] mb-1 ${isDark ? "text-white/60" : "text-black/55"}`}>
+              Your free plan supports {canvasLimitImportRef.current}. Only the first {canvasLimitImportRef.current} will be imported.
+            </p>
+            <a
+              href="https://unleash.drawzil.la"
+              className="inline-block text-[13px] text-[#3b82f6] hover:underline mb-5"
+            >
+              Upgrade to import all {pendingWorkspaceImport.total} →
+            </a>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setPendingWorkspaceImport(null)}
+                className={`flex-1 py-2 rounded-xl text-[13px] font-medium transition-colors ${isDark ? "bg-white/10 text-white hover:bg-white/15" : "bg-black/8 text-black hover:bg-black/12"}`}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  processWorkspaceFile(pendingWorkspaceImport.file, canvasLimitImportRef.current);
+                  setPendingWorkspaceImport(null);
+                }}
+                className="flex-1 py-2 rounded-xl text-[13px] font-medium bg-[#3b82f6] text-white hover:bg-[#2563eb] transition-colors"
+              >
+                Import {canvasLimitImportRef.current}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
       {showImportModal && (
         <div
