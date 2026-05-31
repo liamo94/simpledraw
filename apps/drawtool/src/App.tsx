@@ -53,7 +53,7 @@ import { useCloudStash } from "./hooks/useCloudStash";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { CANVAS_LIMIT } from "./config";
 import { usePreferencesSync } from "./hooks/usePreferencesSync";
-import { Layers, Hand } from "lucide-react";
+import { Layers, Hand, Pipette } from "lucide-react";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -2716,6 +2716,53 @@ export default function App() {
                       />
                     ))}
                   </div>
+                  {isPro && (
+                    <>
+                      <div
+                        className="my-2"
+                        style={{ height: 1, background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
+                      />
+                      <div className="flex items-center gap-1.5 justify-center">
+                        <label
+                          className={`relative w-8 h-8 flex items-center justify-center rounded-full cursor-pointer transition-colors ${isDark ? "text-white/50 hover:text-white/80 bg-white/8 hover:bg-white/15" : "text-black/40 hover:text-black/70 bg-black/5 hover:bg-black/10"}`}
+                          title="Pick custom colour"
+                          onPointerDown={(e) => e.stopPropagation()}
+                        >
+                          <input
+                            type="color"
+                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                            value={settings.customColor ?? "#ff6600"}
+                            onChange={(e) => {
+                              const c = e.target.value;
+                              updateSettings({ customColor: c, lineColor: c });
+                            }}
+                          />
+                          <Pipette size={14} strokeWidth={2} />
+                        </label>
+                        <button
+                          onClick={() => {
+                            const c = settings.customColor ?? "#ff6600";
+                            updateSettings({ lineColor: c });
+                            setShowColorPicker(false);
+                          }}
+                          aria-label={`Use custom colour ${settings.customColor}`}
+                          aria-pressed={settings.lineColor === settings.customColor}
+                          className="w-8 h-8 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
+                          style={{
+                            backgroundColor: settings.customColor ?? "#ff6600",
+                            borderColor:
+                              settings.lineColor === (settings.customColor ?? "#ff6600")
+                                ? isDark ? "white" : "black"
+                                : isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.2)",
+                            transform:
+                              settings.lineColor === (settings.customColor ?? "#ff6600")
+                                ? "scale(1.15)"
+                                : undefined,
+                          }}
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               {showThicknessPicker && (

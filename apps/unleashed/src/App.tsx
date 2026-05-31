@@ -203,8 +203,12 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
           cancelUrl: window.location.href,
         }),
       })
-      const { url } = await res.json() as { url: string }
-      window.location.href = url
+      if (!res.ok) throw new Error(`${res.status}`)
+      const data = await res.json() as { url?: string }
+      if (!data.url) throw new Error('No redirect URL')
+      window.location.href = data.url
+    } catch {
+      alert('Couldn\'t start checkout — please try again or contact liam@drawzil.la')
     } finally {
       setWorking(false)
     }
@@ -219,8 +223,12 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ returnUrl: window.location.href }),
       })
-      const { url } = await res.json() as { url: string }
-      window.location.href = url
+      if (!res.ok) throw new Error(`${res.status}`)
+      const data = await res.json() as { url?: string }
+      if (!data.url) throw new Error('No redirect URL')
+      window.location.href = data.url
+    } catch {
+      alert('Couldn\'t open billing portal — please try again or contact liam@drawzil.la')
     } finally {
       setWorking(false)
     }
@@ -551,7 +559,7 @@ export default function App() {
               <span className="text-4xl font-bold">£2.99</span>
               <span className="text-white/40 text-sm mb-1.5">/mo</span>
             </div>
-            <p className="text-xs text-white/30 mb-6">Billed monthly. Cancel anytime.</p>
+            <p className="text-xs text-white/30 mb-6">Billed monthly. Cancel anytime via your account portal. No refunds for partial months.</p>
 
             <div className="flex flex-col gap-2 text-left mb-6">
               {[

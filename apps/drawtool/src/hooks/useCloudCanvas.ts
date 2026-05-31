@@ -356,7 +356,9 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
             old.map(w => ({ ...w, canvases: w.canvases.map(c => c.id === id ? { ...c, is_empty: 0, stroke_count: strokes.length } : c) }))
           )
           storeThumbnail(id, strokes, isDarkRef.current)
-        }).catch(() => {})
+        }).catch(() => {
+          window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed — check your connection' } }))
+        })
       }, SAVE_DEBOUNCE_MS)
     })
 
