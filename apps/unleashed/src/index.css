@@ -4,6 +4,15 @@ html, body {
   background: #06060f;
 }
 
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-14px); }
+}
+
+.mascot-float {
+  animation: float 4s ease-in-out infinite;
+}
+
 .scrollbar-thin {
   scrollbar-width: thin;
   scrollbar-color: rgba(255,255,255,0.12) transparent;

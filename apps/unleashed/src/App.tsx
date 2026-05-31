@@ -18,32 +18,95 @@ type SharedCanvas = {
 type SharedWorkspace = { id: string; name: string; token: string }
 type SharedItems = { workspaces: SharedWorkspace[]; canvases: SharedCanvas[] }
 
-const FEATURES = [
+const FEATURES: { icon: React.ReactNode; title: string; description: string }[] = [
   {
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="1" width="4" height="4" rx="0.8" /><rect x="6" y="1" width="4" height="4" rx="0.8" /><rect x="11" y="1" width="4" height="4" rx="0.8" />
+        <rect x="1" y="6" width="4" height="4" rx="0.8" /><rect x="6" y="6" width="4" height="4" rx="0.8" /><rect x="11" y="6" width="4" height="4" rx="0.8" />
+        <rect x="1" y="11" width="4" height="4" rx="0.8" /><rect x="6" y="11" width="4" height="4" rx="0.8" /><rect x="11" y="11" width="4" height="4" rx="0.8" />
+      </svg>
+    ),
     title: 'All 9 canvases unlocked',
     description: 'Access all 9 canvas slots per workspace, not just 3.',
   },
   {
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <rect x="1" y="5.5" width="14" height="8.5" rx="1.5" />
+        <path d="M4 5.5V4A1.5 1.5 0 0 1 5.5 2.5h5A1.5 1.5 0 0 1 12 4v1.5" />
+      </svg>
+    ),
     title: 'Unlimited workspaces',
     description: 'Organise your work into as many workspaces as you like.',
   },
   {
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M8 2v8M5 7l3 3 3-3" />
+        <path d="M2 12v.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V12" />
+      </svg>
+    ),
     title: 'Clean exports',
     description: 'Download PNG and SVG without the drawzilla watermark.',
   },
   {
-    title: 'Share links',
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M6.5 9.5a3.2 3.2 0 0 0 4.5 0l1.5-1.5a3.2 3.2 0 0 0-4.5-4.5L7.2 4.3" />
+        <path d="M9.5 6.5a3.2 3.2 0 0 0-4.5 0L3.5 8a3.2 3.2 0 0 0 4.5 4.5L8.8 11.7" />
+      </svg>
+    ),
+    title: 'Share permanent live links',
     description: 'Share any canvas as a read-only link. Anyone can view and fork it.',
   },
   {
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 1.5L3.5 9H8L7 14.5l5.5-7H9L10 1.5z" />
+      </svg>
+    ),
     title: 'Priority support',
     description: 'Get help faster when something goes wrong.',
   },
   {
+    icon: (
+      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M13.5 8a5.5 5.5 0 0 1-9.9 3.3" />
+        <path d="M2.5 8a5.5 5.5 0 0 1 9.9-3.3" />
+        <path d="M13.5 4.5V8H10M2.5 11.5V8H6" />
+      </svg>
+    ),
     title: 'Sync everywhere',
     description: 'Your canvases follow you — open drawzilla on any device.',
   },
 ]
+
+function FeatureCard({ icon, title, description }: { icon: React.ReactNode; title: string; description: string }) {
+  return (
+    <div
+      className="rounded-xl p-5 border transition-colors"
+      style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)' }}
+      onMouseEnter={e => {
+        e.currentTarget.style.borderColor = 'rgba(57,255,20,0.22)'
+        e.currentTarget.style.background = 'rgba(57,255,20,0.03)'
+      }}
+      onMouseLeave={e => {
+        e.currentTarget.style.borderColor = 'rgba(255,255,255,0.07)'
+        e.currentTarget.style.background = 'rgba(255,255,255,0.03)'
+      }}
+    >
+      <div
+        className="w-8 h-8 rounded-lg flex items-center justify-center mb-4"
+        style={{ background: 'rgba(57,255,20,0.1)', color: '#39ff14' }}
+      >
+        {icon}
+      </div>
+      <div className="text-sm font-semibold text-white/90 mb-1.5">{title}</div>
+      <div className="text-xs text-white/40 leading-relaxed">{description}</div>
+    </div>
+  )
+}
 
 function formatSince(ts: number): string {
   return new Date(ts * 1000).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
@@ -185,8 +248,8 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
       <button
         onClick={handleCheckout}
         disabled={working}
-        className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
-        style={{ background: 'linear-gradient(135deg, #39ff14, #22cc10)' }}
+        className="px-6 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
+        style={{ background: 'linear-gradient(135deg, #39ff14, #22cc10)', color: '#0a1a04' }}
       >
         {working ? 'Loading…' : 'Get Unleashed — £2.99/mo'}
       </button>
@@ -196,8 +259,8 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
   return (
     <SignInButton mode="modal">
       <button
-        className="px-6 py-3 rounded-xl text-sm font-semibold text-white transition-all hover:scale-[1.02] active:scale-[0.98]"
-        style={{ background: 'linear-gradient(135deg, #39ff14, #22cc10)' }}
+        className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+        style={{ background: 'linear-gradient(135deg, #39ff14, #22cc10)', color: '#0a1a04' }}
       >
         Get Unleashed — £2.99/mo
       </button>
@@ -406,31 +469,59 @@ export default function App() {
       <Nav scrolled={scrolled} />
 
       {/* Hero */}
-      <section className="flex flex-col items-center justify-center text-center px-6 pt-24 pb-24">
-        <div ref={heroLogoRef} className="mb-8">
-          <DrawzillaLogo iconSize={80} fontSize="4.5rem" letterGap={2} />
+      <section className="min-h-[92vh] flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-20 px-6 pt-24 pb-16 max-w-6xl mx-auto">
+
+        {/* Text */}
+        <div className="relative flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-lg">
+          <div ref={heroLogoRef} className="mb-6">
+            <DrawzillaLogo iconSize={64} fontSize="3.5rem" letterGap={2} />
+          </div>
+
+          <div
+            className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full mb-5 border"
+            style={{ borderColor: 'rgba(57,255,20,0.3)', color: '#a8ff87', background: 'rgba(57,255,20,0.08)' }}
+          >
+            <span style={{ color: '#39ff14' }}>✦</span>
+            drawzilla Unleashed
+          </div>
+
+          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-5 leading-[1.1]">
+            Your canvas,{' '}
+            <span className="block" style={{ color: '#39ff14' }}>unleashed.</span>
+          </h1>
+
+          <p className="text-white/50 text-base max-w-sm mb-10 leading-relaxed">
+            Unlimited canvases, clean exports, permanent share links, and sync across every device.
+          </p>
+
+          <CtaButton hideIfPro />
+          {planKnown && !isUnleashed && <p className="mt-4 text-xs text-white/25">Cancel anytime. No lock-in.</p>}
         </div>
 
-        <div
-          className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full mb-6 border"
-          style={{ borderColor: 'rgba(57,255,20,0.3)', color: '#a8ff87', background: 'rgba(57,255,20,0.08)' }}
-        >
-          <span style={{ color: '#39ff14' }}>✦</span>
-          drawzilla Unleashed
+        {/* Mascot */}
+        <div className="relative shrink-0 w-72 h-80 sm:w-80 sm:h-[360px] lg:w-[400px] lg:h-[450px]">
+          {/* SVG filter: turns pure-white pixels transparent without masking anything */}
+          <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
+            <defs>
+              <filter id="remove-white-bg" colorInterpolationFilters="sRGB">
+                <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 3 0" />
+              </filter>
+            </defs>
+          </svg>
+          <img
+            src="/mascot.png"
+            alt="drawzilla mascot"
+            className="mascot-float"
+            style={{
+              position: 'absolute',
+              inset: 0,
+              width: '100%',
+              height: '100%',
+              objectFit: 'contain',
+              filter: 'url(#remove-white-bg)',
+            }}
+          />
         </div>
-
-        <h1 className="text-4xl sm:text-5xl font-bold tracking-tight mb-4 leading-tight max-w-xl">
-          Your canvas,{' '}
-          <span style={{ color: '#39ff14' }}>unleashed</span>
-        </h1>
-
-        <p className="text-white/50 text-base max-w-sm mb-10 leading-relaxed">
-          Everything in drawzilla, plus unlimited canvases, clean exports, share links, and more.
-        </p>
-
-        <CtaButton hideIfPro />
-
-        {planKnown && !isUnleashed && <p className="mt-4 text-xs text-white/25">Cancel anytime. No lock-in.</p>}
       </section>
 
       {/* Profile section — pro users only */}
@@ -440,16 +531,10 @@ export default function App() {
 
       {/* Features */}
       <section className="max-w-2xl mx-auto px-6 pb-24">
+        <p className="text-center text-[11px] text-white/25 uppercase tracking-widest mb-8">What's included</p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           {FEATURES.map((f) => (
-            <div
-              key={f.title}
-              className="rounded-xl p-4 border"
-              style={{ background: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.07)' }}
-            >
-              <div className="text-sm font-medium text-white/80 mb-1">{f.title}</div>
-              <div className="text-xs text-white/40 leading-relaxed">{f.description}</div>
-            </div>
+            <FeatureCard key={f.title} {...f} />
           ))}
         </div>
       </section>
