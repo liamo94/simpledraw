@@ -59,7 +59,6 @@ createRoot(document.getElementById('root')!).render(
             colorTextSecondary: 'rgba(255,255,255,0.5)',
             colorInputBackground: 'rgba(255,255,255,0.06)',
             colorInputText: '#ffffff',
-            colorInputPlaceholder: 'rgba(255,255,255,0.3)',
             borderRadius: '10px',
           },
         }}>
