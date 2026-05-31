@@ -256,7 +256,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
       <button
         onClick={handleCheckout}
         disabled={working}
-        className="px-6 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 hover:scale-[1.02] active:scale-[0.98]"
+        className="px-6 py-3 rounded-xl text-sm font-semibold transition-all disabled:opacity-50 hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]"
         style={{ background: 'linear-gradient(135deg, #39ff14, #22cc10)', color: '#0a1a04' }}
       >
         {working ? 'Loading…' : 'Get Unleashed — £2.99/mo'}
@@ -267,7 +267,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
   return (
     <SignInButton mode="modal">
       <button
-        className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] active:scale-[0.98]"
+        className="px-6 py-3 rounded-xl text-sm font-semibold transition-all hover:scale-[1.02] hover:brightness-110 active:scale-[0.98]"
         style={{ background: 'linear-gradient(135deg, #39ff14, #22cc10)', color: '#0a1a04' }}
       >
         Get Unleashed — £2.99/mo

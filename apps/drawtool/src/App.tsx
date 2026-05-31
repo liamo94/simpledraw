@@ -53,7 +53,7 @@ import { useCloudStash } from "./hooks/useCloudStash";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { CANVAS_LIMIT } from "./config";
 import { usePreferencesSync } from "./hooks/usePreferencesSync";
-import { Layers, Hand, Pipette } from "lucide-react";
+import { Layers, Hand, Pipette, Pencil, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, Undo2, Redo2, Trash2 } from "lucide-react";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -1571,6 +1571,12 @@ export default function App() {
     <>
       Press <K>?</K> to see all shortcuts
     </>,
+    <>
+      Press <K>S</K> to change shape
+    </>,
+    <>
+      Hold <K>S</K> to peek shape
+    </>,
   ];
 
   const tipOrderRef = useRef<number[] | null>(null);
@@ -1620,42 +1626,12 @@ export default function App() {
         {
           id: "hand",
           label: "Move",
-          icon: (
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2" />
-              <path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2" />
-              <path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8" />
-              <path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15" />
-            </svg>
-          ),
+          icon: <Hand size={17} strokeWidth={2} />,
         },
         {
           id: "draw",
           label: "Draw",
-          icon: (
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <path d="M2 14l3-1L13.5 4.5a1.4 1.4 0 0 0-2-2L3 11z" />
-              <path d="M10.5 3.5l2 2" />
-            </svg>
-          ),
+          icon: <Pencil size={17} strokeWidth={1.75} />,
         },
         {
           id: "dashed",
@@ -1678,51 +1654,24 @@ export default function App() {
         {
           id: "shape",
           label: "Shape",
-          icon: (
-            <svg
-              width="17"
-              height="17"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            >
-              {settings.activeShape === "line" && (
-                <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
-              )}
-              {settings.activeShape === "rectangle" && (
-                <rect x="2" y="3" width="12" height="10" rx="1" />
-              )}
-              {settings.activeShape === "circle" && (
-                <circle cx="8" cy="8" r="6" />
-              )}
-              {settings.activeShape === "triangle" && (
-                <polygon points="8,2 14,14 2,14" />
-              )}
-              {settings.activeShape === "diamond" && (
-                <polygon points="8,1 15,8 8,15 1,8" />
-              )}
-              {settings.activeShape === "pentagon" && (
-                <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-              )}
-              {settings.activeShape === "hexagon" && (
-                <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-              )}
-              {settings.activeShape === "star" && (
-                <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-              )}
-              {settings.activeShape === "arrow" && (
-                <>
-                  <line x1="2" y1="8" x2="12" y2="8" />
-                  <polyline points="9,5 12,8 9,11" />
-                </>
-              )}
-              {settings.activeShape === "cloud" && (
-                <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
-              )}
-            </svg>
-          ),
+          icon: (() => {
+            const p = { size: 17, strokeWidth: 2, fill: "none" } as const;
+            const s = settings.activeShape;
+            if (s === "rectangle") return <Square {...p} />;
+            if (s === "circle") return <Circle {...p} />;
+            if (s === "triangle") return <Triangle {...p} />;
+            if (s === "diamond") return <Diamond {...p} />;
+            if (s === "pentagon") return <Pentagon {...p} />;
+            if (s === "hexagon") return <Hexagon {...p} />;
+            if (s === "star") return <Star {...p} />;
+            if (s === "arrow") return <ArrowRight {...p} />;
+            if (s === "cloud") return <Cloud {...p} />;
+            return (
+              <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="3" y1="13" x2="13" y2="3" />
+              </svg>
+            );
+          })(),
         },
         {
           id: "highlight",
@@ -2273,20 +2222,7 @@ export default function App() {
                   }
                   className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
-                  <svg
-                    display="block"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M4 8.5H12C14.5 8.5 16.5 10.5 16.5 13S14.5 17.5 12 17.5H7" />
-                    <path d="M7 5.5L4 8.5l3 3" />
-                  </svg>
+                  <Undo2 size={20} strokeWidth={1.75} />
                 </button>
                 <button
                   aria-label="Redo"
@@ -2296,20 +2232,7 @@ export default function App() {
                   }
                   className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
-                  <svg
-                    display="block"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M16 8.5H8C5.5 8.5 3.5 10.5 3.5 13S5.5 17.5 8 17.5H13" />
-                    <path d="M13 5.5L16 8.5l-3 3" />
-                  </svg>
+                  <Redo2 size={20} strokeWidth={1.75} />
                 </button>
                 <button
                   aria-label="Delete selection"
@@ -2324,23 +2247,7 @@ export default function App() {
                   }
                   className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
                 >
-                  <svg
-                    display="block"
-                    width="20"
-                    height="20"
-                    viewBox="0 0 20 20"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.75"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M2.5 5.5h15" />
-                    <path d="M7.5 5.5V3.5h5v2" />
-                    <path d="M5 5.5l1 13h8l1-13" />
-                    <path d="M8.5 9v6" />
-                    <path d="M11.5 9v6" />
-                  </svg>
+                  <Trash2 size={20} strokeWidth={1.75} />
                 </button>
                 <button
                   aria-label="Save to stash"
@@ -3083,53 +2990,23 @@ export default function App() {
                             : "hover:bg-black/10"
                       }`}
                     >
-                      <svg
-                        width="20"
-                        height="20"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        stroke={visibleLineColor}
-                        strokeWidth="1.5"
-                        strokeLinejoin="round"
-                      >
-                        {shape === "line" && (
-                          <line
-                            x1="3"
-                            y1="13"
-                            x2="13"
-                            y2="3"
-                            strokeLinecap="round"
-                          />
-                        )}
-                        {shape === "rectangle" && (
-                          <rect x="2" y="3" width="12" height="10" rx="1" />
-                        )}
-                        {shape === "circle" && <circle cx="8" cy="8" r="6" />}
-                        {shape === "triangle" && (
-                          <polygon points="8,2 14,14 2,14" />
-                        )}
-                        {shape === "diamond" && (
-                          <polygon points="8,1 15,8 8,15 1,8" />
-                        )}
-                        {shape === "pentagon" && (
-                          <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-                        )}
-                        {shape === "hexagon" && (
-                          <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-                        )}
-                        {shape === "star" && (
-                          <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-                        )}
-                        {shape === "arrow" && (
-                          <>
-                            <line x1="2" y1="8" x2="12" y2="8" />
-                            <polyline points="9,5 12,8 9,11" />
-                          </>
-                        )}
-                        {shape === "cloud" && (
-                          <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
-                        )}
-                      </svg>
+                      {(() => {
+                        const p = { size: 20, strokeWidth: 2, stroke: visibleLineColor, fill: "none" } as const;
+                        if (shape === "rectangle") return <Square {...p} />;
+                        if (shape === "circle") return <Circle {...p} />;
+                        if (shape === "triangle") return <Triangle {...p} />;
+                        if (shape === "diamond") return <Diamond {...p} />;
+                        if (shape === "pentagon") return <Pentagon {...p} />;
+                        if (shape === "hexagon") return <Hexagon {...p} />;
+                        if (shape === "star") return <Star {...p} />;
+                        if (shape === "arrow") return <ArrowRight {...p} />;
+                        if (shape === "cloud") return <Cloud {...p} />;
+                        return (
+                          <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={visibleLineColor} strokeWidth="2" strokeLinecap="round">
+                            <line x1="3" y1="13" x2="13" y2="3" />
+                          </svg>
+                        );
+                      })()}
                     </button>
                   ))}
                 </div>
@@ -4368,47 +4245,22 @@ export default function App() {
               )}
             </svg>
           ) : (
-            <svg
-              width="20"
-              height="20"
-              viewBox="0 0 16 16"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              strokeLinejoin="round"
-            >
+            <>
+              {toast.shape === "rectangle" && <Square size={20} strokeWidth={1.75} fill="none" />}
+              {toast.shape === "circle" && <Circle size={20} strokeWidth={1.75} fill="none" />}
+              {toast.shape === "triangle" && <Triangle size={20} strokeWidth={1.75} fill="none" />}
+              {toast.shape === "diamond" && <Diamond size={20} strokeWidth={1.75} fill="none" />}
+              {toast.shape === "pentagon" && <Pentagon size={20} strokeWidth={1.75} fill="none" />}
+              {toast.shape === "hexagon" && <Hexagon size={20} strokeWidth={1.75} fill="none" />}
+              {toast.shape === "star" && <Star size={20} strokeWidth={1.75} fill="none" />}
+              {toast.shape === "arrow" && <ArrowRight size={20} strokeWidth={1.75} />}
+              {toast.shape === "cloud" && <Cloud size={20} strokeWidth={1.75} />}
               {toast.shape === "line" && (
-                <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />
+                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                  <line x1="3" y1="13" x2="13" y2="3" />
+                </svg>
               )}
-              {toast.shape === "rectangle" && (
-                <rect x="2" y="3" width="12" height="10" rx="1" />
-              )}
-              {toast.shape === "circle" && <circle cx="8" cy="8" r="6" />}
-              {toast.shape === "triangle" && (
-                <polygon points="8,2 14,14 2,14" />
-              )}
-              {toast.shape === "diamond" && (
-                <polygon points="8,1 15,8 8,15 1,8" />
-              )}
-              {toast.shape === "pentagon" && (
-                <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-              )}
-              {toast.shape === "hexagon" && (
-                <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-              )}
-              {toast.shape === "star" && (
-                <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-              )}
-              {toast.shape === "arrow" && (
-                <>
-                  <line x1="2" y1="8" x2="12" y2="8" />
-                  <polyline points="9,5 12,8 9,11" />
-                </>
-              )}
-              {toast.shape === "cloud" && (
-                <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
-              )}
-            </svg>
+            </>
           )}
         </div>
       )}

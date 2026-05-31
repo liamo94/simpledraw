@@ -1,5 +1,5 @@
 import React from "react";
-import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame } from "lucide-react";
+import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame, Download, Presentation, LayoutDashboard, Square, SquareDashed, Circle } from "lucide-react";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl";
@@ -30,10 +30,10 @@ const EraseIcon = () => (
 const HighlightIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none" opacity="0.5"><rect x="2" y="5" width="12" height="6" rx="1" /></svg>;
 const PressureIcon = () => <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor" stroke="none"><path d="M2,8 L14,5 L14,11 Z" opacity="0.7" /></svg>;
 const CornersIcon = () => <I><path d="M4,13 L4,4 L13,4" /></I>;
-const RectIcon = () => <I><rect x="2" y="3" width="12" height="10" rx="0.5" /></I>;
-const CircleIcon = () => <I><circle cx="8" cy="8" r="6" /></I>;
+const RectIcon = () => <Square size={12} strokeWidth={1.5} />;
+const CircleIcon = () => <Circle size={12} strokeWidth={1.5} />;
 const ArrowIcon = () => <MoveRight size={12} strokeWidth={1.5} />;
-const DashedRectIcon = () => <I strokeDasharray="3 2"><rect x="2" y="3" width="12" height="10" rx="0.5" /></I>;
+const DashedRectIcon = () => <SquareDashed size={12} strokeWidth={1.5} />;
 const FilledRectIcon = () => <svg width="12" height="12" viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="10" rx="0.5" fill="currentColor" fillOpacity="0.4" stroke="currentColor" strokeWidth="1.5" /></svg>;
 const LaserIcon = () => (
   <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
@@ -74,7 +74,7 @@ const BoldItalicIcon = () => (
 );
 const AlignTextIcon = () => <I strokeWidth="1.3"><line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="10" y2="8" /><line x1="2" y1="12" x2="12" y2="12" /></I>;
 const ClearIcon = () => <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I>;
-const ExportIcon = () => <I><path d="M3 13h10M8 3v7M5 7l3 3 3-3" /></I>;
+const ExportIcon = () => <Download size={12} strokeWidth={1.5} />;
 const MenuIcon = () => <I><line x1="3" y1="4" x2="13" y2="4" /><line x1="3" y1="8" x2="13" y2="8" /><line x1="3" y1="12" x2="13" y2="12" /></I>;
 const FullscreenIcon = () => <Maximize2 size={12} strokeWidth={1.5} />;
 const GridIcon = () => <Frame size={12} strokeWidth={1.5} />;
@@ -212,8 +212,8 @@ export default function ShortcutsPanel({ isDark, modal, isPro }: { isDark: boole
         <Row label={<><ExportIcon />Export</>} kbd={`${mod} + E`} />
         <Row label={<><ExportIcon />Export canvas</>} kbd={`${mod} + ⇧ + E`} />
         <Row label={<><MenuIcon />Menu</>} kbd="M" />
-        <Row label="Canvas manager" kbd="⇧ + M" />
-        {isPro && <Row label="Workspace manager" kbd={`${mod} + O`} />}
+        <Row label={<><Presentation size={12} strokeWidth={1.5} />Canvas manager</>} kbd="⇧ + M" />
+        {isPro && <Row label={<><LayoutDashboard size={12} strokeWidth={1.5} />Workspace manager</>} kbd={`${mod} + O`} />}
         <Row label={<><FullscreenIcon />Fullscreen</>} kbd={`${mod} + F`} />
         <Row label={<><GridIcon />Cycle grid</>} kbd="G / ⇧G" />
         <Row label="Cycle theme" kbd="D D / ⇧D D" />

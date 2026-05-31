@@ -421,8 +421,9 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
   - Profile card redesigned: dark `rgba(15,15,30,0.97)` background with subtle green glow border; type badges (live=green, snap=amber, workspace=blue); row hover states; scrollable list capped at ~8 visible rows
 
 - **Custom colour picker** (`apps/drawtool/`)
-  - Pipette icon + circle swatch in the COLOR header — pipette opens native OS colour picker to set `customColor`; changing the colour auto-sets it as the active drawing colour live
-  - `customColor` stored in `Settings` and synced via `usePreferencesSync` — persists across sessions
+  - Desktop: pipette icon + circle swatch in the COLOR header of the menu — opens native OS colour picker; changing colour auto-sets it as active drawing colour live
+  - Mobile (Pro): pipette + custom colour swatch row at the bottom of the touch colour picker popup; tapping pipette opens native colour picker; swatch applies stored colour and closes popup
+  - `customColor` stored in `Settings` and synced via `usePreferencesSync` — persists across sessions and devices
 
 - **Export selection gated** (`apps/drawtool/`)
   - "Export selection" button in the export panel is Pro-only; shown dimmed with "Pro" badge for free users, matching the SVG export locked pattern
@@ -455,23 +456,41 @@ Workspace shares are Pro-only and always live. On cancellation, canvases are del
   - `past_due` Stripe webhook no longer immediately downgrades plan — only updates subscription status row so Pro access is preserved during Stripe's retry window; `unpaid` and `paused` still downgrade immediately
   - Rate limiting via Cloudflare Workers Rate Limiting binding (`RATE_LIMITER`, 20 req/60 s per user) applied to `POST /canvases/:id/share`, `POST /workspaces/:id/share`, and `POST /migrate`; share endpoints share a `{clerkId}:share` key, migrate uses `{clerkId}:migrate`; binding declared in `wrangler.toml` under `[[unsafe.bindings]]` (locally no-ops)
 
+- **Pre-launch hardening** (`drawzilla-backend/` + `apps/drawtool/` + `apps/unleashed/`)
+  - Stripe webhook idempotency: `webhook_events` table (migration 0010); `INSERT OR IGNORE` before processing — duplicate deliveries are skipped silently
+  - `invoice.payment_failed` webhook case added: captured to Sentry for visibility; plan downgrade deferred to `subscription.updated` (`past_due` / `unpaid`) as before
+  - `subscription.created` three D1 writes wrapped in `db.batch()` — atomic; `started_at` uses `sub.start_date ?? sub.created` fallback so it's never undefined
+  - R2 orphan fix: canvas create and frozen share create now delete the R2 blob if the subsequent D1 insert fails
+  - Public share rate limiting: `GET /share/:token` and `GET /share/workspace/:token` rate-limited by `CF-Connecting-IP` via existing `RATE_LIMITER` binding
+  - Clerk webhook `user.created` / `user.deleted` handlers wrapped in try/catch; always returns 200 to prevent Clerk retrying on transient DB errors
+  - DB indexes on `subscriptions.cancel_at` and `shares.expires_at` (migration 0010) — cron queries were doing full table scans
+  - Save failure toast in drawtool: debounced save `.catch()` now dispatches `drawtool:toast` with "⚠ Save failed — check your connection"
+  - React Error Boundary in `apps/drawtool/src/main.tsx` — wraps full app; Sentry-captured, shows reload link instead of blank screen
+  - Checkout/portal error handling in `apps/unleashed/`: both `handleCheckout` and `handlePortal` check `res.ok`, validate `url`, and show an actionable alert on failure
+  - Refund policy visible before checkout: pricing card now reads "Cancel anytime via your account portal. No refunds for partial months."
+  - Mobile custom colour picker (Pro): pipette + custom colour swatch row added to the touch colour picker popup in `App.tsx`; tapping the pipette opens the native OS colour picker; swatch click applies the stored colour and closes the popup; `customColor` already persisted + synced via preferences
+
 ### Deployment status
 
 - **Not deployed.** Everything runs locally unless explicitly stated otherwise.
 - All `wrangler` / `d1` commands should use `--local` by default. Never add `--remote` unless the user explicitly asks.
-- Migrations 0001–0008 applied locally ✓. Migrations 0006–0008 applied to remote ✓ (0001–0005 were already on remote).
+- Migrations 0001–0010 applied locally ✓. Migrations 0006–0008 applied to remote ✓ (0001–0005 were already on remote). **Migration 0009–0010 not yet on remote.**
 - `STRIPE_PRICE_ID` must be set as a secret (`wrangler secret put STRIPE_PRICE_ID`) before first remote deploy.
 - First remote deploy checklist:
-  1. ~~`npx wrangler d1 migrations apply drawzilla-db --remote`~~ ✓ (all 8 migrations now on remote)
+  1. `npx wrangler d1 migrations apply drawzilla-db --remote` (applies 0009 + 0010)
   2. `wrangler secret put STRIPE_PRICE_ID`
   3. `npx wrangler deploy`
   4. ~~Add Cloudflare WAF Rate Limiting rule~~ — replaced by in-code `RATE_LIMITER` binding
-  5. Add `user.deleted` to subscribed events in Clerk dashboard webhook config
+  5. Confirm Clerk dashboard webhook has **both** `user.created` and `user.deleted` subscribed
+  6. Verify `STRIPE_SECRET_KEY` and `STRIPE_WEBHOOK_SECRET` are live-mode keys (not `sk_test_*`)
+  7. Add OG image asset (`og-image.png`, 1200×630px) to `apps/unleashed/public/` and uncomment OG meta tags in `index.html`
 
 ### Pending / next
 
 - ~~**Share viewer design polish**~~ ✅
+- ~~**Pre-launch hardening**~~ ✅
 - **Prod deployment** — see deployment checklist in "Deployment status" above. Nothing is deployed yet.
+- **OG image** — create `apps/unleashed/public/og-image.png` (1200×630px) and uncomment the OG/Twitter meta tags in `apps/unleashed/index.html`
 - **Transactional email (nice-to-have)** — send a "your data will be deleted on {date}" email when a subscription enters `cancelling` state. Options: Resend (3k/mo free) or Cloudflare Email Workers + MailChannels (free, requires SPF/DKIM DNS). Stripe already handles receipts.
 
 ### Key decisions made

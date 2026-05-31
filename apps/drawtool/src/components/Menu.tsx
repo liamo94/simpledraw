@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Layers, Keyboard, Upload, Info, HelpCircle, X, Hand, Pipette } from "lucide-react";
+import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud } from "lucide-react";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser, useClerk } from "@clerk/clerk-react";
 import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
@@ -1191,61 +1191,26 @@ export default function Menu({
                   }`}
                 >
                   <Tooltip label={s.charAt(0).toUpperCase() + s.slice(1)} />
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke={
-                      settings.activeShape === s
-                        ? isDark
-                          ? "#93c5fd"
-                          : "#3b82f6"
-                        : isDark
-                          ? "white"
-                          : "black"
-                    }
-                    strokeWidth="1.5"
-                    strokeLinejoin="round"
-                    strokeOpacity={settings.activeShape === s ? 1 : 0.5}
-                  >
-                    {s === "line" && (
-                      <line
-                        x1="3"
-                        y1="13"
-                        x2="13"
-                        y2="3"
-                        strokeLinecap="round"
-                      />
-                    )}
-                    {s === "rectangle" && (
-                      <rect x="2" y="3" width="12" height="10" rx="0.5" />
-                    )}
-                    {s === "circle" && <circle cx="8" cy="8" r="6" />}
-                    {s === "triangle" && <polygon points="8,2 14,14 2,14" />}
-                    {s === "diamond" && <polygon points="8,1 15,8 8,15 1,8" />}
-                    {s === "pentagon" && (
-                      <polygon points="8,2 14.5,6.5 12,14 4,14 1.5,6.5" />
-                    )}
-                    {s === "hexagon" && (
-                      <polygon points="8,2 13.5,5 13.5,11 8,14 2.5,11 2.5,5" />
-                    )}
-                    {s === "star" && (
-                      <polygon points="8,1 9.5,6 15,6 10.5,9.5 12,15 8,11.5 4,15 5.5,9.5 1,6 6.5,6" />
-                    )}
-                    {s === "arrow" && (
-                      <>
-                        <line x1="2" y1="8" x2="12" y2="8" />
-                        <polyline
-                          points="9,5 12,8 9,11"
-                          strokeLinecap="round"
-                        />
-                      </>
-                    )}
-                    {s === "cloud" && (
-                      <path d="M 4.8,12 H 11.2 C 12.9,12 14.3,10.8 14.3,9.3 C 14.3,7.9 13.3,6.9 12,6.7 C 11.6,5.2 10.3,4.1 8.6,4.1 C 7.1,4.1 5.9,5 5.3,6.3 C 3.7,6.5 2.5,7.7 2.5,9.2 C 2.5,10.8 3.7,12 4.8,12 Z" />
-                    )}
-                  </svg>
+                  {(() => {
+                    const isActive = settings.activeShape === s;
+                    const shapeStroke = isActive ? (isDark ? "#93c5fd" : "#3b82f6") : (isDark ? "white" : "black");
+                    const shapeOpacity = isActive ? 1 : 0.5;
+                    const p = { size: 16, strokeWidth: 2, stroke: shapeStroke, strokeOpacity: shapeOpacity, fill: "none" } as const;
+                    if (s === "circle") return <Circle {...p} />;
+                    if (s === "rectangle") return <Square {...p} />;
+                    if (s === "triangle") return <Triangle {...p} />;
+                    if (s === "diamond") return <Diamond {...p} />;
+                    if (s === "hexagon") return <Hexagon {...p} />;
+                    if (s === "star") return <Star {...p} />;
+                    if (s === "arrow") return <ArrowRight {...p} />;
+                    if (s === "cloud") return <Cloud {...p} />;
+                    if (s === "pentagon") return <Pentagon {...p} />;
+                    return (
+                      <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke={shapeStroke} strokeWidth="1.5" strokeLinejoin="round" strokeOpacity={shapeOpacity}>
+                        {s === "line" && <line x1="3" y1="13" x2="13" y2="3" strokeLinecap="round" />}
+                      </svg>
+                    );
+                  })()}
                 </button>
               ))}
             </div>
@@ -2307,20 +2272,7 @@ export default function Menu({
                       disabled={!onExport}
                       className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none bg-[#3b82f6] text-white hover:bg-[#2563eb]"
                     >
-                      <svg
-                        width="11"
-                        height="11"
-                        viewBox="0 0 14 14"
-                        fill="none"
-                        stroke="currentColor"
-                        strokeWidth="1.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M7 2v8" />
-                        <path d="M4.5 8 7 11l2.5-3" />
-                        <line x1="2" y1="13" x2="12" y2="13" />
-                      </svg>
+                      <Download size={11} strokeWidth={1.4} />
                       Export
                     </button>
                   </div>
@@ -2341,20 +2293,7 @@ export default function Menu({
                             : isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"
                         }`}
                       >
-                        <svg
-                          width="11"
-                          height="11"
-                          viewBox="0 0 14 14"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="1.4"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M7 2v8" />
-                          <path d="M4.5 8 7 11l2.5-3" />
-                          <line x1="2" y1="13" x2="12" y2="13" />
-                        </svg>
+                        <Download size={11} strokeWidth={1.4} />
                         Export selection
                         {!isPro && <span className="text-[9px] opacity-60">Pro</span>}
                       </button>
@@ -2377,11 +2316,7 @@ export default function Menu({
                               : "text-black/35 border-black/10 hover:text-black/60"
                         }`}
                       >
-                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="1" y="2" width="12" height="10" rx="1.5" />
-                          <circle cx="4.5" cy="5.5" r="1.2" />
-                          <path d="M1 10l3-3 2.5 2.5L9 7l4 4" />
-                        </svg>
+                        <Image size={11} strokeWidth={1.4} />
                         <span>Include images</span>
                       </button>
                     </div>
@@ -2410,30 +2345,7 @@ export default function Menu({
                               disabled={disabledImport}
                               className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${disabledImport ? isDark ? "border-white/5 text-white/15 cursor-not-allowed" : "border-black/5 text-black/15 cursor-not-allowed" : isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
                             >
-                              <svg
-                                width="11"
-                                height="11"
-                                viewBox="0 0 14 14"
-                                fill="none"
-                                stroke="currentColor"
-                                strokeWidth="1.4"
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                              >
-                                {isExport ? (
-                                  <>
-                                    <path d="M7 10V3" />
-                                    <path d="M4.5 5 7 2l2.5 3" />
-                                    <line x1="2" y1="13" x2="12" y2="13" />
-                                  </>
-                                ) : (
-                                  <>
-                                    <path d="M7 2v8" />
-                                    <path d="M4.5 8 7 11l2.5-3" />
-                                    <line x1="2" y1="13" x2="12" y2="13" />
-                                  </>
-                                )}
-                              </svg>
+                              {isExport ? <Upload size={11} strokeWidth={1.4} /> : <Download size={11} strokeWidth={1.4} />}
                               {action}
                             </button>
                           );})}
@@ -2451,11 +2363,7 @@ export default function Menu({
                         }}
                         className={`flex-1 flex items-center justify-center gap-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${isDark ? "border-white/10 text-white/55 hover:text-white hover:border-white/25" : "border-black/10 text-black/50 hover:text-black hover:border-black/25"}`}
                       >
-                        <svg width="11" height="11" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                          <rect x="1" y="2" width="12" height="10" rx="1.5" />
-                          <circle cx="4.5" cy="5.5" r="1.2" />
-                          <path d="M1 10l3-3 2.5 2.5L9 7l4 4" />
-                        </svg>
+                        <Image size={11} strokeWidth={1.4} />
                         Insert from photos
                       </button>
                     </div>
