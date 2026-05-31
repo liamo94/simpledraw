@@ -234,12 +234,12 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
     }
   }
 
-  if (loading) return null
+  if (loading) return <div style={{ height: '44px' }} />
 
   const isUnleashed = status?.plan === 'pro'
 
   if (isSignedIn && isUnleashed) {
-    if (hideIfPro) return null
+    if (hideIfPro) return <div style={{ height: '44px' }} />
     return (
       <button
         onClick={handlePortal}
@@ -460,6 +460,14 @@ export default function App() {
   const planKnown = isLoaded && !statusLoading
   const heroLogoRef = useRef<HTMLDivElement>(null)
   const [scrolled, setScrolled] = useState(false)
+  const [evoPhase, setEvoPhase] = useState<'normal' | 'glow' | 'flash' | 'unleashed'>('normal')
+
+  useEffect(() => {
+    const t1 = setTimeout(() => setEvoPhase('glow'),      1200)
+    const t2 = setTimeout(() => setEvoPhase('flash'),     2400)
+    const t3 = setTimeout(() => setEvoPhase('unleashed'), 2600)
+    return () => { clearTimeout(t1); clearTimeout(t2); clearTimeout(t3) }
+  }, [])
 
   useEffect(() => {
     const el = heroLogoRef.current
@@ -503,12 +511,11 @@ export default function App() {
           </p>
 
           <CtaButton hideIfPro />
-          {planKnown && !isUnleashed && <p className="mt-4 text-xs text-white/25">Cancel anytime. No lock-in.</p>}
+          <p className="mt-4 text-xs text-white/25" style={{ visibility: planKnown && !isUnleashed ? 'visible' : 'hidden' }}>Cancel anytime. No lock-in.</p>
         </div>
 
-        {/* Mascot */}
-        <div className="relative shrink-0 w-72 h-80 sm:w-80 sm:h-[360px] lg:w-[400px] lg:h-[450px]">
-          {/* SVG filter: turns pure-white pixels transparent without masking anything */}
+        {/* Mascot — evolves once on load */}
+        <div style={{ position: 'relative', width: '360px', height: '400px', flexShrink: 0 }}>
           <svg width="0" height="0" style={{ position: 'absolute' }} aria-hidden="true">
             <defs>
               <filter id="remove-white-bg" colorInterpolationFilters="sRGB">
@@ -516,19 +523,49 @@ export default function App() {
               </filter>
             </defs>
           </svg>
-          <img
-            src="/mascot.png"
-            alt="drawzilla mascot"
-            className="mascot-float"
-            style={{
-              position: 'absolute',
-              inset: 0,
-              width: '100%',
-              height: '100%',
-              objectFit: 'contain',
-              filter: 'url(#remove-white-bg)',
-            }}
-          />
+
+          {/* Normal mascot — shown until flash */}
+          {evoPhase !== 'unleashed' && (
+            <img
+              src="/mascot-normal.png"
+              alt=""
+              aria-hidden="true"
+              style={{
+                position: 'absolute',
+                bottom: 0,
+                left: 'calc(50% - 125px)',
+                width: '250px',
+                height: '280px',
+                objectFit: 'contain',
+                opacity: evoPhase === 'flash' ? 0 : 1,
+                transition: evoPhase === 'flash' ? 'opacity 0.1s ease, filter 0.1s ease' : 'opacity 0.15s ease, filter 0.4s ease',
+                filter: evoPhase === 'glow'
+                  ? 'url(#remove-white-bg) drop-shadow(0 0 16px rgba(57,255,20,0.9)) brightness(1.2)'
+                  : evoPhase === 'flash'
+                  ? 'brightness(6) saturate(0)'
+                  : 'url(#remove-white-bg)',
+                animation: evoPhase === 'glow'
+                  ? 'evolve-shake 0.2s ease-in-out infinite'
+                  : 'float-calm 6s ease-in-out infinite',
+              }}
+            />
+          )}
+
+          {/* Roaring mascot — bursts in after flash, then floats */}
+          {evoPhase === 'unleashed' && (
+            <img
+              src="/mascot.png"
+              alt="drawzilla mascot"
+              style={{
+                position: 'absolute',
+                inset: 0,
+                width: '100%',
+                height: '100%',
+                objectFit: 'contain',
+                animation: 'evolve-burst 1.2s ease-out, float-energetic 3s ease-in-out 1.2s infinite, evolve-glow 1.5s ease-out forwards',
+              }}
+            />
+          )}
         </div>
       </section>
 
