@@ -40,10 +40,12 @@ export function useUserPlan() {
   const plan = data?.plan ?? 'free'
   const planLoading = !clerkLoaded || (isPending && isSignedIn === true)
 
+  const UNLEASH_ALL = true // set false to re-enable plan gating
+
   return {
     plan,
-    isPro: plan === 'pro',
-    canvasLimit: plan === 'pro' ? 9 : 3,
+    isPro: UNLEASH_ALL || plan === 'pro',
+    canvasLimit: UNLEASH_ALL || plan === 'pro' ? 9 : 3,
     planLoading,
     subscription: data?.subscription ?? null,
   }
