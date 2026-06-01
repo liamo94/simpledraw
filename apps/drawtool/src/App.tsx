@@ -2056,15 +2056,18 @@ export default function App() {
                   links
                 </p>
               </div>
-              <span
-                className="relative px-5 py-2 rounded-lg text-xs font-semibold text-white cursor-default opacity-60"
+              <a
+                href="https://unleash.drawzil.la"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="relative px-5 py-2 rounded-lg text-xs font-semibold text-white"
                 style={{
                   background:
                     "linear-gradient(135deg, #22c55e 0%, #16a34a 100%)",
                 }}
               >
-                Coming soon...
-              </span>
+                Get Unleashed →
+              </a>
             </div>
           </div>
         )}
