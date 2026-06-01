@@ -216,9 +216,31 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
 
   if (error) {
     return (
-      <div className={`fixed inset-0 flex flex-col items-center justify-center gap-4 ${fg}`} style={{ background: panelBg }}>
-        <p className="text-lg opacity-60">This share link is no longer active.</p>
-        <a href="/" className="text-[#3b82f6] text-sm hover:underline">Open drawzil.la</a>
+      <div className={`fixed inset-0 flex flex-col items-center justify-center gap-6 ${fg}`} style={{ background: panelBg }}>
+        <a href="/" className="flex items-center gap-2 select-none" style={{ textDecoration: 'none' }}>
+          <span className="text-4xl leading-none" style={{ fontFamily: 'Caveat Brush, cursive' }}>
+            {([
+              { letter: 'd', color: '#3b82f6', rotate: -6 },
+              { letter: 'r', color: '#ef4444', rotate: 3 },
+              { letter: 'a', color: '#22c55e', rotate: -4 },
+              { letter: 'w', color: '#eab308', rotate: 5 },
+              { letter: 'z', color: '#ec4899', rotate: -3 },
+              { letter: 'i', color: '#f97316', rotate: 4 },
+              { letter: 'l', color: '#8b5cf6', rotate: -5 },
+              { letter: 'l', color: '#06b6d4', rotate: 3 },
+              { letter: 'a', color: '#ef4444', rotate: -4 },
+            ] as const).map((l, i) => (
+              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)`, color: l.color }}>
+                {l.letter}
+              </span>
+            ))}
+          </span>
+          <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 28, height: 28, objectFit: 'contain', opacity: 0.85 }} />
+        </a>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-base opacity-50">This share link is no longer active.</p>
+          <a href="/" className={`text-sm opacity-40 hover:opacity-70 transition-opacity ${fg}`}>Go to drawzil.la →</a>
+        </div>
       </div>
     )
   }

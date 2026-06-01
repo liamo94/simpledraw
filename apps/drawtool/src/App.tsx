@@ -4883,8 +4883,8 @@ export default function App() {
             borderRadius: 8,
             border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
             backdropFilter: "blur(8px)",
-            padding: "3px 6px",
-            width: "min(calc(100vw - 160px), 780px)",
+            padding: "3px 3px",
+            maxWidth: "min(calc(100vw - 40px), 900px)",
           }}
         >
           {(
