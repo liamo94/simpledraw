@@ -53,8 +53,17 @@ function swapStrokeColors(strokes: Stroke[]): Stroke[] {
 }
 
 function storeThumbnail(id: string, strokes: Stroke[], isDark: boolean) {
-  const url = generateCanvasThumbnail(strokes, isDark)
-  if (url) localStorage.setItem(`drawtool-thumb-${id}`, url)
+  // Defer to idle time — thumbnail generation (renderStrokesToCtx + JPEG encode) is
+  // expensive on the main thread and can drop frames if it fires mid-draw.
+  const run = () => {
+    const url = generateCanvasThumbnail(strokes, isDark)
+    if (url) localStorage.setItem(`drawtool-thumb-${id}`, url)
+  }
+  if ('requestIdleCallback' in window) {
+    requestIdleCallback(run, { timeout: 5000 })
+  } else {
+    setTimeout(run, 100)
+  }
 }
 
 function imageIds(strokes: Stroke[]): string[] {

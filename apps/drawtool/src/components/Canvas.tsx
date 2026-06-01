@@ -421,108 +421,110 @@ function Canvas({
       }
     }
 
-    // --- Grid via tiled patterns (drawn after strokes so it overlays filled shapes) ---
-    // Use DPR-scaled screen space so grid coords stay in CSS pixels
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    const gridColor = getGridColor(themeRef.current);
-    const screenW = window.innerWidth;
-    const screenH = window.innerHeight;
-    if (gridTypeRef.current === "dot") {
-      // Two dot levels drawn via direct arc() enumeration.
-      // Dynamic LOD: coarseWorld starts at 125wu and bumps ×5 if screen gap < 40px,
-      // so the coarse level is never too dense at low zoom (matches tldraw at 20%).
-      // Starting at 125 (not 25) prevents the grid jumping finer when zooming in past 160%.
-      let coarseWorld = 125;
-      while (coarseWorld * scale < 40) coarseWorld *= 5;  // low zoom: go coarser
-      while (coarseWorld * scale > 200) coarseWorld /= 5; // high zoom: go finer
-      const fineWorld = coarseWorld / 5;
+    // --- Grid (cached offscreen — only redrawn when view/theme/grid config changes) ---
+    if (gridTypeRef.current !== "off") {
+      const screenW = window.innerWidth;
+      const screenH = window.innerHeight;
+      const gridCacheKey = `${x},${y},${scale},${gridTypeRef.current},${themeRef.current},${canvas.width},${canvas.height}`;
+      let gCache = gridCacheRef.current;
+      if (!gCache || gCache.key !== gridCacheKey) {
+        const offscreen = gCache?.canvas || document.createElement("canvas");
+        offscreen.width = canvas.width;
+        offscreen.height = canvas.height;
+        const gctx = offscreen.getContext("2d")!;
+        gctx.clearRect(0, 0, offscreen.width, offscreen.height);
+        gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        const gridColor = getGridColor(themeRef.current);
 
-      const baseAlpha = isDark ? 0.45 : 0.7;
+        if (gridTypeRef.current === "dot") {
+          let coarseWorld = 125;
+          while (coarseWorld * scale < 40) coarseWorld *= 5;
+          while (coarseWorld * scale > 200) coarseWorld /= 5;
+          const fineWorld = coarseWorld / 5;
+          const baseAlpha = isDark ? 0.45 : 0.7;
+          const sgC = coarseWorld * scale;
+          const sgF = fineWorld * scale;
+          const fineOp = Math.max(0, Math.min(1, (sgF - 8) / 15));
+          const coarseOp = Math.max(0, Math.min(1, (sgC - 5) / 20));
+          gctx.fillStyle = gridColor;
 
-      const sgC = coarseWorld * scale;
-      const sgF = fineWorld * scale; // always >= 8px (sgC >= 40, sgF = sgC/5 >= 8)
-      const fineOp = Math.max(0, Math.min(1, (sgF - 8) / 15));
-      const coarseOp = Math.max(0, Math.min(1, (sgC - 5) / 20));
-
-      // Both levels share the same view.x/y anchor so coarse always lands on a fine position.
-      ctx.fillStyle = gridColor;
-
-      if (fineOp * baseAlpha * 0.4 >= 0.004) {
-        const x0 = x + Math.ceil(-x / sgF) * sgF;
-        const y0 = y + Math.ceil(-y / sgF) * sgF;
-        ctx.globalAlpha = fineOp * baseAlpha * 0.4;
-        ctx.beginPath();
-        for (let cx = x0; cx <= screenW; cx += sgF) {
-          for (let cy = y0; cy <= screenH; cy += sgF) {
-            ctx.moveTo(cx + 1.2, cy);
-            ctx.arc(cx, cy, 1.2, 0, Math.PI * 2);
+          if (fineOp * baseAlpha * 0.4 >= 0.004) {
+            const x0 = x + Math.ceil(-x / sgF) * sgF;
+            const y0 = y + Math.ceil(-y / sgF) * sgF;
+            gctx.globalAlpha = fineOp * baseAlpha * 0.4;
+            gctx.beginPath();
+            for (let gx = x0; gx <= screenW; gx += sgF) {
+              for (let gy = y0; gy <= screenH; gy += sgF) {
+                gctx.moveTo(gx + 1.2, gy);
+                gctx.arc(gx, gy, 1.2, 0, Math.PI * 2);
+              }
+            }
+            gctx.fill();
           }
-        }
-        ctx.fill();
-      }
 
-      if (coarseOp * baseAlpha >= 0.004) {
-        const x0 = x + Math.ceil(-x / sgC) * sgC;
-        const y0 = y + Math.ceil(-y / sgC) * sgC;
-        ctx.globalAlpha = coarseOp * baseAlpha;
-        ctx.beginPath();
-        for (let cx = x0; cx <= screenW; cx += sgC) {
-          for (let cy = y0; cy <= screenH; cy += sgC) {
-            ctx.moveTo(cx + 2, cy);
-            ctx.arc(cx, cy, 2, 0, Math.PI * 2);
+          if (coarseOp * baseAlpha >= 0.004) {
+            const x0 = x + Math.ceil(-x / sgC) * sgC;
+            const y0 = y + Math.ceil(-y / sgC) * sgC;
+            gctx.globalAlpha = coarseOp * baseAlpha;
+            gctx.beginPath();
+            for (let gx = x0; gx <= screenW; gx += sgC) {
+              for (let gy = y0; gy <= screenH; gy += sgC) {
+                gctx.moveTo(gx + 2, gy);
+                gctx.arc(gx, gy, 2, 0, Math.PI * 2);
+              }
+            }
+            gctx.fill();
           }
+
+          gctx.globalAlpha = 1;
+        } else if (gridTypeRef.current === "square") {
+          const coarseAlpha = isDark ? 0.18 : 0.36;
+          const fineAlpha   = isDark ? 0.07 : 0.22;
+          const FINE_WORLD   = 25;
+          const COARSE_WORLD = 125;
+          gctx.strokeStyle = gridColor;
+          gctx.lineWidth = 1;
+          const fineCS   = FINE_WORLD   * scale;
+          const coarseCS = COARSE_WORLD * scale;
+          const fineOp   = Math.max(0, Math.min(1, (fineCS   - 5) / 15));
+          const coarseOp = Math.max(0, Math.min(1, (coarseCS - 5) / 15));
+
+          const drawLevel = (cellWorld: number, alpha: number, dashed: boolean, skipMajor: boolean) => {
+            if (alpha < 0.004) return;
+            const cs = cellWorld * scale;
+            if (cs < 3) return;
+            gctx.globalAlpha = alpha;
+            gctx.setLineDash(dashed ? [2, 2] : []);
+            gctx.beginPath();
+            const x0 = Math.floor(-x / cs) - 1;
+            const x1 = Math.ceil((screenW - x) / cs) + 1;
+            for (let n = x0; n <= x1; n++) {
+              if (skipMajor && n % 5 === 0) continue;
+              const sx = n * cs + x;
+              gctx.moveTo(sx, 0); gctx.lineTo(sx, screenH);
+            }
+            const y0 = Math.floor(-y / cs) - 1;
+            const y1 = Math.ceil((screenH - y) / cs) + 1;
+            for (let n = y0; n <= y1; n++) {
+              if (skipMajor && n % 5 === 0) continue;
+              const sy = n * cs + y;
+              gctx.moveTo(0, sy); gctx.lineTo(screenW, sy);
+            }
+            gctx.stroke();
+          };
+
+          if (fineOp   > 0.004) drawLevel(FINE_WORLD,   fineOp   * fineAlpha,   true,  true);
+          if (coarseOp > 0.004) drawLevel(COARSE_WORLD, coarseOp * coarseAlpha, false, false);
+
+          gctx.setLineDash([]);
+          gctx.globalAlpha = 1;
         }
-        ctx.fill();
+
+        gridCacheRef.current = { canvas: offscreen, key: gridCacheKey };
+        gCache = gridCacheRef.current;
       }
-
-      ctx.globalAlpha = 1;
-    } else if (gridTypeRef.current === "square") {
-      // Two fixed world-unit levels — no LOD repeating pattern.
-      // At 100% zoom: fine=40px dashed, coarse=200px solid.
-      // Fine fades out at low zoom; coarse always visible. No level transitions.
-      const coarseAlpha = isDark ? 0.18 : 0.36;
-      const fineAlpha   = isDark ? 0.07 : 0.22;
-      const FINE_WORLD   = 25;
-      const COARSE_WORLD = 125; // = FINE_WORLD * 5
-
-      ctx.strokeStyle = gridColor;
-      ctx.lineWidth = 1;
-
-      const fineCS   = FINE_WORLD   * scale;
-      const coarseCS = COARSE_WORLD * scale;
-      const fineOp   = Math.max(0, Math.min(1, (fineCS   - 5) / 15));
-      const coarseOp = Math.max(0, Math.min(1, (coarseCS - 5) / 15));
-
-      // skipMajor: fine level skips n%5===0 positions so solid coarse lines draw clean.
-      const drawLevel = (cellWorld: number, alpha: number, dashed: boolean, skipMajor: boolean) => {
-        if (alpha < 0.004) return;
-        const cs = cellWorld * scale;
-        if (cs < 3) return;
-        ctx.globalAlpha = alpha;
-        ctx.setLineDash(dashed ? [2, 2] : []);
-        ctx.beginPath();
-        const x0 = Math.floor(-x / cs) - 1;
-        const x1 = Math.ceil((screenW - x) / cs) + 1;
-        for (let n = x0; n <= x1; n++) {
-          if (skipMajor && n % 5 === 0) continue;
-          const sx = n * cs + x;
-          ctx.moveTo(sx, 0); ctx.lineTo(sx, screenH);
-        }
-        const y0 = Math.floor(-y / cs) - 1;
-        const y1 = Math.ceil((screenH - y) / cs) + 1;
-        for (let n = y0; n <= y1; n++) {
-          if (skipMajor && n % 5 === 0) continue;
-          const sy = n * cs + y;
-          ctx.moveTo(0, sy); ctx.lineTo(screenW, sy);
-        }
-        ctx.stroke();
-      };
-
-      if (fineOp   > 0.004) drawLevel(FINE_WORLD,   fineOp   * fineAlpha,   true,  true);
-      if (coarseOp > 0.004) drawLevel(COARSE_WORLD, coarseOp * coarseAlpha, false, false);
-
-      ctx.setLineDash([]);
-      ctx.globalAlpha = 1;
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(gCache.canvas, 0, 0);
     }
     ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * x, dpr * y);
 
@@ -951,6 +953,9 @@ function Canvas({
     ctx.setTransform(1, 0, 0, 1, 0, 0);
   }, []);
 
+  // --- Grid cache ---
+  const gridCacheRef = useRef<{ canvas: HTMLCanvasElement; key: string } | null>(null);
+
   // --- Content off-screen detection ---
   const contentOffScreenRef = useRef(false);
   const contentOffScreenSyncedRef = useRef(false); // false = parent state is unknown (fresh mount)
@@ -1193,8 +1198,10 @@ function Canvas({
     const tick = () => {
       const trail = laserTrailRef.current;
       if (laserMovingRef.current) {
+        // Pointer move is already calling scheduleRedraw — don't double-render.
         laserMovingRef.current = false;
       } else if (trail.length > 0) {
+        // Trail fading: pointer has stopped, drain loop owns rendering.
         const remove = Math.max(1, Math.ceil(trail.length * 0.15));
         trail.splice(0, remove);
         redraw();
