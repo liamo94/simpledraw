@@ -1,4 +1,4 @@
-import { StrictMode, Component } from 'react'
+import { StrictMode, Component, useState, useEffect } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ClerkProvider } from '@clerk/clerk-react'
@@ -32,9 +32,41 @@ Sentry.init({
 })
 
 const PUBLISHABLE_KEY = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY
+if (!PUBLISHABLE_KEY) throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY')
 
-if (!PUBLISHABLE_KEY) {
-  throw new Error('Missing VITE_CLERK_PUBLISHABLE_KEY')
+const DARK_THEMES = new Set(['dark', 'midnight', 'lumber', 'slate'])
+const BG_MAP: Record<string, string> = {
+  dark: '#06060e', midnight: '#15152a', lumber: '#141404', slate: '#1c2128',
+  journal: '#fffce0', sky: '#eaf4fb', sand: '#f5ede8', white: '#f5f5f0',
+}
+
+function clerkVarsForTheme(theme: string) {
+  const isDark = DARK_THEMES.has(theme)
+  const bg = BG_MAP[theme] ?? '#06060e'
+  return {
+    colorBackground: bg,
+    colorText: isDark ? '#ffffff' : '#1a1a1a',
+    colorTextSecondary: isDark ? 'rgba(255,255,255,0.5)' : 'rgba(0,0,0,0.5)',
+    colorInputBackground: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+    colorInputText: isDark ? '#ffffff' : '#1a1a1a',
+  }
+}
+
+function clerkElementsForTheme(theme: string) {
+  if (!DARK_THEMES.has(theme)) return {}
+  return {
+    socialButtonsBlockButton: {
+      backgroundColor: 'rgba(255,255,255,0.07)',
+      borderColor: 'rgba(255,255,255,0.15)',
+    },
+    socialButtonsBlockButtonText: { color: '#ffffff' },
+    socialButtonsBlockButtonArrow: { color: '#ffffff' },
+  }
+}
+
+function readTheme(): string {
+  try { return JSON.parse(localStorage.getItem('drawtool-settings') ?? '{}').theme ?? 'dark' }
+  catch { return 'dark' }
 }
 
 const queryClient = new QueryClient({
@@ -43,34 +75,36 @@ const queryClient = new QueryClient({
   },
 })
 
-// /s/:token  — canvas share
-// /s/w/:token — workspace share
 const shareMatch = window.location.pathname.match(/^\/s\/(w\/)?([^/]+)$/)
+
+function ClerkRoot() {
+  const [theme, setTheme] = useState(readTheme)
+
+  useEffect(() => {
+    const handler = (e: Event) => setTheme((e as CustomEvent<string>).detail)
+    window.addEventListener('drawtool:themechange', handler)
+    return () => window.removeEventListener('drawtool:themechange', handler)
+  }, [])
+
+  return (
+    <ClerkProvider publishableKey={PUBLISHABLE_KEY} appearance={{
+      variables: { colorPrimary: '#3b82f6', borderRadius: '10px', ...clerkVarsForTheme(theme) },
+      elements: clerkElementsForTheme(theme),
+    }}>
+      {shareMatch ? (
+        <ShareViewer token={shareMatch[2]} isWorkspace={shareMatch[1] === 'w/'} />
+      ) : (
+        <App />
+      )}
+    </ClerkProvider>
+  )
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
-        <ClerkProvider publishableKey={PUBLISHABLE_KEY} appearance={{
-          variables: {
-            colorPrimary: '#3b82f6',
-            colorBackground: '#1a1a2e',
-            colorText: '#ffffff',
-            colorTextSecondary: 'rgba(255,255,255,0.5)',
-            colorInputBackground: 'rgba(255,255,255,0.06)',
-            colorInputText: '#ffffff',
-            borderRadius: '10px',
-          },
-        }}>
-          {shareMatch ? (
-            <ShareViewer
-              token={shareMatch[2]}
-              isWorkspace={shareMatch[1] === 'w/'}
-            />
-          ) : (
-            <App />
-          )}
-        </ClerkProvider>
+        <ClerkRoot />
       </QueryClientProvider>
     </ErrorBoundary>
   </StrictMode>,

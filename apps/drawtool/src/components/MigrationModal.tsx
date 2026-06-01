@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import type { LocalCanvas } from '../hooks/useMigration'
 
 type Props = {
@@ -22,7 +21,6 @@ export default function MigrationModal({
   error,
   isDark,
 }: Props) {
-  const [confirmSkip, setConfirmSkip] = useState(false)
   const panel = isDark ? 'bg-black/80 border-white/15' : 'bg-white/80 border-black/15'
   const textPrimary = isDark ? 'text-white/80' : 'text-black/80'
   const textSecondary = isDark ? 'text-white/40' : 'text-black/40'
@@ -73,44 +71,22 @@ export default function MigrationModal({
             <p className="text-xs text-red-400 mb-3">{error}</p>
           )}
 
-          {confirmSkip ? (
-            <div>
-              <div className={`text-xs mb-3 leading-relaxed ${textSecondary}`}>
-                Your cloud workspace will start blank. These canvases stay on this device and won't sync.
-              </div>
-              <div className="flex gap-2 justify-center">
-                <button
-                  onClick={onSkip}
-                  className={`px-3 py-1.5 rounded text-xs transition-colors ${isDark ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70'}`}
-                >
-                  Start with blank canvases
-                </button>
-                <button
-                  onClick={() => setConfirmSkip(false)}
-                  className={`px-3 py-1.5 rounded text-xs font-medium transition-colors ${isDark ? 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white' : 'bg-black/8 hover:bg-black/15 text-black/70 hover:text-black'}`}
-                >
-                  Go back
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div className="flex gap-2 justify-center">
-              <button
-                onClick={onMigrate}
-                disabled={migrating}
-                className={`px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 ${isDark ? 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white' : 'bg-black/8 hover:bg-black/15 text-black/70 hover:text-black'}`}
-              >
-                {migrating ? 'Moving…' : 'Move to cloud'}
-              </button>
-              <button
-                onClick={() => setConfirmSkip(true)}
-                disabled={migrating}
-                className={`px-3 py-1.5 rounded text-xs transition-colors disabled:opacity-50 ${isDark ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70'}`}
-              >
-                Start fresh
-              </button>
-            </div>
-          )}
+          <div className="flex gap-2 justify-center">
+            <button
+              onClick={onMigrate}
+              disabled={migrating}
+              className={`px-3 py-1.5 rounded text-xs font-medium transition-colors disabled:opacity-50 ${isDark ? 'bg-white/10 hover:bg-white/20 text-white/80 hover:text-white' : 'bg-black/8 hover:bg-black/15 text-black/70 hover:text-black'}`}
+            >
+              {migrating ? 'Moving…' : 'Move to cloud'}
+            </button>
+            <button
+              onClick={onSkip}
+              disabled={migrating}
+              className={`px-3 py-1.5 rounded text-xs transition-colors disabled:opacity-50 ${isDark ? 'text-white/40 hover:text-white/70' : 'text-black/40 hover:text-black/70'}`}
+            >
+              Start fresh
+            </button>
+          </div>
         </div>
       </div>
     </>

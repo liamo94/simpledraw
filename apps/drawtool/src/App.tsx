@@ -247,7 +247,7 @@ export default function App() {
   const usedColorARef = useRef(settings.lineColor); // most recently used
   const usedColorBRef = useRef(settings.lineColor); // previously used
 
-  // Apply body styles based on theme
+  // Apply body styles based on theme + notify ClerkRoot so sign-in modal updates live
   useEffect(() => {
     const isDark = isDarkTheme(settings.theme);
     const bg = getBackgroundColor(settings.theme);
@@ -257,6 +257,7 @@ export default function App() {
       ? "rgba(255,255,255,0.8)"
       : "rgba(0,0,0,0.8)";
     document.documentElement.style.colorScheme = isDark ? "dark" : "light";
+    window.dispatchEvent(new CustomEvent('drawtool:themechange', { detail: settings.theme }));
   }, [settings.theme]);
 
   // Swap default line color when theme changes between dark/light

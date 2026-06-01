@@ -315,12 +315,31 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   useEffect(() => {
     if (isSignedIn === undefined) return
     if (!isSignedIn) {
+      // Flush any pending cloud save before clearing the session (keepalive so it survives
+      // the sign-out navigation). Mirrors the beforeunload handler — same refs, same approach.
+      const id = useCloudSessionStore.getState().activeId
+      const token = cachedTokenRef.current
+      const hasPending = !!saveTimerRef.current || !!localStorage.getItem(DIRTY_KEY)
+      if (id && token && hasPending) {
+        if (saveTimerRef.current) {
+          clearTimeout(saveTimerRef.current)
+          saveTimerRef.current = null
+        }
+        const strokes = loadStrokes(CLOUD_SLOT)
+        const view = loadView(CLOUD_SLOT)
+        const images = collectImagesSync(strokes)
+        fetch(`${API_URL}/canvases/${id}`, {
+          method: 'PUT',
+          keepalive: true,
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+          body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }),
+        })
+      }
+
       useCloudSessionStore.getState().setActiveCanvas(null)
       setSlot1BackedUp(false)
 
       // Restore slot 1 to whatever was there before cloud took it over.
-      // Check localStorage directly — the in-memory ref is lost on page reload
-      // (which happens when signOut uses redirectUrl), so we can't rely on it.
       const preStrokes = localStorage.getItem('drawtool-precloud-strokes-1')
       const preView = localStorage.getItem('drawtool-precloud-view-1')
       if (preStrokes) localStorage.setItem('drawtool-strokes-1', preStrokes)

@@ -36,6 +36,15 @@ const clerkAppearance = {
     colorInputPlaceholder: 'rgba(255,255,255,0.3)',
     borderRadius: '10px',
   },
+  elements: {
+    formButtonPrimary: { color: '#000000', fontWeight: '600' },
+    socialButtonsBlockButton: {
+      backgroundColor: 'rgba(255,255,255,0.07)',
+      borderColor: 'rgba(255,255,255,0.15)',
+    },
+    socialButtonsBlockButtonText: { color: '#ffffff' },
+    socialButtonsBlockButtonArrow: { color: '#ffffff' },
+  },
 }
 
 createRoot(document.getElementById('root')!).render(

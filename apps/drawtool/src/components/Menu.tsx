@@ -2841,7 +2841,7 @@ export default function Menu({
                     <UserButton afterSignOutUrl="/" />
                     <span className={`text-xs flex-1 ${isDark ? "text-white/50" : "text-black/50"}`}>{user ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "Account" : "Account"}</span>
                     <button
-                      onClick={() => signOut({ redirectUrl: "/" })}
+                      onClick={() => signOut()}
                       className={`text-xs transition-colors ${isDark ? "text-white/30 hover:text-white/60" : "text-black/30 hover:text-black/60"}`}
                     >
                       Sign out
