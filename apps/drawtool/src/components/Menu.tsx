@@ -2552,6 +2552,20 @@ export default function Menu({
                       ))}
                     </ul>
                   </div>
+
+                  <div>
+                    <div
+                      className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
+                    >
+                      Support
+                    </div>
+                    <a
+                      href="mailto:support@drawzil.la"
+                      className={`transition-colors ${isDark ? "text-white/60 hover:text-white/90" : "text-black/60 hover:text-black/90"}`}
+                    >
+                      support@drawzil.la
+                    </a>
+                  </div>
                 </div>
               </AccordionSection>
 

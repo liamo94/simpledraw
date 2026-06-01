@@ -208,7 +208,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
       if (!data.url) throw new Error('No redirect URL')
       window.location.href = data.url
     } catch {
-      alert('Couldn\'t start checkout — please try again or contact liam@drawzil.la')
+      alert('Couldn\'t start checkout — please try again or contact support@drawzil.la')
     } finally {
       setWorking(false)
     }
@@ -228,7 +228,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
       if (!data.url) throw new Error('No redirect URL')
       window.location.href = data.url
     } catch {
-      alert('Couldn\'t open billing portal — please try again or contact liam@drawzil.la')
+      alert('Couldn\'t open billing portal — please try again or contact support@drawzil.la')
     } finally {
       setWorking(false)
     }
@@ -634,7 +634,7 @@ export default function App() {
         <div className="flex gap-4">
           <a href="/privacy" className="hover:text-white/50 transition-colors">Privacy</a>
           <a href="/terms" className="hover:text-white/50 transition-colors">Terms</a>
-          <a href="mailto:liam@drawzil.la" className="hover:text-white/50 transition-colors">Support</a>
+          <a href="mailto:support@drawzil.la" className="hover:text-white/50 transition-colors">Support</a>
         </div>
       </footer>
     </div>
