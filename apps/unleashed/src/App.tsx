@@ -37,7 +37,7 @@ const FEATURES: { icon: React.ReactNode; title: string; description: string }[] 
         <path d="M4 5.5V4A1.5 1.5 0 0 1 5.5 2.5h5A1.5 1.5 0 0 1 12 4v1.5" />
       </svg>
     ),
-    title: 'Unlimited workspaces',
+    title: 'Workspaces',
     description: 'Organise your work into as many workspaces as you like.',
   },
   {
@@ -601,7 +601,7 @@ export default function App() {
             <div className="flex flex-col gap-2 text-left mb-6">
               {[
                 'All 9 canvases unlocked',
-                'Unlimited workspaces',
+                'Workspaces',
                 'Clean PNG & SVG export',
                 'Share links',
                 'Priority support',

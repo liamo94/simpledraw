@@ -2794,7 +2794,7 @@ export default function Menu({
                     <div
                       className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}
                     >
-                      Cloud storage, share links &amp; more
+                      Workspaces, live share links and more
                     </div>
                   </div>
                 </a>
