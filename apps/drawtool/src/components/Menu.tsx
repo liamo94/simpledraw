@@ -2771,6 +2771,34 @@ export default function Menu({
                   </div>
                 </div>
               </button>
+              {cloudEnabled && !isPro && (
+                <a
+                  href="https://unleash.drawzil.la"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={`w-full flex items-start gap-3 px-3 py-2.5 rounded-lg text-left transition-colors ${isDark ? "bg-white/5 hover:bg-white/9" : "bg-black/4 hover:bg-black/7"}`}
+                >
+                  <img
+                    src="/unleashed-icon.svg"
+                    alt=""
+                    width="16"
+                    height="16"
+                    className="mt-0.5 shrink-0 rounded-[3px]"
+                  />
+                  <div>
+                    <div
+                      className={`text-xs font-medium leading-snug ${isDark ? "text-white/80" : "text-black/75"}`}
+                    >
+                      Unleashed
+                    </div>
+                    <div
+                      className={`text-[11px] leading-snug mt-0.5 ${isDark ? "text-white/40" : "text-black/40"}`}
+                    >
+                      Cloud storage, share links &amp; more
+                    </div>
+                  </div>
+                </a>
+              )}
               <a
                 href="https://writing.drawzil.la"
                 target="_blank"
