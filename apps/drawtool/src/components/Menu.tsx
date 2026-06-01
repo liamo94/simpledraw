@@ -2880,7 +2880,7 @@ export default function Menu({
                 </SignedOut>
                 <SignedIn>
                   <div className="flex items-center gap-2 px-1 py-1">
-                    <UserButton afterSignOutUrl="/" />
+                    <UserButton afterSignOutUrl="/" appearance={{ baseTheme: undefined, variables: { colorBackground: "#ffffff", colorText: "#111111", colorTextSecondary: "#555555" } }} />
                     <span className={`text-xs flex-1 ${isDark ? "text-white/50" : "text-black/50"}`}>{user ? [user.firstName, user.lastName].filter(Boolean).join(" ") || user.username || "Account" : "Account"}</span>
                     <button
                       onClick={() => signOut()}

@@ -53,10 +53,27 @@ import { useCloudStash } from "./hooks/useCloudStash";
 import { useUser, useAuth } from "@clerk/clerk-react";
 import { CANVAS_LIMIT } from "./config";
 import { usePreferencesSync } from "./hooks/usePreferencesSync";
-import { Layers, Hand, Pipette, Pencil, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, Undo2, Redo2, Trash2 } from "lucide-react";
+import {
+  Layers,
+  Hand,
+  Pipette,
+  Pencil,
+  Square,
+  Circle,
+  Triangle,
+  Diamond,
+  Pentagon,
+  Hexagon,
+  Star,
+  ArrowRight,
+  Cloud,
+  Undo2,
+  Redo2,
+  Trash2,
+} from "lucide-react";
 
 // Set localStorage key 'drawtool-cloud' to '1' in browser console to enable cloud/auth features
-const CLOUD_ENABLED = localStorage.getItem('drawtool-cloud') === '1'
+const CLOUD_ENABLED = localStorage.getItem("drawtool-cloud") === "1";
 
 const SHAPES: ShapeKind[] = [
   "line",
@@ -257,7 +274,9 @@ export default function App() {
       ? "rgba(255,255,255,0.8)"
       : "rgba(0,0,0,0.8)";
     document.documentElement.style.colorScheme = isDark ? "dark" : "light";
-    window.dispatchEvent(new CustomEvent('drawtool:themechange', { detail: settings.theme }));
+    window.dispatchEvent(
+      new CustomEvent("drawtool:themechange", { detail: settings.theme }),
+    );
   }, [settings.theme]);
 
   // Swap default line color when theme changes between dark/light
@@ -436,7 +455,10 @@ export default function App() {
   const [importMode, setImportMode] = useState<"canvas" | "workspace">(
     "canvas",
   );
-  const [pendingWorkspaceImport, setPendingWorkspaceImport] = useState<{ file: File; total: number } | null>(null);
+  const [pendingWorkspaceImport, setPendingWorkspaceImport] = useState<{
+    file: File;
+    total: number;
+  } | null>(null);
   // Refs so processWorkspaceFile (defined early) can read plan data at call time
   const canvasLimitImportRef = useRef(3);
   const [showStash, setShowStash] = useState(false);
@@ -590,11 +612,16 @@ export default function App() {
         try {
           let canvases = validateWorkspaceFile(JSON.parse(text));
           // Non-Pro users: intercept if workspace exceeds their canvas limit
-          if (confirmedLimit === undefined && !isProRef.current && canvases.length > canvasLimitImportRef.current) {
+          if (
+            confirmedLimit === undefined &&
+            !isProRef.current &&
+            canvases.length > canvasLimitImportRef.current
+          ) {
             setPendingWorkspaceImport({ file, total: canvases.length });
             return;
           }
-          if (confirmedLimit !== undefined) canvases = canvases.slice(0, confirmedLimit);
+          if (confirmedLimit !== undefined)
+            canvases = canvases.slice(0, confirmedLimit);
           const allImageEntries: [string, string][] = [];
           for (const { index, strokes, view, name, images } of canvases) {
             saveStrokes(strokes, index);
@@ -1221,7 +1248,6 @@ export default function App() {
     };
   }, [showOnboarding, dismissOnboarding]);
 
-
   const isDark = isDarkTheme(settings.theme);
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
@@ -1681,7 +1707,15 @@ export default function App() {
             if (s === "arrow") return <ArrowRight {...p} />;
             if (s === "cloud") return <Cloud {...p} />;
             return (
-              <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <svg
+                width="17"
+                height="17"
+                viewBox="0 0 16 16"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              >
                 <line x1="3" y1="13" x2="13" y2="3" />
               </svg>
             );
@@ -1822,7 +1856,9 @@ export default function App() {
           className="fixed top-[20px] right-[62px] z-[51] h-[30px] px-2.5 flex items-center justify-center rounded-md backdrop-blur-sm select-none transition-opacity opacity-40 hover:opacity-75"
           style={{
             background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
-            border: isDark ? "1px solid rgba(255,255,255,0.12)" : "1px solid rgba(0,0,0,0.10)",
+            border: isDark
+              ? "1px solid rgba(255,255,255,0.12)"
+              : "1px solid rgba(0,0,0,0.10)",
             color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.5)",
             fontSize: "11px",
             fontWeight: 500,
@@ -2214,12 +2250,23 @@ export default function App() {
                 {isTablet ? (
                   <span className="flex items-center gap-1">
                     Hold for more options
-                    <svg width="12" height="16" viewBox="0 0 12 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <svg
+                      width="12"
+                      height="16"
+                      viewBox="0 0 12 16"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="1.5"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
                       <path d="M1 15 H8 V1" />
                       <path d="M5 4 L8 1 L11 4" />
                     </svg>
                   </span>
-                ) : "Hold for more ↴"}
+                ) : (
+                  "Hold for options ↴"
+                )}
               </div>
             )}
             {/* Undo / Redo / Delete — mobile only: above top-right of toolbar. Nav is z-40 so menu (z-50) paints on top. */}
@@ -2638,7 +2685,12 @@ export default function App() {
                     <>
                       <div
                         className="my-2"
-                        style={{ height: 1, background: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.08)" }}
+                        style={{
+                          height: 1,
+                          background: isDark
+                            ? "rgba(255,255,255,0.1)"
+                            : "rgba(0,0,0,0.08)",
+                        }}
                       />
                       <div className="flex items-center gap-1.5 justify-center">
                         <label
@@ -2664,16 +2716,24 @@ export default function App() {
                             setShowColorPicker(false);
                           }}
                           aria-label={`Use custom colour ${settings.customColor}`}
-                          aria-pressed={settings.lineColor === settings.customColor}
+                          aria-pressed={
+                            settings.lineColor === settings.customColor
+                          }
                           className="w-8 h-8 rounded-full border-2 transition-transform focus-visible:ring-2 focus-visible:ring-blue-400"
                           style={{
                             backgroundColor: settings.customColor ?? "#ff6600",
                             borderColor:
-                              settings.lineColor === (settings.customColor ?? "#ff6600")
-                                ? isDark ? "white" : "black"
-                                : isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.2)",
+                              settings.lineColor ===
+                              (settings.customColor ?? "#ff6600")
+                                ? isDark
+                                  ? "white"
+                                  : "black"
+                                : isDark
+                                  ? "rgba(255,255,255,0.35)"
+                                  : "rgba(0,0,0,0.2)",
                             transform:
-                              settings.lineColor === (settings.customColor ?? "#ff6600")
+                              settings.lineColor ===
+                              (settings.customColor ?? "#ff6600")
                                 ? "scale(1.15)"
                                 : undefined,
                           }}
@@ -3002,7 +3062,12 @@ export default function App() {
                       }`}
                     >
                       {(() => {
-                        const p = { size: 20, strokeWidth: 2, stroke: visibleLineColor, fill: "none" } as const;
+                        const p = {
+                          size: 20,
+                          strokeWidth: 2,
+                          stroke: visibleLineColor,
+                          fill: "none",
+                        } as const;
                         if (shape === "rectangle") return <Square {...p} />;
                         if (shape === "circle") return <Circle {...p} />;
                         if (shape === "triangle") return <Triangle {...p} />;
@@ -3013,7 +3078,15 @@ export default function App() {
                         if (shape === "arrow") return <ArrowRight {...p} />;
                         if (shape === "cloud") return <Cloud {...p} />;
                         return (
-                          <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke={visibleLineColor} strokeWidth="2" strokeLinecap="round">
+                          <svg
+                            width="20"
+                            height="20"
+                            viewBox="0 0 16 16"
+                            fill="none"
+                            stroke={visibleLineColor}
+                            strokeWidth="2"
+                            strokeLinecap="round"
+                          >
                             <line x1="3" y1="13" x2="13" y2="3" />
                           </svg>
                         );
@@ -3149,8 +3222,12 @@ export default function App() {
               <div
                 className={`absolute p-1.5 rounded-lg border backdrop-blur-sm flex gap-1 ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                 style={{
-                  background: isDark ? "rgba(0,0,0,0.85)" : "rgba(255,255,255,0.85)",
-                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                  background: isDark
+                    ? "rgba(0,0,0,0.85)"
+                    : "rgba(255,255,255,0.85)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(0,0,0,0.15)",
                   left: "50%",
                   transform: "translateX(-50%)",
                 }}
@@ -3159,13 +3236,35 @@ export default function App() {
                 <button
                   aria-label="Select All"
                   onClick={() => {
-                    window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", metaKey: true, bubbles: true }));
+                    window.dispatchEvent(
+                      new KeyboardEvent("keydown", {
+                        key: "a",
+                        metaKey: true,
+                        bubbles: true,
+                      }),
+                    );
                     setShowSelectPicker(false);
                   }}
                   className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                 >
-                  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="1.5" y="1.5" width="13" height="13" rx="1" strokeDasharray="2.5 1.5" />
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <rect
+                      x="1.5"
+                      y="1.5"
+                      width="13"
+                      height="13"
+                      rx="1"
+                      strokeDasharray="2.5 1.5"
+                    />
                     <path d="M4 8h8M8 4v8" />
                   </svg>
                   All
@@ -3178,10 +3277,25 @@ export default function App() {
                   }}
                   className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                 >
-                  <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="17"
+                    height="17"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.4"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <rect x="1.5" y="4" width="8" height="10.5" rx="1" />
-                    <path d="M5.5 4V2.5A1 1 0 016.5 1.5h6A1 1 0 0113.5 2.5v9a1 1 0 01-1 1H10" strokeOpacity="0.45" />
-                    <path d="M3.5 7.5h4M3.5 9.5h5M3.5 11.5h3" strokeOpacity="0.55" />
+                    <path
+                      d="M5.5 4V2.5A1 1 0 016.5 1.5h6A1 1 0 0113.5 2.5v9a1 1 0 01-1 1H10"
+                      strokeOpacity="0.45"
+                    />
+                    <path
+                      d="M3.5 7.5h4M3.5 9.5h5M3.5 11.5h3"
+                      strokeOpacity="0.55"
+                    />
                   </svg>
                   Paste
                 </button>
@@ -4257,17 +4371,43 @@ export default function App() {
             </svg>
           ) : (
             <>
-              {toast.shape === "rectangle" && <Square size={20} strokeWidth={1.75} fill="none" />}
-              {toast.shape === "circle" && <Circle size={20} strokeWidth={1.75} fill="none" />}
-              {toast.shape === "triangle" && <Triangle size={20} strokeWidth={1.75} fill="none" />}
-              {toast.shape === "diamond" && <Diamond size={20} strokeWidth={1.75} fill="none" />}
-              {toast.shape === "pentagon" && <Pentagon size={20} strokeWidth={1.75} fill="none" />}
-              {toast.shape === "hexagon" && <Hexagon size={20} strokeWidth={1.75} fill="none" />}
-              {toast.shape === "star" && <Star size={20} strokeWidth={1.75} fill="none" />}
-              {toast.shape === "arrow" && <ArrowRight size={20} strokeWidth={1.75} />}
-              {toast.shape === "cloud" && <Cloud size={20} strokeWidth={1.75} />}
+              {toast.shape === "rectangle" && (
+                <Square size={20} strokeWidth={1.75} fill="none" />
+              )}
+              {toast.shape === "circle" && (
+                <Circle size={20} strokeWidth={1.75} fill="none" />
+              )}
+              {toast.shape === "triangle" && (
+                <Triangle size={20} strokeWidth={1.75} fill="none" />
+              )}
+              {toast.shape === "diamond" && (
+                <Diamond size={20} strokeWidth={1.75} fill="none" />
+              )}
+              {toast.shape === "pentagon" && (
+                <Pentagon size={20} strokeWidth={1.75} fill="none" />
+              )}
+              {toast.shape === "hexagon" && (
+                <Hexagon size={20} strokeWidth={1.75} fill="none" />
+              )}
+              {toast.shape === "star" && (
+                <Star size={20} strokeWidth={1.75} fill="none" />
+              )}
+              {toast.shape === "arrow" && (
+                <ArrowRight size={20} strokeWidth={1.75} />
+              )}
+              {toast.shape === "cloud" && (
+                <Cloud size={20} strokeWidth={1.75} />
+              )}
               {toast.shape === "line" && (
-                <svg width="20" height="20" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+                <svg
+                  width="20"
+                  height="20"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.75"
+                  strokeLinecap="round"
+                >
                   <line x1="3" y1="13" x2="13" y2="3" />
                 </svg>
               )}
@@ -4590,12 +4730,19 @@ export default function App() {
           aria-modal="true"
           className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 backdrop-blur-sm px-6"
         >
-          <div className={`w-full max-w-sm rounded-2xl border px-6 py-5 ${isDark ? "bg-black/80 border-white/15" : "bg-white/90 border-black/12"}`}>
-            <p className={`text-[14px] font-semibold mb-1 ${isDark ? "text-white" : "text-black"}`}>
+          <div
+            className={`w-full max-w-sm rounded-2xl border px-6 py-5 ${isDark ? "bg-black/80 border-white/15" : "bg-white/90 border-black/12"}`}
+          >
+            <p
+              className={`text-[14px] font-semibold mb-1 ${isDark ? "text-white" : "text-black"}`}
+            >
               Workspace has {pendingWorkspaceImport.total} canvases
             </p>
-            <p className={`text-[13px] mb-1 ${isDark ? "text-white/60" : "text-black/55"}`}>
-              Your free plan supports {canvasLimitImportRef.current}. Only the first {canvasLimitImportRef.current} will be imported.
+            <p
+              className={`text-[13px] mb-1 ${isDark ? "text-white/60" : "text-black/55"}`}
+            >
+              Your free plan supports {canvasLimitImportRef.current}. Only the
+              first {canvasLimitImportRef.current} will be imported.
             </p>
             <a
               href="https://unleash.drawzil.la"
@@ -4612,7 +4759,10 @@ export default function App() {
               </button>
               <button
                 onClick={() => {
-                  processWorkspaceFile(pendingWorkspaceImport.file, canvasLimitImportRef.current);
+                  processWorkspaceFile(
+                    pendingWorkspaceImport.file,
+                    canvasLimitImportRef.current,
+                  );
                   setPendingWorkspaceImport(null);
                 }}
                 className="flex-1 py-2 rounded-xl text-[13px] font-medium bg-[#3b82f6] text-white hover:bg-[#2563eb] transition-colors"
