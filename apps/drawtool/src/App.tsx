@@ -72,8 +72,7 @@ import {
   Trash2,
 } from "lucide-react";
 
-// Set localStorage key 'drawtool-cloud' to '1' in browser console to enable cloud/auth features
-const CLOUD_ENABLED = localStorage.getItem("drawtool-cloud") === "1";
+const CLOUD_ENABLED = true; // set false to hide login/cloud features
 
 const SHAPES: ShapeKind[] = [
   "line",
