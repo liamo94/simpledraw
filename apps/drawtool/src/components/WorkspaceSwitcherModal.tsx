@@ -92,6 +92,11 @@ export default function WorkspaceSwitcherModal({
   const searchRef = useRef<HTMLInputElement>(null)
   const editInputRef = useRef<HTMLInputElement>(null)
   const newWsInputRef = useRef<HTMLInputElement>(null)
+  const activeTabRef = useRef<HTMLButtonElement>(null)
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+  }, [])
 
   useEffect(() => {
     if (editing) {
@@ -294,13 +299,44 @@ export default function WorkspaceSwitcherModal({
           <>
             {/* ── Workspace tab strip ── */}
             <div className={`shrink-0 flex items-center border-b min-h-[52px] ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
+              {/* Pinned tabs — frozen, never scroll */}
+              {filtered.some(ws => ws.is_pinned) && (
+                <div className={`shrink-0 flex items-center gap-1.5 pl-4 pr-2 py-3 border-r ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
+                  {filtered.filter(ws => ws.is_pinned).map(ws => {
+                    const isViewing = !showAllWs && ws.id === (viewingWsId ?? activeWorkspaceId)
+                    const isActiveWs = ws.id === activeWorkspaceId
+                    return (
+                      <button
+                        key={ws.id}
+                        ref={isActiveWs ? activeTabRef : undefined}
+                        onClick={() => { setViewingWsId(ws.id); setShowAllWs(false) }}
+                        className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all whitespace-nowrap ${
+                          isViewing
+                            ? isDark ? 'bg-white/10 text-white/90' : 'bg-black/8 text-black/80'
+                            : isDark ? 'text-white/35 hover:text-white/65 hover:bg-white/[0.06]' : 'text-black/35 hover:text-black/65 hover:bg-black/[0.04]'
+                        }`}
+                      >
+                        {isActiveWs && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isDark ? 'bg-[#93c5fd]' : 'bg-blue-500'}`} />}
+                        {!isActiveWs && <Pin size={10} strokeWidth={2} className={`shrink-0 ${isDark ? 'text-blue-400/60' : 'text-blue-500/60'}`} />}
+                        {!!ws.is_favourite && (
+                          <Star size={10} strokeWidth={2} fill="currentColor" className={`shrink-0 ${isDark ? 'text-amber-400/70' : 'text-amber-500/70'}`} />
+                        )}
+                        <span className="uppercase tracking-wider">{ws.name}</span>
+                        <span className={`tabular-nums ${isViewing ? 'opacity-50' : 'opacity-40'}`}>{ws.canvases.length}</span>
+                      </button>
+                    )
+                  })}
+                </div>
+              )}
+              {/* Unpinned tabs — scrollable */}
               <div className="flex items-center gap-1.5 px-4 py-3 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
-                {filtered.map(ws => {
+                {filtered.filter(ws => !ws.is_pinned).map(ws => {
                   const isViewing = !showAllWs && ws.id === (viewingWsId ?? activeWorkspaceId)
                   const isActiveWs = ws.id === activeWorkspaceId
                   return (
                     <button
                       key={ws.id}
+                      ref={isActiveWs ? activeTabRef : undefined}
                       onClick={() => { setViewingWsId(ws.id); setShowAllWs(false) }}
                       className={`shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[11px] font-semibold transition-all whitespace-nowrap ${
                         isViewing
@@ -309,9 +345,6 @@ export default function WorkspaceSwitcherModal({
                       }`}
                     >
                       {isActiveWs && <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${isDark ? 'bg-[#93c5fd]' : 'bg-blue-500'}`} />}
-                      {!!ws.is_pinned && !isActiveWs && (
-                        <Pin size={10} strokeWidth={2} className={`shrink-0 ${isDark ? 'text-blue-400/60' : 'text-blue-500/60'}`} />
-                      )}
                       {!!ws.is_favourite && (
                         <Star size={10} strokeWidth={2} fill="currentColor" className={`shrink-0 ${isDark ? 'text-amber-400/70' : 'text-amber-500/70'}`} />
                       )}
