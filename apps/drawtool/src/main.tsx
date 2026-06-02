@@ -24,6 +24,11 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   }
 }
 
+// Prevent browser-level pinch-to-zoom (iOS Safari ignores user-scalable=no)
+document.addEventListener('touchmove', (e) => { if (e.touches.length > 1) e.preventDefault() }, { passive: false })
+document.addEventListener('gesturestart', (e) => e.preventDefault(), { passive: false })
+document.addEventListener('gesturechange', (e) => e.preventDefault(), { passive: false })
+
 Sentry.init({
   dsn: import.meta.env.VITE_SENTRY_DSN,
   integrations: [],
