@@ -23,6 +23,7 @@ type Props = {
   onDeleteWorkspace: (id: string) => Promise<boolean>
   onResetWorkspace: (id: string) => Promise<boolean>
   showTips: boolean
+  hasTouch: boolean
   onClose: () => void
   onPrefetchThumbnail: (id: string) => Promise<string | null>
 }
@@ -55,6 +56,7 @@ export default function WorkspaceSwitcherModal({
   onResetWorkspace,
   onClose,
   onPrefetchThumbnail,
+  hasTouch,
 }: Props) {
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Editing>(null)
@@ -97,7 +99,7 @@ export default function WorkspaceSwitcherModal({
       editInputRef.current?.select()
     } else if (creatingWs) {
       newWsInputRef.current?.focus()
-    } else {
+    } else if (!hasTouch) {
       searchRef.current?.focus()
     }
   }, [editing?.id, editing?.kind, creatingWs])

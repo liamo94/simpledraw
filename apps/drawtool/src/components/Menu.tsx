@@ -1155,11 +1155,18 @@ export default function Menu({
                 Shape
               </div>
               {showTips && (
-                <span
-                  className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
-                >
-                  Hold S + drag
-                </span>
+                <>
+                  <span
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                  >
+                    Hold S + drag
+                  </span>
+                  <span
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                  >
+                    S
+                  </span>
+                </>
               )}
             </div>
             <div className="flex gap-1.5 mt-1 justify-center">
@@ -1439,10 +1446,17 @@ export default function Menu({
                   </button>
                 ),
               )}
+              {showTips && (
+                <span
+                  className={`text-[9px] font-mono px-1 py-px rounded border whitespace-nowrap ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                >
+                  ⌥ + F
+                </span>
+              )}
               <div
                 className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
               />
-              <div className="flex items-center gap-1.5 flex-1">
+              <div className={`flex items-center gap-1.5 ${showTips ? "w-28" : "flex-1"}`}>
                 <input
                   type="range"
                   min={5}
@@ -1703,6 +1717,14 @@ export default function Menu({
                   </span>
                 )}
               </span>
+              <div className="flex items-center gap-1.5">
+                {showTips && (
+                  <span
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/40 border-white/15 bg-white/5" : "text-black/40 border-black/12 bg-black/[0.04]"}`}
+                  >
+                    ⇧ + M
+                  </span>
+                )}
               <button
                 onClick={() => setShowReorder(true)}
                 className={`relative group w-5 h-5 flex items-center justify-center rounded transition-colors ${isDark ? "text-white/30 hover:text-white/65 hover:bg-white/10" : "text-black/25 hover:text-black/55 hover:bg-black/[0.07]"}`}
@@ -1717,6 +1739,7 @@ export default function Menu({
                   <circle cx="1.5" cy="9.5" r="1" fill="currentColor" stroke="none" />
                 </svg>
               </button>
+              </div>
             </div>
             <div className="flex gap-1 mt-1 justify-center">
               {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => {
@@ -2307,9 +2330,9 @@ export default function Menu({
                     <div className="flex items-center justify-end">
                       <button
                         onClick={() => onSetExportIncludeImages(!exportIncludeImages)}
-                        title="Embed images in exported JSON"
+                        title="Exclude images from exported JSON"
                         className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors focus:outline-none border ${
-                          exportIncludeImages
+                          !exportIncludeImages
                             ? isDark
                               ? "bg-white/15 text-white border-white/20"
                               : "bg-black/10 text-black border-black/15"
@@ -2319,7 +2342,7 @@ export default function Menu({
                         }`}
                       >
                         <Image size={11} strokeWidth={1.4} />
-                        <span>Include images</span>
+                        <span>Exclude images (JSON)</span>
                       </button>
                     </div>
                     {(

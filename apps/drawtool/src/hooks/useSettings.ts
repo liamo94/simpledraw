@@ -111,7 +111,7 @@ function getDefaults(): Settings {
     showTips: true,
     exportFormat: "png" as const,
     exportTransparentBg: false,
-    exportIncludeImages: false,
+    exportIncludeImages: true,
     customColor: "#ff6600",
   };
 }

@@ -1828,6 +1828,7 @@ export default function App() {
             return cloudCanvas.clearCanvas(ws.canvases[0]?.id ?? "");
           }}
           showTips={settings.showTips}
+          hasTouch={hasTouch}
           onClose={() => setShowWorkspaceSwitcher(false)}
           onPrefetchThumbnail={cloudCanvas.prefetchThumbnail}
         />
@@ -1852,7 +1853,7 @@ export default function App() {
           href="https://unleash.drawzil.la"
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed top-[20px] right-[62px] z-[51] h-[30px] px-2.5 flex items-center justify-center rounded-md backdrop-blur-sm select-none transition-opacity opacity-40 hover:opacity-75"
+          className="fixed top-[20px] right-[62px] z-40 h-[30px] px-2.5 flex items-center justify-center rounded-md backdrop-blur-sm select-none transition-opacity opacity-40 hover:opacity-75"
           style={{
             background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
             border: isDark
@@ -2231,12 +2232,16 @@ export default function App() {
                   : activeCanvas > 1
                     ? activeCanvas - 1
                     : canvasLimit;
-              setActiveCanvas(next);
-              const name =
-                localStorage.getItem(`drawtool-canvas-name-${next}`) ?? "";
-              setCanvasName(name);
-              canvasNameRef.current = name;
-              localStorage.setItem("drawtool-active-canvas", String(next));
+              if (isSignedIn && cloudCanvas.workspace) {
+                cloudSwitchRef.current?.(next);
+              } else {
+                setActiveCanvas(next);
+                const name =
+                  localStorage.getItem(`drawtool-canvas-name-${next}`) ?? "";
+                setCanvasName(name);
+                canvasNameRef.current = name;
+                localStorage.setItem("drawtool-active-canvas", String(next));
+              }
               showToast({ type: "text", message: `Canvas ${next}` }, 800);
             }}
           >
@@ -3534,9 +3539,10 @@ export default function App() {
               />
               <div className="relative group/zoom h-full">
                 <div
-                  className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover/zoom:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
+                  className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover/zoom:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
                 >
                   Reset zoom
+                  {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-black/20 bg-black/[0.06] text-black/60" : "border-white/20 bg-white/[0.06] text-white/60"}`}>⇧ + 1</kbd>}
                 </div>
                 <button
                   onClick={resetView}
@@ -3559,9 +3565,10 @@ export default function App() {
             </div>
             <div className="relative group">
               <div
-                className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
+                className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
               >
                 Fit to content
+                {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-black/20 bg-black/[0.06] text-black/60" : "border-white/20 bg-white/[0.06] text-white/60"}`}>⇧ + 2</kbd>}
               </div>
               <button
                 onClick={centerView}
