@@ -58,6 +58,7 @@ function storeThumbnail(id: string, strokes: Stroke[], isDark: boolean) {
   const run = () => {
     const url = generateCanvasThumbnail(strokes, isDark)
     if (url) localStorage.setItem(`drawtool-thumb-${id}`, url)
+    else localStorage.removeItem(`drawtool-thumb-${id}`)
   }
   if ('requestIdleCallback' in window) {
     requestIdleCallback(run, { timeout: 5000 })
@@ -202,12 +203,30 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   })
 
   const allWorkspaces = workspacesQuery.data ?? []
-  const workspace = allWorkspaces.find(w => w.id === activeWorkspaceId) ?? allWorkspaces[0] ?? null
+  const workspace = allWorkspaces.find(w => w.id === activeWorkspaceId) ?? null
 
   // On initial load: resolve active workspace + canvas from localStorage
   useEffect(() => {
     const workspaces = workspacesQuery.data
-    if (!workspaces || workspaces.length === 0) return
+    if (!workspaces) return
+    if (workspaces.length === 0) {
+      if (!planLoading && !useCloudSessionStore.getState().provisioning) {
+        setProvisioning(true)
+        ;(async () => {
+          try {
+            const newWs = await createWorkspace('My Workspace')
+            if (newWs) {
+              setActiveWorkspace(newWs.id, newWs.name)
+              const newCanvas = await createCanvas('Canvas 1', newWs.id)
+              if (newCanvas) setActiveCanvas(newCanvas.id)
+            }
+          } finally {
+            setProvisioning(false)
+          }
+        })()
+      }
+      return
+    }
     const savedWsId = useCloudSessionStore.getState().activeWorkspaceId
     const ws = (savedWsId ? workspaces.find(w => w.id === savedWsId) : undefined) ?? workspaces[0]
     setActiveWorkspace(ws.id, ws.name)
@@ -299,7 +318,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       const { data } = canvasQuery.data!
       // Store images in IDB before writing strokes — Canvas reads IDB on mount
       if (data.images) {
-        await Promise.all(
+        await Promise.allSettled(
           Object.entries(data.images).map(([id, url]) => storeImage(id, url))
         )
       }
@@ -432,11 +451,11 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   // ── Canvas switching helpers ──────────────────────────────────────────────
 
-  async function flushCurrentCanvas() {
+  async function flushCurrentCanvas(): Promise<boolean> {
     const currentId = useCloudSessionStore.getState().activeId
-    if (!currentId) return
+    if (!currentId) return true
     // If the short debounce already fired and DIRTY_KEY is clear, nothing to flush.
-    if (!saveTimerRef.current && !localStorage.getItem(DIRTY_KEY)) return
+    if (!saveTimerRef.current && !localStorage.getItem(DIRTY_KEY)) return true
     if (saveTimerRef.current) {
       clearTimeout(saveTimerRef.current)
       saveTimerRef.current = null
@@ -462,14 +481,14 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       )
       storeThumbnail(currentId, strokes, isDarkRef.current)
     }
+    return ok
   }
 
-  function leavingCanvas(id: string) {
-    // Slot 1 is about to be cleared. If DIRTY_KEY still points to this canvas,
-    // reading it back on re-entry would push empty strokes to the server and wipe
-    // the content. Clear the flag and mark the query stale so re-entry fetches
-    // authoritative server data instead.
-    if (localStorage.getItem(DIRTY_KEY) === id) localStorage.removeItem(DIRTY_KEY)
+  function leavingCanvas(id: string, flushSucceeded = true) {
+    // Slot 1 is about to be cleared. Mark the query stale so re-entry always refetches.
+    // Only clear DIRTY_KEY if the flush succeeded — if it failed, DIRTY_KEY must survive
+    // so the dirty-recovery path on re-entry can re-send the local changes to the server.
+    if (flushSucceeded && localStorage.getItem(DIRTY_KEY) === id) localStorage.removeItem(DIRTY_KEY)
     queryClient.invalidateQueries({ queryKey: ['canvas', id], refetchType: 'none' })
   }
 
@@ -490,12 +509,14 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     pendingSwitchRef.current = id
     if (id === useCloudSessionStore.getState().activeId) return
     const currentId = useCloudSessionStore.getState().activeId
-    await flushCurrentCanvas()
+    const flushOk = await flushCurrentCanvas()
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
     // If the user switched again while the flush was in flight, abandon this switch.
     if (pendingSwitchRef.current !== id) return
-    if (currentId) leavingCanvas(currentId)
+    if (currentId) leavingCanvas(currentId, flushOk)
     populateSlot1FromCache(id)
+    // Force a server refetch to pick up cross-device changes (staleTime: Infinity would skip it)
+    queryClient.invalidateQueries({ queryKey: ['canvas', id], refetchType: 'none' })
     setActiveCanvas(id)
   }
 
@@ -506,14 +527,16 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     const ws = freshWorkspaces.find(w => w.id === id)
     if (!ws) return
     const currentId = useCloudSessionStore.getState().activeId
-    await flushCurrentCanvas()
+    const flushOk = await flushCurrentCanvas()
     if (saveTimerRef.current) { clearTimeout(saveTimerRef.current); saveTimerRef.current = null }
-    if (currentId) leavingCanvas(currentId)
+    if (currentId) leavingCanvas(currentId, flushOk)
     setActiveWorkspace(ws.id, ws.name)
     if (ws.canvases.length > 0) {
       const target = initialCanvasId ? ws.canvases.find(c => c.id === initialCanvasId) : null
       const canvasId = (target ?? ws.canvases[0]).id
       populateSlot1FromCache(canvasId)
+      // Force a server refetch to pick up cross-device changes (staleTime: Infinity would skip it)
+      queryClient.invalidateQueries({ queryKey: ['canvas', canvasId], refetchType: 'none' })
       setActiveCanvas(canvasId)
     } else {
       saveStrokes([], CLOUD_SLOT, true)
@@ -718,6 +741,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       } else {
         // Evict cached canvas data so the next visit fetches fresh empty content
         queryClient.removeQueries({ queryKey: ['canvas', id] })
+        localStorage.removeItem(`drawtool-thumb-${id}`)
       }
       return true
     } catch { return false }
@@ -736,6 +760,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
             .map((c, i) => ({ ...c, position: i })),
         }))
       )
+      localStorage.removeItem(`drawtool-thumb-${id}`)
     },
   })
 
@@ -834,6 +859,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     if (strokes) {
       const url = generateCanvasThumbnail(strokes, isDarkRef.current)
       if (url) localStorage.setItem(`drawtool-thumb-${id}`, url)
+      else localStorage.removeItem(`drawtool-thumb-${id}`)
       return url ?? null
     }
     // Not cached — fetch from API (one-time per canvas; localStorage prevents future fetches)
@@ -841,6 +867,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       const result = await api.get<CanvasResp>(`/canvases/${id}`)
       const url = generateCanvasThumbnail(result.data.strokes ?? [], isDarkRef.current)
       if (url) localStorage.setItem(`drawtool-thumb-${id}`, url)
+      else localStorage.removeItem(`drawtool-thumb-${id}`)
       return url ?? null
     } catch {
       return null

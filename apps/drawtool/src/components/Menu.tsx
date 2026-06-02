@@ -38,9 +38,9 @@ function expiryUrgency(expiresAt: number): 'ok' | 'warn' | 'urgent' {
 }
 
 
-function Tooltip({ label }: { label: string }) {
+function Tooltip({ label, align = 'center' }: { label: string; align?: 'center' | 'right' }) {
   return (
-    <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50">
+    <span className={`absolute bottom-full mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50 ${align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
       {label}
     </span>
   );
@@ -1729,7 +1729,7 @@ export default function Menu({
                 onClick={() => setShowReorder(true)}
                 className={`relative group w-5 h-5 flex items-center justify-center rounded transition-colors ${isDark ? "text-white/30 hover:text-white/65 hover:bg-white/10" : "text-black/25 hover:text-black/55 hover:bg-black/[0.07]"}`}
               >
-                <Tooltip label="Manage canvases" />
+                <Tooltip label="Manage canvases" align="right" />
                 <svg width="12" height="11" viewBox="0 0 12 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
                   <line x1="4.5" y1="1.5" x2="11" y2="1.5" />
                   <line x1="4.5" y1="5.5" x2="11" y2="5.5" />

@@ -3539,10 +3539,11 @@ export default function App() {
               />
               <div className="relative group/zoom h-full">
                 <div
-                  className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover/zoom:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
+                  className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded-lg border shadow-md opacity-0 group-hover/zoom:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "border-white/12 text-white/80" : "border-black/8 text-black/70"}`}
+                  style={{ background: getPanelBackground(settings.theme) }}
                 >
                   Reset zoom
-                  {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-black/20 bg-black/[0.06] text-black/60" : "border-white/20 bg-white/[0.06] text-white/60"}`}>⇧ + 1</kbd>}
+                  {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}>⇧ + 1</kbd>}
                 </div>
                 <button
                   onClick={resetView}
@@ -3565,10 +3566,11 @@ export default function App() {
             </div>
             <div className="relative group">
               <div
-                className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "bg-white/90 text-black" : "bg-black/90 text-white"}`}
+                className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded-lg border shadow-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "border-white/12 text-white/80" : "border-black/8 text-black/70"}`}
+                style={{ background: getPanelBackground(settings.theme) }}
               >
                 Fit to content
-                {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-black/20 bg-black/[0.06] text-black/60" : "border-white/20 bg-white/[0.06] text-white/60"}`}>⇧ + 2</kbd>}
+                {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}>⇧ + 2</kbd>}
               </div>
               <button
                 onClick={centerView}
