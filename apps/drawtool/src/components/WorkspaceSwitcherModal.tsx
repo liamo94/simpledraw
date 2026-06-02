@@ -207,7 +207,7 @@ export default function WorkspaceSwitcherModal({
           if (!q && !showAllWs && viewingWs) {
             const num = parseInt(e.key)
             if (num >= 1 && num <= 9) {
-              const canvas = viewingWs.canvases.find(c => c.position + 1 === num)
+              const canvas = [...viewingWs.canvases].sort((a, b) => a.position - b.position)[num - 1]
               if (canvas) { e.preventDefault(); activate(viewingWs.id, canvas.id) }
             }
           }
@@ -227,7 +227,7 @@ export default function WorkspaceSwitcherModal({
                 if (!query && !showAllWs && viewingWs) {
                   const num = parseInt(e.key)
                   if (num >= 1 && num <= 9) {
-                    const canvas = viewingWs.canvases.find(c => c.position + 1 === num)
+                    const canvas = [...viewingWs.canvases].sort((a, b) => a.position - b.position)[num - 1]
                     if (canvas) { e.preventDefault(); activate(viewingWs.id, canvas.id) }
                   }
                 }

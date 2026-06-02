@@ -893,9 +893,10 @@ export default function App() {
       if (n >= 1 && n <= 9) {
         setActiveCanvas(n);
         localStorage.setItem("drawtool-active-canvas", String(n));
-        // For cloud users, read name from cloud metadata to avoid a flash of stale/empty local name
+        // For cloud users, read name from cloud metadata to avoid a flash of stale/empty local name.
+        // Sort by position so the lookup is robust even when positions have gaps/duplicates.
         const cloudMeta = cloudActiveIdRef.current
-          ? cloudCanvasesRef.current.find((c) => c.position === n - 1)
+          ? ([...cloudCanvasesRef.current].sort((a, b) => a.position - b.position)[n - 1] ?? null)
           : null;
         setCanvasName(
           cloudMeta?.name ?? (localStorage.getItem(`drawtool-canvas-name-${n}`) ?? ""),
@@ -1299,9 +1300,11 @@ export default function App() {
   const cloudSwitchRef = useRef<((n: number) => void) | null>(null);
   cloudSwitchRef.current = (n: number) => {
     if (!isSignedIn || !cloudCanvas.workspace) return;
-    const meta = cloudCanvas.workspace.canvases.find(
-      (c) => c.position === n - 1,
+    // Sort by position so index lookup is robust even when positions have gaps/duplicates
+    const sorted = [...cloudCanvas.workspace.canvases].sort(
+      (a, b) => a.position - b.position,
     );
+    const meta = sorted[n - 1];
     if (meta) {
       cloudCanvas.switchCanvas(meta.id);
     } else if (!isPro && n > canvasLimit) {
