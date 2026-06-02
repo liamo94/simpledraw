@@ -1902,6 +1902,7 @@ export default function App() {
           updateSettings({ exportIncludeImages: v })
         }
         hasTouch={hasTouch}
+        isTablet={isTablet}
         activeCanvas={activeCanvas}
         onSwitchCanvas={(n) => {
           if (isSignedIn && cloudCanvas.workspace) {
@@ -2113,96 +2114,6 @@ export default function App() {
               }}
             />
           )}
-          {/* Undo / Redo / Delete — tablet: fixed bottom-left; mobile: above toolbar right-aligned */}
-          {isTablet && (
-            <div
-              className="fixed left-4 z-50 flex items-center gap-0.5"
-              style={{
-                bottom: "calc(env(safe-area-inset-bottom, 0px) + 1rem)",
-              }}
-            >
-              <button
-                aria-label="Undo"
-                disabled={!canUndo}
-                onClick={() => window.dispatchEvent(new Event("drawtool:undo"))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M4 8.5H12C14.5 8.5 16.5 10.5 16.5 13S14.5 17.5 12 17.5H7" />
-                  <path d="M7 5.5L4 8.5l3 3" />
-                </svg>
-              </button>
-              <button
-                aria-label="Redo"
-                disabled={!canRedo}
-                onClick={() => window.dispatchEvent(new Event("drawtool:redo"))}
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M16 8.5H8C5.5 8.5 3.5 10.5 3.5 13S5.5 17.5 8 17.5H13" />
-                  <path d="M13 5.5L16 8.5l-3 3" />
-                </svg>
-              </button>
-              <button
-                aria-label="Delete selection"
-                disabled={!hasSelection}
-                onClick={() =>
-                  window.dispatchEvent(
-                    new KeyboardEvent("keydown", {
-                      key: "Backspace",
-                      bubbles: true,
-                    }),
-                  )
-                }
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 20 20"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="1.75"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <path d="M2.5 5.5h15" />
-                  <path d="M7.5 5.5V3.5h5v2" />
-                  <path d="M5 5.5l1 13h8l1-13" />
-                  <path d="M8.5 9v6" />
-                  <path d="M11.5 9v6" />
-                </svg>
-              </button>
-              <button
-                aria-label="Save to stash"
-                disabled={!hasSelection}
-                onClick={() =>
-                  window.dispatchEvent(new Event("drawtool:save-to-stash"))
-                }
-                className={`flex items-center justify-center w-9 h-9 rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-              >
-                <Layers size={20} strokeWidth={1.75} />
-              </button>
-            </div>
-          )}
           <nav
             aria-label="Drawing tools"
             className={`fixed left-1/2 -translate-x-1/2 z-40 flex items-center gap-2.5 px-1 touch-toolbar ${isTablet ? "top-4" : ""}`}
@@ -2287,9 +2198,8 @@ export default function App() {
                 )}
               </div>
             )}
-            {/* Undo / Redo / Delete — mobile only: above top-right of toolbar. Nav is z-40 so menu (z-50) paints on top. */}
-            {!isTablet && (
-              <div className="absolute right-1 bottom-full mb-1 flex items-center gap-0.5">
+            {/* Undo / Redo / Delete — tablet: below toolbar right; mobile: above toolbar right */}
+            <div className={`absolute right-1 flex items-center gap-0.5 ${isTablet ? "top-full mt-1" : "bottom-full mb-1"}`}>
                 <button
                   aria-label="Undo"
                   disabled={!canUndo}
@@ -2335,8 +2245,7 @@ export default function App() {
                 >
                   <Layers size={20} strokeWidth={1.75} />
                 </button>
-              </div>
-            )}
+            </div>
             <div
               className="relative flex items-center gap-0.5 sm:gap-1 p-1 rounded-lg border backdrop-blur-sm"
               style={{
@@ -3530,6 +3439,62 @@ export default function App() {
               </div>
             )}
           </nav>
+          {isTablet && settings.showZoomControls && (
+            <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
+              <div
+                className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
+                style={{ background: getPanelBackground(settings.theme) }}
+              >
+                <button
+                  onClick={zoomOut}
+                  aria-label="Zoom out"
+                  className={`w-8 h-full flex items-center justify-center rounded-l-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "text-white/70 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/8"}`}
+                >
+                  -
+                </button>
+                <div
+                  className={`w-px h-full ${isDark ? "bg-white/15" : "bg-black/15"}`}
+                />
+                <button
+                  onClick={resetView}
+                  aria-label="Reset zoom to 100%"
+                  className={`min-w-[3.25rem] px-2 h-full flex items-center justify-center transition-colors text-xs tabular-nums focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "text-white/70 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/8"}`}
+                >
+                  {Math.round(zoom * 100)}%
+                </button>
+                <div
+                  className={`w-px h-full ${isDark ? "bg-white/15" : "bg-black/15"}`}
+                />
+                <button
+                  onClick={zoomIn}
+                  aria-label="Zoom in"
+                  className={`w-8 h-full flex items-center justify-center rounded-r-[7px] transition-colors text-sm font-mono focus-visible:ring-2 focus-visible:ring-blue-400 focus-visible:ring-inset ${isDark ? "text-white/70 hover:text-white hover:bg-white/10" : "text-black/60 hover:text-black hover:bg-black/8"}`}
+                >
+                  +
+                </button>
+              </div>
+              <button
+                onClick={centerView}
+                aria-label="Fit to content"
+                className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "border-white/15 text-white/70 hover:text-white hover:bg-white/10" : "border-black/15 text-black/60 hover:text-black hover:bg-black/8"}`}
+                style={{ background: getPanelBackground(settings.theme) }}
+              >
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                  <path d="M5 2.5v3h-3M11 2.5v3h3M5 13.5v-3h-3M11 13.5v-3h3" />
+                </svg>
+              </button>
+            </div>
+          )}
         </>
       ) : (
         settings.showZoomControls && (

@@ -303,6 +303,7 @@ type Props = {
   onSetExportFormat: (f: "png" | "svg") => void;
   onSetExportTransparentBg: (v: boolean) => void;
   hasTouch: boolean;
+  isTablet: boolean;
   activeCanvas: number;
   onSwitchCanvas: (n: number) => void;
   onReorderCanvases: (newOrder: number[]) => void;
@@ -344,6 +345,7 @@ export default function Menu({
   onSetExportFormat,
   onSetExportTransparentBg,
   hasTouch,
+  isTablet,
   activeCanvas,
   onSwitchCanvas,
   onReorderCanvases,
@@ -1948,7 +1950,7 @@ export default function Menu({
             )}
 
             <div className="mt-4 space-y-3">
-              {!hasTouch && (
+              {(!hasTouch || isTablet) && (
                 <button
                   role="switch"
                   aria-checked={settings.showZoomControls}
