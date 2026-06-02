@@ -195,6 +195,7 @@ export default function App() {
   const canvasNameRef = useRef(canvasName);
   const activeCanvasRef = useRef(activeCanvas);
   const cloudActiveIdRef = useRef<string | null>(null);
+  const cloudCanvasesRef = useRef<Array<{ position: number; name: string }>>([]);
   canvasNameRef.current = canvasName;
   activeCanvasRef.current = activeCanvas;
   const [showThicknessPicker, setShowThicknessPicker] = useState<
@@ -892,7 +893,13 @@ export default function App() {
       if (n >= 1 && n <= 9) {
         setActiveCanvas(n);
         localStorage.setItem("drawtool-active-canvas", String(n));
-        setCanvasName(localStorage.getItem(`drawtool-canvas-name-${n}`) ?? "");
+        // For cloud users, read name from cloud metadata to avoid a flash of stale/empty local name
+        const cloudMeta = cloudActiveIdRef.current
+          ? cloudCanvasesRef.current.find((c) => c.position === n - 1)
+          : null;
+        setCanvasName(
+          cloudMeta?.name ?? (localStorage.getItem(`drawtool-canvas-name-${n}`) ?? ""),
+        );
         showToast({ type: "text", message: `Canvas ${n}` });
         cloudSwitchRef.current?.(n);
       }
@@ -1260,6 +1267,7 @@ export default function App() {
     _newRouteForCloud,
   );
   cloudActiveIdRef.current = cloudCanvas.activeId;
+  cloudCanvasesRef.current = cloudCanvas.workspace?.canvases ?? [];
   const hasCloudCanvases = (cloudCanvas.workspace?.canvases.length ?? 0) > 0;
 
   // When /new finds all cloud canvases occupied, open the dialog + blur

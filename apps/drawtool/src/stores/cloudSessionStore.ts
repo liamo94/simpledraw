@@ -95,7 +95,13 @@ export const useCloudSessionStore = create<CloudSessionState>()(
       bumpLoadKey:  () => set(s => ({ loadKey:  s.loadKey  + 1 })),
       bumpClearKey: () => set(s => ({ clearKey: s.clearKey + 1 })),
       markUpdatedAt: (canvasId, updatedAt) =>
-        set(s => ({ lastAppliedUpdatedAt: { ...s.lastAppliedUpdatedAt, [canvasId]: updatedAt } })),
+        set(s => {
+          const existing = s.lastAppliedUpdatedAt
+          const entries = Object.entries(existing)
+          // Cap at 100 entries (drop oldest 50 when full) to prevent unbounded growth.
+          const base = entries.length >= 100 ? Object.fromEntries(entries.slice(-50)) : existing
+          return { lastAppliedUpdatedAt: { ...base, [canvasId]: updatedAt } }
+        }),
       getUpdatedAt: (canvasId) => get().lastAppliedUpdatedAt[canvasId],
       setCloudPrefApplied: (val) => set({ cloudPrefApplied: val }),
       setSlot1BackedUp:    (val) => set({ slot1BackedUp: val }),

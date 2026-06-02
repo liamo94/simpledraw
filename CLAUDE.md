@@ -52,7 +52,7 @@ Each app is its own Cloudflare Pages project with root directory set to its app 
 
 **Cloud canvas**: `useCloudCanvas()` in `src/hooks/useCloudCanvas.ts`.
 - Cloud users always use slot 1 as write-through cache. `activeId` (cloud canvas UUID) stored in `localStorage('drawtool-cloud-active-canvas')` to avoid flash on load.
-- Save hook debounces 2s then PUTs to `/canvases/:id`. Includes images as base64 (see below).
+- Save hook debounces 300ms then PUTs to `/canvases/:id`. Includes images as base64 (see below).
 - `fetchWorkspace()` loads all metadata; `switchCanvas()` flushes current before loading next.
 - Canvas query uses `staleTime: Infinity`, `refetchOnWindowFocus: false` — critical. Default `refetchOnWindowFocus: true` would bump `loadKey` mid-draw, remounting Canvas with stale server strokes.
 - `loadKey` counter: incrementing it remounts Canvas, which re-reads slot 1 from localStorage. The canvas query effect bumps `loadKey` after writing server data to slot 1.
