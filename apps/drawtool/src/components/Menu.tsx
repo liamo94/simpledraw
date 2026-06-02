@@ -38,9 +38,9 @@ function expiryUrgency(expiresAt: number): 'ok' | 'warn' | 'urgent' {
 }
 
 
-function Tooltip({ label, align = 'center' }: { label: string; align?: 'center' | 'right' }) {
+function Tooltip({ label, align = 'center', isDark = true }: { label: string; align?: 'center' | 'right'; isDark?: boolean }) {
   return (
-    <span className={`absolute bottom-full mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50 ${align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
+    <span className={`absolute bottom-full mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'} ${align === 'right' ? 'right-0' : 'left-1/2 -translate-x-1/2'}`}>
       {label}
     </span>
   );
@@ -1199,7 +1199,7 @@ export default function Menu({
                         : "hover:bg-black/10"
                   }`}
                 >
-                  <Tooltip label={s.charAt(0).toUpperCase() + s.slice(1)} />
+                  <Tooltip label={s.charAt(0).toUpperCase() + s.slice(1)} isDark={isDark} />
                   {(() => {
                     const isActive = settings.activeShape === s;
                     const shapeStroke = isActive ? (isDark ? "#93c5fd" : "#3b82f6") : (isDark ? "white" : "black");
@@ -1256,7 +1256,7 @@ export default function Menu({
                           : "hover:bg-black/10"
                     }`}
                   >
-                    <Tooltip label={f.charAt(0).toUpperCase() + f.slice(1)} />
+                    <Tooltip label={f.charAt(0).toUpperCase() + f.slice(1)} isDark={isDark} />
                     {f === "solid" && (
                       <svg
                         width="16"
@@ -1508,7 +1508,7 @@ export default function Menu({
                         : "hover:bg-black/10"
                   }`}
                 >
-                  <Tooltip label={c === "rounded" ? "Rounded" : "Sharp"} />
+                  <Tooltip label={c === "rounded" ? "Rounded" : "Sharp"} isDark={isDark} />
                   <svg
                     width="16"
                     height="16"
@@ -1560,7 +1560,7 @@ export default function Menu({
                         : "hover:bg-black/10"
                   }`}
                 >
-                  <Tooltip label={on ? "Dynamic" : "Uniform"} />
+                  <Tooltip label={on ? "Dynamic" : "Uniform"} isDark={isDark} />
                   <svg
                     width="16"
                     height="16"
@@ -1636,7 +1636,7 @@ export default function Menu({
                           : "hover:bg-black/10"
                     }`}
                   >
-                    <Tooltip label={g.charAt(0).toUpperCase() + g.slice(1)} />
+                    <Tooltip label={g.charAt(0).toUpperCase() + g.slice(1)} isDark={isDark} />
                     {g === "off" && (
                       <svg
                         width="16"
@@ -1729,7 +1729,7 @@ export default function Menu({
                 onClick={() => setShowReorder(true)}
                 className={`relative group w-5 h-5 flex items-center justify-center rounded transition-colors ${isDark ? "text-white/30 hover:text-white/65 hover:bg-white/10" : "text-black/25 hover:text-black/55 hover:bg-black/[0.07]"}`}
               >
-                <Tooltip label="Manage canvases" align="right" />
+                <Tooltip label="Manage canvases" align="right" isDark={isDark} />
                 <svg width="12" height="11" viewBox="0 0 12 11" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round">
                   <line x1="4.5" y1="1.5" x2="11" y2="1.5" />
                   <line x1="4.5" y1="5.5" x2="11" y2="5.5" />
@@ -1768,7 +1768,7 @@ export default function Menu({
                             : "text-black/35 hover:text-black/55 hover:bg-black/10"
                     }`}
                   >
-                    {locked && <Tooltip label="Unlock with Unleashed" />}
+                    {locked && <Tooltip label="Unlock with Unleashed" isDark={isDark} />}
                     {n}
                   </button>
                 );
@@ -1930,7 +1930,7 @@ export default function Menu({
                     boxShadow: `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`,
                   }}
                 >
-                  <Tooltip label={t.label} />
+                  <Tooltip label={t.label} isDark={isDark} />
                 </button>
               ))}
             </div>
@@ -2641,7 +2641,7 @@ export default function Menu({
               const labelCls = `shrink-0 text-[11px] font-medium w-[62px] ${isDark ? "text-white/35" : "text-black/35"}`
               const inputCls = `flex-1 min-w-0 text-[11px] px-2 py-1 rounded truncate ${isDark ? "bg-white/6 text-white/50" : "bg-black/4 text-black/50"}`
               const iconBtnCls = (active: boolean) => `shrink-0 p-1 rounded transition-colors group relative ${active ? isDark ? "text-green-400" : "text-green-600" : isDark ? "hover:bg-white/10 text-white/35 hover:text-white/65" : "hover:bg-black/8 text-black/30 hover:text-black/60"}`
-              const tipCls = `absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity bg-black/80 text-white z-50`
+              const tipCls = `absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`
               return (
                 <div className="mt-2 flex flex-col gap-1.5">
                   {/* Header */}

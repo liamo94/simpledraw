@@ -184,7 +184,7 @@ export default function WorkspaceSwitcherModal({
   }
 
   const iconBtn = `shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors ${isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'}`
-  const tipCls = 'absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50'
+  const tipCls = `absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`
 
   return (
     <div
@@ -331,7 +331,7 @@ export default function WorkspaceSwitcherModal({
                   }`}
                 >
                   <Star size={ICON_SIZE} strokeWidth={1.75} fill={showFavsOnly ? 'currentColor' : 'none'} />
-                  <span className="absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50">
+                  <span className={`absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`}>
                     {showFavsOnly ? 'Show all' : 'Show favourites only'}
                   </span>
                 </button>
@@ -405,67 +405,65 @@ export default function WorkspaceSwitcherModal({
             )}
 
             {/* ── Canvas grid ── */}
-            {!showAllWs && !(showFavsOnly && filtered.length === 0) && <div className="flex-1 min-h-0 overflow-y-auto p-5">
-              {viewingWs ? (
-                <>
-                  {/* Workspace header */}
-                  {(() => {
-                    const isEditingWs = editing?.kind === 'workspace' && editing.id === viewingWs.id
-                    const isConfirmingWs = confirmDelete?.id === viewingWs.id && confirmDelete.kind === 'workspace'
-                    return (
-                      <div className="flex items-center gap-2 mb-4">
-                        {isEditingWs ? (
-                          <input
-                            ref={editInputRef}
-                            value={editing!.name}
-                            onChange={e => setEditing(ed => ed ? { ...ed, name: e.target.value } : ed)}
-                            onBlur={commitEdit}
-                            onKeyDown={editInputKeyDown}
-                            className={`flex-1 text-sm font-semibold rounded-lg px-2 py-1 outline-none ${isDark ? 'bg-white/8 border border-white/20 text-white/85' : 'bg-black/5 border border-black/15 text-black/80'}`}
-                          />
-                        ) : (
-                          <span className={`flex-1 text-sm font-semibold ${isDark ? 'text-white/40' : 'text-black/35'}`}>
-                            {viewingWs.name}
-                          </span>
-                        )}
-                        {isConfirmingWs ? (
-                          <>
-                            <span className={`text-[10px] font-semibold ${isDark ? 'text-red-400' : 'text-red-500'}`}>
-                              {allWorkspaces.length === 1 ? 'Clear?' : 'Delete?'}
-                            </span>
-                            <button onClick={confirmDeleteAction} className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md ${isDark ? 'text-red-400 hover:bg-red-500/20' : 'text-red-500 hover:bg-red-500/10'}`}>✓</button>
-                            <button onClick={e => { e.stopPropagation(); setConfirmDelete(null) }} className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md ${isDark ? 'text-white/30 hover:bg-white/10' : 'text-black/30 hover:bg-black/7'}`}>✕</button>
-                          </>
-                        ) : !isEditingWs && (
-                          <div className="flex items-center gap-0.5">
-                            <button
-                              onClick={e => { e.stopPropagation(); onFavouriteWorkspace(viewingWs.id, !viewingWs.is_favourite) }}
-                              className={`relative group ${iconBtn} ${viewingWs.is_favourite ? isDark ? 'text-amber-400' : 'text-amber-500' : ''}`}
-                            >
-                              <Star size={ICON_SIZE} strokeWidth={1.75} fill={viewingWs.is_favourite ? 'currentColor' : 'none'} />
-                              <span className={tipCls}>{viewingWs.is_favourite ? 'Unfavourite workspace' : 'Favourite workspace'}</span>
-                            </button>
-                            <button
-                              onClick={e => { e.stopPropagation(); onPinWorkspace(viewingWs.id, !viewingWs.is_pinned) }}
-                              className={`relative group ${iconBtn} ${viewingWs.is_pinned ? isDark ? 'text-blue-400' : 'text-blue-500' : ''}`}
-                            >
-                              <Pin size={ICON_SIZE} strokeWidth={1.75} fill={viewingWs.is_pinned ? 'currentColor' : 'none'} />
-                              <span className={tipCls}>{viewingWs.is_pinned ? 'Unpin workspace' : 'Pin workspace'}</span>
-                            </button>
-                            <button onClick={e => startEdit(e, 'workspace', viewingWs.id, viewingWs.name)} className={`relative group ${iconBtn}`}>
-                              <Pencil size={ICON_SIZE} strokeWidth={1.75} />
-                              <span className={tipCls}>Rename workspace</span>
-                            </button>
-                            <button onClick={e => requestDelete(e, 'workspace', viewingWs.id)} className={`relative group ${iconBtn}`}>
-                              <Trash2 size={ICON_SIZE} strokeWidth={1.75} />
-                              <span className="absolute bottom-full right-0 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 bg-black/80 text-white z-50">{allWorkspaces.length === 1 ? 'Clear workspace' : 'Delete workspace'}</span>
-                            </button>
-                          </div>
-                        )}
+            {!showAllWs && !(showFavsOnly && filtered.length === 0) && (viewingWs ? (() => {
+              const isEditingWs = editing?.kind === 'workspace' && editing.id === viewingWs.id
+              const isConfirmingWs = confirmDelete?.id === viewingWs.id && confirmDelete.kind === 'workspace'
+              return (
+                <div className="flex-1 min-h-0 flex flex-col">
+                  {/* Workspace header — sits above the scroll container so bottom-full tooltips aren't clipped */}
+                  <div className="flex items-center gap-2 px-5 pt-5 pb-1 shrink-0">
+                    {isEditingWs ? (
+                      <input
+                        ref={editInputRef}
+                        value={editing!.name}
+                        onChange={e => setEditing(ed => ed ? { ...ed, name: e.target.value } : ed)}
+                        onBlur={commitEdit}
+                        onKeyDown={editInputKeyDown}
+                        className={`flex-1 text-sm font-semibold rounded-lg px-2 py-1 outline-none ${isDark ? 'bg-white/8 border border-white/20 text-white/85' : 'bg-black/5 border border-black/15 text-black/80'}`}
+                      />
+                    ) : (
+                      <span className={`flex-1 text-sm font-semibold ${isDark ? 'text-white/40' : 'text-black/35'}`}>
+                        {viewingWs.name}
+                      </span>
+                    )}
+                    {isConfirmingWs ? (
+                      <>
+                        <span className={`text-[10px] font-semibold ${isDark ? 'text-red-400' : 'text-red-500'}`}>
+                          {allWorkspaces.length === 1 ? 'Clear?' : 'Delete?'}
+                        </span>
+                        <button onClick={confirmDeleteAction} className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md ${isDark ? 'text-red-400 hover:bg-red-500/20' : 'text-red-500 hover:bg-red-500/10'}`}>✓</button>
+                        <button onClick={e => { e.stopPropagation(); setConfirmDelete(null) }} className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md ${isDark ? 'text-white/30 hover:bg-white/10' : 'text-black/30 hover:bg-black/7'}`}>✕</button>
+                      </>
+                    ) : !isEditingWs && (
+                      <div className="flex items-center gap-0.5">
+                        <button
+                          onClick={e => { e.stopPropagation(); onFavouriteWorkspace(viewingWs.id, !viewingWs.is_favourite) }}
+                          className={`relative group ${iconBtn} ${viewingWs.is_favourite ? isDark ? 'text-amber-400' : 'text-amber-500' : ''}`}
+                        >
+                          <Star size={ICON_SIZE} strokeWidth={1.75} fill={viewingWs.is_favourite ? 'currentColor' : 'none'} />
+                          <span className={tipCls}>{viewingWs.is_favourite ? 'Unfavourite workspace' : 'Favourite workspace'}</span>
+                        </button>
+                        <button
+                          onClick={e => { e.stopPropagation(); onPinWorkspace(viewingWs.id, !viewingWs.is_pinned) }}
+                          className={`relative group ${iconBtn} ${viewingWs.is_pinned ? isDark ? 'text-blue-400' : 'text-blue-500' : ''}`}
+                        >
+                          <Pin size={ICON_SIZE} strokeWidth={1.75} fill={viewingWs.is_pinned ? 'currentColor' : 'none'} />
+                          <span className={tipCls}>{viewingWs.is_pinned ? 'Unpin workspace' : 'Pin workspace'}</span>
+                        </button>
+                        <button onClick={e => startEdit(e, 'workspace', viewingWs.id, viewingWs.name)} className={`relative group ${iconBtn}`}>
+                          <Pencil size={ICON_SIZE} strokeWidth={1.75} />
+                          <span className={tipCls}>Rename workspace</span>
+                        </button>
+                        <button onClick={e => requestDelete(e, 'workspace', viewingWs.id)} className={`relative group ${iconBtn}`}>
+                          <Trash2 size={ICON_SIZE} strokeWidth={1.75} />
+                          <span className={`absolute bottom-full right-0 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`}>{allWorkspaces.length === 1 ? 'Clear workspace' : 'Delete workspace'}</span>
+                        </button>
                       </div>
-                    )
-                  })()}
+                    )}
+                  </div>
 
+                  {/* Scrollable canvas grid */}
+                  <div className="flex-1 min-h-0 overflow-y-auto px-5 pb-5 pt-3">
                   {viewingWs.canvases.length === 0 && (
                     <div className={`py-16 text-center text-sm ${isDark ? 'text-white/20' : 'text-black/20'}`}>No canvases yet</div>
                   )}
@@ -483,7 +481,7 @@ export default function WorkspaceSwitcherModal({
                         <div
                           key={canvas.id}
                           onClick={() => !isEditingCanvas && !isConfirmingCanvas && activate(viewingWs.id, canvas.id)}
-                          className="group flex flex-col gap-2 cursor-pointer"
+                          className="relative group flex flex-col gap-2 cursor-pointer"
                         >
                           {/* Preview card */}
                           <div
@@ -533,20 +531,6 @@ export default function WorkspaceSwitcherModal({
                               </span>
                             )}
 
-                            {/* Hover actions */}
-                            {!isConfirmingCanvas && (
-                              <div className="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className={`relative group/actbtn ${iconBtn}`}>
-                                  <Pencil size={ICON_SIZE} strokeWidth={1.75} />
-                                  <span className="absolute top-full right-0 mt-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover/actbtn:opacity-100 transition-opacity duration-150 delay-0 group-hover/actbtn:delay-500 bg-black/80 text-white z-50">Rename canvas</span>
-                                </button>
-                                <button onClick={e => requestDelete(e, 'canvas', canvas.id)} className={`relative group/actbtn ${iconBtn}`}>
-                                  <Trash2 size={ICON_SIZE} strokeWidth={1.75} />
-                                  <span className="absolute top-full right-0 mt-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover/actbtn:opacity-100 transition-opacity duration-150 delay-0 group-hover/actbtn:delay-500 bg-black/80 text-white z-50">{viewingWs.canvases.length === 1 ? 'Clear canvas' : 'Delete canvas'}</span>
-                                </button>
-                              </div>
-                            )}
-
                             {/* Confirm delete overlay */}
                             {isConfirmingCanvas && (
                               <div className="absolute inset-0 flex items-center justify-center gap-2 backdrop-blur-sm"
@@ -559,6 +543,20 @@ export default function WorkspaceSwitcherModal({
                               </div>
                             )}
                           </div>
+
+                          {/* Hover actions — outside overflow-hidden card so bottom-full tooltips aren't clipped */}
+                          {!isConfirmingCanvas && (
+                            <div className="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                              <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className={`relative group/actbtn ${iconBtn}`}>
+                                <Pencil size={ICON_SIZE} strokeWidth={1.75} />
+                                <span className={`absolute bottom-full right-0 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover/actbtn:opacity-100 transition-opacity duration-150 delay-0 group-hover/actbtn:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`}>Rename canvas</span>
+                              </button>
+                              <button onClick={e => requestDelete(e, 'canvas', canvas.id)} className={`relative group/actbtn ${iconBtn}`}>
+                                <Trash2 size={ICON_SIZE} strokeWidth={1.75} />
+                                <span className={`absolute bottom-full right-0 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover/actbtn:opacity-100 transition-opacity duration-150 delay-0 group-hover/actbtn:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`}>{viewingWs.canvases.length === 1 ? 'Clear canvas' : 'Delete canvas'}</span>
+                              </button>
+                            </div>
+                          )}
 
                           {/* Canvas name */}
                           {isEditingCanvas ? (
@@ -584,9 +582,10 @@ export default function WorkspaceSwitcherModal({
                       )
                     })}
                   </div>
-                </>
-              ) : null}
-            </div>}
+                  </div>
+                </div>
+              )
+            })() : <div className="flex-1 min-h-0 overflow-y-auto p-5" />)}
           </>
         )}
 
