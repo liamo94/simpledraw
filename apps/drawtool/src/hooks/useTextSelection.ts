@@ -207,6 +207,13 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
   } = refs;
 
   const lastLockedTapRef = useRef<{ time: number; stroke: Stroke } | null>(null);
+  const pendingInteriorDragRef = useRef<{
+    startPtr: { x: number; y: number };
+    startPoints: { x: number; y: number }[];
+    startScale: number;
+    bbox: BBox;
+    subStrokeStartPoints?: { x: number; y: number }[][];
+  } | null>(null);
 
   const {
     scheduleRedraw, persistStrokes, notifyColorUsed, setZCursor,
@@ -902,6 +909,23 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               }
             }
           }
+          // Interior fallback: click inside bbox but hitTestStroke missed (e.g. unfilled shape interior).
+          // Defer drag-vs-keep decision until pointer moves past threshold; release without move = keep selected.
+          if (!selectedTextRef.current.locked) {
+            const ipad = 8 / scale;
+            if (wp.x >= bb.x - ipad && wp.x <= bb.x + bb.w + ipad &&
+                wp.y >= bb.y - ipad && wp.y <= bb.y + bb.h + ipad) {
+              pendingInteriorDragRef.current = {
+                startPtr: { ...wp },
+                startPoints: selectedTextRef.current.points.map(p => ({ ...p })),
+                startScale: selectedTextRef.current.fontScale ?? 1,
+                bbox: bb,
+                subStrokeStartPoints: selectedTextRef.current.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
+              };
+              (e.target as Element).setPointerCapture(e.pointerId);
+              return;
+            }
+          }
           // Clicked elsewhere — check if a different stroke was hit
           let newSel: Stroke | null = null;
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
@@ -1145,6 +1169,21 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         strokesCacheRef.current = null;
         scheduleRedraw();
         return;
+      }
+
+      // Promote pending interior drag to actual drag when pointer crosses threshold
+      if (pendingInteriorDragRef.current && selectedTextRef.current) {
+        const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        const pending = pendingInteriorDragRef.current;
+        const threshold = 3 / viewRef.current.scale;
+        const dx = wp.x - pending.startPtr.x, dy = wp.y - pending.startPtr.y;
+        if (dx * dx + dy * dy >= threshold * threshold) {
+          selectDragRef.current = { mode: "move", ...pending };
+          pendingInteriorDragRef.current = null;
+          // Fall through to selectDragRef block below
+        } else {
+          return;
+        }
       }
 
       // Handle active select drag (text and shapes)
@@ -1729,6 +1768,28 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
         groupDragRef.current = null;
         setZCursor("default");
+        scheduleRedraw();
+        return;
+      }
+
+      // Pending interior drag resolved without movement — keep selection (or switch to overlapping stroke)
+      if (pendingInteriorDragRef.current && selectedTextRef.current) {
+        const pending = pendingInteriorDragRef.current;
+        pendingInteriorDragRef.current = null;
+        const { scale } = viewRef.current;
+        let newSel: Stroke | null = null;
+        for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+          const s = strokesRef.current[i];
+          if (s === selectedTextRef.current || s.locked) continue;
+          if (hitTestStroke(s, pending.startPtr.x, pending.startPtr.y, scale)) { newSel = s; break; }
+        }
+        if (newSel) {
+          selectedTextRef.current = newSel;
+          selectedGroupRef.current = [];
+          hoverTextRef.current = null;
+          dispatchTextStyleSync(newSel.bold ?? false, newSel.italic ?? false, newSel.textAlign ?? "left");
+          setZCursor("default");
+        }
         scheduleRedraw();
         return;
       }

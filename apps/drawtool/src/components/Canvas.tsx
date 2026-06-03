@@ -1211,7 +1211,7 @@ function Canvas({
     if (isWritingRef.current && touchTool !== "text") {
       finishWritingRef.current();
     }
-    if (prev === "select" && touchTool !== "select") {
+    if (isTouchDevice && prev === "select" && touchTool !== "select") {
       zKeyRef.current = false;
       selectedTextRef.current = null;
       selectedGroupRef.current = [];
@@ -1221,7 +1221,7 @@ function Canvas({
       strokesCacheRef.current = null; strokesBBoxRef.current = null;
       setZCursor(null);
       scheduleRedraw();
-    } else if (touchTool === "select") {
+    } else if (isTouchDevice && touchTool === "select") {
       zKeyRef.current = true;
       setZCursor("default");
       scheduleRedraw();
@@ -3986,7 +3986,7 @@ function Canvas({
           // V is held or something is selected so selection logic runs normally.
           const inSelectMode = isWritingRef.current ||
             zKeyRef.current ||
-            touchToolRef.current === "select" ||
+            (isTouchDevice && touchToolRef.current === "select") ||
             selectedTextRef.current !== null ||
             selectedGroupRef.current.length > 0;
           const clickWillPan = !inSelectMode && (

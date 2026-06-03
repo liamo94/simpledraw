@@ -175,7 +175,9 @@ export default function App() {
   const [touchTool, setTouchTool] = useState<TouchTool>(() => {
     const saved = localStorage.getItem("drawtool-touch-tool");
     const valid: TouchTool[] = ["draw", "dashed", "line", "erase", "hand", "shape", "highlight", "text", "select"];
-    return (valid.includes(saved as TouchTool) ? saved : "draw") as TouchTool;
+    const resolved = (valid.includes(saved as TouchTool) ? saved : "draw") as TouchTool;
+    const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
+    return (!isTouch && resolved === "select") ? "draw" : resolved;
   });
   const [hasTouch] = useState(
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
