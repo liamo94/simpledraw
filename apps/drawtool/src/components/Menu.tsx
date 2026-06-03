@@ -653,12 +653,15 @@ export default function Menu({
             className={`mt-2 p-4 rounded-xl border backdrop-blur-sm shadow-2xl w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
             style={{ background: getPanelBackground(settings.theme) }}
           >
-            <a href="/" className="mb-3 text-center select-none block" style={{ textDecoration: "none" }}>
+            <a href="/" className={`${isPro ? "mb-1" : "mb-3"} text-center select-none block`} style={{ textDecoration: "none" }}>
               <DrawzillaLogo fontSize={30} isDark={isDark} animate={logoAnimate} />
             </a>
             {isPro && (
-              <div className="text-center -mt-3 mb-3">
-                <span className="animate-unleashed text-[10px] font-black tracking-widest">UNLEASHED</span>
+              <div className="text-center mb-3" style={{ marginTop: -4 }}>
+                <span className="unleashed-text" style={isDark ? undefined : {
+                  color: "#1e8a0e",
+                  textShadow: "0 -4px 8px rgba(255,200,50,0.7), 0 -10px 18px rgba(255,160,20,0.4), 0 -22px 30px rgba(220,120,0,0.18)",
+                }}>UNLEASHED</span>
               </div>
             )}
             <div className="flex items-center justify-between">

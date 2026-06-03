@@ -1424,6 +1424,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         persistView();
       }
       if (sHintTimerRef.current) { clearTimeout(sHintTimerRef.current); sHintTimerRef.current = null; }
+      window.dispatchEvent(new CustomEvent("drawtool:select-held", { detail: { on: false } }));
       setErasing(false);
       setShapeActive(false);
       setHighlighting(false);
