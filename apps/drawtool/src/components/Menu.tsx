@@ -614,16 +614,17 @@ export default function Menu({
           >
             <span className="relative flex items-center justify-center w-full h-full">
               <span
-                className={`absolute inset-[15%] transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
               >
                 <img
-                  src="/drawzilla-simplifed.svg"
+                  src="/drawzilla-menu.png"
                   alt=""
                   style={{
                     display: "block",
                     width: "100%",
                     height: "100%",
                     objectFit: "contain",
+                    objectPosition: "bottom",
                   }}
                 />
               </span>
