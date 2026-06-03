@@ -384,14 +384,20 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       setSlot1BackedUp(false)
 
       // Restore slot 1 to whatever was there before cloud took it over.
+      // Only touch slot 1 if we actually backed it up (user was previously signed in).
+      // If the precloud key was never written, the user was never in cloud mode — leave slot 1 alone.
       const preStrokes = localStorage.getItem('drawtool-precloud-strokes-1')
       const preView = localStorage.getItem('drawtool-precloud-view-1')
-      if (preStrokes) localStorage.setItem('drawtool-strokes-1', preStrokes)
-      else localStorage.removeItem('drawtool-strokes-1')
-      if (preView) localStorage.setItem('drawtool-view-1', preView)
-      else localStorage.removeItem('drawtool-view-1')
-      localStorage.removeItem('drawtool-precloud-strokes-1')
-      localStorage.removeItem('drawtool-precloud-view-1')
+      if (preStrokes !== null) {
+        if (preStrokes) localStorage.setItem('drawtool-strokes-1', preStrokes)
+        else localStorage.removeItem('drawtool-strokes-1')
+        localStorage.removeItem('drawtool-precloud-strokes-1')
+      }
+      if (preView !== null) {
+        if (preView) localStorage.setItem('drawtool-view-1', preView)
+        else localStorage.removeItem('drawtool-view-1')
+        localStorage.removeItem('drawtool-precloud-view-1')
+      }
       localStorage.removeItem(DIRTY_KEY)
 
       resetSession()
