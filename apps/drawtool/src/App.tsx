@@ -67,6 +67,7 @@ import {
   Star,
   ArrowRight,
   Cloud,
+  Type,
   Undo2,
   Redo2,
   Trash2,
@@ -1066,7 +1067,9 @@ export default function App() {
     window.addEventListener("drawtool:toast", onToast);
     window.addEventListener("drawtool:cycle-theme", onCycleTheme);
     const onTextPlaced = () => {
-      if (hasTouch) setTouchTool("select");
+      // Defer so this fires after any concurrent setTouchTool from a toolbar click,
+      // ensuring the selection wins regardless of which triggered finishWriting first.
+      if (hasTouch) setTimeout(() => setTouchTool("select"), 0);
     };
     window.addEventListener("drawtool:text-placed", onTextPlaced);
     const onStorageQuota = (e: Event) => {
@@ -1748,6 +1751,11 @@ export default function App() {
               <line x1="2" y1="8" x2="14" y2="8" />
             </svg>
           ),
+        },
+        {
+          id: "text",
+          label: "Text",
+          icon: <Type size={17} strokeWidth={1.75} />,
         },
         {
           id: "erase",

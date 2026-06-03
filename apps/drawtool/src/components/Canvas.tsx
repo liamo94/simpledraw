@@ -1142,6 +1142,10 @@ function Canvas({
   useEffect(() => {
     const prev = prevTouchToolRef.current;
     prevTouchToolRef.current = touchTool;
+    // If the user switches tools while actively writing, commit the text first.
+    if (isWritingRef.current && touchTool !== "text") {
+      finishWritingRef.current();
+    }
     if (prev === "select" && touchTool !== "select") {
       zKeyRef.current = false;
       selectedTextRef.current = null;
@@ -3737,13 +3741,21 @@ function Canvas({
       scheduleRedraw();
     };
 
+    // iOS "Done" button dismisses the keyboard by blurring the textarea.
+    // Treat that as finishing the current text stroke.
+    const onBlur = () => {
+      if (isWritingRef.current) finishWritingRef.current();
+    };
+
     ta.addEventListener("input", onInput);
     ta.addEventListener("paste", onPaste);
+    ta.addEventListener("blur", onBlur);
     document.addEventListener("selectionchange", onSelChange);
     window.addEventListener("drawtool:writing", onWriting);
     return () => {
       ta.removeEventListener("input", onInput);
       ta.removeEventListener("paste", onPaste);
+      ta.removeEventListener("blur", onBlur);
       document.removeEventListener("selectionchange", onSelChange);
       window.removeEventListener("drawtool:writing", onWriting);
     };
@@ -3774,7 +3786,10 @@ function Canvas({
 
   return (
     <>
-      {/* Invisible input sink — focused during text mode to trigger mobile keyboard and capture IME/paste */}
+      {/* Invisible input sink — captures keyboard input and IME.
+          On touch devices in text mode: expands to a full-screen overlay so the user's tap
+          goes directly to this element — iOS only shows the keyboard when the touch target IS
+          the focused input. On desktop or non-text modes: 1×1px hidden. */}
       <textarea
         ref={textareaRef}
         tabIndex={-1}
@@ -3783,7 +3798,27 @@ function Canvas({
         autoCapitalize="off"
         spellCheck={false}
         enterKeyHint="enter"
-        style={{
+        onPointerDown={isTouchDevice && touchTool === "text" ? (e) => {
+          // Don't call preventDefault — let the browser auto-focus the textarea naturally.
+          // The touch target IS the textarea so iOS will open the keyboard without any focus() call.
+          handlePointerDownForText(e as unknown as Parameters<typeof handlePointerDownForText>[0]);
+        } : undefined}
+        style={isTouchDevice && touchTool === "text" ? {
+          position: "fixed",
+          inset: 0,
+          width: "100%",
+          height: "100%",
+          opacity: 0,
+          pointerEvents: "auto",
+          resize: "none",
+          border: "none",
+          padding: 0,
+          overflow: "hidden",
+          fontSize: 16, // prevents iOS auto-zoom on focus
+          background: "transparent",
+          color: "transparent",
+          zIndex: 10, // above canvas, below toolbar (z-40)
+        } : {
           position: "fixed",
           top: 0,
           left: 0,
