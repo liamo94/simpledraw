@@ -228,6 +228,7 @@ export default function ShortcutsPanel({ isDark, modal, isPro }: { isDark: boole
         <Row label={<><SelectIcon />Select / move / resize</>} kbd="V + hold" />
         <Row label={<><LockSelectIcon />Lock select mode</>} kbd="V V" />
         <Row label={<><BoxSelectIcon />Box select</>} kbd="V + drag" />
+        <Row label={<><BoxSelectIcon />Box select (must contain fully)</>} kbd="⇧ + V + drag" />
         <Row label={<><AddSelectIcon />Add / remove from selection</>} kbd="⇧ + V + click" />
         <Row label={<><CycleIcon />Cycle overlapping</>} kbd="Click again" />
         <Row label={<><SelectAllIcon />Select all</>} kbd={`${mod} + A`} />

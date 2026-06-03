@@ -230,6 +230,7 @@ function Canvas({
     subStrokeStartPoints?: { x: number; y: number }[][];
     startLineWidth?: number;
     startSubLineWidths?: number[];
+    startLineRotation?: number;
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: import("../canvas/types").Stroke; prevGroup?: import("../canvas/types").Stroke[]; prevSingle?: import("../canvas/types").Stroke | null } | null>(null);
   const selectedGroupRef = useRef<Stroke[]>([]);
@@ -689,24 +690,69 @@ function Canvas({
             ctx.rect(bb.x - pad, bb.y - pad, bb.w + pad * 2, bb.h + pad * 2);
             ctx.stroke();
           }
-          const hr = 4.5 / scale;
-          const dotPoints = noHandles ? [pts[0], pts[n - 1]] : handlePoints;
-          for (const hp of dotPoints) {
-            ctx.beginPath();
-            ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
-            ctx.fillStyle = "#ffffff"; ctx.fill();
-            ctx.strokeStyle = "#4895ef"; ctx.stroke();
+          if (!noHandles) {
+            const hr = 4.5 / scale;
+            for (const hp of handlePoints) {
+              ctx.beginPath();
+              ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
+              ctx.fillStyle = "#ffffff"; ctx.fill();
+              ctx.strokeStyle = "#4895ef"; ctx.stroke();
+            }
           }
           // Rotate handle above bbox (not shown in group mode)
           if (!noHandles) {
             const bb = anyStrokeBBox(stroke);
             const handleOffset = 28 / scale;
             const rotHr = 5 / scale;
-            const hx = bb.x + bb.w / 2, hy = bb.y - handleOffset;
-            ctx.beginPath(); ctx.moveTo(hx, bb.y); ctx.lineTo(hx, hy); ctx.stroke();
-            ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
-            ctx.fillStyle = "#ffffff"; ctx.fill();
-            ctx.strokeStyle = "#4895ef"; ctx.stroke();
+            if (n > 2) {
+              // Bent line: OBB. stroke.points and stroke.lineRotation are kept live during drag,
+              // so the same code path serves both dragging and at-rest correctly.
+              const pad = 6 / scale;
+              const lineRot = stroke.lineRotation ?? 0;
+              const cx = bb.x + bb.w / 2, cy = bb.y + bb.h / 2;
+              if (lineRot !== 0) {
+                const cosN = Math.cos(-lineRot), sinN = Math.sin(-lineRot);
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of stroke.points) {
+                  const dx = p.x - cx, dy = p.y - cy;
+                  const rx = cx + dx * cosN - dy * sinN;
+                  const ry = cy + dx * sinN + dy * cosN;
+                  minX = Math.min(minX, rx); maxX = Math.max(maxX, rx);
+                  minY = Math.min(minY, ry); maxY = Math.max(maxY, ry);
+                }
+                ctx.save();
+                ctx.translate(cx, cy); ctx.rotate(lineRot); ctx.translate(-cx, -cy);
+                ctx.lineWidth = lw; ctx.strokeStyle = "#4895ef";
+                ctx.setLineDash([6 / scale, 3 / scale]);
+                ctx.beginPath();
+                ctx.rect(minX - pad, minY - pad, (maxX - minX) + pad * 2, (maxY - minY) + pad * 2);
+                ctx.stroke(); ctx.setLineDash([]);
+                const hxL = (minX + maxX) / 2;
+                ctx.strokeStyle = "#4895ef"; ctx.lineWidth = lw;
+                ctx.beginPath(); ctx.moveTo(hxL, minY - pad); ctx.lineTo(hxL, minY - pad - handleOffset); ctx.stroke();
+                ctx.beginPath(); ctx.arc(hxL, minY - pad - handleOffset, rotHr, 0, Math.PI * 2);
+                ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.strokeStyle = "#4895ef"; ctx.stroke();
+                ctx.restore();
+              } else {
+                ctx.lineWidth = lw; ctx.strokeStyle = "#4895ef";
+                ctx.setLineDash([6 / scale, 3 / scale]);
+                ctx.beginPath();
+                ctx.rect(bb.x - pad, bb.y - pad, bb.w + pad * 2, bb.h + pad * 2);
+                ctx.stroke(); ctx.setLineDash([]);
+                const hx = bb.x + bb.w / 2, hy = bb.y - handleOffset;
+                ctx.strokeStyle = "#4895ef"; ctx.lineWidth = lw;
+                ctx.beginPath(); ctx.moveTo(hx, bb.y); ctx.lineTo(hx, hy); ctx.stroke();
+                ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
+                ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.strokeStyle = "#4895ef"; ctx.stroke();
+              }
+            } else {
+              const hx = bb.x + bb.w / 2, hy = bb.y - handleOffset;
+              ctx.strokeStyle = "#4895ef"; ctx.lineWidth = lw;
+              ctx.beginPath(); ctx.moveTo(hx, bb.y); ctx.lineTo(hx, hy); ctx.stroke();
+              ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
+              ctx.fillStyle = "#ffffff"; ctx.fill();
+              ctx.strokeStyle = "#4895ef"; ctx.stroke();
+            }
           }
         } else {
           // Hover: wide semi-transparent halo + faint handle outlines
@@ -805,7 +851,8 @@ function Canvas({
       drawOverlayStroke(hoverTextRef.current, false);
     }
     if (selectedTextRef.current) {
-      drawOverlayStroke(selectedTextRef.current, true);
+      const inGroup = selectedGroupRef.current.length > 0 && selectedGroupRef.current.includes(selectedTextRef.current);
+      drawOverlayStroke(selectedTextRef.current, true, inGroup);
     }
 
     // Draw box selection rectangle while dragging
@@ -1816,6 +1863,7 @@ function Canvas({
         strokesRef.current = [...action.before];
       } else if (action.type === "reshape") {
         action.stroke.points = action.from.map(p => ({ ...p }));
+        action.stroke.lineRotation = action.fromLineRotation || undefined;
       } else if (action.type === "rotate") {
         action.stroke.rotation = action.from || undefined;
       } else if (action.type === "flip") {
@@ -1948,6 +1996,7 @@ function Canvas({
         strokesRef.current = [...action.after];
       } else if (action.type === "reshape") {
         action.stroke.points = action.to.map(p => ({ ...p }));
+        action.stroke.lineRotation = action.toLineRotation || undefined;
       } else if (action.type === "rotate") {
         action.stroke.rotation = action.to || undefined;
       } else if (action.type === "flip") {

@@ -27,6 +27,7 @@ export type Stroke = {
   imageW?: number;
   imageH?: number;
   rotation?: number; // radians, clockwise
+  lineRotation?: number; // accumulated rotation for bent lines (n>2), for OBB display
   subStrokes?: Stroke[]; // compound stroke: renders each sub-stroke as one unit
   locked?: boolean;
 };
@@ -51,7 +52,7 @@ export type UndoAction =
   | { type: "group-transform"; strokes: Stroke[]; fromPoints: { x: number; y: number }[][]; toPoints: { x: number; y: number }[][]; fromSubPoints?: { x: number; y: number }[][][]; toSubPoints?: { x: number; y: number }[][][]; fromRotations: (number | undefined)[]; toRotations: (number | undefined)[]; fromFontScales: (number | undefined)[]; toFontScales: (number | undefined)[]; fromImageSizes: ({ w: number; h: number } | undefined)[]; toImageSizes: ({ w: number; h: number } | undefined)[] }
   | { type: "multi-draw"; strokes: Stroke[] }
   | { type: "reorder"; before: Stroke[]; after: Stroke[] }
-  | { type: "reshape"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[] }
+  | { type: "reshape"; stroke: Stroke; from: { x: number; y: number }[]; to: { x: number; y: number }[]; fromLineRotation?: number; toLineRotation?: number }
   | { type: "rotate"; stroke: Stroke; from: number; to: number }
   | { type: "flip"; strokes: Stroke[]; fromPoints: { x: number; y: number }[][]; toPoints: { x: number; y: number }[][]; fromRotations: (number | undefined)[]; toRotations: (number | undefined)[] }
   | { type: "combine"; combined: Stroke; originals: Stroke[]; insertIndex: number; originalIndices?: number[] }

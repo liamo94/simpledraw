@@ -7,6 +7,7 @@ import {
   screenToWorld, computeCaretPosFromClick,
   getBBoxMeasureCtx, buildFont, TEXT_SIZE_MAP, fontLineHeight,
 } from "../canvas/geometry";
+import { shapeToSegments } from "../canvas/rendering";
 import type { TouchTool } from "../canvas/types";
 
 // ─── Text selection helpers ────────────────────────────────────────────────────
@@ -72,7 +73,7 @@ function segmentIntersectsRect(
   return false;
 }
 
-/** Returns true if (wx, wy) hits the stroke. Arrow/line uses line-proximity; everything else uses bbox. */
+/** Returns true if (wx, wy) hits the stroke. Arrow/line uses line-proximity; unfilled shapes test outline; everything else uses bbox. */
 export function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: number): boolean {
   if (stroke.subStrokes) return stroke.subStrokes.some(s => hitTestStroke(s, wx, wy, scale));
   if (stroke.points.length === 0) return false;
@@ -88,6 +89,15 @@ export function hitTestStroke(stroke: Stroke, wx: number, wy: number, scale: num
   if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length >= 2) {
     const threshold = 8 / scale;
     const pts = stroke.points;
+    for (let i = 0; i < pts.length - 1; i++) {
+      if (distToSegment(wx, wy, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y) <= threshold) return true;
+    }
+    return false;
+  }
+  // Unfilled geometric shapes: test proximity to the outline only, not the interior
+  if (stroke.shape && stroke.points.length === 2 && !stroke.fill) {
+    const threshold = stroke.lineWidth / 2 + 6 / scale;
+    const pts = shapeToSegments(stroke);
     for (let i = 0; i < pts.length - 1; i++) {
       if (distToSegment(wx, wy, pts[i].x, pts[i].y, pts[i + 1].x, pts[i + 1].y) <= threshold) return true;
     }
@@ -138,6 +148,7 @@ export type TextSelectionRefs = {
     subStrokeStartPoints?: { x: number; y: number }[][];
     startLineWidth?: number;
     startSubLineWidths?: number[];
+    startLineRotation?: number;
   } | null>;
   hoverTextRef: MutableRefObject<Stroke | null>;
   groupDragRef: MutableRefObject<{
@@ -683,12 +694,36 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           }
           // Check rotate handle first (all types including arrows/lines)
           {
-            const rotPad = selShape === "arrow" || selShape === "line" ? 0 : 3 / scale;
+            const isArrowLine = selShape === "arrow" || selShape === "line";
+            const rotPad = isArrowLine ? 0 : 3 / scale;
             const handleOffset = 28 / scale;
             const rotHs = 7 / scale;
-            const handleX = bb.x + bb.w / 2;
-            const handleY = bb.y - rotPad - handleOffset;
-            const testPt = selShape === "arrow" || selShape === "line" ? wp : twp;
+            let handleX: number, handleY: number, testPt: { x: number; y: number };
+            const lineRot = isArrowLine ? (selectedTextRef.current.lineRotation ?? 0) : 0;
+            if (isArrowLine && selectedTextRef.current.points.length > 2 && lineRot !== 0) {
+              // Bent line with OBB: compute world-space handle position from rotated OBB top
+              const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+              const cosN = Math.cos(-lineRot), sinN = Math.sin(-lineRot);
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              for (const p of selectedTextRef.current.points) {
+                const dx = p.x - rcx, dy = p.y - rcy;
+                const rx = rcx + dx * cosN - dy * sinN, ry = rcy + dx * sinN + dy * cosN;
+                minX = Math.min(minX, rx); maxX = Math.max(maxX, rx);
+                minY = Math.min(minY, ry); maxY = Math.max(maxY, ry);
+              }
+              const lpad = 6 / scale;
+              // Local OBB handle position, then rotate back to world space
+              const lhx = (minX + maxX) / 2, lhy = minY - lpad - handleOffset;
+              const cos = Math.cos(lineRot), sin = Math.sin(lineRot);
+              const dx = lhx - rcx, dy = lhy - rcy;
+              handleX = rcx + dx * cos - dy * sin;
+              handleY = rcy + dx * sin + dy * cos;
+              testPt = wp;
+            } else {
+              handleX = bb.x + bb.w / 2;
+              handleY = bb.y - rotPad - handleOffset;
+              testPt = isArrowLine ? wp : twp;
+            }
             if (Math.hypot(testPt.x - handleX, testPt.y - handleY) <= rotHs) {
               selectDragRef.current = {
                 mode: "rotate",
@@ -697,6 +732,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 startScale: 1,
                 startRotation: strokeRotation,
                 bbox: bb,
+                startLineRotation: selectedTextRef.current.lineRotation ?? 0,
               };
               (e.target as Element).setPointerCapture(e.pointerId);
               return;
@@ -827,6 +863,43 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             };
             (e.target as Element).setPointerCapture(e.pointerId);
             return;
+          }
+          // Bent line (n > 2): clicking inside OBB/AABB starts a move drag
+          {
+            const bentStroke = selectedTextRef.current;
+            const bentShape = bentStroke.shape;
+            if ((bentShape === "arrow" || bentShape === "line") && bentStroke.points.length > 2 && !bentStroke.locked) {
+              const pts = bentStroke.points;
+              const lineRot = bentStroke.lineRotation ?? 0;
+              let insideBox = false;
+              if (lineRot !== 0) {
+                const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+                const cosN = Math.cos(-lineRot), sinN = Math.sin(-lineRot);
+                let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                for (const p of pts) {
+                  const dx = p.x - rcx, dy = p.y - rcy;
+                  const rx = rcx + dx * cosN - dy * sinN, ry = rcy + dx * sinN + dy * cosN;
+                  minX = Math.min(minX, rx); maxX = Math.max(maxX, rx);
+                  minY = Math.min(minY, ry); maxY = Math.max(maxY, ry);
+                }
+                const dx = wp.x - rcx, dy = wp.y - rcy;
+                const lx = rcx + dx * cosN - dy * sinN, ly = rcy + dx * sinN + dy * cosN;
+                insideBox = lx >= minX && lx <= maxX && ly >= minY && ly <= maxY;
+              } else {
+                insideBox = wp.x >= bb.x && wp.x <= bb.x + bb.w && wp.y >= bb.y && wp.y <= bb.y + bb.h;
+              }
+              if (insideBox) {
+                selectDragRef.current = {
+                  mode: "move",
+                  startPtr: { ...wp },
+                  startPoints: pts.map(p => ({ ...p })),
+                  startScale: 1,
+                  bbox: bb,
+                };
+                (e.target as Element).setPointerCapture(e.pointerId);
+                return;
+              }
+            }
           }
           // Clicked elsewhere — check if a different stroke was hit
           let newSel: Stroke | null = null;
@@ -1096,6 +1169,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 y: cy + (sp.x - cx) * sin + (sp.y - cy) * cos,
               };
             }
+            // Track cumulative rotation for OBB display on bent lines
+            if (stroke.points.length > 2) {
+              stroke.lineRotation = (drag.startLineRotation ?? 0) + dAngle;
+            }
           } else {
             let newRotation = (drag.startRotation ?? 0) + dAngle;
             stroke.rotation = newRotation || undefined;
@@ -1290,11 +1367,30 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           {
             const handleOffset = 28 / scale;
             const isArrowLine = selStroke.shape === "arrow" || selStroke.shape === "line";
-            const handleX = bb.x + bb.w / 2;
-            // Arrows/lines: handle at bb.y - handleOffset (no pad, handle drawn at raw bbox edge)
-            // Other types: handle at bb.y - pad - handleOffset (pad accounts for selection rect inset)
-            const handleY = isArrowLine ? bb.y - handleOffset : bb.y - pad - handleOffset;
-            const testPt = isArrowLine ? wp : cwp;
+            let handleX: number, handleY: number, testPt: { x: number; y: number };
+            const lineRot = isArrowLine ? (selStroke.lineRotation ?? 0) : 0;
+            if (isArrowLine && selStroke.points.length > 2 && lineRot !== 0) {
+              const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+              const cosN = Math.cos(-lineRot), sinN = Math.sin(-lineRot);
+              let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+              for (const p of selStroke.points) {
+                const dx = p.x - rcx, dy = p.y - rcy;
+                const rx = rcx + dx * cosN - dy * sinN, ry = rcy + dx * sinN + dy * cosN;
+                minX = Math.min(minX, rx); maxX = Math.max(maxX, rx);
+                minY = Math.min(minY, ry); maxY = Math.max(maxY, ry);
+              }
+              const lpad = 6 / scale;
+              const lhx = (minX + maxX) / 2, lhy = minY - lpad - handleOffset;
+              const cos = Math.cos(lineRot), sin = Math.sin(lineRot);
+              const dx = lhx - rcx, dy = lhy - rcy;
+              handleX = rcx + dx * cos - dy * sin;
+              handleY = rcy + dx * sin + dy * cos;
+              testPt = wp;
+            } else {
+              handleX = bb.x + bb.w / 2;
+              handleY = isArrowLine ? bb.y - handleOffset : bb.y - pad - handleOffset;
+              testPt = isArrowLine ? wp : cwp;
+            }
             if (Math.hypot(testPt.x - handleX, testPt.y - handleY) <= hs) {
               cur = "grab";
             }
@@ -1325,6 +1421,28 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               }
               if (cur === "default" && hitTestStroke(selStroke, wp.x, wp.y, scale)) {
                 cur = "move"; // shaft: drag to move, click without drag adds a bend
+              }
+              // Bent lines (n > 2): inside OBB/AABB → move cursor
+              if (cur === "default" && n > 2) {
+                const lineRot = selStroke.lineRotation ?? 0;
+                let insideBbox = false;
+                if (lineRot !== 0) {
+                  const rcx = bb.x + bb.w / 2, rcy = bb.y + bb.h / 2;
+                  const cosN = Math.cos(-lineRot), sinN = Math.sin(-lineRot);
+                  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+                  for (const p of pts) {
+                    const dx = p.x - rcx, dy = p.y - rcy;
+                    const rx = rcx + dx * cosN - dy * sinN, ry = rcy + dx * sinN + dy * cosN;
+                    minX = Math.min(minX, rx); maxX = Math.max(maxX, rx);
+                    minY = Math.min(minY, ry); maxY = Math.max(maxY, ry);
+                  }
+                  const dx = wp.x - rcx, dy = wp.y - rcy;
+                  const lx = rcx + dx * cosN - dy * sinN, ly = rcy + dx * sinN + dy * cosN;
+                  insideBbox = lx >= minX && lx <= maxX && ly >= minY && ly <= maxY;
+                } else {
+                  insideBbox = wp.x >= bb.x && wp.x <= bb.x + bb.w && wp.y >= bb.y && wp.y <= bb.y + bb.h;
+                }
+                if (insideBbox) cur = "move";
               }
             } else {
               const cornerCenters = [
@@ -1493,7 +1611,17 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                 bb.y >= selY + selH || bb.y + bb.h <= selY) return false;
             // Text, images, combined groups, and area shapes: AABB intersection is correct
             if (stroke.text || stroke.imageId || stroke.subStrokes) return true;
-            if (stroke.shape && stroke.shape !== "line" && stroke.shape !== "arrow") return true;
+            if (stroke.shape && stroke.shape !== "line" && stroke.shape !== "arrow") {
+              if (stroke.fill) return true;
+              // Unfilled shapes: selection box must intersect the outline, not just the interior
+              const selX2 = selX + selW, selY2 = selY + selH;
+              const pts = shapeToSegments(stroke);
+              if (pts.some(p => p.x >= selX && p.x <= selX2 && p.y >= selY && p.y <= selY2)) return true;
+              for (let i = 0; i < pts.length - 1; i++) {
+                if (segmentIntersectsRect(pts[i], pts[i + 1], selX, selY, selX2, selY2)) return true;
+              }
+              return false;
+            }
             // Line/arrow shapes and freehand strokes: test actual geometry
             // so a wide-spanning stroke's AABB doesn't capture unrelated nearby shapes.
             const selX2 = selX + selW, selY2 = selY + selH;
@@ -1613,7 +1741,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             // Arrow/line: rotation encoded in points — use reshape undo
             const anyMoved = drag.startPoints.some((p, i) => p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
             if (anyMoved) {
-              undoStackRef.current.push({ type: "reshape", stroke, from: drag.startPoints.map(p => ({ ...p })), to: stroke.points.map(p => ({ ...p })) });
+              undoStackRef.current.push({ type: "reshape", stroke, from: drag.startPoints.map(p => ({ ...p })), to: stroke.points.map(p => ({ ...p })), fromLineRotation: drag.startLineRotation, toLineRotation: stroke.lineRotation });
               redoStackRef.current = [];
               persistStrokes();
             }
@@ -1709,6 +1837,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           stroke.points.length === 2
         ) {
           // 2-point arrow midpoint handle single-click (no drag) — insert bend at midpoint
+          stroke.lineRotation = undefined;
           const from = drag.startPoints.map(p => ({ ...p }));
           const p0 = drag.startPoints[0], p1 = drag.startPoints[1];
           stroke.points.splice(1, 0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 });
@@ -1719,6 +1848,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           persistStrokes();
         } else if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length > drag.startPoints.length) {
           // Midpoint handle drag inserted a bend — commit as reshape
+          stroke.lineRotation = undefined;
           undoStackRef.current.push({
             type: "reshape",
             stroke,
