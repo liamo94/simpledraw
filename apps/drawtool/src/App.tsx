@@ -43,7 +43,16 @@ import {
 } from "./canvas/storage";
 import type { StashItem, Stroke } from "./canvas/types";
 import StashPanel from "./components/StashPanel";
-import SelectControls from "./components/SelectControls";
+import SelectControls, {
+  COMMON_ACTIONS,
+  DRAWING_ACTIONS,
+  TEXT_ACTIONS,
+  DANGER_ACTION,
+  COMBINE_ACTION,
+  UNCOMBINE_ACTION,
+  kd as selectKd,
+  type Action as SelectAction,
+} from "./components/SelectControls";
 import MigrationModal from "./components/MigrationModal";
 import WorkspaceSwitcherModal from "./components/WorkspaceSwitcherModal";
 import { useMigration } from "./hooks/useMigration";
@@ -3160,85 +3169,115 @@ export default function App() {
             )}
             {showSelectPicker && (
               <div
-                className={`absolute p-1.5 rounded-lg border backdrop-blur-sm flex gap-1 ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
+                className={`absolute rounded-xl border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                 style={{
-                  background: isDark
-                    ? "rgba(0,0,0,0.85)"
-                    : "rgba(255,255,255,0.85)",
-                  borderColor: isDark
-                    ? "rgba(255,255,255,0.15)"
-                    : "rgba(0,0,0,0.15)",
+                  background: isDark ? "rgba(0,0,0,0.88)" : "rgba(255,255,255,0.88)",
+                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
                   left: "50%",
                   transform: "translateX(-50%)",
+                  maxWidth: "calc(100vw - 2rem)",
+                  maxHeight: "65dvh",
+                  overflow: "hidden auto",
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                <button
-                  aria-label="Select All"
-                  onClick={() => {
-                    window.dispatchEvent(
-                      new KeyboardEvent("keydown", {
-                        key: "a",
-                        metaKey: true,
-                        bubbles: true,
-                      }),
-                    );
-                    setShowSelectPicker(false);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
-                >
-                  <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect
-                      x="1.5"
-                      y="1.5"
-                      width="13"
-                      height="13"
-                      rx="1"
-                      strokeDasharray="2.5 1.5"
-                    />
-                    <path d="M4 8h8M8 4v8" />
-                  </svg>
-                  All
-                </button>
-                <button
-                  aria-label="Paste"
-                  onClick={() => {
-                    window.dispatchEvent(new Event("drawtool:paste"));
-                    setShowSelectPicker(false);
-                  }}
-                  className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
-                >
-                  <svg
-                    width="17"
-                    height="17"
-                    viewBox="0 0 16 16"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.4"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <rect x="1.5" y="4" width="8" height="10.5" rx="1" />
-                    <path
-                      d="M5.5 4V2.5A1 1 0 016.5 1.5h6A1 1 0 0113.5 2.5v9a1 1 0 01-1 1H10"
-                      strokeOpacity="0.45"
-                    />
-                    <path
-                      d="M3.5 7.5h4M3.5 9.5h5M3.5 11.5h3"
-                      strokeOpacity="0.55"
-                    />
-                  </svg>
-                  Paste
-                </button>
+                {hasSelection ? (() => {
+                  const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
+                  const layerActions = COMMON_ACTIONS.filter(a => a.group === "layer");
+                  const editActions = COMMON_ACTIONS.filter(a => a.group === "edit");
+                  const viewActions = COMMON_ACTIONS.filter(a => a.group === "view");
+                  const contextActions = selectionIsText ? TEXT_ACTIONS : DRAWING_ACTIONS;
+                  const lockA: SelectAction = {
+                    label: selectionIsLocked ? "Unlock" : "Lock",
+                    group: "lock",
+                    icon: selectionIsLocked ? (
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="4" y="9" width="12" height="9" rx="1.5" />
+                        <path d="M7 9V6.5a3 3 0 016 0" />
+                      </svg>
+                    ) : (
+                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="4" y="9" width="12" height="9" rx="1.5" />
+                        <path d="M7 9V6.5a3 3 0 016 0V9" />
+                      </svg>
+                    ),
+                    action: () => selectKd({ key: "k" }),
+                  };
+                  const tailActions: SelectAction[] = [
+                    DANGER_ACTION,
+                    ...(selectionCount > 1 ? [COMBINE_ACTION] : []),
+                    ...(selectionIsCombined ? [UNCOMBINE_ACTION] : []),
+                  ];
+
+                  const renderBtn = (a: SelectAction) => (
+                    <button
+                      key={a.label}
+                      aria-label={a.label}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        a.action();
+                        setShowSelectPicker(false);
+                      }}
+                      className={`flex flex-col items-center justify-center gap-0.5 w-12 h-12 rounded-lg transition-colors ${
+                        a.group === "danger"
+                          ? (isDark ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-500/10")
+                          : a.group === "lock" && selectionIsLocked
+                            ? (isDark ? "text-[#78b8ff] hover:bg-white/10" : "text-[#2d64c8] hover:bg-black/5")
+                            : (isDark ? "text-white/65 hover:bg-white/10" : "text-black/55 hover:bg-black/5")
+                      }`}
+                    >
+                      {a.icon}
+                      <span className="text-[9px] leading-none opacity-60">{a.label}</span>
+                    </button>
+                  );
+
+                  const Divider = () => (
+                    <div className="col-span-4" style={{ height: 1, background: border, margin: "2px 6px" }} />
+                  );
+
+                  return (
+                    <div className="p-2 grid grid-cols-4 gap-0.5">
+                      {[...viewActions, ...layerActions].map(renderBtn)}
+                      <Divider />
+                      {editActions.map(renderBtn)}
+                      <Divider />
+                      {[...contextActions, lockA, ...tailActions].map(renderBtn)}
+                    </div>
+                  );
+                })() : (
+                  <div className="p-1.5 flex gap-1">
+                    <button
+                      aria-label="Select All"
+                      onClick={() => {
+                        window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", metaKey: true, bubbles: true }));
+                        setShowSelectPicker(false);
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                    >
+                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1.5" y="1.5" width="13" height="13" rx="1" strokeDasharray="2.5 1.5" />
+                        <path d="M4 8h8M8 4v8" />
+                      </svg>
+                      All
+                    </button>
+                    <button
+                      aria-label="Paste"
+                      onClick={() => {
+                        window.dispatchEvent(new Event("drawtool:paste"));
+                        setShowSelectPicker(false);
+                      }}
+                      className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
+                    >
+                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="1.5" y="4" width="8" height="10.5" rx="1" />
+                        <path d="M5.5 4V2.5A1 1 0 016.5 1.5h6A1 1 0 0113.5 2.5v9a1 1 0 01-1 1H10" strokeOpacity="0.45" />
+                        <path d="M3.5 7.5h4M3.5 9.5h5M3.5 11.5h3" strokeOpacity="0.55" />
+                      </svg>
+                      Paste
+                    </button>
+                  </div>
+                )}
               </div>
             )}
             {showTextPicker && (

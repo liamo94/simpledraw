@@ -4,12 +4,12 @@ import type React from "react";
 import { getPanelBackground } from "../canvas/rendering";
 import type { Theme } from "../hooks/useSettings";
 
-type Action = { label: string; group: string; icon: React.ReactNode; action: () => void };
+export type Action = { label: string; group: string; icon: React.ReactNode; action: () => void };
 
-const kd = (init: KeyboardEventInit) =>
+export const kd = (init: KeyboardEventInit) =>
   window.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, ...init }));
 
-const COMMON_ACTIONS: Action[] = [
+export const COMMON_ACTIONS: Action[] = [
   {
     label: "Zoom to selection",
     group: "view",
@@ -95,7 +95,7 @@ const COMMON_ACTIONS: Action[] = [
   },
 ];
 
-const DRAWING_ACTIONS: Action[] = [
+export const DRAWING_ACTIONS: Action[] = [
   {
     label: "Flip horizontal",
     group: "transform",
@@ -122,7 +122,7 @@ const DRAWING_ACTIONS: Action[] = [
   },
 ];
 
-const TEXT_ACTIONS: Action[] = [
+export const TEXT_ACTIONS: Action[] = [
   {
     label: "Bold",
     group: "format",
@@ -206,7 +206,7 @@ const TEXT_ACTIONS: Action[] = [
   },
 ];
 
-const DANGER_ACTION: Action = {
+export const DANGER_ACTION: Action = {
   label: "Delete",
   group: "danger",
   icon: (
@@ -220,14 +220,14 @@ const DANGER_ACTION: Action = {
   action: () => kd({ key: "Backspace" }),
 };
 
-const COMBINE_ACTION: Action = {
+export const COMBINE_ACTION: Action = {
   label: "Combine",
   group: "combine",
   icon: <Combine size={20} strokeWidth={1.75} />,
   action: () => kd({ key: "j", metaKey: true }),
 };
 
-const UNCOMBINE_ACTION: Action = {
+export const UNCOMBINE_ACTION: Action = {
   label: "Uncombine",
   group: "combine",
   icon: <Ungroup size={20} strokeWidth={1.75} />,
