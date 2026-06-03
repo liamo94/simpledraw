@@ -172,10 +172,17 @@ export default function App() {
     } catch {}
     return 1;
   });
-  const [touchTool, setTouchTool] = useState<TouchTool>("draw");
+  const [touchTool, setTouchTool] = useState<TouchTool>(() => {
+    const saved = localStorage.getItem("drawtool-touch-tool");
+    const valid: TouchTool[] = ["draw", "dashed", "line", "erase", "hand", "shape", "highlight", "text", "select"];
+    return (valid.includes(saved as TouchTool) ? saved : "draw") as TouchTool;
+  });
   const [hasTouch] = useState(
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
   );
+  useEffect(() => {
+    localStorage.setItem("drawtool-touch-tool", touchTool);
+  }, [touchTool]);
   const [showOnboarding, setShowOnboarding] = useState(false);
   const showHoldHint = true;
   const [activeCanvas, setActiveCanvas] = useState(() => {

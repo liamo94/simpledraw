@@ -1,5 +1,5 @@
 import React from "react";
-import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame, Upload, Download, Presentation, LayoutDashboard, Square, SquareDashed, Circle } from "lucide-react";
+import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame, Upload, Presentation, LayoutDashboard, Square, SquareDashed, Circle } from "lucide-react";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl";
