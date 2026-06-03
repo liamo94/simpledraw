@@ -176,6 +176,7 @@ function Canvas({
   const pointerButtonDownRef = useRef(false);
   const penActiveRef = useRef(false); // true while Apple Pencil (or any "pen" pointer) is touching the screen
   const ghostTouchIdsRef = useRef(new Set<number>()); // touch pointerIds rejected due to pen being active
+  const penHoverScreenRef = useRef<{ x: number; y: number } | null>(null); // Apple Pencil hover position (pressure=0, not touching)
   const shiftHeldRef = useRef(false); // own shift tracking — e.shiftKey can get stuck on Mac
   const rightClickHeldRef = useRef(false);
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
@@ -951,6 +952,27 @@ function Canvas({
     lockedIconPositionsRef.current = lockIconPositions;
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    // Apple Pencil hover preview (iPadOS 16+: pressure=0 pointermove before touching)
+    const penHover = penHoverScreenRef.current;
+    if (penHover && !isDrawingRef.current) {
+      const px = penHover.x * dpr;
+      const py = penHover.y * dpr;
+      const r = Math.max(4 * dpr, lineWidthRef.current * scale * dpr * 0.5);
+      ctx.setLineDash([]);
+      ctx.lineWidth = 1.5 * dpr;
+      ctx.strokeStyle = lineColorRef.current;
+      ctx.globalAlpha = 0.5;
+      ctx.beginPath();
+      ctx.arc(px, py, r, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(px, py, 1.5 * dpr, 0, Math.PI * 2);
+      ctx.fillStyle = lineColorRef.current;
+      ctx.globalAlpha = 0.85;
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
   }, []);
 
   // --- Grid cache ---
@@ -2593,9 +2615,16 @@ function Canvas({
         return;
       }
 
-      const file = Array.from(e.dataTransfer.files).find((f) =>
+      let file: File | undefined = Array.from(e.dataTransfer.files).find((f) =>
         f.type.startsWith("image/"),
       );
+      // iPadOS drag from Photos/Files populates items but not always files
+      if (!file) {
+        const item = Array.from(e.dataTransfer.items ?? []).find(
+          (i) => i.kind === "file" && i.type.startsWith("image/"),
+        );
+        file = item?.getAsFile() ?? undefined;
+      }
       if (!file) return;
       const canvas = canvasRef.current;
       if (!canvas) return;
@@ -2642,7 +2671,10 @@ function Canvas({
 
   const onPointerDown = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
-      if (e.pointerType === "pen") penActiveRef.current = true;
+      if (e.pointerType === "pen") {
+        penActiveRef.current = true;
+        penHoverScreenRef.current = null;
+      }
       if (e.pointerType === "touch") {
         if (penActiveRef.current) {
           ghostTouchIdsRef.current.add(e.pointerId); // track so it stays ignored after pen lifts
@@ -2937,6 +2969,15 @@ function Canvas({
 
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
+      // Apple Pencil hover (pressure=0 = pen near screen but not touching)
+      if (e.pointerType === "pen" && e.pressure === 0 && !isDrawingRef.current) {
+        penHoverScreenRef.current = { x: e.clientX, y: e.clientY };
+        scheduleRedraw();
+        return;
+      }
+      if (e.pointerType === "pen" && penHoverScreenRef.current) {
+        penHoverScreenRef.current = null;
+      }
       // --- Multi-touch pan/zoom ---
       if (e.pointerType === "touch") {
         if (penActiveRef.current || ghostTouchIdsRef.current.has(e.pointerId)) return; // palm rejection
@@ -3498,6 +3539,7 @@ function Canvas({
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.pointerType === "pen") {
         penActiveRef.current = false;
+        penHoverScreenRef.current = null;
         if (isDrawingRef.current) cancelCurrentStroke();
         return;
       }
@@ -3524,7 +3566,13 @@ function Canvas({
   const onPointerLeave = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       if (e.pointerType === "touch") return; // handled by pointerUp with capture
-      if (e.pointerType === "pen") penActiveRef.current = false;
+      if (e.pointerType === "pen") {
+        penActiveRef.current = false;
+        if (penHoverScreenRef.current) {
+          penHoverScreenRef.current = null;
+          scheduleRedraw();
+        }
+      }
       if (isPanningRef.current) {
         isPanningRef.current = false;
         setPanning(false);
@@ -3928,7 +3976,7 @@ function Canvas({
           onPointerLeave(e);
         }}
         onContextMenu={(e) => e.preventDefault()}
-        onDragOver={(e) => e.preventDefault()}
+        onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "copy"; }}
         onDrop={handleImageDrop}
       />
     </>

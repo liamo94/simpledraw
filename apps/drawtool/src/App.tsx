@@ -415,16 +415,29 @@ export default function App() {
       canvasNameRef.current,
       activeCanvasRef.current,
     );
-    if (isProRef.current) {
-      canvas.toBlob((blob) => {
-        if (!blob) return;
+    const savePng = (blob: Blob) => {
+      const file = new File([blob], `${filename}.png`, { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        navigator.share({ files: [file] }).catch(() => {
+          // User dismissed or share failed — fall back to download link
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = file.name;
+          a.click();
+          URL.revokeObjectURL(url);
+        });
+      } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = `${filename}.png`;
+        a.download = file.name;
         a.click();
         URL.revokeObjectURL(url);
-      });
+      }
+    };
+    if (isProRef.current) {
+      canvas.toBlob((blob) => { if (blob) savePng(blob); });
       return;
     }
     const offscreen = document.createElement("canvas");
@@ -439,15 +452,7 @@ export default function App() {
       offscreen.height,
       window.devicePixelRatio || 1,
     );
-    offscreen.toBlob((blob) => {
-      if (!blob) return;
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = `${filename}.png`;
-      a.click();
-      URL.revokeObjectURL(url);
-    });
+    offscreen.toBlob((blob) => { if (blob) savePng(blob); });
   }, []);
 
   const importFileRef = useRef<HTMLInputElement>(null);
