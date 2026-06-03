@@ -136,6 +136,9 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   const cachedTokenRef = useRef<string | null>(null)
   const broadcastRef = useRef<BroadcastChannel | null>(null)
   const newRouteHandledRef = useRef(false)
+  // Captured at mount: was there already a saved canvas on this device?
+  // Cloud prefs (preferredCanvasId) should only apply on fresh devices with no prior history.
+  const hadLocalCanvasRef = useRef(!!localStorage.getItem('drawtool-cloud-active-canvas'))
   const [newRouteAllOccupied, setNewRouteAllOccupied] = useState(false)
   // True from page load until the /new destination canvas has been chosen.
   // While pending, the canvas data effect must not write to slot 1 or bump loadKey,
@@ -251,8 +254,12 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   // Cross-device restore: if cloud prefs carry a preferredCanvasId from another device,
   // switch to it once workspaces have loaded and only once per sign-in session.
+  // Only applies on a fresh device with no prior canvas history — a returning device
+  // (one that already had drawtool-cloud-active-canvas in localStorage) keeps its own
+  // last-used canvas and is not overridden by another device's preference.
   useEffect(() => {
     if (!preferredCanvasId || useCloudSessionStore.getState().cloudPrefApplied) return
+    if (hadLocalCanvasRef.current) { setCloudPrefApplied(true); return }
     const workspaces = workspacesQuery.data
     if (!workspaces?.length) return
     const ws = workspaces.find(w => w.canvases.some(c => c.id === preferredCanvasId)) ?? workspaces[0]
@@ -296,6 +303,10 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     // Skip overwriting it and re-send the local state to the server instead.
     const dirtyId = localStorage.getItem(DIRTY_KEY)
     if (dirtyId === activeId) {
+      // Only remount Canvas (bumpLoadKey) on a fresh page load — Canvas needs to read slot 1
+      // for the first time. On BFCache restores (getUpdatedAt has a value), Canvas is already
+      // rendering the correct local content, so remounting would disrupt any in-progress drawing.
+      const wasInitialLoad = !getUpdatedAt(activeId)
       localStorage.removeItem(DIRTY_KEY)
       markUpdatedAt(activeId, updated_at)
       ;(async () => {
@@ -305,7 +316,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
         api.put<{ ok: true }>(`/canvases/${activeId}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }).catch(() => {})
       })()
       setCachedCanvasName(name)
-      bumpLoadKey()
+      if (wasInitialLoad) bumpLoadKey()
       return
     }
 

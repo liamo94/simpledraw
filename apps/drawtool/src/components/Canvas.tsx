@@ -113,6 +113,7 @@ function Canvas({
   const eraseTrailRef = useRef<{ x: number; y: number }[]>([]);
   const eraseMovingRef = useRef(false);
   const isDrawingRef = useRef(false);
+  const pendingSyncRef = useRef<{ slot: number; strokes: Stroke[] } | null>(null);
   const activeModifierRef = useRef<
     "meta" | "shift" | "alt" | "line" | "shape" | "highlight" | "laser" | "spray" | null
   >(null);
@@ -1123,6 +1124,8 @@ function Canvas({
     const handler = (e: Event) => {
       const { slot, strokes } = (e as CustomEvent<{ slot: number; strokes: Stroke[] }>).detail
       if (slot !== canvasIndex) return
+      // Defer if a stroke is in progress — apply after pointer-up to avoid mid-stroke disruption
+      if (isDrawingRef.current) { pendingSyncRef.current = { slot, strokes }; return }
       strokesRef.current = strokes
       strokesCacheRef.current = null
       strokesBBoxRef.current = null
@@ -3002,6 +3005,17 @@ function Canvas({
         activeModifierRef.current = null;
         strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
+        // Apply any sync that was deferred to avoid disrupting the in-progress stroke
+        const deferred = pendingSyncRef.current;
+        pendingSyncRef.current = null;
+        if (deferred) {
+          strokesRef.current = deferred.strokes;
+          strokesCacheRef.current = null; strokesBBoxRef.current = null;
+          selectedTextRef.current = null;
+          selectedGroupRef.current = [];
+          undoStackRef.current = [];
+          redoStackRef.current = [];
+        }
         if (_wasLaser) {
           setLasering(false);
           window.dispatchEvent(new Event("drawtool:laser-used"));
