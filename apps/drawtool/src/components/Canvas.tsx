@@ -746,13 +746,6 @@ function Canvas({
                 ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
                 ctx.fillStyle = "#ffffff"; ctx.fill(); ctx.strokeStyle = "#4895ef"; ctx.stroke();
               }
-            } else {
-              const hx = bb.x + bb.w / 2, hy = bb.y - handleOffset;
-              ctx.strokeStyle = "#4895ef"; ctx.lineWidth = lw;
-              ctx.beginPath(); ctx.moveTo(hx, bb.y); ctx.lineTo(hx, hy); ctx.stroke();
-              ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
-              ctx.fillStyle = "#ffffff"; ctx.fill();
-              ctx.strokeStyle = "#4895ef"; ctx.stroke();
             }
           }
         } else {

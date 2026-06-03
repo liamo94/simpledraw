@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { Upload, Download } from "lucide-react";
 import type { StashItem } from "../canvas/types";
 import { renderStrokesToCtx, anyStrokeBBox, getPanelBackground } from "../canvas/canvasUtils";
 import type { Theme } from "../hooks/useSettings";
@@ -220,8 +221,8 @@ export default function StashPanel({
               }}
             >
               {[
-                { label: "Export stash", icon: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 1v8M4 6l3 3 3-3M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10"/></svg>, action: handleExport },
-                { label: "Import stash", icon: <svg width="12" height="12" viewBox="0 0 14 14" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round"><path d="M7 9V1M4 4l3-3 3 3M1 10v1.5A1.5 1.5 0 0 0 2.5 13h9A1.5 1.5 0 0 0 13 11.5V10"/></svg>, action: () => importRef.current?.click() },
+                { label: "Export stash", icon: <Upload size={12} strokeWidth={1.6} />, action: handleExport },
+                { label: "Import stash", icon: <Download size={12} strokeWidth={1.6} />, action: () => importRef.current?.click() },
               ].map(({ label, icon, action }) => (
                 <button
                   key={label}

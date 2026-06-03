@@ -692,9 +692,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             const dx = wp.x - rcx, dy = wp.y - rcy;
             twp = { x: rcx + dx * cos - dy * sin, y: rcy + dx * sin + dy * cos };
           }
-          // Check rotate handle first (all types including arrows/lines)
+          // Check rotate handle (not shown for straight 2-point lines/arrows)
           {
             const isArrowLine = selShape === "arrow" || selShape === "line";
+            const isStraightLine = isArrowLine && selectedTextRef.current.points.length === 2;
             const rotPad = isArrowLine ? 0 : 3 / scale;
             const handleOffset = 28 / scale;
             const rotHs = 7 / scale;
@@ -724,7 +725,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               handleY = bb.y - rotPad - handleOffset;
               testPt = isArrowLine ? wp : twp;
             }
-            if (Math.hypot(testPt.x - handleX, testPt.y - handleY) <= rotHs) {
+            if (!isStraightLine && Math.hypot(testPt.x - handleX, testPt.y - handleY) <= rotHs) {
               selectDragRef.current = {
                 mode: "rotate",
                 startPtr: { ...wp },
@@ -1363,10 +1364,11 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             cwp = { x: rcx + dx * cos - dy * sin, y: rcy + dx * sin + dy * cos };
           }
           let cur = "default";
-          // Check rotate handle (all types including arrows/lines)
+          // Check rotate handle (not shown for straight 2-point lines/arrows)
           {
             const handleOffset = 28 / scale;
             const isArrowLine = selStroke.shape === "arrow" || selStroke.shape === "line";
+            const isStraightLine = isArrowLine && selStroke.points.length === 2;
             let handleX: number, handleY: number, testPt: { x: number; y: number };
             const lineRot = isArrowLine ? (selStroke.lineRotation ?? 0) : 0;
             if (isArrowLine && selStroke.points.length > 2 && lineRot !== 0) {
@@ -1391,7 +1393,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               handleY = isArrowLine ? bb.y - handleOffset : bb.y - pad - handleOffset;
               testPt = isArrowLine ? wp : cwp;
             }
-            if (Math.hypot(testPt.x - handleX, testPt.y - handleY) <= hs) {
+            if (!isStraightLine && Math.hypot(testPt.x - handleX, testPt.y - handleY) <= hs) {
               cur = "grab";
             }
           }

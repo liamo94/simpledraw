@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react'
 import './index.css'
 import App from './App'
 import ShareViewer from './components/ShareViewer'
+import DrawzillaLogo from './components/DrawzillaLogo'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
   state = { error: null }
@@ -15,8 +16,21 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
   render() {
     if (this.state.error) {
       return (
-        <div style={{ padding: 32, fontFamily: 'system-ui, sans-serif', color: '#666' }}>
-          <p>Something went wrong. <a href="/" style={{ color: '#0077cc' }}>Reload</a></p>
+        <div style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          minHeight: '100dvh', fontFamily: 'system-ui, sans-serif', background: '#0f0f0f', color: '#fff', gap: 0,
+          padding: 32, textAlign: 'center',
+        }}>
+          <img src="/drawzillaicon.svg" width={56} height={56} style={{ marginBottom: 20, opacity: 0.9 }} alt="drawzilla" />
+          <div style={{ marginBottom: 8, userSelect: 'none' }}>
+            <DrawzillaLogo fontSize={28} isDark={true} />
+          </div>
+          <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.4)', marginBottom: 28 }}>Something went wrong.</div>
+          <a href="/" style={{
+            display: 'inline-block', padding: '8px 20px', borderRadius: 8,
+            background: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.7)',
+            textDecoration: 'none', fontSize: 13, border: '1px solid rgba(255,255,255,0.1)',
+          }}>Reload</a>
         </div>
       )
     }

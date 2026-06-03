@@ -7,6 +7,7 @@ import {
   ReactNode,
 } from "react";
 import Canvas from "./components/Canvas";
+import DrawzillaLogo from "./components/DrawzillaLogo";
 import type { TouchTool } from "./components/Canvas";
 import Menu from "./components/Menu";
 import Training from "./components/Training";
@@ -4034,36 +4035,8 @@ export default function App() {
                 alt="drawzilla"
                 className="w-14 h-14 object-contain mb-2"
               />
-              <div
-                className="text-2xl select-none"
-                style={{ fontFamily: "Caveat Brush, cursive" }}
-              >
-                {[
-                  { letter: "d", color: "#3b82f6", rotate: -6 },
-                  { letter: "r", color: "#ef4444", rotate: 3 },
-                  { letter: "a", color: "#22c55e", rotate: -4 },
-                  { letter: "w", color: "#eab308", rotate: 5 },
-                  { letter: "z", color: "#ec4899", rotate: -3 },
-                  { letter: "i", color: "#f97316", rotate: 4 },
-                  { letter: "l", color: "#8b5cf6", rotate: -5 },
-                  { letter: "l", color: "#06b6d4", rotate: 3 },
-                  { letter: "a", color: "#ef4444", rotate: -4 },
-                ].map((l, i) => (
-                  <span
-                    key={i}
-                    style={{
-                      color: l.color,
-                      display: "inline-block",
-                      marginLeft: i === 0 ? 0 : 2,
-                      transform: `rotate(${l.rotate}deg)`,
-                      textShadow: isDark
-                        ? `0 0 8px ${l.color}44`
-                        : `1px 1px 0 ${l.color}22`,
-                    }}
-                  >
-                    {l.letter}
-                  </span>
-                ))}
+              <div className="select-none">
+                <DrawzillaLogo fontSize={24} isDark={isDark} />
               </div>
             </div>
             <div
@@ -4113,36 +4086,8 @@ export default function App() {
               alt="drawzilla"
               className="w-20 h-20 mx-auto mb-3 object-contain"
             />
-            <div
-              className="text-xl mb-4 select-none"
-              style={{ fontFamily: "Caveat Brush, cursive" }}
-            >
-              {[
-                { letter: "d", color: "#3b82f6", rotate: -6 },
-                { letter: "r", color: "#ef4444", rotate: 3 },
-                { letter: "a", color: "#22c55e", rotate: -4 },
-                { letter: "w", color: "#eab308", rotate: 5 },
-                { letter: "z", color: "#ec4899", rotate: -3 },
-                { letter: "i", color: "#f97316", rotate: 4 },
-                { letter: "l", color: "#8b5cf6", rotate: -5 },
-                { letter: "l", color: "#06b6d4", rotate: 3 },
-                { letter: "a", color: "#ef4444", rotate: -4 },
-              ].map((l, i) => (
-                <span
-                  key={i}
-                  style={{
-                    color: l.color,
-                    display: "inline-block",
-                    marginLeft: i === 0 ? 0 : 2,
-                    transform: `rotate(${l.rotate}deg)`,
-                    textShadow: isDark
-                      ? `0 0 8px ${l.color}44`
-                      : `1px 1px 0 ${l.color}22`,
-                  }}
-                >
-                  {l.letter}
-                </span>
-              ))}
+            <div className="mb-4 select-none">
+              <DrawzillaLogo fontSize={20} isDark={isDark} />
             </div>
             <div
               className={`text-xs space-y-2 text-left ${isDark ? "text-white/60" : "text-black/60"}`}

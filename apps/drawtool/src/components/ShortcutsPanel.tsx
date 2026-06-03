@@ -1,5 +1,5 @@
 import React from "react";
-import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame, Download, Presentation, LayoutDashboard, Square, SquareDashed, Circle } from "lucide-react";
+import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame, Upload, Download, Presentation, LayoutDashboard, Square, SquareDashed, Circle } from "lucide-react";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl";
@@ -74,7 +74,7 @@ const BoldItalicIcon = () => (
 );
 const AlignTextIcon = () => <I strokeWidth="1.3"><line x1="2" y1="4" x2="14" y2="4" /><line x1="2" y1="8" x2="10" y2="8" /><line x1="2" y1="12" x2="12" y2="12" /></I>;
 const ClearIcon = () => <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I>;
-const ExportIcon = () => <Download size={12} strokeWidth={1.5} />;
+const ExportIcon = () => <Upload size={12} strokeWidth={1.5} />;
 const MenuIcon = () => <I><line x1="3" y1="4" x2="13" y2="4" /><line x1="3" y1="8" x2="13" y2="8" /><line x1="3" y1="12" x2="13" y2="12" /></I>;
 const FullscreenIcon = () => <Maximize2 size={12} strokeWidth={1.5} />;
 const GridIcon = () => <Frame size={12} strokeWidth={1.5} />;

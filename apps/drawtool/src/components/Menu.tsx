@@ -13,6 +13,7 @@ import type {
   ClickTool,
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
+import DrawzillaLogo from "./DrawzillaLogo";
 import {
   CONFIRM_CLEAR_STROKE_THRESHOLD,
   getPanelBackground,
@@ -409,12 +410,7 @@ export default function Menu({
   const showTips = settings.showTips && !hasTouch;
   const { user } = useUser();
   const { signOut } = useClerk();
-  const waveStyle = `@keyframes dtWave {
-    0%   { transform: translateY(0) scale(1); }
-    35%  { transform: translateY(-7px) scale(1.2); }
-    65%  { transform: translateY(1px) scale(0.95); }
-    100% { transform: translateY(0) scale(1); }
-  }`;
+
 
   useEffect(() => {
     window.dispatchEvent(
@@ -656,58 +652,8 @@ export default function Menu({
             className={`mt-2 p-4 rounded-xl border backdrop-blur-sm shadow-2xl w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
             style={{ background: getPanelBackground(settings.theme) }}
           >
-            <style>{waveStyle}</style>
-            <style>{`@keyframes dtWave {
-              0%   { transform: translateY(0) scale(1); }
-              35%  { transform: translateY(-7px) scale(1.2); }
-              65%  { transform: translateY(1px) scale(0.95); }
-              100% { transform: translateY(0) scale(1); }
-            }`}</style>
-            <a
-              href="/"
-              className="text-3xl mb-3 text-center select-none block"
-              style={{
-                fontFamily: "Caveat Brush, cursive",
-                textDecoration: "none",
-              }}
-            >
-              {[
-                { letter: "d", color: "#3b82f6", rotate: -6 },
-                { letter: "r", color: "#ef4444", rotate: 3 },
-                { letter: "a", color: "#22c55e", rotate: -4 },
-                { letter: "w", color: "#eab308", rotate: 5 },
-                { letter: "z", color: "#ec4899", rotate: -3 },
-                { letter: "i", color: "#f97316", rotate: 4 },
-                { letter: "l", color: "#8b5cf6", rotate: -5 },
-                { letter: "l", color: "#06b6d4", rotate: 3 },
-                { letter: "a", color: "#ef4444", rotate: -4 },
-              ].map((l, i) => (
-                <span
-                  key={i}
-                  style={{
-                    display: "inline-block",
-                    marginLeft: i === 0 ? 0 : 2,
-                    transform: `rotate(${l.rotate}deg)`,
-                  }}
-                >
-                  <span
-                    style={{
-                      color: l.color,
-                      display: "inline-block",
-                      textShadow: isDark
-                        ? `0 0 8px ${l.color}44`
-                        : `1px 1px 0 ${l.color}22`,
-                      ...(logoAnimate
-                        ? {
-                            animation: `dtWave 0.55s ease both ${i * 60}ms`,
-                          }
-                        : {}),
-                    }}
-                  >
-                    {l.letter}
-                  </span>
-                </span>
-              ))}
+            <a href="/" className="mb-3 text-center select-none block" style={{ textDecoration: "none" }}>
+              <DrawzillaLogo fontSize={30} isDark={isDark} animate={logoAnimate} />
             </a>
             {isPro && (
               <div className="text-center -mt-3 mb-3">
@@ -2299,7 +2245,7 @@ export default function Menu({
                       disabled={!onExport}
                       className="ml-auto flex items-center gap-1.5 px-2.5 py-1 rounded text-[11px] font-medium transition-colors focus:outline-none bg-[#3b82f6] text-white hover:bg-[#2563eb]"
                     >
-                      <Download size={11} strokeWidth={1.4} />
+                      <Upload size={11} strokeWidth={1.4} />
                       Export
                     </button>
                   </div>
@@ -2320,7 +2266,7 @@ export default function Menu({
                             : isDark ? "border-white/15 text-white/80 hover:text-white hover:border-white/30" : "border-black/15 text-black/60 hover:text-black hover:border-black/30"
                         }`}
                       >
-                        <Download size={11} strokeWidth={1.4} />
+                        <Upload size={11} strokeWidth={1.4} />
                         Export selection
                         {!isPro && <span className="text-[9px] opacity-60">Pro</span>}
                       </button>
