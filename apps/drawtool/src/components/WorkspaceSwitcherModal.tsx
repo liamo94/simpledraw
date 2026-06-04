@@ -33,8 +33,6 @@ type Editing =
   | { kind: 'canvas'; id: string; name: string }
   | null
 
-const ICON_SIZE = 14
-
 export default function WorkspaceSwitcherModal({
   allWorkspaces,
   activeWorkspaceId,
@@ -58,6 +56,7 @@ export default function WorkspaceSwitcherModal({
   onPrefetchThumbnail,
   hasTouch,
 }: Props) {
+  const ICON_SIZE = hasTouch ? 17 : 15
   const [query, setQuery] = useState('')
   const [editing, setEditing] = useState<Editing>(null)
   const [confirmDelete, setConfirmDelete] = useState<{ kind: 'workspace' | 'canvas'; id: string } | null>(null)
@@ -188,7 +187,7 @@ export default function WorkspaceSwitcherModal({
     onClose()
   }
 
-  const iconBtn = `shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors ${isDark ? 'text-white/30 hover:text-white/70 hover:bg-white/10' : 'text-black/25 hover:text-black/60 hover:bg-black/[0.07]'}`
+  const iconBtn = `shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors ${isDark ? `${hasTouch ? 'text-white/55' : 'text-white/30'} hover:text-white/70 hover:bg-white/10` : `${hasTouch ? 'text-black/50' : 'text-black/25'} hover:text-black/60 hover:bg-black/[0.07]`}`
   const tipCls = `absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity duration-150 delay-0 group-hover:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`
 
   return (
@@ -579,7 +578,7 @@ export default function WorkspaceSwitcherModal({
 
                           {/* Hover actions — outside overflow-hidden card so bottom-full tooltips aren't clipped */}
                           {!isConfirmingCanvas && (
-                            <div className="absolute top-2 right-2 flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                            <div className={`absolute top-2 right-2 flex gap-0.5 transition-opacity ${hasTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                               <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className={`relative group/actbtn ${iconBtn}`}>
                                 <Pencil size={ICON_SIZE} strokeWidth={1.75} />
                                 <span className={`absolute bottom-full right-0 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover/actbtn:opacity-100 transition-opacity duration-150 delay-0 group-hover/actbtn:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`}>Rename canvas</span>
