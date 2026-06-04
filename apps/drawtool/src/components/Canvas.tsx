@@ -3870,11 +3870,17 @@ function Canvas({
       scheduleRedraw();
     };
 
+    // Track when writing started so onBlur can guard against the brief blur that fires
+    // during desktop double-click (some browsers blur the textarea when the second click
+    // lands on the canvas element behind it).
+    let writingStartTime = 0;
+
     const onWriting = (ev: Event) => {
       if (!(ev as CustomEvent).detail) {
         ta.blur();
         return;
       }
+      writingStartTime = Date.now();
       ta.value = writingTextRef.current;
       const anch = selectionAnchorRef.current;
       const caret = caretPosRef.current;
@@ -3905,10 +3911,32 @@ function Canvas({
       scheduleRedraw();
     };
 
-    // iOS "Done" button dismisses the keyboard by blurring the textarea.
-    // Treat that as finishing the current text stroke.
+    // On touch devices the iOS soft keyboard "Done" button dismisses the keyboard by
+    // blurring the textarea, but iOS also fires spurious blurs at unpredictable times
+    // during the auto-focus lifecycle (when the browser naturally focuses the textarea
+    // after a tap). Using blur as the commit signal is unreliable on touch. Instead we
+    // detect keyboard dismissal via visualViewport resize (viewport grows when keyboard
+    // closes) and ignore blur entirely on touch devices.
+    //
+    // On desktop: blur is reliable — guard only against the brief blur during double-click.
     const onBlur = () => {
-      if (isWritingRef.current) finishWritingRef.current();
+      if (!isWritingRef.current) return;
+      if (isTouchDevice) return;
+      if (Date.now() - writingStartTime < 250) return;
+      finishWritingRef.current();
+    };
+
+    // iOS/Android: keyboard dismissed = visual viewport height grows back.
+    // Use a 150px threshold to ignore autocorrect suggestion bar micro-changes.
+    let prevVVHeight = window.visualViewport?.height ?? 0;
+    const onVVResize = () => {
+      const vv = window.visualViewport;
+      if (!vv) return;
+      const h = vv.height;
+      if (isWritingRef.current && h > prevVVHeight + 150) {
+        finishWritingRef.current();
+      }
+      prevVVHeight = h;
     };
 
     ta.addEventListener("input", onInput);
@@ -3916,12 +3944,14 @@ function Canvas({
     ta.addEventListener("blur", onBlur);
     document.addEventListener("selectionchange", onSelChange);
     window.addEventListener("drawtool:writing", onWriting);
+    if (isTouchDevice) window.visualViewport?.addEventListener("resize", onVVResize);
     return () => {
       ta.removeEventListener("input", onInput);
       ta.removeEventListener("paste", onPaste);
       ta.removeEventListener("blur", onBlur);
       document.removeEventListener("selectionchange", onSelChange);
       window.removeEventListener("drawtool:writing", onWriting);
+      if (isTouchDevice) window.visualViewport?.removeEventListener("resize", onVVResize);
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [scheduleRedraw]);

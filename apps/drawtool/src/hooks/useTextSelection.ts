@@ -414,6 +414,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             return;
           }
         }
+        // On touch, keep new-text sessions alive on tap — the user ends via the iOS
+        // "Done" button (→ onBlur) or by switching tools. Only close for editStroke
+        // (editing existing text) where tapping outside the bbox is a deliberate confirm.
+        if (e.pointerType === "touch" && !editStroke) return;
         finishWriting();
         return;
       }
