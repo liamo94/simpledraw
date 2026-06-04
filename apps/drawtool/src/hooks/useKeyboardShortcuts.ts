@@ -166,9 +166,9 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
   useEffect(() => {
     let mounted = true;
     const onKeyDown = (e: KeyboardEvent) => {
-      // Don't intercept shortcuts when focus is inside a native text input
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      // Handle text input while in writing mode
+      // Handle text input while in writing mode — runs before the native-input guard so our
+      // handlers fire even when the hidden textarea has focus (avoids relying on inconsistent
+      // browser behaviour for shortcuts like Cmd+Backspace in a focused textarea).
       if (isWritingRef.current) {
         // Escape / Cmd+Enter → accept text
         if (e.key === "Escape" || ((e.metaKey || e.ctrlKey) && e.key === "Enter")) {
@@ -475,6 +475,8 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         }
         return;
       }
+      // Don't intercept shortcuts when focus is inside a native text input
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
       if (e.key === "?" && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
         e.preventDefault();
         window.dispatchEvent(new Event("drawtool:open-shortcuts"));

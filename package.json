@@ -11,6 +11,8 @@
     "dev:unleashed": "pnpm --filter unleashed dev",
     "build:drawtool": "pnpm --filter drawtool build",
     "build:writing": "pnpm --filter writing build",
-    "build:unleashed": "pnpm --filter unleashed build"
+    "build:unleashed": "pnpm --filter unleashed build",
+    "dev:homepage": "pnpm --filter homepage dev",
+    "build:homepage": "pnpm --filter homepage build"
   }
 }

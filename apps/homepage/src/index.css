@@ -1,0 +1,60 @@
+@import "tailwindcss";
+
+html, body {
+  background: #06060f;
+  font-family: 'Inter', system-ui, sans-serif;
+  color: #ffffff;
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.scroll-fade {
+  opacity: 0;
+  transform: translateY(24px);
+  transition: opacity 0.7s ease, transform 0.7s ease;
+}
+
+.scroll-fade.visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+@keyframes float-calm {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-8px); }
+}
+
+.float {
+  animation: float-calm 4s ease-in-out infinite;
+}
+
+@keyframes float-reverse {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(10px); }
+}
+
+@keyframes float-sway {
+  0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }
+  33% { transform: translateY(-9px) rotate(var(--rot, 0deg)); }
+  66% { transform: translateY(5px) rotate(var(--rot, 0deg)); }
+}
+
+kbd.kbd {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-size: 0.75em;
+  font-family: ui-monospace, monospace;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.15);
+  color: rgba(255,255,255,0.7);
+}
