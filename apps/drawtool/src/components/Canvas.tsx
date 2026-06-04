@@ -1699,12 +1699,13 @@ function Canvas({
         if (p.x > maxX) maxX = p.x;
         if (p.y > maxY) maxY = p.y;
       }
-      // Cloud bumps/spikes protrude beyond the p0/p1 bounding box — expand by bumpR.
+      // Cloud bump centers sit margin=0.55×bumpR inside the bbox, so bumps protrude
+      // only ~0.45×bumpR beyond it. Sharp spikes extend up to ~1.25×bumpR beyond.
       if (stroke.shape === "cloud" && stroke.points.length === 2) {
         const p0 = stroke.points[0], p1 = stroke.points[1];
         const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
         const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
-        const extra = bumpR * 1.4;
+        const extra = stroke.sharp ? bumpR * 1.4 : bumpR * 0.6;
         minX -= extra; minY -= extra; maxX += extra; maxY += extra;
       }
     }
@@ -2064,6 +2065,63 @@ function Canvas({
       URL.revokeObjectURL(url);
       window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported selection as SVG", duration: 1500 } }));
     };
+    const onExportSelectionPng = async (e: Event) => {
+      const { filename } = (e as CustomEvent).detail ?? {};
+      const strokes = selectedGroupRef.current.length > 0
+        ? selectedGroupRef.current
+        : selectedTextRef.current
+        ? [selectedTextRef.current]
+        : [];
+      if (!strokes.length) return;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const stroke of strokes) {
+        if (stroke.text) {
+          const anchor = stroke.points[0];
+          const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
+          const lines = stroke.text.split("\n");
+          const maxLineLen = Math.max(...lines.map((l) => l.length));
+          minX = Math.min(minX, anchor.x);
+          minY = Math.min(minY, anchor.y);
+          maxX = Math.max(maxX, anchor.x + maxLineLen * basePx * 0.6);
+          maxY = Math.max(maxY, anchor.y + lines.length * basePx * 1.2);
+          continue;
+        }
+        for (const p of stroke.points) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        }
+        if (stroke.shape === "cloud" && stroke.points.length === 2) {
+          const p0 = stroke.points[0], p1 = stroke.points[1];
+          const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
+          const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
+          const extra = stroke.sharp ? bumpR * 1.4 : bumpR * 0.6;
+          minX -= extra; minY -= extra; maxX += extra; maxY += extra;
+        }
+      }
+      const maxLW = Math.max(...strokes.map((s) => s.lineWidth));
+      const pad = 20 + maxLW / 2;
+      const w = Math.ceil(maxX - minX + pad * 2);
+      const h = Math.ceil(maxY - minY + pad * 2);
+      const offscreen = document.createElement("canvas");
+      offscreen.width = w;
+      offscreen.height = h;
+      const ctx = offscreen.getContext("2d")!;
+      ctx.translate(-minX + pad, -minY + pad);
+      renderStrokesToCtx(ctx, strokes);
+      const ts = new Date().toISOString().slice(0, 19).replace(/[T:]/g, "-");
+      offscreen.toBlob((blob) => {
+        if (!blob) return;
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename ? `${filename}-selection.png` : `drawtool-selection-${ts}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported selection as PNG", duration: 1500 } }));
+      });
+    };
     const onFontFamily = (e: Event) => {
       const key = (e as CustomEvent).detail as FontFamily;
       const sel = selectedTextRef.current;
@@ -2113,6 +2171,7 @@ function Canvas({
     window.addEventListener("drawtool:export-transparent", onExportTransparent);
     window.addEventListener("drawtool:export-svg", onExportSvg);
     window.addEventListener("drawtool:export-selection-svg", onExportSelectionSvg);
+    window.addEventListener("drawtool:export-selection-png", onExportSelectionPng);
     const onTextBold = () => {
       const editStroke = editingStrokeRef.current;
       const sel = selectedTextRef.current;
@@ -2342,6 +2401,7 @@ function Canvas({
       window.removeEventListener("drawtool:export-transparent", onExportTransparent);
       window.removeEventListener("drawtool:export-svg", onExportSvg);
       window.removeEventListener("drawtool:export-selection-svg", onExportSelectionSvg);
+      window.removeEventListener("drawtool:export-selection-png", onExportSelectionPng);
       window.removeEventListener("drawtool:font-family", onFontFamily);
       window.removeEventListener("drawtool:set-color", onSetColor);
       window.removeEventListener("drawtool:text-bold", onTextBold);
@@ -3787,7 +3847,7 @@ function Canvas({
       if (!isWritingRef.current) return;
       const newText = ta.value;
       const prev = writingTextRef.current;
-      // Desktop keydown already handled this via replaceSelection + syncToTextarea
+      // Keydown already handled this via replaceSelection + syncToTextarea (desktop and mobile with physical keyboard)
       if (newText === prev) return;
       textUndoRef.current.push(prev);
       textRedoRef.current = [];

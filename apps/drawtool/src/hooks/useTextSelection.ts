@@ -440,7 +440,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             const last = lastTextTapRef.current;
             if (last && last.stroke === stroke && now - last.time < 300) {
               lastTextTapRef.current = null;
-              startEditingStroke(stroke, undefined, true);
+              startEditingStroke(stroke, wp);
               return;
             }
             lastTextTapRef.current = { time: now, stroke, count: 1 };
@@ -678,7 +678,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               const last = lastTextTapRef.current;
               if (last && last.stroke === s && now - last.time < 300) {
                 lastTextTapRef.current = null;
-                startEditingStroke(s, undefined, true);
+                startEditingStroke(s, wp);
                 return;
               }
               lastTextTapRef.current = { time: now, stroke: s, count: 1 };
@@ -690,6 +690,22 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         if (selectedTextRef.current) {
           const bb = anyStrokeBBox(selectedTextRef.current);
           const selShape = selectedTextRef.current.shape;
+
+          // Text double-click must be checked before handle checks — corner handle zones extend
+          // 7px inside the bbox, so for short text most of the area is corner zone and a first tap
+          // there would eat the timer without setting lastTextTapRef.
+          if (selectedTextRef.current.text) {
+            const curStroke = selectedTextRef.current;
+            const now = performance.now();
+            const last = lastTextTapRef.current;
+            if (last && last.stroke === curStroke && now - last.time < 300) {
+              lastTextTapRef.current = null;
+              startEditingStroke(curStroke, wp);
+              return;
+            }
+            lastTextTapRef.current = { time: now, stroke: curStroke, count: 1 };
+          }
+
           const strokeRotation = selectedTextRef.current.rotation ?? 0;
           // For rotated strokes, un-rotate the hit point into the stroke's local frame
           let twp = wp;
@@ -817,17 +833,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           // Check body — drag current stroke; for arrows, defer click-to-add-bend to pointer up
           if (hitTestStroke(selectedTextRef.current, wp.x, wp.y, scale)) {
             const curStroke = selectedTextRef.current;
-            // Double-click on selected text stroke → enter edit mode
-            if (curStroke.text) {
-              const now = performance.now();
-              const last = lastTextTapRef.current;
-              if (last && last.stroke === curStroke && now - last.time < 300) {
-                lastTextTapRef.current = null;
-                startEditingStroke(curStroke, undefined, true);
-                return;
-              }
-              lastTextTapRef.current = { time: now, stroke: curStroke, count: 1 };
-            }
             const isArrow = curStroke.shape === "arrow" || curStroke.shape === "line";
             let pendingBend: { segmentIdx: number } | undefined;
             if (isArrow) {

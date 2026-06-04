@@ -251,13 +251,13 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
       maxX = Math.max(maxX, p.x);
       maxY = Math.max(maxY, p.y);
     }
-    // Cloud bumps protrude beyond the p0/p1 bounding box — expand by bumpR.
-    // Sharp spikes extend ~1.25×bumpR beyond the bbox edge; use 1.4× for safety.
+    // Cloud bump centers sit margin=0.55×bumpR inside the bbox, so bumps protrude
+    // only ~0.45×bumpR beyond it. Sharp spikes extend up to ~1.25×bumpR beyond.
     if (stroke.shape === "cloud" && stroke.points.length === 2) {
       const p0 = stroke.points[0], p1 = stroke.points[1];
       const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
       const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
-      const extra = bumpR * 1.4;
+      const extra = stroke.sharp ? bumpR * 1.4 : bumpR * 0.6;
       minX -= extra; minY -= extra; maxX += extra; maxY += extra;
     }
   }

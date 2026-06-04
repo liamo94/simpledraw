@@ -1240,11 +1240,17 @@ export default function App() {
       canvasNameRef.current,
       activeCanvasRef.current,
     );
-    window.dispatchEvent(
-      new CustomEvent("drawtool:export-selection-svg", {
-        detail: { transparent, filename, watermark: false },
-      }),
-    );
+    if (exportFormatRef.current === "png") {
+      window.dispatchEvent(
+        new CustomEvent("drawtool:export-selection-png", { detail: { filename } }),
+      );
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("drawtool:export-selection-svg", {
+          detail: { transparent, filename, watermark: false },
+        }),
+      );
+    }
   }, []);
 
   const zoomIn = useCallback(() => {
