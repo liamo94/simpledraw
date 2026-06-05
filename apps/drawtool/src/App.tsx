@@ -203,8 +203,6 @@ export default function App() {
   const [showShapePicker, setShowShapePicker] = useState(false);
   const [tipIndex, setTipIndex] = useState(0);
   const [tipVisible, setTipVisible] = useState(true);
-  const [selectHintVisible, setSelectHintVisible] = useState(false);
-  const selectHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const exportFormatRef = useRef(settings.exportFormat);
   const exportTransparentBgRef = useRef(settings.exportTransparentBg);
@@ -966,34 +964,9 @@ export default function App() {
         },
       );
     };
-    const onSelectHeld = (e: Event) => {
-      const { on } = (e as CustomEvent).detail as { on: boolean };
-      if (on) {
-        if (!selectHintTimerRef.current) {
-          selectHintTimerRef.current = setTimeout(() => {
-            selectHintTimerRef.current = null;
-            setSelectHintVisible(true);
-          }, 1200);
-        }
-      } else {
-        if (selectHintTimerRef.current) {
-          clearTimeout(selectHintTimerRef.current);
-          selectHintTimerRef.current = null;
-        }
-        setSelectHintVisible(false);
-      }
-    };
-    window.addEventListener("drawtool:select-held", onSelectHeld);
     const onToast = (e: Event) => {
       const detail = (e as CustomEvent).detail;
       if (typeof detail === "object" && detail.type === "toggle") {
-        if (detail.label === "Select mode") {
-          if (selectHintTimerRef.current) {
-            clearTimeout(selectHintTimerRef.current);
-            selectHintTimerRef.current = null;
-          }
-          setSelectHintVisible(detail.on);
-        }
         showToast(
           { type: "toggle", label: detail.label, on: detail.on },
           detail.duration,
@@ -1115,7 +1088,6 @@ export default function App() {
     window.addEventListener("drawtool:storage-quota", onStorageQuota);
     window.addEventListener("drawtool:storage-ok", onStorageOk);
     return () => {
-      window.removeEventListener("drawtool:select-held", onSelectHeld);
       window.removeEventListener("drawtool:zoom", onZoom);
       window.removeEventListener("drawtool:thickness", onThickness);
       window.removeEventListener("drawtool:color-cycle", onColorCycle);
@@ -1684,19 +1656,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, [settings.showTips, hasTouch, kbTips.length]);
 
-  // Reset select hint when switching canvas
-  useEffect(() => {
-    if (selectHintTimerRef.current) {
-      clearTimeout(selectHintTimerRef.current);
-      selectHintTimerRef.current = null;
-    }
-    setSelectHintVisible(false);
-  }, [
-    activeCanvas,
-    cloudCanvas.activeId,
-    cloudCanvas.loadKey,
-    cloudCanvas.clearKey,
-  ]);
 
   const visibleLineColor =
     (settings.lineColor === "#000000" && isDark) ||
@@ -5090,31 +5049,6 @@ export default function App() {
           >
             {kbTips[tipOrderRef.current![tipIndex]]}
           </div>
-        </div>
-      )}
-      {settings.showTips && !hasTouch && selectHintVisible && !hasSelection && (
-        <div
-          className={`fixed ${isWide ? "bottom-4" : "bottom-14"} left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none`}
-          style={{
-            background: getPanelBackground(settings.theme),
-            borderRadius: 8,
-            border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
-            backdropFilter: "blur(8px)",
-            padding: "4px 10px",
-            fontSize: 11,
-            fontFamily: "system-ui, sans-serif",
-            color: isDark ? "rgba(255,255,255,0.4)" : "rgba(0,0,0,0.35)",
-            whiteSpace: "nowrap",
-            maxWidth: "calc(100vw - 2rem)",
-            overflowX: "auto",
-            msOverflowStyle: "none",
-            scrollbarWidth: "none",
-          }}
-        >
-          Click to select &nbsp;·&nbsp; Drag to box-select &nbsp;·&nbsp;{" "}
-          <K>{shift}</K> + drag for fully enclosed only &nbsp;·&nbsp;{" "}
-          <K>{shift}</K> + click to add &nbsp;·&nbsp; <K>V</K>
-          <K>V</K> to lock &nbsp;·&nbsp; <K>Esc</K> to exit
         </div>
       )}
     </>

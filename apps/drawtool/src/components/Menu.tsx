@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud } from "lucide-react";
+import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, SlidersHorizontal } from "lucide-react";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser, useClerk } from "@clerk/clerk-react";
 import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
@@ -387,6 +387,7 @@ export default function Menu({
   const [showAbout, setShowAbout] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [showReorder, setShowReorder] = useState(false);
+  const [showPreferences, setShowPreferences] = useState(false);
   const [shareWorkspaceUrl, setShareWorkspaceUrl] = useState<string | null>(existingShareWorkspaceUrl ?? null);
   const [sharing, setSharing] = useState<'canvas' | 'workspace' | null>(null);
   const [copiedShareToken, setCopiedShareToken] = useState<string | null>(null);
@@ -1899,148 +1900,6 @@ export default function Menu({
               </button>
             )}
 
-            <div className="mt-4 space-y-3">
-              {(!hasTouch || isTablet) && (
-                <button
-                  role="switch"
-                  aria-checked={settings.showZoomControls}
-                  onClick={() =>
-                    updateSettings({
-                      showZoomControls: !settings.showZoomControls,
-                    })
-                  }
-                  className="flex items-center justify-between w-full text-sm cursor-pointer group"
-                >
-                  <span>Zoom controls</span>
-                  <span
-                    className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                      settings.showZoomControls
-                        ? "bg-[#3b82f6]"
-                        : isDark
-                          ? "bg-white/15 group-hover:bg-white/25"
-                          : "bg-black/12 group-hover:bg-black/20"
-                    }`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
-                        settings.showZoomControls
-                          ? "translate-x-[16px] bg-white"
-                          : isDark
-                            ? "bg-white/70"
-                            : "bg-white"
-                      }`}
-                    />
-                  </span>
-                </button>
-              )}
-              <button
-                role="switch"
-                aria-checked={settings.showSelectControls}
-                onClick={() =>
-                  updateSettings({
-                    showSelectControls: !settings.showSelectControls,
-                  })
-                }
-                className="flex items-center justify-between w-full text-sm cursor-pointer group"
-              >
-                <span>Selection controls</span>
-                <span
-                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${settings.showSelectControls ? "bg-[#3b82f6]" : isDark ? "bg-white/15 group-hover:bg-white/25" : "bg-black/12 group-hover:bg-black/20"}`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${settings.showSelectControls ? "translate-x-[16px] bg-white" : isDark ? "bg-white/70" : "bg-white"}`}
-                  />
-                </span>
-              </button>
-              <button
-                role="switch"
-                aria-checked={settings.confirmClear}
-                onClick={() =>
-                  updateSettings({ confirmClear: !settings.confirmClear })
-                }
-                className="flex items-center justify-between w-full text-sm cursor-pointer group"
-              >
-                <span>Confirm clear</span>
-                <span
-                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                    settings.confirmClear
-                      ? "bg-[#3b82f6]"
-                      : isDark
-                        ? "bg-white/15 group-hover:bg-white/25"
-                        : "bg-black/12 group-hover:bg-black/20"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
-                      settings.confirmClear
-                        ? "translate-x-[16px] bg-white"
-                        : isDark
-                          ? "bg-white/70"
-                          : "bg-white"
-                    }`}
-                  />
-                </span>
-              </button>
-              {!hasTouch && (
-              <button
-                role="switch"
-                aria-checked={settings.showTips}
-                onClick={() =>
-                  updateSettings({ showTips: !settings.showTips })
-                }
-                className="flex items-center justify-between w-full text-sm cursor-pointer group"
-              >
-                <span>Show tips</span>
-                <span
-                  className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
-                    settings.showTips
-                      ? "bg-[#3b82f6]"
-                      : isDark
-                        ? "bg-white/15 group-hover:bg-white/25"
-                        : "bg-black/12 group-hover:bg-black/20"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
-                      settings.showTips
-                        ? "translate-x-[16px] bg-white"
-                        : isDark
-                          ? "bg-white/70"
-                          : "bg-white"
-                    }`}
-                  />
-                </span>
-              </button>
-              )}
-              {!hasTouch && (
-                <div className="flex items-center justify-between w-full text-sm">
-                  <span>Mouse buttons</span>
-                  <div className="flex items-center gap-1.5">
-                    <span
-                      className={`text-[10px] ${isDark ? "text-white/35" : "text-black/35"}`}
-                    >
-                      L
-                    </span>
-                    <ClickToolPicker
-                      value={settings.leftClickTool}
-                      onChange={(v) => updateSettings({ leftClickTool: v })}
-                      isDark={isDark}
-                    />
-                    <span
-                      className={`text-[10px] ml-0.5 ${isDark ? "text-white/35" : "text-black/35"}`}
-                    >
-                      R
-                    </span>
-                    <ClickToolPicker
-                      value={settings.rightClickTool}
-                      onChange={(v) => updateSettings({ rightClickTool: v })}
-                      isDark={isDark}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-
             <div className="mt-4 space-y-1.5">
               {!hasTouch && (
                 <button
@@ -2343,6 +2202,156 @@ export default function Menu({
                         <Image size={11} strokeWidth={1.4} />
                         Insert from photos
                       </button>
+                    </div>
+                  )}
+                </div>
+              </AccordionSection>
+
+              <AccordionSection
+                label="Preferences"
+                icon={<SlidersHorizontal size={13} strokeWidth={1.75} />}
+                open={showPreferences}
+                onToggle={() => setShowPreferences((v) => !v)}
+                isDark={isDark}
+              >
+                <div className="space-y-3">
+                  {(!hasTouch || isTablet) && (
+                    <button
+                      role="switch"
+                      aria-checked={settings.showZoomControls}
+                      onClick={() =>
+                        updateSettings({
+                          showZoomControls: !settings.showZoomControls,
+                        })
+                      }
+                      className="flex items-center justify-between w-full text-sm cursor-pointer group"
+                    >
+                      <span>Zoom controls</span>
+                      <span
+                        className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                          settings.showZoomControls
+                            ? "bg-[#3b82f6]"
+                            : isDark
+                              ? "bg-white/15 group-hover:bg-white/25"
+                              : "bg-black/12 group-hover:bg-black/20"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                            settings.showZoomControls
+                              ? "translate-x-[16px] bg-white"
+                              : isDark
+                                ? "bg-white/70"
+                                : "bg-white"
+                          }`}
+                        />
+                      </span>
+                    </button>
+                  )}
+                  <button
+                    role="switch"
+                    aria-checked={settings.showSelectControls}
+                    onClick={() =>
+                      updateSettings({
+                        showSelectControls: !settings.showSelectControls,
+                      })
+                    }
+                    className="flex items-center justify-between w-full text-sm cursor-pointer group"
+                  >
+                    <span>Selection controls</span>
+                    <span
+                      className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${settings.showSelectControls ? "bg-[#3b82f6]" : isDark ? "bg-white/15 group-hover:bg-white/25" : "bg-black/12 group-hover:bg-black/20"}`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${settings.showSelectControls ? "translate-x-[16px] bg-white" : isDark ? "bg-white/70" : "bg-white"}`}
+                      />
+                    </span>
+                  </button>
+                  <button
+                    role="switch"
+                    aria-checked={settings.confirmClear}
+                    onClick={() =>
+                      updateSettings({ confirmClear: !settings.confirmClear })
+                    }
+                    className="flex items-center justify-between w-full text-sm cursor-pointer group"
+                  >
+                    <span>Confirm clear</span>
+                    <span
+                      className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                        settings.confirmClear
+                          ? "bg-[#3b82f6]"
+                          : isDark
+                            ? "bg-white/15 group-hover:bg-white/25"
+                            : "bg-black/12 group-hover:bg-black/20"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                          settings.confirmClear
+                            ? "translate-x-[16px] bg-white"
+                            : isDark
+                              ? "bg-white/70"
+                              : "bg-white"
+                        }`}
+                      />
+                    </span>
+                  </button>
+                  {!hasTouch && (
+                    <button
+                      role="switch"
+                      aria-checked={settings.showTips}
+                      onClick={() =>
+                        updateSettings({ showTips: !settings.showTips })
+                      }
+                      className="flex items-center justify-between w-full text-sm cursor-pointer group"
+                    >
+                      <span>Show tips</span>
+                      <span
+                        className={`relative w-9 h-5 rounded-full transition-colors duration-200 ${
+                          settings.showTips
+                            ? "bg-[#3b82f6]"
+                            : isDark
+                              ? "bg-white/15 group-hover:bg-white/25"
+                              : "bg-black/12 group-hover:bg-black/20"
+                        }`}
+                      >
+                        <span
+                          className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full shadow-sm transition-transform duration-200 ${
+                            settings.showTips
+                              ? "translate-x-[16px] bg-white"
+                              : isDark
+                                ? "bg-white/70"
+                                : "bg-white"
+                          }`}
+                        />
+                      </span>
+                    </button>
+                  )}
+                  {!hasTouch && (
+                    <div className="flex items-center justify-between w-full text-sm">
+                      <span>Mouse buttons</span>
+                      <div className="flex items-center gap-1.5">
+                        <span
+                          className={`text-[10px] ${isDark ? "text-white/35" : "text-black/35"}`}
+                        >
+                          L
+                        </span>
+                        <ClickToolPicker
+                          value={settings.leftClickTool}
+                          onChange={(v) => updateSettings({ leftClickTool: v })}
+                          isDark={isDark}
+                        />
+                        <span
+                          className={`text-[10px] ml-0.5 ${isDark ? "text-white/35" : "text-black/35"}`}
+                        >
+                          R
+                        </span>
+                        <ClickToolPicker
+                          value={settings.rightClickTool}
+                          onChange={(v) => updateSettings({ rightClickTool: v })}
+                          isDark={isDark}
+                        />
+                      </div>
                     </div>
                   )}
                 </div>
