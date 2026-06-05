@@ -4,6 +4,7 @@ import { FeatureSection, SpotlightSection, USPSection } from './components/Featu
 import { UseCasesSection } from './components/UseCasesSection'
 import { UnleashedBanner } from './components/UnleashedBanner'
 import { TutorialSection } from './components/TutorialSection'
+import { TabletSection } from './components/TabletSection'
 import { AllFeaturesSection } from './components/AllFeaturesSection'
 import { Footer } from './components/Footer'
 import { DRAW_URL } from './components/Logo'
@@ -181,19 +182,7 @@ export default function App() {
 
       <Divider />
 
-      <FeatureSection
-        flip={true}
-        badge="Touch & stylus"
-        headline="Feels like paper"
-        videoLabel="VIDEO: Apple Pencil drawing on iPad — palm rejection in action, pressure sensitivity, then switching to finger pinch-zoom"
-        body={
-          <>
-            <p>Pressure sensitivity with Apple Pencil and compatible styluses. Tilt, lean in, use the full tip — drawzilla responds the way paper does.</p>
-            <p className="mt-3">Palm rejection, pinch to zoom, two-finger scroll. A dedicated mobile toolbar so nothing is more than a tap away.</p>
-            <p className="mt-3">Works with Apple Pencil and any stylus that supports pointer pressure events. Or just your finger.</p>
-          </>
-        }
-      />
+      <TabletSection />
 
       <Divider />
 

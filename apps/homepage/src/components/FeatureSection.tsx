@@ -1,9 +1,9 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
-export function VideoPlaceholder({ label, tall }: { label: string; tall?: boolean }) {
+export function VideoPlaceholder({ label, tall, portrait }: { label: string; tall?: boolean; portrait?: boolean }) {
   return (
     <div
-      className={`w-full rounded-2xl flex flex-col items-center justify-center gap-3 ${tall ? 'aspect-[16/9]' : 'aspect-video'}`}
+      className={`w-full rounded-2xl flex flex-col items-center justify-center gap-3 ${portrait ? 'aspect-[3/4]' : tall ? 'aspect-[16/9]' : 'aspect-video'}`}
       style={{
         background: 'rgba(255,255,255,0.03)',
         border: '2px dashed rgba(255,255,255,0.12)',

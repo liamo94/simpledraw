@@ -40,11 +40,16 @@ export function UnleashedBanner() {
         />
 
         <div className="relative">
-          <div
-            className="inline-block text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full mb-6"
-            style={{ background: 'rgba(57,255,20,0.12)', color: '#39ff14', border: '1px solid rgba(57,255,20,0.25)' }}
-          >
-            drawzilla Unleashed
+          <div className="mb-6">
+            <span style={{
+              fontFamily: "'Bangers', cursive",
+              fontSize: '2rem',
+              letterSpacing: '0.1em',
+              color: '#39ff14',
+              textShadow: '0 1px 3px rgba(0,0,0,0.5), 0 -4px 8px rgba(57,255,20,0.75), 0 -10px 18px rgba(57,255,20,0.4), 0 -20px 28px rgba(30,160,0,0.16)',
+            }}>
+              UNLEASHED
+            </span>
           </div>
 
           <h2

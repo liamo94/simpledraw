@@ -176,6 +176,7 @@ export type TextSelectionRefs = {
   viewRef: MutableRefObject<{ x: number; y: number; scale: number }>;
   finishWritingRef: MutableRefObject<() => void>;
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
+  startEditingStrokeRef: MutableRefObject<(stroke: Stroke, wp?: { x: number; y: number }) => void>;
   lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
   textSelectDragAnchorRef: MutableRefObject<number | null>;
 };
@@ -203,7 +204,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
     selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
     zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-    finishWritingRef, startWritingRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
+    finishWritingRef, startWritingRef, startEditingStrokeRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
   } = refs;
 
   const lastLockedTapRef = useRef<{ time: number; stroke: Stroke } | null>(null);
@@ -282,6 +283,12 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       caretTimerRef.current = null;
     }
     isWritingRef.current = false;
+    lastTextTapRef.current = null; // clear stale tap state so the re-selected stroke doesn't immediately re-enter edit
+    // Restore pointer-events:none so touches pass through to canvas for selection.
+    // (Only needed in select mode — text-tool mode is handled by React style prop.)
+    if (textareaRef?.current && ("ontouchstart" in window) && touchToolRef.current !== "text") {
+      textareaRef.current.style.pointerEvents = "none";
+    }
     window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: false }));
     scheduleRedraw();
   }, [persistStrokes, scheduleRedraw, notifyColorUsed, setZCursor]);
@@ -315,6 +322,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       scheduleRedraw();
     }, 530);
     isWritingRef.current = true;
+    // Expand textarea to full-screen so iOS doesn't auto-blur when canvas is touched.
+    if (textareaRef?.current && ("ontouchstart" in window)) {
+      textareaRef.current.style.pointerEvents = "auto";
+    }
     window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: true }));
     setZCursor("text");
     scheduleRedraw();
@@ -351,6 +362,9 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       scheduleRedraw();
     }, 530);
     isWritingRef.current = true;
+    if (textareaRef?.current && ("ontouchstart" in window)) {
+      textareaRef.current.style.pointerEvents = "auto";
+    }
     window.dispatchEvent(new CustomEvent("drawtool:writing", { detail: true }));
     selectedTextRef.current = null;
     selectedGroupRef.current = [];
@@ -363,6 +377,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
   // Keep refs in sync (used by the keyboard handler hook)
   finishWritingRef.current = finishWriting;
   startWritingRef.current = startWriting;
+  startEditingStrokeRef.current = startEditingStroke;
 
   // Touch: tap canvas to place text when text tool is active
   const handlePointerDownForText = useCallback(
@@ -414,15 +429,26 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             return;
           }
         }
-        // On touch, keep new-text sessions alive on tap — the user ends via the iOS
-        // "Done" button (→ onBlur) or by switching tools. Only close for editStroke
-        // (editing existing text) where tapping outside the bbox is a deliberate confirm.
-        if (e.pointerType === "touch" && !editStroke) return;
+        // On touch, outside-bbox tap handling differs by mode:
+        // - New text session (text-tool, no editStroke): keep alive — commit via Done button only.
+        // - Editing existing stroke (editStroke set): commit on outside-bbox tap so the user
+        //   can dismiss editing by tapping away, consistent with iOS text-field behaviour.
+        if (e.pointerType === "touch") {
+          if (editStroke) finishWriting();
+          return;
+        }
+        // Pen in text-tool mode, new text: same — keep alive until tool switch.
+        if (e.pointerType === "pen" && touchToolRef.current === "text" && !editStroke) return;
         finishWriting();
         return;
       }
       if (touchToolRef.current === "text") {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
+        // Focus directly here — while we are provably inside a pointer event handler
+        // (user gesture context). iOS only opens the keyboard when focus() is called
+        // as a direct result of a user gesture; calling it later via window.dispatchEvent
+        // (inside onWriting) may break the gesture chain on some iOS versions.
+        if (textareaRef?.current) textareaRef.current.focus();
         startWriting(wp);
         return;
       }
@@ -442,8 +468,10 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
             const now = performance.now();
             const last = lastTextTapRef.current;
-            if (last && last.stroke === stroke && now - last.time < 300) {
+            if (last && last.stroke === stroke && now - last.time < 500) {
               lastTextTapRef.current = null;
+              // Same as above: focus directly in gesture handler before custom event dispatch.
+              if (textareaRef?.current) textareaRef.current.focus();
               startEditingStroke(stroke, wp);
               return;
             }
@@ -702,12 +730,26 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             const curStroke = selectedTextRef.current;
             const now = performance.now();
             const last = lastTextTapRef.current;
-            if (last && last.stroke === curStroke && now - last.time < 300) {
-              lastTextTapRef.current = null;
-              startEditingStroke(curStroke, wp);
-              return;
+            // Desktop double-click: enter edit mode when same stroke is clicked twice within 300ms.
+            // Touch: handled exclusively by the native onCanvasTouchEndForEdit handler which fires
+            // after touchend (movement confirmed, user-activation context preserved for ta.focus()).
+            if (e.pointerType !== "touch" && last && last.stroke === curStroke && now - last.time < 300) {
+              // Confirm the tap is on the stroke (not outside — would be a deselect/reselect tap)
+              const tbb = anyStrokeBBox(curStroke);
+              const tpad = 8 / viewRef.current.scale;
+              if (wp.x >= tbb.x - tpad && wp.x <= tbb.x + tbb.w + tpad && wp.y >= tbb.y - tpad && wp.y <= tbb.y + tbb.h + tpad) {
+                lastTextTapRef.current = null;
+                if (textareaRef?.current) textareaRef.current.focus(); // desktop: focus in gesture handler
+                startEditingStroke(curStroke, wp);
+                return;
+              }
             }
-            lastTextTapRef.current = { time: now, stroke: curStroke, count: 1 };
+            // Touch: native onCanvasTouchEndForEdit exclusively owns lastTextTapRef.
+            // React pointerdown fires on touchstart (before touchend), so seeding here would
+            // make the touchend of the SAME physical tap look like a double-tap (< 300ms apart).
+            if (e.pointerType !== "touch") {
+              lastTextTapRef.current = { time: now, stroke: curStroke, count: 1 };
+            }
           }
 
           const strokeRotation = selectedTextRef.current.rotation ?? 0;

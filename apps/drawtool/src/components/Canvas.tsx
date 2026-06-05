@@ -258,6 +258,7 @@ function Canvas({
   // Refs to late-defined callbacks (populated after they're created below)
   const finishWritingRef = useRef<() => void>(() => {});
   const startWritingRef = useRef<(pos: { x: number; y: number }) => void>(() => {});
+  const startEditingStrokeRef = useRef<(stroke: Stroke, wp?: { x: number; y: number }) => void>(() => {});
   const cursorRef = useRef("");
 
   // Multi-touch tracking
@@ -3885,7 +3886,14 @@ function Canvas({
       const anch = selectionAnchorRef.current;
       const caret = caretPosRef.current;
       ta.setSelectionRange(anch !== null ? Math.min(anch, caret) : caret, caret);
-      ta.focus();
+      // On iOS, ta.focus() was already called directly in the gesture handler (either
+      // onTouchStartForText for new text, or onCanvasTouchEndForEdit for select-mode
+      // editing). Calling focus() here — inside window.dispatchEvent, which is an
+      // untrusted event on iOS — breaks user activation and causes the keyboard to
+      // flash open then close. Skip on iOS; desktop always calls focus here.
+      if (!isTouchDevice) {
+        ta.focus();
+      }
     };
 
     const onPaste = (e: ClipboardEvent) => {
@@ -3927,21 +3935,114 @@ function Canvas({
     };
 
     // iOS/Android: keyboard dismissed = visual viewport height grows back.
-    // Use a 150px threshold to ignore autocorrect suggestion bar micro-changes.
+    // 150px threshold ignores autocorrect suggestion bar micro-changes.
+    // 1500ms startup guard: keyboard open animation ~300ms + close animation ~300ms
+    // leaves a safety margin. Any iOS rejection of focus (opacity=0 element) causes
+    // open+close in ~600ms; the guard prevents that from triggering finishWriting.
+    // With opacity:0.01 on both textarea styles, iOS should keep keyboard open and
+    // this guard only matters for genuine Done presses which happen after typing.
     let prevVVHeight = window.visualViewport?.height ?? 0;
     const onVVResize = () => {
       const vv = window.visualViewport;
       if (!vv) return;
       const h = vv.height;
-      if (isWritingRef.current && h > prevVVHeight + 150) {
+      if (isWritingRef.current && h > prevVVHeight + 150 && Date.now() - writingStartTime > 1500) {
         finishWritingRef.current();
       }
       prevVVHeight = h;
     };
 
+    // iOS text-tool mode: the textarea is a full-screen overlay, so the user's touch lands
+    // directly on it. We add a NATIVE touchstart listener (not React synthetic) to call
+    // ta.focus() and startWriting() at the earliest possible moment in the gesture —
+    // before any React event delegation, before any custom event dispatch, guaranteed to
+    // be inside iOS's user-activation window for keyboard opening.
+    const onTouchStartForText = (e: TouchEvent) => {
+      if (touchToolRef.current !== "text") return;
+      if (isWritingRef.current) return; // already writing — a second tap, handled elsewhere
+      const touch = e.touches[0];
+      if (!touch) return;
+      ta.focus(); // open iOS keyboard — native handler, definitely a user gesture
+      const wp = screenToWorld(touch.clientX, touch.clientY, viewRef.current);
+      startWritingRef.current(wp);
+    };
+
+    // Select-mode double-tap to edit. Detection is split across two native listeners:
+    //
+    // onCanvasTouchStartForEdit: records which text stroke was touched and its screen
+    //   position, but does NOT act yet — we can't distinguish a tap from a drag at
+    //   touchstart time, so any action here would also fire on drag-to-move.
+    //
+    // onCanvasTouchEndForEdit: checks whether the finger moved (drag) or barely moved
+    //   (tap). Only on a tap does it run the double-tap logic. Calling ta.focus() inside
+    //   touchend is still within iOS's user-activation window, so the keyboard opens.
+    const canvas = canvasRef.current;
+    // Stores the touchstart data for the current touch so touchend can check movement.
+    let touchStartData: { clientX: number; clientY: number; hitStroke: Stroke } | null = null;
+
+    const onCanvasTouchStartForEdit = (e: TouchEvent) => {
+      touchStartData = null;
+      if (touchToolRef.current === "text") return;
+      if (isWritingRef.current) return;
+      const touch = e.touches[0];
+      if (!touch) return;
+      const wp = screenToWorld(touch.clientX, touch.clientY, viewRef.current);
+      const { scale } = viewRef.current;
+      let hitStroke: Stroke | null = null;
+      for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+        const s = strokesRef.current[i];
+        if (!s.text || s.locked) continue;
+        const bb = anyStrokeBBox(s);
+        const pad = 8 / scale;
+        if (wp.x >= bb.x - pad && wp.x <= bb.x + bb.w + pad &&
+            wp.y >= bb.y - pad && wp.y <= bb.y + bb.h + pad) {
+          hitStroke = s;
+          break;
+        }
+      }
+      if (!hitStroke) {
+        lastTextTapRef.current = null; // touched empty canvas — clear stale state
+        return;
+      }
+      touchStartData = { clientX: touch.clientX, clientY: touch.clientY, hitStroke };
+    };
+
+    const onCanvasTouchEndForEdit = (e: TouchEvent) => {
+      const start = touchStartData;
+      touchStartData = null;
+      if (!start) return;
+      if (touchToolRef.current === "text") return;
+      if (isWritingRef.current) return;
+      const changedTouch = e.changedTouches[0];
+      if (!changedTouch) return;
+      // If the finger moved more than ~10px it was a drag, not a tap — don't edit
+      const dx = changedTouch.clientX - start.clientX;
+      const dy = changedTouch.clientY - start.clientY;
+      if (dx * dx + dy * dy > 10 * 10) {
+        lastTextTapRef.current = null;
+        return;
+      }
+      const { hitStroke } = start;
+      const last = lastTextTapRef.current;
+      const now = performance.now();
+      if (last && last.stroke === hitStroke && now - last.time < 300) {
+        // Double-tap confirmed — open keyboard in user-activation context and start editing
+        const wp = screenToWorld(start.clientX, start.clientY, viewRef.current);
+        ta.focus();
+        startEditingStrokeRef.current(hitStroke, wp);
+        lastTextTapRef.current = null;
+      } else {
+        // First tap on this stroke — seed the timer for the next tap
+        lastTextTapRef.current = { time: now, stroke: hitStroke, count: 1 };
+      }
+    };
+
     ta.addEventListener("input", onInput);
     ta.addEventListener("paste", onPaste);
     ta.addEventListener("blur", onBlur);
+    ta.addEventListener("touchstart", onTouchStartForText, { passive: true });
+    if (canvas) canvas.addEventListener("touchstart", onCanvasTouchStartForEdit, { passive: true });
+    if (canvas) canvas.addEventListener("touchend", onCanvasTouchEndForEdit, { passive: true });
     document.addEventListener("selectionchange", onSelChange);
     window.addEventListener("drawtool:writing", onWriting);
     if (isTouchDevice) window.visualViewport?.addEventListener("resize", onVVResize);
@@ -3949,6 +4050,9 @@ function Canvas({
       ta.removeEventListener("input", onInput);
       ta.removeEventListener("paste", onPaste);
       ta.removeEventListener("blur", onBlur);
+      ta.removeEventListener("touchstart", onTouchStartForText);
+      if (canvas) canvas.removeEventListener("touchstart", onCanvasTouchStartForEdit);
+      if (canvas) canvas.removeEventListener("touchend", onCanvasTouchEndForEdit);
       document.removeEventListener("selectionchange", onSelChange);
       window.removeEventListener("drawtool:writing", onWriting);
       if (isTouchDevice) window.visualViewport?.removeEventListener("resize", onVVResize);
@@ -3970,7 +4074,7 @@ function Canvas({
       isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
       selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
       zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
-      finishWritingRef, startWritingRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
+      finishWritingRef, startWritingRef, startEditingStrokeRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
     },
     {
       scheduleRedraw, persistStrokes, notifyColorUsed, setZCursor,
@@ -3992,18 +4096,24 @@ function Canvas({
         autoCapitalize="off"
         spellCheck={false}
         enterKeyHint="enter"
-        onPointerDown={isTouchDevice && touchTool === "text" ? (e) => {
-          // Don't call preventDefault — let the browser auto-focus the textarea naturally.
-          // The touch target IS the textarea so iOS will open the keyboard without any focus() call.
+        onPointerDown={isTouchDevice ? (e) => {
+          // Always registered on iOS: in text-tool mode the textarea is the tap target
+          // (pointer-events:auto), so this fires for new text placement. In select mode
+          // it fires while editing (pointer-events becomes auto during writing) — handles
+          // cursor placement and Done/outside-tap commit without needing canvas to be target.
           handlePointerDownForText(e as unknown as Parameters<typeof handlePointerDownForText>[0]);
         } : undefined}
-        style={isTouchDevice && touchTool === "text" ? {
+        style={isTouchDevice ? {
+          // Always full-screen on iOS — iOS won't reliably open the keyboard for small
+          // or corner-positioned elements even with explicit focus() in a gesture context.
+          // pointerEvents: "auto" only in text-tool mode (where the overlay IS the tap target).
+          // In all other modes: "none" so taps pass through to the canvas.
           position: "fixed",
           inset: 0,
           width: "100%",
           height: "100%",
-          opacity: 0,
-          pointerEvents: "auto",
+          opacity: 0.01, // must be >0: iOS won't open keyboard for opacity:0 elements
+          pointerEvents: touchTool === "text" ? "auto" : "none",
           resize: "none",
           border: "none",
           padding: 0,
@@ -4018,12 +4128,15 @@ function Canvas({
           left: 0,
           width: 1,
           height: 1,
-          opacity: 0,
+          opacity: 0.01,
           pointerEvents: "none",
           resize: "none",
           border: "none",
           padding: 0,
           overflow: "hidden",
+          fontSize: 16,
+          color: "transparent",
+          background: "transparent",
         }}
       />
       <canvas
