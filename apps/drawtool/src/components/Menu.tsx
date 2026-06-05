@@ -2448,7 +2448,7 @@ export default function Menu({
                               >
                                 V
                               </kbd>{" "}
-                              to select — drag to move, or{" "}
+                              to select - drag to move, or{" "}
                               <kbd
                                 className={
                                   isDark ? "text-white/35" : "text-black/35"
@@ -2459,7 +2459,7 @@ export default function Menu({
                               + drag to box-select multiple strokes.
                             </>
                           ),
-                          "Tap a line or arrow to select it — drag any point to bend it. While drawing, tap to add a bend mid-stroke.",
+                          "Tap a line or arrow to select it - drag any point to bend it. While drawing, tap to add a bend mid-stroke.",
                           "Double-tap text to edit it.",
                           hasTouch && "Long-press any tool button to see more options.",
                           hasTouch && "Two-finger tap to undo, three-finger tap to redo.",
@@ -2536,7 +2536,7 @@ export default function Menu({
                       {[
                         [
                           "/new",
-                          "Opens a blank canvas — silently switches to the first empty slot, or asks before clearing if all 9 are in use.",
+                          "Opens a blank canvas - silently switches to the first empty slot, or asks before clearing if all 9 are in use.",
                         ],
                       ].map(([path, desc]) => (
                         <li key={path}>
@@ -2661,7 +2661,7 @@ export default function Menu({
                       </div>
                     )
                   })}
-                  {/* Canvas + Workspace idle buttons — shown side by side when neither is active */}
+                  {/* Canvas + Workspace idle buttons - shown side by side when neither is active */}
                   {onShareCanvas && !hasLiveCanvas && onShareWorkspace && !shareWorkspaceUrl ? (
                     <div className="flex gap-1.5">
                       <button
@@ -2681,7 +2681,7 @@ export default function Menu({
                     </div>
                   ) : (
                     <>
-                      {/* Canvas create button — only when canvas not yet live */}
+                      {/* Canvas create button - only when canvas not yet live */}
                       {onShareCanvas && !hasLiveCanvas && (
                         <div className="flex items-center gap-1">
                           <span className={labelCls}>Canvas</span>
@@ -2695,7 +2695,7 @@ export default function Menu({
                         </div>
                       )}
 
-                      {/* Workspace row — Pro only */}
+                      {/* Workspace row - Pro only */}
                       {onShareWorkspace && (
                         <div className="flex items-center gap-1">
                           <span className={labelCls}>Workspace</span>

@@ -21,7 +21,7 @@ function loadViewerSettings(): { theme: Theme; gridType: GridType } {
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
-// Dedicated slot for share viewer — doesn't conflict with user's slots 1–9
+// Dedicated slot for share viewer - doesn't conflict with user's slots 1–9
 const SHARE_SLOT = 10
 
 type CanvasData = { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; images?: Record<string, string> }

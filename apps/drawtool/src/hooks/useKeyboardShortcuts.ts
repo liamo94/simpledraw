@@ -156,7 +156,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     setZCursor, setPanning, setErasing, setShapeActive, setHighlighting, setLasering, setSpraying,
   } = callbacks;
 
-  // Internal state for select-mode lock (double-tap V) — not part of the ref bag
+  // Internal state for select-mode lock (double-tap V) - not part of the ref bag
   const selectLockedRef = useRef(false);
   const lastVPressRef = useRef(0);
   // s key: direction + timer that shows the shape cursor after a short hold (peek mode)
@@ -166,7 +166,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
   useEffect(() => {
     let mounted = true;
     const onKeyDown = (e: KeyboardEvent) => {
-      // Handle text input while in writing mode — runs before the native-input guard so our
+      // Handle text input while in writing mode - runs before the native-input guard so our
       // handlers fire even when the hidden textarea has focus (avoids relying on inconsistent
       // browser behaviour for shortcuts like Cmd+Backspace in a focused textarea).
       if (isWritingRef.current) {
@@ -466,7 +466,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           replaceSelection("  ");
           return;
         }
-        // Printable character — handled by keydown on desktop (preventDefault prevents double-insert
+        // Printable character - handled by keydown on desktop (preventDefault prevents double-insert
         // if textarea also has focus); mobile soft keyboard sends input events instead
         if (e.key.length === 1) {
           e.preventDefault();
@@ -1084,7 +1084,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         scheduleRedraw();
         return;
       }
-      // Cmd+Shift+J — uncombine selected compound stroke back to originals
+      // Cmd+Shift+J - uncombine selected compound stroke back to originals
       if (cmdKey(e) && e.key === "j" && e.shiftKey && !e.altKey && !isWritingRef.current) {
         const stroke = selectedTextRef.current;
         if (stroke?.subStrokes) {
@@ -1139,7 +1139,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         }
         return;
       }
-      // Cmd+J — combine selected strokes into one compound stroke
+      // Cmd+J - combine selected strokes into one compound stroke
       if (cmdKey(e) && e.key === "j" && !e.shiftKey && !e.altKey && !isWritingRef.current) {
         const toMerge = selectedGroupRef.current;
         if (toMerge.length >= 2) {
@@ -1305,7 +1305,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         }
         if (keyShapeRef.current) {
           keyShapeDashedRef.current = false;
-          // Don't retroactively convert the in-progress stroke to solid — dashed state is locked at creation.
+          // Don't retroactively convert the in-progress stroke to solid - dashed state is locked at creation.
         }
       }
       if (e.key === "Meta" || (e.key === "Control" && !isMac)) {
@@ -1344,7 +1344,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         keyShapeRef.current = null;
         keyShapeDashedRef.current = false;
         if (activeModifierRef.current === "shape") {
-          // Draw still in progress — commit it (same path as a/r/c)
+          // Draw still in progress - commit it (same path as a/r/c)
           const stroke = strokesRef.current[strokesRef.current.length - 1];
           if (stroke?.shape === "arrow" && stroke.points.length > 2) {
             const n = stroke.points.length;
@@ -1367,7 +1367,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           scheduleRedraw();
           setShapeActive(false);
         } else if (wasTap && !shapeJustCommittedRef.current) {
-          // Released before 500ms with no draw — cycle shape, flash shows the new one
+          // Released before 500ms with no draw - cycle shape, flash shows the new one
           window.dispatchEvent(new Event(sKeyBackwardRef.current ? "drawtool:cycle-shape-back" : "drawtool:cycle-shape"));
           setShapeActive(true);
           shapeFlashRef.current = setTimeout(() => {
@@ -1375,7 +1375,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
             shapeFlashRef.current = null;
           }, 300);
         } else {
-          // Peek (held > 500ms, no draw) or draw committed via pointer-up — just clean up
+          // Peek (held > 500ms, no draw) or draw committed via pointer-up - just clean up
           setShapeActive(false);
         }
       }
@@ -1540,14 +1540,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       const clipboardText = e.clipboardData?.getData("text/plain") ?? "";
       const hasDrawtoolClip = clipboardText === "drawtool-clip";
 
-      // If our sentinel is in the system clipboard, the last copy was a shape — use internal clipboard
+      // If our sentinel is in the system clipboard, the last copy was a shape - use internal clipboard
       if (hasDrawtoolClip && clipboardRef.current) {
         e.preventDefault();
         doPasteInternal();
         return;
       }
 
-      // No sentinel (or no internal clipboard) — check for image in system clipboard
+      // No sentinel (or no internal clipboard) - check for image in system clipboard
       const items = e.clipboardData?.items;
       const imageItem = items ? Array.from(items).find(item => item.type.startsWith("image/")) : null;
       if (imageItem) {

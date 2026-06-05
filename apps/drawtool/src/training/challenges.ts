@@ -124,7 +124,7 @@ export const CHALLENGES: Challenge[] = [
   {
     id: "laser",
     title: "Laser pointer",
-    description: "Draw with the laser pointer — it fades away.",
+    description: "Draw with the laser pointer - it fades away.",
     hint: {
       desktop:
         "Hold Q or L while dragging. The trail appears briefly then disappears.",
@@ -309,7 +309,7 @@ export const CHALLENGES: Challenge[] = [
     hint: {
       desktop: "Hold {mod}+{shift} while dragging to snap to a straight line.",
       mobile:
-        "Not available on touchscreen — this is a keyboard shortcut for desktop only.",
+        "Not available on touchscreen - this is a keyboard shortcut for desktop only.",
     },
     validation: { type: "stroke", predicate: (s) => s.shape === "line" },
   },
@@ -321,7 +321,7 @@ export const CHALLENGES: Challenge[] = [
       desktop:
         "Hold {mod}+{shift} and drag to start a line. Click to lock in a bend and keep drawing. Release to finish.",
       mobile:
-        "Not available on touchscreen — this is a keyboard shortcut for desktop only.",
+        "Not available on touchscreen - this is a keyboard shortcut for desktop only.",
     },
     validation: {
       type: "stroke",
@@ -334,7 +334,7 @@ export const CHALLENGES: Challenge[] = [
     description: "Draw an arrow with at least two smooth, curved bends.",
     hint: {
       desktop:
-        "Hold A while dragging. Make sure sharp corners are off (E to toggle). Click mid-drag to add bends — add at least two before releasing.",
+        "Hold A while dragging. Make sure sharp corners are off (E to toggle). Click mid-drag to add bends - add at least two before releasing.",
       mobile:
         "Tap the arrow shape tool. Ensure sharp corners are off in shape options. Tap mid-drag to add bends.",
     },

@@ -203,14 +203,14 @@ function densifySmoothedPath(
 /**
  * Returns circle centers, outer intersection points, and bump radius for a cloud shape.
  * Centers are placed on a rounded-rectangle perimeter so a wide cloud gets more bumps
- * across the top/bottom and fewer on the sides — producing an asymmetric cloud silhouette.
+ * across the top/bottom and fewer on the sides - producing an asymmetric cloud silhouette.
  */
 export function cloudArcData(x: number, y: number, w: number, h: number) {
   const ox = x + w / 2, oy = y + h / 2;
   // Guard against zero/near-zero dimension (e.g. perfectly horizontal drag).
   // Without this, bumpR = 0 → N = Infinity → infinite loop.
   // Also enforce a minimum bumpR based on perimeter so elongated clouds don't get
-  // too many tiny bumps — approx perimeter / 42 keeps N ≤ ~28.
+  // too many tiny bumps - approx perimeter / 42 keeps N ≤ ~28.
   const naturalBumpR = 3 * Math.sqrt(Math.max(1, Math.min(w, h)));
   const bumpR = Math.max(naturalBumpR, 2 * (w + h) / 42);
   const norm2pi = (a: number) => ((a % (2 * Math.PI)) + 2 * Math.PI) % (2 * Math.PI);
@@ -234,7 +234,7 @@ export function cloudArcData(x: number, y: number, w: number, h: number) {
   const spacing = perimeter / N;
 
   // Walk the rounded rect clockwise from top-left corner.
-  // Also record the outward normal at each center — used for arc direction selection.
+  // Also record the outward normal at each center - used for arc direction selection.
   // Using the rect normal (not cloud-center direction) avoids wrong arc choices for
   // bumps at the far ends of straight sections where the cloud-center direction tilts.
   const centers: { x: number; y: number }[] = [];
@@ -674,7 +674,7 @@ export function renderRoughShape(
     }
     case "cloud": {
       if (sharp) {
-        // Jagged cloud is all straight lines — safe to use rough.js directly.
+        // Jagged cloud is all straight lines - safe to use rough.js directly.
         const { centers, normals, ipts, bumpR, N } = cloudArcData(x, y, w, h);
         let rs = (seed | 0) >>> 0;
         const rng = () => { rs = (rs * 1664525 + 1013904223) >>> 0; return rs / 4294967296; };
@@ -699,7 +699,7 @@ export function renderRoughShape(
         rc.path(svgPath, opts);
       } else {
         // Smooth cloud with dynamic stroke: perfect-freehand with curvature-based pressure.
-        // Thick at bump peaks, thin at pinch points — tldraw-style hand-drawn look.
+        // Thick at bump peaks, thin at pinch points - tldraw-style hand-drawn look.
         const { centers, normals, ipts, bumpR, N, norm2pi } = cloudArcData(x, y, w, h);
 
         // Sample each arc with pressure: sin curve so peaks are thick, pinches are thin.
@@ -941,7 +941,7 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
   if (stroke.text) {
     const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"] * (stroke.fontScale ?? 1);
     const font = buildFont(basePx, stroke.bold, stroke.italic, stroke.fontFamily);
-    // Skip rendering if the font hasn't loaded yet — the loadingdone listener in
+    // Skip rendering if the font hasn't loaded yet - the loadingdone listener in
     // Canvas.tsx will trigger a redraw once it arrives, preventing a fallback-font flash.
     if (!document.fonts.check(font)) return;
     ctx.font = font;
@@ -1097,7 +1097,7 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     if (stroke.seed !== undefined) {
       // rough.js uses ctx.save()/restore() per path but only sets lineDash when strokeLineDash
       // is provided (i.e. for dashed shapes). For solid shapes it inherits whatever lineDash is
-      // currently on the canvas — so reset it here to prevent contamination from previous strokes.
+      // currently on the canvas - so reset it here to prevent contamination from previous strokes.
       ctx.setLineDash([]);
       renderRoughShape(
         ctx,

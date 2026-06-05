@@ -146,7 +146,7 @@ const FEATURES: {
       </svg>
     ),
     title: "Sync everywhere",
-    description: "Your canvases follow you — open drawzilla on any device.",
+    description: "Your canvases follow you - open drawzilla on any device.",
   },
 ];
 
@@ -303,7 +303,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
       window.location.href = data.url;
     } catch {
       alert(
-        "Couldn't start checkout — please try again or contact support@drawzil.la",
+        "Couldn't start checkout - please try again or contact support@drawzil.la",
       );
     } finally {
       setWorking(false);
@@ -328,7 +328,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
       window.location.href = data.url;
     } catch {
       alert(
-        "Couldn't open billing portal — please try again or contact support@drawzil.la",
+        "Couldn't open billing portal - please try again or contact support@drawzil.la",
       );
     } finally {
       setWorking(false);
@@ -363,7 +363,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
           color: "#0a1a04",
         }}
       >
-        {working ? "Loading…" : "Get Unleashed — £2.99/mo"}
+        {working ? "Loading…" : "Get Unleashed - £2.99/mo"}
       </button>
     );
   }
@@ -377,7 +377,7 @@ function CtaButton({ hideIfPro = false }: { hideIfPro?: boolean }) {
           color: "#0a1a04",
         }}
       >
-        Get Unleashed — £2.99/mo
+        Get Unleashed - £2.99/mo
       </button>
     </SignInButton>
   );
@@ -694,7 +694,7 @@ export default function App() {
           </h1>
 
           <p className="text-white/50 text-base max-w-sm mb-10 leading-relaxed">
-            All canvases unlocked, workspaces, permanent share links, and more — synced across every device.
+            All canvases unlocked, workspaces, permanent share links, and more - synced across every device.
           </p>
 
           <CtaButton hideIfPro />
@@ -708,7 +708,7 @@ export default function App() {
           </p>
         </div>
 
-        {/* Mascot — evolves once on load */}
+        {/* Mascot - evolves once on load */}
         <div
           style={{
             position: "relative",
@@ -733,7 +733,7 @@ export default function App() {
             </defs>
           </svg>
 
-          {/* Normal mascot — shown until flash */}
+          {/* Normal mascot - shown until flash */}
           {evoPhase !== "unleashed" && (
             <img
               src="/mascot-normal.png"
@@ -765,7 +765,7 @@ export default function App() {
             />
           )}
 
-          {/* Roaring mascot — bursts in after flash, then floats */}
+          {/* Roaring mascot - bursts in after flash, then floats */}
           {evoPhase === "unleashed" && (
             <img
               src="/mascot.png"
@@ -784,7 +784,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Profile section — pro users only */}
+      {/* Profile section - pro users only */}
       {planKnown && isSignedIn && isUnleashed && (
         <ProfileSection startedAt={status?.startedAt ?? null} />
       )}
@@ -801,7 +801,7 @@ export default function App() {
         </div>
       </section>
 
-      {/* Pricing — hidden until plan is known and for existing subscribers */}
+      {/* Pricing - hidden until plan is known and for existing subscribers */}
       {planKnown && !isUnleashed && (
         <section className="flex justify-center px-6 pb-32">
           <div

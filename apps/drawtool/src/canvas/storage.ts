@@ -116,7 +116,7 @@ export function validateStrokesFile(data: unknown): { strokes: Stroke[]; name?: 
     throw new Error("Not a valid drawtool file");
   const obj = data as Record<string, unknown>;
   if (obj.version !== 1)
-    throw new Error("Unknown file version — was this made by a newer drawtool?");
+    throw new Error("Unknown file version - was this made by a newer drawtool?");
   if (!Array.isArray(obj.strokes))
     throw new Error("Missing strokes array");
   const strokes = validateStrokesArray(obj.strokes, "Stroke ");
@@ -133,9 +133,9 @@ export function validateWorkspaceFile(data: unknown): WorkspaceCanvas[] {
     throw new Error("Not a valid drawtool workspace file");
   const obj = data as Record<string, unknown>;
   if (obj.version !== 1)
-    throw new Error("Unknown file version — was this made by a newer drawtool?");
+    throw new Error("Unknown file version - was this made by a newer drawtool?");
   if (obj.type !== "workspace")
-    throw new Error("Not a workspace file — use 'Import canvas' for single-canvas files");
+    throw new Error("Not a workspace file - use 'Import canvas' for single-canvas files");
   if (!Array.isArray(obj.canvases))
     throw new Error("Missing canvases array");
 

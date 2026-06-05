@@ -63,7 +63,7 @@ const FEATURES: Feature[] = [
     align: 'left',
     icon: <PressureIcon />,
     title: 'Pressure & tilt',
-    body: 'Apple Pencil tilt and pressure shape every stroke. Lean in, press harder, go light — drawzilla responds like real media.',
+    body: 'Apple Pencil tilt and pressure shape every stroke. Lean in, press harder, go light - drawzilla responds like real media.',
   },
   {
     align: 'left',
@@ -75,7 +75,7 @@ const FEATURES: Feature[] = [
     align: 'left',
     icon: <PinchIcon />,
     title: 'Pinch to zoom',
-    body: 'Two fingers to zoom and pan anywhere on the infinite canvas — no mode switch, no toolbar.',
+    body: 'Two fingers to zoom and pan anywhere on the infinite canvas - no mode switch, no toolbar.',
   },
   {
     align: 'right',
@@ -150,7 +150,7 @@ export function TabletSection() {
             A canvas that feels made for touch
           </h2>
           <p className="text-base sm:text-lg" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            From Apple Pencil pressure to palm rejection to gesture shortcuts — drawzilla is as at home on an iPad as it is on a laptop.
+            From Apple Pencil pressure to palm rejection to gesture shortcuts - drawzilla is as at home on an iPad as it is on a laptop.
           </p>
         </div>
 
@@ -164,7 +164,7 @@ export function TabletSection() {
           {/* Portrait video */}
           <div className="w-full">
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-              <VideoPlaceholder label="VIDEO: iPad / tablet footage — Apple Pencil drawing, palm rejection, pinch-zoom, mobile toolbar usage" portrait />
+              <VideoPlaceholder label="VIDEO: iPad / tablet footage - Apple Pencil drawing, palm rejection, pinch-zoom, mobile toolbar usage" portrait />
             </div>
           </div>
 

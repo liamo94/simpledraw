@@ -41,7 +41,7 @@ export default function Terms() {
 
         <Section title="Your content">
           <p>You own the drawings you create in drawzilla. We do not claim any rights over your canvas content.</p>
-          <p>By storing canvases in the cloud, you grant us the limited right to store and transmit your content as needed to operate the service — for example, syncing canvases across your devices and serving share links you create.</p>
+          <p>By storing canvases in the cloud, you grant us the limited right to store and transmit your content as needed to operate the service - for example, syncing canvases across your devices and serving share links you create.</p>
           <p>You are responsible for the content you create and share. Do not use drawzilla to create or share content that is illegal, harmful, or infringes on others' rights.</p>
         </Section>
 
@@ -58,7 +58,7 @@ export default function Terms() {
 
         <Section title="Availability">
           <p>We aim to keep drawzilla available at all times but do not guarantee uptime. We may take the service down for maintenance or updates with or without notice.</p>
-          <p>drawzilla is provided "as is." To the extent permitted by law, we disclaim all warranties — express or implied — about the service, including warranties of merchantability, fitness for a particular purpose, and non-infringement.</p>
+          <p>drawzilla is provided "as is." To the extent permitted by law, we disclaim all warranties - express or implied - about the service, including warranties of merchantability, fitness for a particular purpose, and non-infringement.</p>
         </Section>
 
         <Section title="Limitation of liability">

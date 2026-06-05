@@ -49,7 +49,7 @@ export async function scoreAttempt(
   // Ensure fonts are loaded before measuring
   await document.fonts.load(font, target);
 
-  // Target canvas — render the ghost letter as filled white
+  // Target canvas - render the ghost letter as filled white
   const targetCanvas = document.createElement('canvas');
   targetCanvas.width = Math.ceil(canvasW);
   targetCanvas.height = Math.ceil(canvasH);
@@ -76,7 +76,7 @@ export async function scoreAttempt(
     lines.forEach((l, i) => tCtx.fillText(l, cx, startY + i * lineH));
   }
 
-  // User canvas — render all drawn strokes (stored in center-relative coords)
+  // User canvas - render all drawn strokes (stored in center-relative coords)
   const userCanvas = document.createElement('canvas');
   userCanvas.width = Math.ceil(canvasW);
   userCanvas.height = Math.ceil(canvasH);
@@ -109,7 +109,7 @@ export async function scoreAttempt(
   // Effort multiplier: requires drawing ~30% of the target pixel area before penalty lifts.
   const effort = Math.min(1, userTotal / (targetPx * 0.3));
 
-  // coverage^1.5 makes partial coverage much more costly — a scribble on one corner
+  // coverage^1.5 makes partial coverage much more costly - a scribble on one corner
   // of a letter can't score well, you need to cover most of the target shape.
   const coveragePow = Math.pow(coverage, 1.2);
 
@@ -127,7 +127,7 @@ export async function scoreShapeAttempt(
   if (strokes.length === 0) return 0;
   if (shapes.length === 0) return 0;
 
-  // Target canvas — render all shapes as stroked outlines, matching ghost line widths
+  // Target canvas - render all shapes as stroked outlines, matching ghost line widths
   const targetCanvas = document.createElement('canvas');
   targetCanvas.width = Math.ceil(canvasW);
   targetCanvas.height = Math.ceil(canvasH);
@@ -141,7 +141,7 @@ export async function scoreShapeAttempt(
     tCtx.stroke();
   }
 
-  // User canvas — render strokes in center-relative coords
+  // User canvas - render strokes in center-relative coords
   const userCanvas = document.createElement('canvas');
   userCanvas.width = Math.ceil(canvasW);
   userCanvas.height = Math.ceil(canvasH);

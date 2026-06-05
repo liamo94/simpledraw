@@ -340,7 +340,7 @@ export default function StashPanel({
                 (e.currentTarget as HTMLElement).style.borderColor = cardBorder;
               }}
             >
-              {/* Thumbnail — click to drop */}
+              {/* Thumbnail - click to drop */}
               <div
                 className="flex items-center justify-center cursor-pointer"
                 style={{
@@ -353,7 +353,7 @@ export default function StashPanel({
                 <StashItemThumbnail item={item} />
               </div>
 
-              {/* Name row — click to rename, delete on hover */}
+              {/* Name row - click to rename, delete on hover */}
               <div
                 className="flex items-center gap-1 px-2 py-1.5"
                 style={{ borderTop: `1px solid ${cardBorder}` }}

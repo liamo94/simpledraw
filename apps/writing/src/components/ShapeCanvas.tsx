@@ -63,7 +63,7 @@ export default function ShapeCanvas({
   // Blind mode animated alpha
   const blindAlphaRef = useRef(ghostAlpha);
 
-  // Shapes — computed once from config + canvas dimensions
+  // Shapes - computed once from config + canvas dimensions
   const shapesRef = useRef<ShapeTarget[]>([]);
 
   // Mirror props to refs

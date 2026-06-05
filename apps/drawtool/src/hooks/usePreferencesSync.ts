@@ -42,7 +42,7 @@ export function usePreferencesSync(
 
     api.get<Partial<Settings> | null>('/preferences')
       .catch((err: unknown) => {
-        // 404 means no prefs yet — treat as null
+        // 404 means no prefs yet - treat as null
         if (err instanceof ApiError && err.status === 404) return null
         throw err
       })
@@ -50,7 +50,7 @@ export function usePreferencesSync(
         if (prefs && typeof prefs === 'object') {
           updateSettings(prefs)
         } else {
-          // No cloud prefs yet — push current local settings so next sign-in restores them
+          // No cloud prefs yet - push current local settings so next sign-in restores them
           putPreferences(settingsRef.current).catch(() => {})
         }
       })

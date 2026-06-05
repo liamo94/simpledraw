@@ -457,7 +457,7 @@ export default function Training({
                 {renderText(challenge.description)}
               </div>
 
-              {/* Hint — always visible, blurred until revealed */}
+              {/* Hint - always visible, blurred until revealed */}
               <div className="relative mb-4">
                 <div
                   className={`text-[11px] leading-relaxed pl-3 pr-5 transition-all duration-200 select-none ${

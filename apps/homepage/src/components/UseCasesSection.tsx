@@ -11,7 +11,7 @@ const USES = [
       </svg>
     ),
     title: 'Diagramming',
-    desc: 'Flowcharts, system designs, ERDs — draw the structure you mean without fighting the tool.',
+    desc: 'Flowcharts, system designs, ERDs - draw the structure you mean without fighting the tool.',
   },
   {
     icon: (
@@ -42,7 +42,7 @@ const USES = [
       </svg>
     ),
     title: 'Whiteboarding',
-    desc: 'A shared surface for thinking out loud — sprint planning, retros, brainstorms.',
+    desc: 'A shared surface for thinking out loud - sprint planning, retros, brainstorms.',
   },
   {
     icon: (
@@ -64,7 +64,7 @@ const USES = [
       </svg>
     ),
     title: 'Creating assets',
-    desc: 'Quick icons, UI elements, and illustrations — export clean PNG or SVG when done.',
+    desc: 'Quick icons, UI elements, and illustrations - export clean PNG or SVG when done.',
   },
   {
     icon: (
@@ -74,7 +74,7 @@ const USES = [
       </svg>
     ),
     title: 'UI mockups',
-    desc: 'Wireframe screens and layouts at the speed of thought — before reaching for Figma.',
+    desc: 'Wireframe screens and layouts at the speed of thought - before reaching for Figma.',
   },
   {
     icon: (

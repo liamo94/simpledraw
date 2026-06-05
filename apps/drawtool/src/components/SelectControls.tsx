@@ -1,5 +1,5 @@
 import { memo, useState, useCallback, useEffect } from "react";
-import { Layers, Scissors, Combine, Ungroup, BringToFront, SendToBack, CopyPlus, ScanSearch } from "lucide-react";
+import { Layers, Scissors, Combine, Ungroup, BringToFront, SendToBack, CopyPlus, ScanSearch, ImageDown } from "lucide-react";
 import type React from "react";
 import { getPanelBackground } from "../canvas/rendering";
 import type { Theme } from "../hooks/useSettings";
@@ -286,6 +286,7 @@ export default memo(function SelectControls({
   selectionIsCombined,
   selectionIsText,
   selectionIsLocked,
+  isPro,
 }: {
   isDark: boolean;
   theme: Theme;
@@ -293,6 +294,7 @@ export default memo(function SelectControls({
   selectionIsCombined: boolean;
   selectionIsText: boolean;
   selectionIsLocked: boolean;
+  isPro: boolean;
 }) {
   const bg = getPanelBackground(theme);
   const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
@@ -309,7 +311,14 @@ export default memo(function SelectControls({
 
   const viewActions = COMMON_ACTIONS.filter(a => a.group === "view");
   const layerActions = COMMON_ACTIONS.filter(a => a.group === "layer");
-  const editActions = COMMON_ACTIONS.filter(a => a.group === "edit");
+  const baseEditActions = COMMON_ACTIONS.filter(a => a.group === "edit");
+  const exportSelectionAction: Action = {
+    label: "Export selection",
+    group: "edit",
+    icon: <ImageDown size={20} strokeWidth={1.75} />,
+    action: () => window.dispatchEvent(new CustomEvent("drawtool:export-selection-png")),
+  };
+  const editActions = isPro ? [...baseEditActions, exportSelectionAction] : baseEditActions;
 
   const lockAction: Action = {
     label: selectionIsLocked ? "Unlock" : "Lock",
@@ -408,12 +417,10 @@ export default memo(function SelectControls({
 
             <Divider />
 
-            <Full>{btn(lockAction, selectionIsLocked)}</Full>
-
-            <Divider />
-
+            {btn(lockAction, selectionIsLocked)}
+            {!twoCol && <Divider />}
             {tailActions.map(a => btn(a))}
-            {tailActions.length % 2 === 1 && <Spacer />}
+            {(1 + tailActions.length) % 2 === 1 && <Spacer />}
           </div>
         </div>
       </div>

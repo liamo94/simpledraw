@@ -35,7 +35,7 @@ type CloudSessionState = Persisted & {
   resetSession:        ()                                        => void
 }
 
-// Custom storage adapter — maps to individual existing localStorage keys
+// Custom storage adapter - maps to individual existing localStorage keys
 const legacyStorage: PersistStorage<Persisted> = {
   getItem: (_name): StorageValue<Persisted> => ({
     state: {

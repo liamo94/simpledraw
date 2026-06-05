@@ -36,7 +36,7 @@ export default function MigrationModal({
           </div>
           <div className={`text-xs mb-4 leading-relaxed ${textSecondary}`}>
             {skippedCount > 0
-              ? `Free accounts include 3 cloud canvases — the first ${willMigrateCount} will be moved. The rest require Unleashed.`
+              ? `Free accounts include 3 cloud canvases - the first ${willMigrateCount} will be moved. The rest require Unleashed.`
               : `You have ${localCanvases.length} canvas${localCanvases.length !== 1 ? 'es' : ''} saved locally. Move them to your cloud workspace to access from any device.`
             }
           </div>

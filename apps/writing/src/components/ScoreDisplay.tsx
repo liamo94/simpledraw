@@ -179,7 +179,7 @@ export default function ScoreDisplay({
     }
     ctx.restore();
 
-    // User strokes — translate so bbox centre maps to preview centre
+    // User strokes - translate so bbox centre maps to preview centre
     const strokeColor = isDark ? '#ffffff' : '#1a1a1a';
     ctx.save();
     ctx.translate(cx - bboxCx * scale, cy - bboxCy * scale);
@@ -282,7 +282,7 @@ export default function ScoreDisplay({
           </div>
         )}
 
-        {/* Attempt preview — edge to edge, no label */}
+        {/* Attempt preview - edge to edge, no label */}
         {traceStrokes && (
           <canvas
             ref={previewRef}

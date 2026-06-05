@@ -447,7 +447,7 @@ export default function App() {
     timerStartRef.current = null;
   }, []);
 
-  // Enter = next when score is showing (must be before early returns — Rules of Hooks)
+  // Enter = next when score is showing (must be before early returns - Rules of Hooks)
   const _isGameForEffect = screen === 'game-playing';
   const _drawStateForEffect = _isGameForEffect ? gameDrawState : qpDrawState;
   const _handleNextForEffect = _isGameForEffect ? handleGameNext : handleQpNext;
@@ -587,7 +587,7 @@ export default function App() {
       {/* Header */}
       <div className={`flex flex-col border-b ${hdr.border} shrink-0`}>
         {isGame ? (
-          /* Game header — matches quickplay style */
+          /* Game header - matches quickplay style */
           <div className="flex items-center gap-2 px-4 py-2">
             {/* Branding */}
             <div className="flex items-center gap-1 shrink-0 mr-1">
@@ -643,7 +643,7 @@ export default function App() {
                 ))}
               </div>
               {/* Blind mode toggle */}
-              <button onClick={toggleBlindMode} title="Blind mode — ghost fades after 2s" className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border transition-colors ${blindMode ? hdr.tabActive : hdr.tabInactive}`}>
+              <button onClick={toggleBlindMode} title="Blind mode - ghost fades after 2s" className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border transition-colors ${blindMode ? hdr.tabActive : hdr.tabInactive}`}>
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
                   {blindMode
                     ? <><path d="M2 8s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z"/><circle cx="8" cy="8" r="2"/><line x1="3" y1="3" x2="13" y2="13"/></>
@@ -658,7 +658,7 @@ export default function App() {
             </div>
           </div>
         ) : (
-          /* Quick play header — responsive */
+          /* Quick play header - responsive */
           <>
             {/* ── Desktop: single row (hidden on mobile) ── */}
             <div className="hidden lg:flex items-center gap-2 px-4 py-2">
@@ -725,7 +725,7 @@ export default function App() {
                 ))}
               </div>
               {/* Blind mode toggle */}
-              <button onClick={toggleBlindMode} title="Blind mode — ghost fades after 2s" className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border transition-colors shrink-0 ${blindMode ? hdr.tabActive : hdr.tabInactive}`}>
+              <button onClick={toggleBlindMode} title="Blind mode - ghost fades after 2s" className={`flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border transition-colors shrink-0 ${blindMode ? hdr.tabActive : hdr.tabInactive}`}>
                 <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
                   {blindMode
                     ? <><path d="M2 8s2.5-5 6-5 6 5 6 5-2.5 5-6 5-6-5-6-5z"/><circle cx="8" cy="8" r="2"/><line x1="3" y1="3" x2="13" y2="13"/></>

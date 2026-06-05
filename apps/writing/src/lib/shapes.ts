@@ -26,7 +26,7 @@ export type ShapeTarget = {
   y: number; // absolute canvas top edge of bounding box
   w: number;
   h: number;
-  angle?: number; // radians — used for line/arrow direction
+  angle?: number; // radians - used for line/arrow direction
 };
 
 export type ShapeRoundConfig = {

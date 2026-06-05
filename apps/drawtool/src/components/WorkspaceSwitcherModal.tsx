@@ -298,7 +298,7 @@ export default function WorkspaceSwitcherModal({
           <>
             {/* ── Workspace tab strip ── */}
             <div className={`shrink-0 flex items-center border-b min-h-[52px] ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
-              {/* Pinned tabs — frozen, never scroll */}
+              {/* Pinned tabs - frozen, never scroll */}
               {filtered.some(ws => ws.is_pinned) && (
                 <div className={`shrink-0 flex items-center gap-1.5 pl-4 pr-2 py-3 border-r ${isDark ? 'border-white/[0.07]' : 'border-black/[0.05]'}`}>
                   {filtered.filter(ws => ws.is_pinned).map(ws => {
@@ -327,7 +327,7 @@ export default function WorkspaceSwitcherModal({
                   })}
                 </div>
               )}
-              {/* Unpinned tabs — scrollable */}
+              {/* Unpinned tabs - scrollable */}
               <div className="flex items-center gap-1.5 px-4 py-3 overflow-x-auto flex-1 min-w-0" style={{ scrollbarWidth: 'none' }}>
                 {filtered.filter(ws => !ws.is_pinned).map(ws => {
                   const isViewing = !showAllWs && ws.id === (viewingWsId ?? activeWorkspaceId)
@@ -442,7 +442,7 @@ export default function WorkspaceSwitcherModal({
               const isConfirmingWs = confirmDelete?.id === viewingWs.id && confirmDelete.kind === 'workspace'
               return (
                 <div className="flex-1 min-h-0 flex flex-col">
-                  {/* Workspace header — sits above the scroll container so bottom-full tooltips aren't clipped */}
+                  {/* Workspace header - sits above the scroll container so bottom-full tooltips aren't clipped */}
                   <div className="flex items-center gap-2 px-5 pt-5 pb-1 shrink-0">
                     {isEditingWs ? (
                       <input
@@ -576,7 +576,7 @@ export default function WorkspaceSwitcherModal({
                             )}
                           </div>
 
-                          {/* Hover actions — outside overflow-hidden card so bottom-full tooltips aren't clipped */}
+                          {/* Hover actions - outside overflow-hidden card so bottom-full tooltips aren't clipped */}
                           {!isConfirmingCanvas && (
                             <div className={`absolute top-2 right-2 flex gap-0.5 transition-opacity ${hasTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
                               <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className={`relative group/actbtn ${iconBtn}`}>

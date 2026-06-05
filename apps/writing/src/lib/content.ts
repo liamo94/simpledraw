@@ -485,7 +485,7 @@ export function getTarget(mode: ContentMode, exclude?: string, rng: () => number
 
 export function getFontSize(target: string, canvasH: number): number {
   const base = Math.min(canvasH * 0.38, 200);
-  // Gentle scaling — the size picker is the primary control, not character count
+  // Gentle scaling - the size picker is the primary control, not character count
   if (target.length === 1) return base;
   if (target.length <= 4) return base * 0.9;
   if (target.length <= 10) return base * 0.8;

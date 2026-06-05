@@ -53,7 +53,7 @@ function swapStrokeColors(strokes: Stroke[]): Stroke[] {
 }
 
 function storeThumbnail(id: string, strokes: Stroke[], isDark: boolean) {
-  // Defer to idle time — thumbnail generation (renderStrokesToCtx + JPEG encode) is
+  // Defer to idle time - thumbnail generation (renderStrokesToCtx + JPEG encode) is
   // expensive on the main thread and can drop frames if it fires mid-draw.
   const run = () => {
     const url = generateCanvasThumbnail(strokes, isDark)
@@ -142,7 +142,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   const [newRouteAllOccupied, setNewRouteAllOccupied] = useState(false)
   // True from page load until the /new destination canvas has been chosen.
   // While pending, the canvas data effect must not write to slot 1 or bump loadKey,
-  // and App.tsx must not render Canvas — guarantees no canvas content leaks.
+  // and App.tsx must not render Canvas - guarantees no canvas content leaks.
   const [newRoutePending, setNewRoutePending] = useState(newRoute)
 
   async function getAndCacheToken(): Promise<string | null> {
@@ -235,11 +235,11 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     setActiveWorkspace(ws.id, ws.name)
     if (ws.canvases.length > 0) {
       const savedCanvasId = useCloudSessionStore.getState().activeId
-      // Validate saved ID against actual canvases — it may be stale/from another workspace
+      // Validate saved ID against actual canvases - it may be stale/from another workspace
       const initial = (savedCanvasId ? ws.canvases.find(c => c.id === savedCanvasId) : undefined) ?? ws.canvases[0]
       if (initial.id !== useCloudSessionStore.getState().activeId) setActiveCanvas(initial.id)
     } else if (!planLoading && !useCloudSessionStore.getState().provisioning) {
-      // New workspace with no canvases — provision one blank canvas
+      // New workspace with no canvases - provision one blank canvas
       setProvisioning(true)
       ;(async () => {
         try {
@@ -254,7 +254,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   // Cross-device restore: if cloud prefs carry a preferredCanvasId from another device,
   // switch to it once workspaces have loaded and only once per sign-in session.
-  // Only applies on a fresh device with no prior canvas history — a returning device
+  // Only applies on a fresh device with no prior canvas history - a returning device
   // (one that already had drawtool-cloud-active-canvas in localStorage) keeps its own
   // last-used canvas and is not overridden by another device's preference.
   useEffect(() => {
@@ -303,7 +303,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     // Skip overwriting it and re-send the local state to the server instead.
     const dirtyId = localStorage.getItem(DIRTY_KEY)
     if (dirtyId === activeId) {
-      // Only remount Canvas (bumpLoadKey) on a fresh page load — Canvas needs to read slot 1
+      // Only remount Canvas (bumpLoadKey) on a fresh page load - Canvas needs to read slot 1
       // for the first time. On BFCache restores (getUpdatedAt has a value), Canvas is already
       // rendering the correct local content, so remounting would disrupt any in-progress drawing.
       const wasInitialLoad = !getUpdatedAt(activeId)
@@ -320,7 +320,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       return
     }
 
-    // Poll re-fetch returned unchanged data — skip Canvas remount
+    // Poll re-fetch returned unchanged data - skip Canvas remount
     if (updated_at && getUpdatedAt(activeId) === updated_at) return
 
     const isInitialLoad = !getUpdatedAt(activeId)
@@ -328,7 +328,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     const capturedActiveId = activeId
     ;(async () => {
       const { data } = canvasQuery.data!
-      // Store images in IDB before writing strokes — Canvas reads IDB on mount
+      // Store images in IDB before writing strokes - Canvas reads IDB on mount
       if (data.images) {
         await Promise.allSettled(
           Object.entries(data.images).map(([id, url]) => storeImage(id, url))
@@ -360,7 +360,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     if (isSignedIn === undefined) return
     if (!isSignedIn) {
       // Flush any pending cloud save before clearing the session (keepalive so it survives
-      // the sign-out navigation). Mirrors the beforeunload handler — same refs, same approach.
+      // the sign-out navigation). Mirrors the beforeunload handler - same refs, same approach.
       const id = useCloudSessionStore.getState().activeId
       const token = cachedTokenRef.current
       const hasPending = !!saveTimerRef.current || !!localStorage.getItem(DIRTY_KEY)
@@ -385,7 +385,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
       // Restore slot 1 to whatever was there before cloud took it over.
       // Only touch slot 1 if we actually backed it up (user was previously signed in).
-      // If the precloud key was never written, the user was never in cloud mode — leave slot 1 alone.
+      // If the precloud key was never written, the user was never in cloud mode - leave slot 1 alone.
       const preStrokes = localStorage.getItem('drawtool-precloud-strokes-1')
       const preView = localStorage.getItem('drawtool-precloud-view-1')
       if (preStrokes !== null) {
@@ -408,7 +408,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       if (canvasIndex !== CLOUD_SLOT) return
       if (saveTimerRef.current) clearTimeout(saveTimerRef.current)
       // Capture the canvas ID at schedule time. The closure holds canvas 1's strokes;
-      // if the user switches before the timer fires, activeId will be canvas 2 — we
+      // if the user switches before the timer fires, activeId will be canvas 2 - we
       // must not save canvas 1's strokes to canvas 2's blob.
       const forId = useCloudSessionStore.getState().activeId
       localStorage.setItem(DIRTY_KEY, forId ?? '')
@@ -426,7 +426,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
           )
           storeThumbnail(id, strokes, isDarkRef.current)
         }).catch(() => {
-          window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed — check your connection' } }))
+          window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed - check your connection' } }))
         })
       }, SAVE_DEBOUNCE_MS)
     })
@@ -439,7 +439,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
         clearTimeout(saveTimerRef.current)
         saveTimerRef.current = null
       }
-      // Always flush — covers pan-only sessions (no pending stroke save) and pending saves.
+      // Always flush - covers pan-only sessions (no pending stroke save) and pending saves.
       // Use the synchronous image cache since we can't await in beforeunload.
       const strokes = loadStrokes(CLOUD_SLOT)
       const view = loadView(CLOUD_SLOT)
@@ -450,7 +450,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }),
       })
-      // Don't clear DIRTY_KEY — keepalive success isn't guaranteed; the next page load
+      // Don't clear DIRTY_KEY - keepalive success isn't guaranteed; the next page load
       // will use local state and re-send if needed, then clear it.
     }
 
@@ -489,7 +489,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     const ok = await api.put<{ ok: true }>(`/canvases/${currentId}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }).then(() => true).catch(() => false)
     if (ok) {
       // Only clear DIRTY_KEY if no new strokes arrived while the PUT was in flight.
-      // If saveTimerRef is armed, new strokes came in — that timer will clear DIRTY_KEY after saving them.
+      // If saveTimerRef is armed, new strokes came in - that timer will clear DIRTY_KEY after saving them.
       if (!saveTimerRef.current && localStorage.getItem(DIRTY_KEY) === currentId) localStorage.removeItem(DIRTY_KEY)
       // Update the React Query cache with the flushed data so that populateSlot1FromCache
       // reads the correct strokes if the user switches back before the server refetch completes.
@@ -510,7 +510,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   function leavingCanvas(id: string, flushSucceeded = true) {
     // Slot 1 is about to be cleared. Mark the query stale so re-entry always refetches.
-    // Only clear DIRTY_KEY if the flush succeeded — if it failed, DIRTY_KEY must survive
+    // Only clear DIRTY_KEY if the flush succeeded - if it failed, DIRTY_KEY must survive
     // so the dirty-recovery path on re-entry can re-send the local changes to the server.
     if (flushSucceeded && localStorage.getItem(DIRTY_KEY) === id) localStorage.removeItem(DIRTY_KEY)
     queryClient.invalidateQueries({ queryKey: ['canvas', id], refetchType: 'none' })
@@ -545,7 +545,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   async function switchWorkspace(id: string, initialCanvasId?: string): Promise<void> {
     if (!id || id === useCloudSessionStore.getState().activeWorkspaceId) return
-    // Read fresh from cache — allWorkspaces may be stale if called immediately after createWorkspace
+    // Read fresh from cache - allWorkspaces may be stale if called immediately after createWorkspace
     const freshWorkspaces = queryClient.getQueryData<CloudWorkspace[]>(['workspaces']) ?? allWorkspaces
     const ws = freshWorkspaces.find(w => w.id === id)
     if (!ws) return
@@ -817,7 +817,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       if (remaining.length > 0) {
         await switchWorkspace(remaining[0].id)
       } else {
-        // Deleting the last workspace — clear activeId now to prevent a 404 canvas query
+        // Deleting the last workspace - clear activeId now to prevent a 404 canvas query
         // while the workspace effect re-provisions a replacement.
         const currentId = useCloudSessionStore.getState().activeId
         if (currentId) leavingCanvas(currentId, true)
@@ -866,7 +866,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     setNewRoutePending(false)
 
     const candidates = ws.canvases.slice(0, canvasLimit)
-    // is_empty comes from the backend — reliable without loading canvas content.
+    // is_empty comes from the backend - reliable without loading canvas content.
     const blank = candidates.find(c => c.is_empty === 1)
 
     setActiveWorkspace(ws.id, ws.name)
@@ -883,7 +883,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   async function prefetchThumbnail(id: string): Promise<string | null> {
     type CanvasResp = { data: { strokes: Stroke[]; savedDark?: boolean } }
-    // Check RQ cache first — no network needed
+    // Check RQ cache first - no network needed
     const cached = queryClient.getQueryData<CanvasResp>(['canvas', id])
     if (cached?.data?.strokes) {
       const strokes = (cached.data.savedDark ?? false) !== isDarkRef.current
@@ -894,7 +894,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       else localStorage.removeItem(`drawtool-thumb-${id}`)
       return url ?? null
     }
-    // Not cached — fetch from API (one-time per canvas; localStorage prevents future fetches)
+    // Not cached - fetch from API (one-time per canvas; localStorage prevents future fetches)
     try {
       const result = await api.get<CanvasResp>(`/canvases/${id}`)
       const savedDark = result.data.savedDark ?? false

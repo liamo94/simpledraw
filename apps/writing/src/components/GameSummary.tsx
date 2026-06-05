@@ -182,7 +182,7 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
             </div>
           </div>
 
-          {/* Game config summary — desktop only */}
+          {/* Game config summary - desktop only */}
           {config && !config.shapesMode && (() => {
             const allModeLabels = config.modes.map((m) => MODE_LABELS[m] ?? m);
             const allFontLabels = FONTS.filter((f) => config.fontKeys.includes(f.key)).map((f) => f.label);
@@ -205,7 +205,7 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
           })()}
         </div>
 
-        {/* Game config summary — mobile only */}
+        {/* Game config summary - mobile only */}
         {config && !config.shapesMode && (() => {
           const allModeLabels = config.modes.map((m) => MODE_LABELS[m] ?? m);
           const allFontLabels = FONTS.filter((f) => config.fontKeys.includes(f.key)).map((f) => f.label);
@@ -266,7 +266,7 @@ export default function GameSummary({ results, theme, config, onPlayAgain, onNew
                 </div>
 
                 <span className={`${txtMid} text-xs tabular-nums shrink-0 w-12 text-right`}>
-                  {r.timeMs !== null ? formatTime(r.timeMs) : '—'}
+                  {r.timeMs !== null ? formatTime(r.timeMs) : '-'}
                 </span>
               </div>
             );

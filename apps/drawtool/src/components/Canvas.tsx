@@ -39,7 +39,7 @@ function sameColorFamily(ar: number, ag: number, ab: number, br: number, bg: num
   return Math.min(diff, 360 - diff) < 60;
 }
 
-// Module-level clipboard — survives canvas remounts so copy/paste works across canvas slots.
+// Module-level clipboard - survives canvas remounts so copy/paste works across canvas slots.
 let _moduleClipboard: Stroke[] | null = null;
 const _moduleClipboardRef: MutableRefObject<Stroke[] | null> = {
   get current() { return _moduleClipboard; },
@@ -178,7 +178,7 @@ function Canvas({
   const penActiveRef = useRef(false); // true while Apple Pencil (or any "pen" pointer) is touching the screen
   const ghostTouchIdsRef = useRef(new Set<number>()); // touch pointerIds rejected due to pen being active
   const penHoverScreenRef = useRef<{ x: number; y: number } | null>(null); // Apple Pencil hover position (pressure=0, not touching)
-  const shiftHeldRef = useRef(false); // own shift tracking — e.shiftKey can get stuck on Mac
+  const shiftHeldRef = useRef(false); // own shift tracking - e.shiftKey can get stuck on Mac
   const rightClickHeldRef = useRef(false);
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
   const clipboardRef = _moduleClipboardRef;
@@ -344,7 +344,7 @@ function Canvas({
 
   // --- Dot grid pattern tile cache (item 7) ---
   // Key: `${Math.ceil(screenGap)},${isDark}` → tiny tile canvas pattern.
-  // Using createPattern lets the GPU tile it — panning is free (just update
+  // Using createPattern lets the GPU tile it - panning is free (just update
   // the pattern transform offset) and zooming only creates a new tile when
   // the screen gap changes by ≥1px, instead of redrawing N² arcs each frame.
 
@@ -425,7 +425,7 @@ function Canvas({
       }
     }
 
-    // --- Grid (cached offscreen — only redrawn when view/theme/grid config changes) ---
+    // --- Grid (cached offscreen - only redrawn when view/theme/grid config changes) ---
     if (gridTypeRef.current !== "off") {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
@@ -830,7 +830,7 @@ function Canvas({
           ctx.strokeStyle = "#4895ef"; ctx.stroke();
         }
       } else {
-        // Hover — solid outline with subtle fill
+        // Hover - solid outline with subtle fill
         ctx.fillStyle = isDark ? "rgba(255,255,255,0.05)" : "rgba(0,0,0,0.04)";
         ctx.fill();
         ctx.strokeStyle = isDark ? "rgba(255,255,255,0.65)" : "rgba(0,0,0,0.45)";
@@ -1118,7 +1118,7 @@ function Canvas({
     const handler = (e: Event) => {
       const { slot, strokes } = (e as CustomEvent<{ slot: number; strokes: Stroke[] }>).detail
       if (slot !== canvasIndex) return
-      // Defer if a stroke is in progress — apply after pointer-up to avoid mid-stroke disruption
+      // Defer if a stroke is in progress - apply after pointer-up to avoid mid-stroke disruption
       if (isDrawingRef.current) { pendingSyncRef.current = { slot, strokes }; return }
       strokesRef.current = strokes
       strokesCacheRef.current = null
@@ -1237,10 +1237,10 @@ function Canvas({
     const tick = () => {
       const trail = eraseTrailRef.current;
       if (eraseMovingRef.current) {
-        // Reset flag — will be set again on next eraseAt call
+        // Reset flag - will be set again on next eraseAt call
         eraseMovingRef.current = false;
       } else if (trail.length > 0) {
-        // Not moving — drain tail toward head
+        // Not moving - drain tail toward head
         const remove = Math.max(1, Math.ceil(trail.length * 0.15));
         trail.splice(0, remove);
         redraw();
@@ -1268,7 +1268,7 @@ function Canvas({
     const tick = () => {
       const trail = laserTrailRef.current;
       if (laserMovingRef.current) {
-        // Pointer move is already calling scheduleRedraw — don't double-render.
+        // Pointer move is already calling scheduleRedraw - don't double-render.
         laserMovingRef.current = false;
       } else if (trail.length > 0) {
         // Trail fading: pointer has stopped, drain loop owns rendering.
@@ -1306,7 +1306,7 @@ function Canvas({
       const prevIsDark = isDarkTheme(prevThemeRef.current);
       const nowIsDark = isDarkTheme(theme);
       if (prevIsDark !== nowIsDark) {
-        // Bidirectional swap: black↔white. This preserves layer relationships —
+        // Bidirectional swap: black↔white. This preserves layer relationships -
         // e.g. a white-on-dark mouth interior becomes black-on-light, and the
         // black-on-dark teeth become white-on-light, keeping contrast intact.
         const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
@@ -1392,10 +1392,10 @@ function Canvas({
       canvas.style.width = window.innerWidth + "px";
       canvas.style.height = window.innerHeight + "px";
       strokesCacheRef.current = null; strokesBBoxRef.current = null;
-      redraw(); // immediate — must paint now
+      redraw(); // immediate - must paint now
     };
 
-    // Size and draw immediately — grid and strokes appear at once, no blank period.
+    // Size and draw immediately - grid and strokes appear at once, no blank period.
     {
       const dpr = window.devicePixelRatio || 1;
       dprRef.current = dpr;
@@ -2417,7 +2417,7 @@ function Canvas({
     };
   }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomToSelection, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
 
-  // 6 screen pixels converted to world units — so zooming in doesn't cause
+  // 6 screen pixels converted to world units - so zooming in doesn't cause
   // intentional small strokes to be discarded.
   const MIN_SHAPE_SIZE = 12 / viewRef.current.scale;
   const MIN_DASH_LENGTH = 6 / viewRef.current.scale;
@@ -2460,7 +2460,7 @@ function Canvas({
     return () => window.removeEventListener("drawtool:shortcuts-modal", onModal);
   }, []);
 
-  // Capture-phase Escape handler — runs before Menu's bubble-phase handler.
+  // Capture-phase Escape handler - runs before Menu's bubble-phase handler.
   // Performs the canvas escape action and stops propagation so Menu stays open.
   // Skips entirely when the shortcuts modal is open so it can close first.
   useEffect(() => {
@@ -2836,7 +2836,7 @@ function Canvas({
         (e.button === 0 && (e.pointerType !== "pen" || !isTouchDevice) && leftClickToolRef.current === "pan") ||
         (e.button === 2 && rightClickToolRef.current === "pan")
       ) {
-        // Skip pan activation when a line/arrow bend is in progress — clicks add bend points.
+        // Skip pan activation when a line/arrow bend is in progress - clicks add bend points.
         const inBend =
           isDrawingRef.current &&
           (activeModifierRef.current === "line" ||
@@ -3201,7 +3201,7 @@ function Canvas({
       }
 
       // Same-color glow: read the single pixel under the cursor (O(1), throttled to ~20fps)
-      // Skip during active drawing — cursor glow is invisible while drawing anyway
+      // Skip during active drawing - cursor glow is invisible while drawing anyway
       if (e.pointerType !== "touch" && !isDrawingRef.current) {
         const now = performance.now();
         if (now - lastSameColorCheckRef.current > 50) {
@@ -3344,7 +3344,7 @@ function Canvas({
               ? strokesRef.current[strokesRef.current.length - 1]
               : null;
           discardTinyShape();
-          // Discard tiny freehand strokes — catches phantom strokes from brief modifier-key holds
+          // Discard tiny freehand strokes - catches phantom strokes from brief modifier-key holds
           if (activeModifierRef.current === "shift" || activeModifierRef.current === "meta") {
             const stroke = strokesRef.current[strokesRef.current.length - 1];
             if (stroke && !stroke.shape && !stroke.spray) {
@@ -3775,7 +3775,7 @@ function Canvas({
   const encodedColor = encodeURIComponent(lineColor);
   // Compute cursor vs background luminance contrast. If the cursor blends into the canvas
   // background (e.g. dark red on dark theme, light yellow on light theme) it appears dim
-  // even when not near a same-color stroke — show a permanent halo in those cases so the
+  // even when not near a same-color stroke - show a permanent halo in those cases so the
   // cursor URL is stable (no toggling) and always readable.
   const fgR = parseInt(lineColor.slice(1, 3), 16) / 255;
   const fgG = parseInt(lineColor.slice(3, 5), 16) / 255;
@@ -3788,7 +3788,7 @@ function Canvas({
   const bgLum = 0.2126 * bgR + 0.7152 * bgG + 0.0722 * bgB;
   const _needsHalo = Math.abs(fgLum - bgLum) < 0.25 || overSameColor;
   const _haloCol = fgLum > 0.4 ? "black" : "white";
-  // feMorphology dilate creates a solid, fully-opaque outline ring — unlike feDropShadow's
+  // feMorphology dilate creates a solid, fully-opaque outline ring - unlike feDropShadow's
   // Gaussian fade, the border is uniform opacity so white-on-dark combos (red, blue, purple)
   // are as visible as black-on-light ones.
   const _of = _needsHalo ? `%3Cdefs%3E%3Cfilter id='o' x='-50%25' y='-50%25' width='200%25' height='200%25'%3E%3CfeMorphology operator='dilate' radius='1.5' result='d'/%3E%3CfeFlood flood-color='${_haloCol}' result='f'/%3E%3CfeComposite in='f' in2='d' operator='in' result='c'/%3E%3CfeComposite in='SourceGraphic' in2='c' operator='over'/%3E%3C/filter%3E%3C/defs%3E` : "";
@@ -3839,7 +3839,7 @@ function Canvas({
   cursorRef.current = cursor;
 
   // Hidden textarea: captures all text input including mobile soft keyboard, IME, and paste.
-  // The canvas continues to render all text visually — the textarea is purely an input sink.
+  // The canvas continues to render all text visually - the textarea is purely an input sink.
   useEffect(() => {
     const ta = textareaRef.current;
     if (!ta) return;
@@ -3888,8 +3888,8 @@ function Canvas({
       ta.setSelectionRange(anch !== null ? Math.min(anch, caret) : caret, caret);
       // On iOS, ta.focus() was already called directly in the gesture handler (either
       // onTouchStartForText for new text, or onCanvasTouchEndForEdit for select-mode
-      // editing). Calling focus() here — inside window.dispatchEvent, which is an
-      // untrusted event on iOS — breaks user activation and causes the keyboard to
+      // editing). Calling focus() here - inside window.dispatchEvent, which is an
+      // untrusted event on iOS - breaks user activation and causes the keyboard to
       // flash open then close. Skip on iOS; desktop always calls focus here.
       if (!isTouchDevice) {
         ta.focus();
@@ -3926,7 +3926,7 @@ function Canvas({
     // detect keyboard dismissal via visualViewport resize (viewport grows when keyboard
     // closes) and ignore blur entirely on touch devices.
     //
-    // On desktop: blur is reliable — guard only against the brief blur during double-click.
+    // On desktop: blur is reliable - guard only against the brief blur during double-click.
     const onBlur = () => {
       if (!isWritingRef.current) return;
       if (isTouchDevice) return;
@@ -3954,15 +3954,15 @@ function Canvas({
 
     // iOS text-tool mode: the textarea is a full-screen overlay, so the user's touch lands
     // directly on it. We add a NATIVE touchstart listener (not React synthetic) to call
-    // ta.focus() and startWriting() at the earliest possible moment in the gesture —
+    // ta.focus() and startWriting() at the earliest possible moment in the gesture -
     // before any React event delegation, before any custom event dispatch, guaranteed to
     // be inside iOS's user-activation window for keyboard opening.
     const onTouchStartForText = (e: TouchEvent) => {
       if (touchToolRef.current !== "text") return;
-      if (isWritingRef.current) return; // already writing — a second tap, handled elsewhere
+      if (isWritingRef.current) return; // already writing - a second tap, handled elsewhere
       const touch = e.touches[0];
       if (!touch) return;
-      ta.focus(); // open iOS keyboard — native handler, definitely a user gesture
+      ta.focus(); // open iOS keyboard - native handler, definitely a user gesture
       const wp = screenToWorld(touch.clientX, touch.clientY, viewRef.current);
       startWritingRef.current(wp);
     };
@@ -3970,7 +3970,7 @@ function Canvas({
     // Select-mode double-tap to edit. Detection is split across two native listeners:
     //
     // onCanvasTouchStartForEdit: records which text stroke was touched and its screen
-    //   position, but does NOT act yet — we can't distinguish a tap from a drag at
+    //   position, but does NOT act yet - we can't distinguish a tap from a drag at
     //   touchstart time, so any action here would also fire on drag-to-move.
     //
     // onCanvasTouchEndForEdit: checks whether the finger moved (drag) or barely moved
@@ -4001,7 +4001,7 @@ function Canvas({
         }
       }
       if (!hitStroke) {
-        lastTextTapRef.current = null; // touched empty canvas — clear stale state
+        lastTextTapRef.current = null; // touched empty canvas - clear stale state
         return;
       }
       touchStartData = { clientX: touch.clientX, clientY: touch.clientY, hitStroke };
@@ -4015,7 +4015,7 @@ function Canvas({
       if (isWritingRef.current) return;
       const changedTouch = e.changedTouches[0];
       if (!changedTouch) return;
-      // If the finger moved more than ~10px it was a drag, not a tap — don't edit
+      // If the finger moved more than ~10px it was a drag, not a tap - don't edit
       const dx = changedTouch.clientX - start.clientX;
       const dy = changedTouch.clientY - start.clientY;
       if (dx * dx + dy * dy > 10 * 10) {
@@ -4026,13 +4026,13 @@ function Canvas({
       const last = lastTextTapRef.current;
       const now = performance.now();
       if (last && last.stroke === hitStroke && now - last.time < 300) {
-        // Double-tap confirmed — open keyboard in user-activation context and start editing
+        // Double-tap confirmed - open keyboard in user-activation context and start editing
         const wp = screenToWorld(start.clientX, start.clientY, viewRef.current);
         ta.focus();
         startEditingStrokeRef.current(hitStroke, wp);
         lastTextTapRef.current = null;
       } else {
-        // First tap on this stroke — seed the timer for the next tap
+        // First tap on this stroke - seed the timer for the next tap
         lastTextTapRef.current = { time: now, stroke: hitStroke, count: 1 };
       }
     };
@@ -4084,9 +4084,9 @@ function Canvas({
 
   return (
     <>
-      {/* Invisible input sink — captures keyboard input and IME.
+      {/* Invisible input sink - captures keyboard input and IME.
           On touch devices in text mode: expands to a full-screen overlay so the user's tap
-          goes directly to this element — iOS only shows the keyboard when the touch target IS
+          goes directly to this element - iOS only shows the keyboard when the touch target IS
           the focused input. On desktop or non-text modes: 1×1px hidden. */}
       <textarea
         ref={textareaRef}
@@ -4099,12 +4099,12 @@ function Canvas({
         onPointerDown={isTouchDevice ? (e) => {
           // Always registered on iOS: in text-tool mode the textarea is the tap target
           // (pointer-events:auto), so this fires for new text placement. In select mode
-          // it fires while editing (pointer-events becomes auto during writing) — handles
+          // it fires while editing (pointer-events becomes auto during writing) - handles
           // cursor placement and Done/outside-tap commit without needing canvas to be target.
           handlePointerDownForText(e as unknown as Parameters<typeof handlePointerDownForText>[0]);
         } : undefined}
         style={isTouchDevice ? {
-          // Always full-screen on iOS — iOS won't reliably open the keyboard for small
+          // Always full-screen on iOS - iOS won't reliably open the keyboard for small
           // or corner-positioned elements even with explicit focus() in a gesture context.
           // pointerEvents: "auto" only in text-tool mode (where the overlay IS the tap target).
           // In all other modes: "none" so taps pass through to the canvas.

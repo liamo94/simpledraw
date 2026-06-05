@@ -80,7 +80,7 @@ export default function AimTrainer({ theme, onHome }: Props) {
   const [lastResult, setLastResult] = useState<AimRoundResult | null>(null);
   const [resetKey, setResetKey] = useState(0);
 
-  // Lazy circle buffer — grows on demand
+  // Lazy circle buffer - grows on demand
   const circlesRef = useRef<CircleConfig[]>([genCircle()]);
   const getCircle = useCallback((i: number): CircleConfig => {
     while (circlesRef.current.length <= i) {

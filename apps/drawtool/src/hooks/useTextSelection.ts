@@ -21,7 +21,7 @@ function getWordBounds(text: string, pos: number): [number, number] {
     while (end < text.length && isWord(text[end])) end++;
     return [start, end];
   }
-  // Not in a word — select adjacent non-whitespace token
+  // Not in a word - select adjacent non-whitespace token
   let start = pos, end = pos;
   while (start > 0 && text[start - 1] !== " " && text[start - 1] !== "\n") start--;
   while (end < text.length && text[end] !== " " && text[end] !== "\n") end++;
@@ -285,7 +285,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     isWritingRef.current = false;
     lastTextTapRef.current = null; // clear stale tap state so the re-selected stroke doesn't immediately re-enter edit
     // Restore pointer-events:none so touches pass through to canvas for selection.
-    // (Only needed in select mode — text-tool mode is handled by React style prop.)
+    // (Only needed in select mode - text-tool mode is handled by React style prop.)
     if (textareaRef?.current && ("ontouchstart" in window) && touchToolRef.current !== "text") {
       textareaRef.current.style.pointerEvents = "none";
     }
@@ -430,21 +430,21 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           }
         }
         // On touch, outside-bbox tap handling differs by mode:
-        // - New text session (text-tool, no editStroke): keep alive — commit via Done button only.
+        // - New text session (text-tool, no editStroke): keep alive - commit via Done button only.
         // - Editing existing stroke (editStroke set): commit on outside-bbox tap so the user
         //   can dismiss editing by tapping away, consistent with iOS text-field behaviour.
         if (e.pointerType === "touch") {
           if (editStroke) finishWriting();
           return;
         }
-        // Pen in text-tool mode, new text: same — keep alive until tool switch.
+        // Pen in text-tool mode, new text: same - keep alive until tool switch.
         if (e.pointerType === "pen" && touchToolRef.current === "text" && !editStroke) return;
         finishWriting();
         return;
       }
       if (touchToolRef.current === "text") {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
-        // Focus directly here — while we are provably inside a pointer event handler
+        // Focus directly here - while we are provably inside a pointer event handler
         // (user gesture context). iOS only opens the keyboard when focus() is called
         // as a direct result of a user gesture; calling it later via window.dispatchEvent
         // (inside onWriting) may break the gesture chain on some iOS versions.
@@ -454,7 +454,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       }
 
       // Double-click on text = enter edit mode (mouse/stylus, no z key needed)
-      // Only guard when nothing is selected and shift is not held — if something is selected or shift is
+      // Only guard when nothing is selected and shift is not held - if something is selected or shift is
       // held (for shift+click group add), let the selection-switch logic run.
       if (e.pointerType !== "touch" && !zKeyRef.current && !selectedTextRef.current && !e.shiftKey && selectedGroupRef.current.length === 0) {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
@@ -476,7 +476,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               return;
             }
             lastTextTapRef.current = { time: now, stroke, count: 1 };
-            return; // block drawing on first tap — wait for potential double-click
+            return; // block drawing on first tap - wait for potential double-click
           }
         }
         lastTextTapRef.current = null;
@@ -504,7 +504,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           scheduleRedraw();
           return;
         }
-        // No stroke under click — do nothing; don't fall through to group-move
+        // No stroke under click - do nothing; don't fall through to group-move
         return;
       }
 
@@ -551,7 +551,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
       // Shift+V: always start a containment box select so dragging inside a large element works.
       // Click-toggle (tiny drag) is resolved on pointerup via clickHit.
-      // Don't clear selection on pointerdown — preserve it so click-toggle can build on it.
+      // Don't clear selection on pointerdown - preserve it so click-toggle can build on it.
       if (zKeyRef.current && e.shiftKey && e.pointerType !== "touch") {
         const wp = screenToWorld(e.clientX, e.clientY, viewRef.current);
         const { scale } = viewRef.current;
@@ -654,7 +654,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           scheduleRedraw();
           return;
         } else {
-          // Click outside group — clear group selection
+          // Click outside group - clear group selection
           // Hit-test at the actual click position rather than using (potentially stale) hoverTextRef
           let hitOnClear: Stroke | null = null;
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
@@ -723,7 +723,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           const bb = anyStrokeBBox(selectedTextRef.current);
           const selShape = selectedTextRef.current.shape;
 
-          // Text double-click must be checked before handle checks — corner handle zones extend
+          // Text double-click must be checked before handle checks - corner handle zones extend
           // 7px inside the bbox, so for short text most of the area is corner zone and a first tap
           // there would eat the timer without setting lastTextTapRef.
           if (selectedTextRef.current.text) {
@@ -734,7 +734,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             // Touch: handled exclusively by the native onCanvasTouchEndForEdit handler which fires
             // after touchend (movement confirmed, user-activation context preserved for ta.focus()).
             if (e.pointerType !== "touch" && last && last.stroke === curStroke && now - last.time < 300) {
-              // Confirm the tap is on the stroke (not outside — would be a deselect/reselect tap)
+              // Confirm the tap is on the stroke (not outside - would be a deselect/reselect tap)
               const tbb = anyStrokeBBox(curStroke);
               const tpad = 8 / viewRef.current.scale;
               if (wp.x >= tbb.x - tpad && wp.x <= tbb.x + tbb.w + tpad && wp.y >= tbb.y - tpad && wp.y <= tbb.y + tbb.h + tpad) {
@@ -814,7 +814,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               const pts = selectedTextRef.current.points;
               const n = pts.length;
               if (n === 2) {
-                // 2-point: 3 inline handles — start (0), mid (1), end (2)
+                // 2-point: 3 inline handles - start (0), mid (1), end (2)
                 const p0 = pts[0], p1 = pts[1];
                 const handles = [p0, { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 }, p1];
                 for (let ci = 0; ci < 3; ci++) {
@@ -876,7 +876,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               }
             }
           }
-          // Check body — drag current stroke; for arrows, defer click-to-add-bend to pointer up
+          // Check body - drag current stroke; for arrows, defer click-to-add-bend to pointer up
           if (hitTestStroke(selectedTextRef.current, wp.x, wp.y, scale)) {
             const curStroke = selectedTextRef.current;
             const isArrow = curStroke.shape === "arrow" || curStroke.shape === "line";
@@ -977,7 +977,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               return;
             }
           }
-          // Clicked elsewhere — check if a different stroke was hit
+          // Clicked elsewhere - check if a different stroke was hit
           let newSel: Stroke | null = null;
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
             const stroke = strokesRef.current[i];
@@ -1002,7 +1002,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             scheduleRedraw();
             return;
           }
-          // Nothing hit — start box select (or deselect if z not held)
+          // Nothing hit - start box select (or deselect if z not held)
           selectedTextRef.current = null;
           selectDragRef.current = null;
           selectedGroupRef.current = [];
@@ -1018,7 +1018,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           return;
         }
 
-        // z held (or touch select tool), no selection — collect all hits and cycle / start box select
+        // z held (or touch select tool), no selection - collect all hits and cycle / start box select
         if (zKeyRef.current || touchToolRef.current === "select") {
           const hits: Stroke[] = [];
           for (let i = strokesRef.current.length - 1; i >= 0; i--) {
@@ -1493,7 +1493,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               const pts = selStroke.points;
               const n = pts.length;
               if (n === 2) {
-                // 2-point: 3 inline handles — start, mid, end
+                // 2-point: 3 inline handles - start, mid, end
                 const p0 = pts[0], p1 = pts[1];
                 const mid = { x: (p0.x + p1.x) / 2, y: (p0.y + p1.y) / 2 };
                 for (const [, hp] of [[0, p0], [1, mid], [2, p1]] as [number, {x:number;y:number}][]) {
@@ -1620,7 +1620,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           setZCursor(groupCur);
         } else if (zKeyRef.current) {
           if (shiftHeldRef.current) {
-            // Shift+V: box-select mode — suppress individual hover, show crosshair
+            // Shift+V: box-select mode - suppress individual hover, show crosshair
             if (hoverTextRef.current !== null) {
               hoverTextRef.current = null;
               scheduleRedraw();
@@ -1733,7 +1733,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             selectedTextRef.current = null;
             setZCursor("default");
           } else {
-            // Drag captured nothing — clear any pre-existing selection
+            // Drag captured nothing - clear any pre-existing selection
             selectedTextRef.current = null;
             selectedGroupRef.current = [];
             setZCursor(zKeyRef.current ? "default" : null);
@@ -1805,7 +1805,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             persistStrokes();
             window.dispatchEvent(new Event("drawtool:selection-moved"));
           } else {
-            // Click without drag inside group — select the clicked item, or deselect if none
+            // Click without drag inside group - select the clicked item, or deselect if none
             const { scale } = viewRef.current;
             const wp = drag.startPtr;
             let hit: Stroke | null = null;
@@ -1823,7 +1823,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         return;
       }
 
-      // Pending interior drag resolved without movement — keep selection (or switch to overlapping stroke)
+      // Pending interior drag resolved without movement - keep selection (or switch to overlapping stroke)
       if (pendingInteriorDragRef.current && selectedTextRef.current) {
         const pending = pendingInteriorDragRef.current;
         pendingInteriorDragRef.current = null;
@@ -1852,7 +1852,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
 
         if (drag.mode === "rotate") {
           if (stroke.shape === "arrow" || stroke.shape === "line") {
-            // Arrow/line: rotation encoded in points — use reshape undo
+            // Arrow/line: rotation encoded in points - use reshape undo
             const anyMoved = drag.startPoints.some((p, i) => p.x !== stroke.points[i].x || p.y !== stroke.points[i].y);
             if (anyMoved) {
               undoStackRef.current.push({ type: "reshape", stroke, from: drag.startPoints.map(p => ({ ...p })), to: stroke.points.map(p => ({ ...p })), fromLineRotation: drag.startLineRotation, toLineRotation: stroke.lineRotation });
@@ -1892,7 +1892,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             persistStrokes();
             window.dispatchEvent(new Event("drawtool:selection-moved"));
           } else if (drag.pendingBend && (stroke.shape === "arrow" || stroke.shape === "line")) {
-            // No drag — insert a bend point at the click position
+            // No drag - insert a bend point at the click position
             const from = drag.startPoints.map(p => ({ ...p }));
             stroke.points.splice(drag.pendingBend.segmentIdx + 1, 0, { ...drag.startPtr });
             const to = stroke.points.map(p => ({ ...p }));
@@ -1901,7 +1901,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             strokesCacheRef.current = null;
             persistStrokes();
           } else if (drag.cycleHits && drag.cycleHits.length > 1) {
-            // No drag occurred — cycle to the next overlapping stroke
+            // No drag occurred - cycle to the next overlapping stroke
             const hits = drag.cycleHits;
             const curIdx = hits.indexOf(stroke);
             const nextStroke = hits[(curIdx + 1) % hits.length];
@@ -1910,7 +1910,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             dispatchTextStyleSync(nextStroke.bold ?? false, nextStroke.italic ?? false, nextStroke.textAlign ?? "left");
           }
         } else if (stroke.text) {
-          // Text resize — fontScale + anchor changed
+          // Text resize - fontScale + anchor changed
           const newScale = stroke.fontScale ?? 1;
           if (newScale !== drag.startScale) {
             undoStackRef.current.push({
@@ -1925,7 +1925,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             persistStrokes();
           }
         } else if (stroke.imageId) {
-          // Image resize — imageW/imageH + anchor changed
+          // Image resize - imageW/imageH + anchor changed
           const fromW = drag.bbox.w;
           const toW = stroke.imageW ?? fromW;
           if (Math.abs(toW - fromW) > 0.1) {
@@ -1950,7 +1950,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           drag.startPoints.length === 2 &&
           stroke.points.length === 2
         ) {
-          // 2-point arrow midpoint handle single-click (no drag) — insert bend at midpoint
+          // 2-point arrow midpoint handle single-click (no drag) - insert bend at midpoint
           stroke.lineRotation = undefined;
           const from = drag.startPoints.map(p => ({ ...p }));
           const p0 = drag.startPoints[0], p1 = drag.startPoints[1];
@@ -1961,7 +1961,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           strokesCacheRef.current = null;
           persistStrokes();
         } else if ((stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length > drag.startPoints.length) {
-          // Midpoint handle drag inserted a bend — commit as reshape
+          // Midpoint handle drag inserted a bend - commit as reshape
           stroke.lineRotation = undefined;
           undoStackRef.current.push({
             type: "reshape",
@@ -1972,7 +1972,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           redoStackRef.current = [];
           persistStrokes();
         } else {
-          // Shape/freehand resize — point positions changed, use "move" undo
+          // Shape/freehand resize - point positions changed, use "move" undo
           const anyChanged = drag.startPoints.some((p, i) =>
             p.x !== stroke.points[i].x || p.y !== stroke.points[i].y) ||
             (drag.subStrokeStartPoints && stroke.subStrokes?.some((s, k) =>

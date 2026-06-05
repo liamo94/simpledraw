@@ -29,7 +29,7 @@ export function useMigration(
   useEffect(() => {
     if (!isSignedIn || planLoading || !user || !workspacesLoaded) return
     if (localStorage.getItem(migrationKey(user.id))) return
-    // Already has cloud canvases — mark migration done, no modal needed
+    // Already has cloud canvases - mark migration done, no modal needed
     if (hasCloudCanvases) {
       localStorage.setItem(migrationKey(user.id), '1')
       return

@@ -67,7 +67,7 @@ export default function TraceCanvas({
   const isErasingRef = useRef(false);
   const drainRafRef = useRef<number | null>(null);
 
-  // Blind mode — animated ghost alpha
+  // Blind mode - animated ghost alpha
   const blindAlphaRef = useRef(ghostAlpha); // animated value used in redraw
 
   // Mirror props to refs
@@ -134,7 +134,7 @@ export default function TraceCanvas({
       }
       ctx.restore();
 
-      // Strokes in center-relative coords — translate origin to canvas center
+      // Strokes in center-relative coords - translate origin to canvas center
       ctx.save();
       ctx.translate(cssW / 2, cssH / 2);
       ctx.setLineDash([]);
@@ -161,7 +161,7 @@ export default function TraceCanvas({
         renderStroke(ctx, currentRef.current, strokeColorRef.current);
       }
 
-      // Erase trail — fading red path
+      // Erase trail - fading red path
       const trail = eraseTrailRef.current;
       if (trail.length >= 2) {
         const pts = smoothPoints(smoothPoints(trail));
@@ -206,7 +206,7 @@ export default function TraceCanvas({
   }, [redraw]);
 
   const stopEraseDrain = useCallback(() => {
-    // Don't cancel immediately — let the loop drain the trail to zero
+    // Don't cancel immediately - let the loop drain the trail to zero
     // isErasingRef.current is already false by the time this is called,
     // so the tick will stop itself once trail.length reaches 0
   }, []);

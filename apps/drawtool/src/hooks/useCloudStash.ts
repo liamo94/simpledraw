@@ -38,11 +38,11 @@ export function useCloudStash({ items, isPro, isSignedIn, onCloudLoad }: Options
         if (!res.ok) return
         const cloud: StashItem[] = await res.json()
         if (cloud.length > 0) {
-          // Cloud wins — replace local (e.g. signing in on a new device)
+          // Cloud wins - replace local (e.g. signing in on a new device)
           onCloudLoad(cloud)
           saveStash(cloud)
         } else if (itemsRef.current.length > 0) {
-          // Cloud is empty, local has data — upload local (e.g. just upgraded to Pro)
+          // Cloud is empty, local has data - upload local (e.g. just upgraded to Pro)
           await fetch(`${API_URL}/stash`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },

@@ -281,7 +281,7 @@ export async function generateResultsImage(
       ctx.globalAlpha = 1;
     }
 
-    const timeStr = r.timeMs !== null ? fmt(r.timeMs) : '—';
+    const timeStr = r.timeMs !== null ? fmt(r.timeMs) : '-';
     ctx.fillStyle = fgMid;
     ctx.font = `400 11px ${sans}`;
     ctx.textAlign = 'right';

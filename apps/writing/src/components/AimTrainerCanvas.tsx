@@ -249,7 +249,7 @@ export default function AimTrainerCanvas({
       if (hasCompletedRef.current) return;
       if ((e.metaKey || e.ctrlKey) && !toolRef.current) {
         toolRef.current = 'cmd';
-        // Don't record reaction or push points here — Cmd alone could be Cmd+Tab.
+        // Don't record reaction or push points here - Cmd alone could be Cmd+Tab.
         // Wait for actual mouse movement before starting the stroke.
       }
     };
@@ -257,7 +257,7 @@ export default function AimTrainerCanvas({
     const tryComplete = () => {
       if (hasCompletedRef.current || pointsRef.current.length === 0) return;
       if (minStrokePxRef.current > 0 && currentStrokeLenRef.current < minStrokePxRef.current) {
-        // Stroke too short — discard and let the user try again
+        // Stroke too short - discard and let the user try again
         pointsRef.current = [];
         currentStrokeLenRef.current = 0;
         return;
@@ -344,7 +344,7 @@ export default function AimTrainerCanvas({
     };
 
     const onBlur = () => {
-      // Window lost focus (e.g. Cmd+Tab) — cancel any in-progress stroke
+      // Window lost focus (e.g. Cmd+Tab) - cancel any in-progress stroke
       toolRef.current = null;
       activePointerRef.current = null;
       pointsRef.current = [];

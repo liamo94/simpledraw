@@ -46,7 +46,7 @@ export default function Privacy() {
         </Section>
 
         <Section title="How we store it">
-          <p>Canvas data is encrypted at rest by Cloudflare R2 (AES-256) — standard infrastructure-level encryption. This is the same model used by Notion, Figma, and Linear.</p>
+          <p>Canvas data is encrypted at rest by Cloudflare R2 (AES-256) - standard infrastructure-level encryption. This is the same model used by Notion, Figma, and Linear.</p>
           <p>As the operator of the service, we can technically access canvas data, but we do not do so except as required to operate or debug the service (for example, investigating a reported data loss bug).</p>
           <p>Our database and storage infrastructure is hosted on Cloudflare's network in the EU and US.</p>
         </Section>
@@ -54,9 +54,9 @@ export default function Privacy() {
         <Section title="Sharing with third parties">
           <p>We share data with the following third-party services only as needed to operate drawzilla:</p>
           <ul className="list-disc list-inside space-y-1.5 pl-1">
-            <li><span className="text-white/70">Clerk</span> — authentication and session management. Clerk processes your sign-in and stores your identity. See <a href="https://clerk.com/privacy" className="underline hover:text-white/70">clerk.com/privacy</a>.</li>
-            <li><span className="text-white/70">Stripe</span> — payment processing. Stripe handles all billing for Unleashed subscriptions. See <a href="https://stripe.com/privacy" className="underline hover:text-white/70">stripe.com/privacy</a>.</li>
-            <li><span className="text-white/70">Cloudflare</span> — hosting, storage, and infrastructure. See <a href="https://www.cloudflare.com/privacypolicy/" className="underline hover:text-white/70">cloudflare.com/privacypolicy</a>.</li>
+            <li><span className="text-white/70">Clerk</span> - authentication and session management. Clerk processes your sign-in and stores your identity. See <a href="https://clerk.com/privacy" className="underline hover:text-white/70">clerk.com/privacy</a>.</li>
+            <li><span className="text-white/70">Stripe</span> - payment processing. Stripe handles all billing for Unleashed subscriptions. See <a href="https://stripe.com/privacy" className="underline hover:text-white/70">stripe.com/privacy</a>.</li>
+            <li><span className="text-white/70">Cloudflare</span> - hosting, storage, and infrastructure. See <a href="https://www.cloudflare.com/privacypolicy/" className="underline hover:text-white/70">cloudflare.com/privacypolicy</a>.</li>
           </ul>
           <p>We do not share your data with any other third parties.</p>
         </Section>

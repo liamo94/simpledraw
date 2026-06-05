@@ -42,7 +42,7 @@ export function Hero() {
         </h1>
 
         <p className="text-lg sm:text-xl mb-10 max-w-xl mx-auto" style={{ color: 'rgba(255,255,255,0.6)' }}>
-          A drawing canvas that stays out of your way — whether you're sketching ideas, annotating, or creating art.
+          A drawing canvas that stays out of your way - whether you're sketching ideas, annotating, or creating art.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -64,7 +64,23 @@ export function Hero() {
       </div>
 
       <div className="relative mt-16 w-full max-w-5xl mx-auto">
-        <VideoPlaceholder label="VIDEO: general drawzilla demo — freehand drawing, shapes, theme switching, keyboard shortcuts, stash" tall />
+        <img
+          src="/hero-jag.png"
+          alt=""
+          width={130}
+          height={130}
+          className="hidden lg:block absolute pointer-events-none"
+          style={{ left: '-160px', top: '50%', transform: 'translateY(-50%) rotate(-15deg)' }}
+        />
+        <img
+          src="/hero-love-drawzilla.png"
+          alt=""
+          width={210}
+          height={80}
+          className="hidden lg:block absolute pointer-events-none"
+          style={{ left: '-218px', bottom: '-20px', transform: 'rotate(-6deg)' }}
+        />
+        <VideoPlaceholder label="VIDEO: general drawzilla demo - freehand drawing, shapes, theme switching, keyboard shortcuts, stash" tall />
       </div>
     </section>
   )

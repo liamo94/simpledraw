@@ -119,7 +119,7 @@ if (window.location.pathname === "/training") {
 // Compute /new routing before first render
 let _newRouteCanvas: number | null = null;
 let _newRouteAllOccupied = false;
-// Cloud users need async handling — flag persists until useCloudCanvas picks it up
+// Cloud users need async handling - flag persists until useCloudCanvas picks it up
 export let _newRouteForCloud = window.location.pathname === "/new";
 
 if (window.location.pathname === "/new") {
@@ -436,7 +436,7 @@ export default function App() {
       const file = new File([blob], `${filename}.png`, { type: "image/png" });
       if (navigator.canShare?.({ files: [file] })) {
         navigator.share({ files: [file] }).catch(() => {
-          // User dismissed or share failed — fall back to download link
+          // User dismissed or share failed - fall back to download link
           const url = URL.createObjectURL(blob);
           const a = document.createElement("a");
           a.href = url;
@@ -1135,7 +1135,7 @@ export default function App() {
     exportData,
   ]);
 
-  // Confirmation overlay keyboard handler — capture phase to block Canvas
+  // Confirmation overlay keyboard handler - capture phase to block Canvas
   useEffect(() => {
     if (!confirmingClear) return;
     const onKey = (e: KeyboardEvent) => {
@@ -1313,7 +1313,7 @@ export default function App() {
     if (meta) {
       cloudCanvas.switchCanvas(meta.id);
     } else if (!isPro && n > canvasLimit) {
-      // blocked — upgrade modal handles the messaging
+      // blocked - upgrade modal handles the messaging
     } else {
       cloudCanvas.createCanvas("").then((newCanvas) => {
         if (newCanvas) cloudCanvas.switchCanvas(newCanvas.id);
@@ -1405,7 +1405,7 @@ export default function App() {
     prevSignedInRef.current = isSignedIn;
 
     if (prev !== true && isSignedIn === true) {
-      // Just logged in — snapshot the current local slot so we can return to it on logout
+      // Just logged in - snapshot the current local slot so we can return to it on logout
       localStorage.setItem(
         "drawtool-precloud-active",
         String(activeCanvasRef.current),
@@ -1413,7 +1413,7 @@ export default function App() {
     }
 
     if (prev === true && isSignedIn === false) {
-      // Just logged out — restore the pre-login local canvas slot
+      // Just logged out - restore the pre-login local canvas slot
       const saved = localStorage.getItem("drawtool-precloud-active");
       localStorage.removeItem("drawtool-precloud-active");
       const slot = saved
@@ -2089,6 +2089,7 @@ export default function App() {
           selectionIsCombined={selectionIsCombined}
           selectionIsText={selectionIsText}
           selectionIsLocked={selectionIsLocked}
+          isPro={isPro}
         />
       )}
       {hasTouch ? (
@@ -2195,7 +2196,7 @@ export default function App() {
                 )}
               </div>
             )}
-            {/* Undo / Redo / Delete — tablet: below toolbar right; mobile: above toolbar right */}
+            {/* Undo / Redo / Delete - tablet: below toolbar right; mobile: above toolbar right */}
             <div className={`absolute right-1 flex items-center gap-0.5 ${isTablet ? "top-full mt-1" : "bottom-full mb-1"}`}>
                 <button
                   aria-label="Undo"
@@ -3658,7 +3659,7 @@ export default function App() {
             <line x1="8" y1="7" x2="8" y2="10" />
             <circle cx="8" cy="12" r="0.5" fill="currentColor" />
           </svg>
-          Canvas full — new strokes won't survive a refresh
+          Canvas full - new strokes won't survive a refresh
           <button
             onClick={() => {
               exportPng();

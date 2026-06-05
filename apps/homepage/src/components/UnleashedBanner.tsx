@@ -59,7 +59,7 @@ export function UnleashedBanner() {
             Take it further
           </h2>
           <p className="text-base sm:text-lg mb-8 max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            Upgrade to Unleashed for cloud sync, unlimited workspaces, share links, and clean exports — no watermark.
+            Upgrade to Unleashed for cloud sync, unlimited workspaces, share links, and clean exports - no watermark.
           </p>
 
           <div className="flex flex-wrap justify-center gap-3 mb-10">

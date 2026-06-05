@@ -42,7 +42,7 @@ export function TutorialSection() {
               Up to speed in minutes
             </h2>
             <p className="text-base leading-relaxed mb-8" style={{ color: 'rgba(255,255,255,0.6)' }}>
-              The built-in tutorial walks you through every tool and shortcut with hands-on challenges. No reading required — just draw.
+              The built-in tutorial walks you through every tool and shortcut with hands-on challenges. No reading required - just draw.
             </p>
             <a
               href={`${DRAW_URL}/training`}

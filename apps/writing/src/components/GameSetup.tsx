@@ -203,7 +203,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
           ))}
         </div>
 
-        {/* Config sections — locked when seed is set */}
+        {/* Config sections - locked when seed is set */}
         <div className={`w-full flex flex-col gap-10 transition-opacity ${hasSeed ? 'opacity-25 pointer-events-none select-none' : ''}`}>
           {/* Rounds */}
           <div className="w-full flex flex-col gap-3">
@@ -223,7 +223,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
 
           {gameType === 'text' ? (
             <>
-              {/* Content — multi-select */}
+              {/* Content - multi-select */}
               <div className="w-full flex flex-col gap-3">
                 <SectionHeader
                   label="Content"
@@ -247,7 +247,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
                 </div>
               </div>
 
-              {/* Font — multi-select */}
+              {/* Font - multi-select */}
               <div className="w-full flex flex-col gap-3">
                 <SectionHeader
                   label="Font"
@@ -272,7 +272,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
                 </div>
               </div>
 
-              {/* Size — multi-select */}
+              {/* Size - multi-select */}
               <div className="w-full flex flex-col gap-3">
                 <SectionHeader
                   label="Size"
@@ -298,7 +298,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
             </>
           ) : (
             <>
-              {/* Shapes — multi-select */}
+              {/* Shapes - multi-select */}
               <div className="w-full flex flex-col gap-3">
                 <SectionHeader
                   label="Shapes"
@@ -323,7 +323,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
                 </div>
               </div>
 
-              {/* Count — multi-select */}
+              {/* Count - multi-select */}
               <div className="w-full flex flex-col gap-3">
                 <SectionHeader
                   label="Shapes per round"
@@ -347,7 +347,7 @@ export default function GameSetup({ onStart, onBack, theme, initialSeed }: Props
                 </div>
               </div>
 
-              {/* Size — multi-select */}
+              {/* Size - multi-select */}
               <div className="w-full flex flex-col gap-3">
                 <SectionHeader
                   label="Size"
