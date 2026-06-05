@@ -3201,8 +3201,7 @@ function Canvas({
       }
 
       // Same-color glow: read the single pixel under the cursor (O(1), throttled to ~20fps)
-      // Skip during active drawing - cursor glow is invisible while drawing anyway
-      if (e.pointerType !== "touch" && !isDrawingRef.current) {
+      if (e.pointerType !== "touch") {
         const now = performance.now();
         if (now - lastSameColorCheckRef.current > 50) {
           lastSameColorCheckRef.current = now;
