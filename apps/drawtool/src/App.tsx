@@ -1397,6 +1397,10 @@ export default function App() {
 
   const [showWorkspaceSwitcher, setShowWorkspaceSwitcher] = useState(false);
 
+  useEffect(() => {
+    if (showWorkspaceSwitcher) cloudCanvas.fetchWorkspace();
+  }, [showWorkspaceSwitcher]);
+
   // Save local activeCanvas before cloud takes over; restore it on logout
   const prevSignedInRef = useRef<boolean | undefined>(undefined);
   useEffect(() => {

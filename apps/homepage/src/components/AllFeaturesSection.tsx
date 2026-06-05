@@ -73,8 +73,18 @@ const MouseButtonIcon = () => (
   </svg>
 )
 
+// ── Pro badge ────────────────────────────────────────────────────────────────
+const ProBadge = () => (
+  <span style={{
+    fontSize: '8px', padding: '1px 5px', borderRadius: '3px', flexShrink: 0,
+    background: 'rgba(59,130,246,0.15)', color: '#93c5fd',
+    border: '1px solid rgba(59,130,246,0.25)', fontWeight: 600,
+    letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4,
+  }}>Pro</span>
+)
+
 // ── Item type ────────────────────────────────────────────────────────────────
-type Item = { label: string; icon: ReactNode }
+type Item = { label: string; icon: ReactNode; pro?: boolean }
 
 const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] = [
   {
@@ -88,7 +98,7 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
       { label: 'Spray paint',     icon: <SprayIcon /> },
       { label: 'Laser pointer',   icon: <LaserIcon /> },
       { label: 'Eraser',          icon: <EraseIcon /> },
-      { label: 'Select & move',   icon: <MousePointer2 size={12} strokeWidth={1.5} /> },
+      { label: 'Select, move & resize', icon: <MousePointer2 size={12} strokeWidth={1.5} /> },
       { label: 'Text tool',       icon: <TextIcon /> },
       { label: 'Hand / pan',      icon: <Hand size={12} strokeWidth={1.5} /> },
     ],
@@ -106,7 +116,7 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
       { label: 'Hexagon',        icon: <Hexagon size={12} strokeWidth={1.5} /> },
       { label: 'Diamond',        icon: <Diamond size={12} strokeWidth={1.5} /> },
       { label: 'Cloud',          icon: <Cloud size={12} strokeWidth={1.5} /> },
-      { label: 'Multi-bend line',icon: <LineIcon /> },
+      { label: 'Multi-bend lines & arrows', icon: <LineIcon /> },
     ],
   },
   {
@@ -115,11 +125,12 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
     items: [
       { label: '8 themes',               icon: <ThemeIcon /> },
       { label: 'Dot & square grids',     icon: <Frame size={12} strokeWidth={1.5} /> },
-      { label: 'Unlimited colours',      icon: <ColorIcon /> },
+      { label: '13 preset colours',        icon: <ColorIcon /> },
+      { label: 'Custom colour picker',    icon: <ColorIcon />, pro: true },
       { label: 'Line width',             icon: <ThicknessIcon /> },
       { label: 'Fill & opacity',         icon: <FilledRectIcon /> },
       { label: 'Dashed outlines',        icon: <DashedDrawIcon /> },
-      { label: 'Left/right click tools', icon: <MouseButtonIcon /> },
+      { label: 'Right-click tool binding', icon: <MouseButtonIcon /> },
       { label: 'Sharp or rounded shapes',icon: <CornersIcon /> },
     ],
   },
@@ -128,19 +139,17 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
     groupIcon: <FontIcon />,
     items: [
       { label: '6 font families',          icon: <FontIcon /> },
-      { label: '5 text sizes',             icon: <TextSizeIcon /> },
+      { label: '5 text sizes + free resize', icon: <TextSizeIcon /> },
       { label: 'Bold & italic',            icon: <BoldItalicIcon /> },
       { label: 'Left / centre / right align', icon: <AlignTextIcon /> },
-      { label: 'Inline text editing',      icon: <TextIcon /> },
-      { label: 'Font per stroke',          icon: <FontIcon /> },
+      { label: 'Edit text in place',        icon: <TextIcon /> },
     ],
   },
   {
     label: 'Touch & input',
     groupIcon: <Hand size={14} strokeWidth={1.5} />,
     items: [
-      { label: 'Apple Pencil support', icon: <PressureIcon /> },
-      { label: 'Pressure sensitivity', icon: <PressureIcon /> },
+      { label: 'Apple Pencil & pressure sensitivity', icon: <PressureIcon /> },
       { label: 'Palm rejection',       icon: <Hand size={12} strokeWidth={1.5} /> },
       { label: 'Pinch to zoom',        icon: <ZoomIn size={12} strokeWidth={1.5} /> },
       { label: 'Two-finger pan',       icon: <Hand size={12} strokeWidth={1.5} /> },
@@ -153,11 +162,11 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
     groupIcon: <CanvasIcon />,
     items: [
       { label: 'Infinite canvas',           icon: <CanvasIcon /> },
-      { label: '3 slots free / 9 with Pro', icon: <CanvasIcon /> },
-      { label: '1–3 key switching (1–9 Pro)',icon: <CanvasIcon /> },
+      { label: '3 slots free / 9 with',      icon: <CanvasIcon />, pro: true },
+      { label: '1–3 key switching, 1–9 with', icon: <CanvasIcon />, pro: true },
       { label: 'Undo / redo',               icon: <Undo2 size={12} strokeWidth={1.5} /> },
       { label: 'Zoom & fit',                icon: <FitIcon /> },
-      { label: 'Group select',              icon: <BoxSelect size={12} strokeWidth={1.5} /> },
+      { label: 'Group select, resize & rotate', icon: <BoxSelect size={12} strokeWidth={1.5} /> },
       { label: 'Move & delete selection',   icon: <MousePointer2 size={12} strokeWidth={1.5} /> },
       { label: 'Image insertion',           icon: <Image size={12} strokeWidth={1.5} /> },
     ],
@@ -168,11 +177,11 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
     items: [
       { label: 'Save any strokes',       icon: <Layers size={12} strokeWidth={1.5} /> },
       { label: 'Drag back onto canvas',  icon: <CanvasIcon /> },
-      { label: 'Named stash items',      icon: <RenameIcon /> },
+      { label: 'Rename stash items',      icon: <RenameIcon /> },
       { label: 'Search stash',           icon: <Search size={12} strokeWidth={1.5} /> },
       { label: 'Reorder & delete',       icon: <I><line x1="4" y1="4" x2="12" y2="12" /><line x1="4" y1="12" x2="12" y2="4" /></I> },
-      { label: 'Theme-adaptive on drop', icon: <ColorIcon /> },
-      { label: 'Cloud stash sync',       icon: <CloudSyncIcon /> },
+      { label: 'Auto colour-adapts to theme', icon: <ColorIcon /> },
+      { label: 'Cloud stash sync',       icon: <CloudSyncIcon />, pro: true },
     ],
   },
   {
@@ -180,22 +189,24 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
     groupIcon: <ShareIcon />,
     items: [
       { label: 'PNG export',                  icon: <Upload size={12} strokeWidth={1.5} /> },
-      { label: 'SVG export (Pro)',             icon: <Upload size={12} strokeWidth={1.5} /> },
-      { label: 'Live canvas share link',      icon: <ShareIcon /> },
-      { label: 'Workspace share link (Pro)',  icon: <ShareIcon /> },
-      { label: 'No-account viewing',          icon: <CheckIcon /> },
+      { label: 'SVG export',                   icon: <Upload size={12} strokeWidth={1.5} />, pro: true },
+      { label: 'Export selection',             icon: <BoxSelect size={12} strokeWidth={1.5} />, pro: true },
+      { label: 'Share links',                 icon: <ShareIcon /> },
+      { label: 'Live canvas share link',      icon: <ShareIcon />, pro: true },
+      { label: 'Workspace share link',         icon: <ShareIcon />, pro: true },
+      { label: 'Anyone can view share links',  icon: <CheckIcon /> },
       { label: 'Copy to clipboard',           icon: <Copy size={12} strokeWidth={1.5} /> },
     ],
   },
   {
-    label: 'Cloud (Pro)',
+    label: 'Cloud',
     groupIcon: <CloudSyncIcon />,
     items: [
       { label: 'Canvas sync across devices', icon: <CloudSyncIcon /> },
-      { label: 'Unlimited workspaces',       icon: <LayoutDashboard size={12} strokeWidth={1.5} /> },
-      { label: 'Stash sync',                 icon: <Layers size={12} strokeWidth={1.5} /> },
       { label: 'Auto-save',                  icon: <DotIcon /> },
       { label: 'Before-close backup',        icon: <ShieldIcon /> },
+      { label: 'Workspaces',                  icon: <LayoutDashboard size={12} strokeWidth={1.5} />, pro: true },
+      { label: 'Stash sync',                 icon: <Layers size={12} strokeWidth={1.5} />,    pro: true },
     ],
   },
   {
@@ -203,9 +214,9 @@ const FEATURE_GROUPS: { label: string; groupIcon: ReactNode; items: Item[] }[] =
     groupIcon: <Presentation size={14} strokeWidth={1.5} />,
     items: [
       { label: 'Full keyboard shortcuts', icon: <Keyboard size={12} strokeWidth={1.5} /> },
-      { label: 'Shortcuts panel (?)',     icon: <I><line x1="3" y1="4" x2="13" y2="4" /><line x1="3" y1="8" x2="13" y2="8" /><line x1="3" y1="12" x2="13" y2="12" /></I> },
+      { label: 'Shortcuts panel',          icon: <I><line x1="3" y1="4" x2="13" y2="4" /><line x1="3" y1="8" x2="13" y2="8" /><line x1="3" y1="12" x2="13" y2="12" /></I> },
       { label: 'Interactive tutorial',    icon: <Presentation size={12} strokeWidth={1.5} /> },
-      { label: 'Dark & light themes',     icon: <ThemeIcon /> },
+      { label: 'Drawing challenges',      icon: <Presentation size={12} strokeWidth={1.5} /> },
       { label: 'No account needed',       icon: <CheckIcon /> },
       { label: 'Works offline',           icon: <CheckIcon /> },
     ],
@@ -261,8 +272,9 @@ export function AllFeaturesSection() {
               <ul className="space-y-2">
                 {group.items.map(item => (
                   <li key={item.label} className="flex items-center gap-2 text-sm" style={{ color: 'rgba(255,255,255,0.65)' }}>
-                    <span className="shrink-0" style={{ color: 'rgba(59,130,246,0.65)' }}>{item.icon}</span>
+                    <span className="shrink-0" style={{ color: 'rgba(255,255,255,0.55)' }}>{item.icon}</span>
                     {item.label}
+                    {item.pro && <ProBadge />}
                   </li>
                 ))}
               </ul>
