@@ -290,7 +290,7 @@ function AccordionSection({
         </button>
         {action}
       </div>
-      {open && <div className="mt-1.5 px-1 pb-1">{children}</div>}
+      {open && <div className="mt-1.5 px-1 pt-1 pb-2">{children}</div>}
     </div>
   );
 }
@@ -403,6 +403,7 @@ export default function Menu({
   const helpRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
   const exportContentRef = useRef<HTMLDivElement>(null);
+  const preferencesRef = useRef<HTMLDivElement>(null);
   const isMac = /mac/i.test(navigator.platform);
   const mod = isMac ? "⌘" : "Ctrl";
   const alt = isMac ? "⌥" : "Alt";
@@ -651,7 +652,7 @@ export default function Menu({
         {open && (
           <nav
             aria-label="Settings menu"
-            className={`mt-2 p-4 rounded-xl border backdrop-blur-sm shadow-2xl w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
+            className={`mt-2 p-4 rounded-xl border backdrop-blur-sm shadow-2xl w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden scroll-pb-6 ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
             style={{ background: getPanelBackground(settings.theme) }}
           >
             <a href="/" className={`${isPro ? "mb-1" : "mb-3"} text-center select-none block`} style={{ textDecoration: "none" }}>
@@ -2211,10 +2212,23 @@ export default function Menu({
                 label="Preferences"
                 icon={<SlidersHorizontal size={13} strokeWidth={1.75} />}
                 open={showPreferences}
-                onToggle={() => setShowPreferences((v) => !v)}
+                onToggle={() =>
+                  setShowPreferences((v) => {
+                    if (!v)
+                      setTimeout(
+                        () =>
+                          preferencesRef.current?.scrollIntoView({
+                            behavior: "smooth",
+                            block: "nearest",
+                          }),
+                        0,
+                      );
+                    return !v;
+                  })
+                }
                 isDark={isDark}
               >
-                <div className="space-y-3">
+                <div ref={preferencesRef} className="space-y-3">
                   {(!hasTouch || isTablet) && (
                     <button
                       role="switch"
