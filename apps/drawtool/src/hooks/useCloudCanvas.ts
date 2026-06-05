@@ -750,6 +750,14 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   const activeCanvasMeta = workspace?.canvases.find(c => c.id === activeId) ?? null
 
+  // Use sorted array index for display — position field can have duplicates in the DB
+  const activeCanvasIndex = useMemo(() => {
+    if (!workspace || !activeId) return 1
+    const sorted = [...workspace.canvases].sort((a, b) => a.position - b.position)
+    const idx = sorted.findIndex(c => c.id === activeId)
+    return idx >= 0 ? idx + 1 : 1
+  }, [workspace, activeId])
+
   // ── Clear canvas (wipe content, keep the slot) ───────────────────────────
 
   async function clearCanvas(id: string): Promise<boolean> {
@@ -911,7 +919,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   }
 
   return {
-    workspace, allWorkspaces, activeId, activeCanvasMeta,
+    workspace, allWorkspaces, activeId, activeCanvasMeta, activeCanvasIndex,
     workspacesLoaded: workspacesQuery.isSuccess,
     loading: canvasQuery.isFetching,
     cachedWorkspaceName, cachedCanvasName,

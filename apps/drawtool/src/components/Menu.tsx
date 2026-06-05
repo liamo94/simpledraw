@@ -1420,6 +1420,7 @@ export default function Menu({
                   onChange={(e) =>
                     updateSettings({ fillOpacity: Number(e.target.value) })
                   }
+                  onPointerUp={(e) => (e.target as HTMLInputElement).blur()}
                   className="flex-1 min-w-0"
                   style={{ accentColor: isDark ? "#93c5fd" : "#3b82f6" }}
                 />

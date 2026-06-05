@@ -1463,16 +1463,16 @@ export default function App() {
     updateSettings({ lastActiveCanvasId: cloudCanvas.activeId });
   }, [cloudCanvas.activeId, isSignedIn]);
 
-  // Sync cloud canvas name and slot number into local state
+  // Sync cloud canvas name and display index into local state
   useEffect(() => {
     if (!cloudCanvas.activeCanvasMeta) return;
-    const n = cloudCanvas.activeCanvasMeta.position + 1;
+    const n = cloudCanvas.activeCanvasIndex;
     setActiveCanvas(n);
     activeCanvasRef.current = n;
     localStorage.setItem("drawtool-active-canvas", String(n));
     setCanvasName(cloudCanvas.activeCanvasMeta.name);
     canvasNameRef.current = cloudCanvas.activeCanvasMeta.name;
-  }, [cloudCanvas.activeCanvasMeta?.id, cloudCanvas.activeCanvasMeta?.name]);
+  }, [cloudCanvas.activeCanvasMeta?.id, cloudCanvas.activeCanvasMeta?.name, cloudCanvas.activeCanvasIndex]);
 
   // Welcome toast after Stripe checkout
   useEffect(() => {

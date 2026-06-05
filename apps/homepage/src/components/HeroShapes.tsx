@@ -55,7 +55,7 @@ export function HeroShapes() {
       </div>
 
       {/* ── Real canvas export: blue curved arrow ── large ── lower-right ── */}
-      <div className="hidden sm:block float absolute" style={{ top: '65%', right: '6%', animationDelay: '1.4s', animationDuration: '4.2s', transform: 'rotate(-15deg)' }}>
+      <div className="hidden sm:block float absolute" style={{ top: '60%', right: '6%', animationDelay: '1.4s', animationDuration: '4.2s', transform: 'rotate(-15deg)' }}>
         <img src="/hero-arrow.png" alt="" width={80} height={109} style={{ display: 'block' }} />
       </div>
 
@@ -71,17 +71,22 @@ export function HeroShapes() {
 
       {/* ── Green crosshatch cloud ── large ──── top-right further ── */}
       <div className="hidden lg:block float absolute" style={{ top: '8%', right: '18%', animationDelay: '0.7s', animationDuration: '4.6s', transform: 'rotate(20deg)' }}>
-        <img src="/hero-cloud.png" alt="" width={100} height={95} style={{ display: 'block' }} />
+        <img src="/hero-cloud.png" alt="" width={110} height={90} style={{ display: 'block' }} />
       </div>
 
       {/* ── DB canvas export ── medium ──────── mid-left ── */}
-      <div className="hidden lg:block float absolute" style={{ top: '84%', right: '6%', animationDelay: '1.9s', animationDuration: '5.4s', transform: 'rotate(-8deg)' }}>
+      <div className="hidden lg:block float absolute" style={{ top: '90%', right: '6%', animationDelay: '1.9s', animationDuration: '5.4s', transform: 'rotate(-8deg)' }}>
         <img src="/hero-db.png" alt="" width={90} height={90} style={{ display: 'block' }} />
       </div>
 
       {/* ── Bar chart canvas export ── medium ──────── lower-left ── */}
       <div className="hidden lg:block float absolute" style={{ top: '37%', left: '2%', animationDelay: '2.3s', animationDuration: '4.9s', transform: 'rotate(10deg)' }}>
         <img src="/hero-bar-chart.png" alt="" width={130} height={50} style={{ display: 'block' }} />
+      </div>
+
+      {/* ── Rainbow prism strokes ── medium ─────── lower-left ── */}
+      <div className="hidden lg:block float absolute" style={{ top: '76%', right: '2%', animationDelay: '1.3s', animationDuration: '5.3s', transform: 'rotate(-4deg)' }}>
+        <img src="/hero-prism.png" alt="" width={140} height={55} style={{ display: 'block' }} />
       </div>
     </div>
   )

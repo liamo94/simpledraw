@@ -144,7 +144,7 @@ export function TabletSection() {
             className="inline-block text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full mb-6"
             style={{ background: 'rgba(59,130,246,0.1)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}
           >
-            iPad & tablet
+            Phone & tablet
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-5" style={{ letterSpacing: '-0.02em' }}>
             A canvas that feels made for touch

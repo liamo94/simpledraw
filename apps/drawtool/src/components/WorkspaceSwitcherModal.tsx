@@ -92,9 +92,11 @@ export default function WorkspaceSwitcherModal({
   const editInputRef = useRef<HTMLInputElement>(null)
   const newWsInputRef = useRef<HTMLInputElement>(null)
   const activeTabRef = useRef<HTMLButtonElement>(null)
+  const activeCardRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
+    activeCardRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [])
 
   useEffect(() => {
@@ -267,9 +269,10 @@ export default function WorkspaceSwitcherModal({
                 }`}>{ws.name}</span>
                 <span className={`text-[9px] ${isDark ? 'text-white/20' : 'text-black/20'}`}>Workspace</span>
               </div>,
-              ...ws.canvases.map(canvas => {
+              ...[...ws.canvases].sort((a, b) => a.position - b.position).map((canvas, sortedIdx) => {
                 const isActive = canvas.id === activeCanvasId
                 const isEmpty = canvas.is_empty === 1
+                const searchDisplayNum = sortedIdx + 1
                 return (
                   <div
                     key={canvas.id}
@@ -282,12 +285,12 @@ export default function WorkspaceSwitcherModal({
                   >
                     <span className={`w-[18px] h-[18px] flex items-center justify-center rounded text-[9px] font-bold tabular-nums shrink-0 ${
                       isActive ? 'bg-[#3b82f6] text-white' : isEmpty ? isDark ? 'bg-white/5 text-white/18' : 'bg-black/4 text-black/18' : isDark ? 'bg-white/8 text-white/35' : 'bg-black/6 text-black/30'
-                    }`}>{canvas.position + 1}</span>
+                    }`}>{searchDisplayNum}</span>
                     <span className={`flex-1 text-sm font-semibold truncate ${
                       isEmpty ? isDark ? 'text-white/20' : 'text-black/20'
                       : isActive ? isDark ? 'text-[#93c5fd]' : 'text-blue-600'
                       : isDark ? 'text-white/65' : 'text-black/60'
-                    }`}>{canvas.name || `Canvas ${canvas.position + 1}`}</span>
+                    }`}>{canvas.name || `Canvas ${searchDisplayNum}`}</span>
                     <span className={`text-[9px] truncate max-w-[100px] ${isDark ? 'text-white/18' : 'text-black/18'}`}>{ws.name}</span>
                   </div>
                 )
@@ -445,14 +448,25 @@ export default function WorkspaceSwitcherModal({
                   {/* Workspace header - sits above the scroll container so bottom-full tooltips aren't clipped */}
                   <div className="flex items-center gap-2 px-5 pt-5 pb-1 shrink-0">
                     {isEditingWs ? (
-                      <input
-                        ref={editInputRef}
-                        value={editing!.name}
-                        onChange={e => setEditing(ed => ed ? { ...ed, name: e.target.value } : ed)}
-                        onBlur={commitEdit}
-                        onKeyDown={editInputKeyDown}
-                        className={`flex-1 text-sm font-semibold rounded-lg px-2 py-1 outline-none ${isDark ? 'bg-white/8 border border-white/20 text-white/85' : 'bg-black/5 border border-black/15 text-black/80'}`}
-                      />
+                      <div className="flex items-center gap-1 flex-1 min-w-0">
+                        <input
+                          ref={editInputRef}
+                          value={editing!.name}
+                          onChange={e => setEditing(ed => ed ? { ...ed, name: e.target.value } : ed)}
+                          onBlur={hasTouch ? undefined : commitEdit}
+                          onKeyDown={editInputKeyDown}
+                          className={`flex-1 min-w-0 text-sm font-semibold rounded-lg px-2 py-1 outline-none ${isDark ? 'bg-white/8 border border-white/20 text-white/85' : 'bg-black/5 border border-black/15 text-black/80'}`}
+                        />
+                        {hasTouch && (
+                          <button
+                            onPointerDown={e => e.preventDefault()}
+                            onClick={e => { e.stopPropagation(); commitEdit() }}
+                            className={`shrink-0 w-7 h-7 flex items-center justify-center rounded-md text-sm font-bold transition-colors ${isDark ? 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white' : 'bg-black/6 text-black/55 hover:bg-black/12 hover:text-black/80'}`}
+                          >
+                            ✓
+                          </button>
+                        )}
+                      </div>
                     ) : (
                       <span className={`flex-1 text-sm font-semibold ${isDark ? 'text-white/40' : 'text-black/35'}`}>
                         {viewingWs.name}
@@ -501,18 +515,23 @@ export default function WorkspaceSwitcherModal({
                   )}
 
                   <div className="grid grid-cols-3 gap-3">
-                    {viewingWs.canvases.map(canvas => {
+                    {[...viewingWs.canvases].sort((a, b) => a.position - b.position).map((canvas, sortedIndex) => {
                       const isActive = canvas.id === activeCanvasId
                       const isEmpty = canvas.is_empty === 1
                       const strokeCount = !isEmpty && (canvas.stroke_count ?? 0) > 0 ? canvas.stroke_count : null
-                      const displayName = canvas.name || `Canvas ${canvas.position + 1}`
+                      const displayNumber = sortedIndex + 1
+                      const displayName = canvas.name || `Canvas ${displayNumber}`
                       const isEditingCanvas = editing?.kind === 'canvas' && editing.id === canvas.id
                       const isConfirmingCanvas = confirmDelete?.id === canvas.id && confirmDelete.kind === 'canvas'
 
                       return (
                         <div
                           key={canvas.id}
-                          onClick={() => !isEditingCanvas && !isConfirmingCanvas && activate(viewingWs.id, canvas.id)}
+                          ref={isActive ? activeCardRef : undefined}
+                          onClick={() => {
+                            if (editing?.kind === 'canvas') { commitEdit(); return }
+                            if (!isConfirmingCanvas) activate(viewingWs.id, canvas.id)
+                          }}
                           className="relative group flex flex-col gap-2 cursor-pointer"
                         >
                           {/* Preview card */}
@@ -553,7 +572,7 @@ export default function WorkspaceSwitcherModal({
                               : isEmpty ? isDark ? 'bg-white/6 text-white/20' : 'bg-black/5 text-black/20'
                               : isDark ? 'bg-white/10 text-white/50' : 'bg-black/8 text-black/40'
                             }`}>
-                              {canvas.position + 1}
+                              {displayNumber}
                             </span>
 
                             {/* Stroke count */}
@@ -578,12 +597,12 @@ export default function WorkspaceSwitcherModal({
 
                           {/* Hover actions - outside overflow-hidden card so bottom-full tooltips aren't clipped */}
                           {!isConfirmingCanvas && (
-                            <div className={`absolute top-2 right-2 flex gap-0.5 transition-opacity ${hasTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
-                              <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className={`relative group/actbtn ${iconBtn}`}>
+                            <div className={`absolute top-2 right-2 flex gap-0.5 transition-opacity rounded-lg bg-black/40 backdrop-blur-sm p-0.5 ${hasTouch ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}>
+                              <button onClick={e => startEdit(e, 'canvas', canvas.id, canvas.name)} className="relative group/actbtn shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors text-white/60 hover:text-white hover:bg-white/15">
                                 <Pencil size={ICON_SIZE} strokeWidth={1.75} />
                                 <span className={`absolute bottom-full right-0 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover/actbtn:opacity-100 transition-opacity duration-150 delay-0 group-hover/actbtn:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`}>Rename canvas</span>
                               </button>
-                              <button onClick={e => requestDelete(e, 'canvas', canvas.id)} className={`relative group/actbtn ${iconBtn}`}>
+                              <button onClick={e => requestDelete(e, 'canvas', canvas.id)} className="relative group/actbtn shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors text-white/60 hover:text-white hover:bg-white/15">
                                 <Trash2 size={ICON_SIZE} strokeWidth={1.75} />
                                 <span className={`absolute bottom-full right-0 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover/actbtn:opacity-100 transition-opacity duration-150 delay-0 group-hover/actbtn:delay-500 z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`}>{viewingWs.canvases.length === 1 ? 'Clear canvas' : 'Delete canvas'}</span>
                               </button>
@@ -591,25 +610,36 @@ export default function WorkspaceSwitcherModal({
                           )}
 
                           {/* Canvas name */}
-                          {isEditingCanvas ? (
-                            <input
-                              ref={editInputRef}
-                              value={editing!.name}
-                              onChange={e => setEditing(ed => ed ? { ...ed, name: e.target.value } : ed)}
-                              onBlur={commitEdit}
-                              onClick={e => e.stopPropagation()}
-                              onKeyDown={editInputKeyDown}
-                              className={`text-[13px] font-semibold rounded-md px-2 py-0.5 outline-none w-full ${isDark ? 'bg-white/8 border border-white/20 text-white/85' : 'bg-black/5 border border-black/15 text-black/85'}`}
-                            />
-                          ) : (
-                            <span className={`text-[13px] font-semibold truncate px-0.5 ${
+                          <div className="relative">
+                            <span className={`text-[13px] font-semibold truncate px-0.5 block ${isEditingCanvas ? 'invisible' : ''} ${
                               isEmpty ? isDark ? 'text-white/18' : 'text-black/18'
                               : isActive ? isDark ? 'text-[#93c5fd]' : 'text-blue-600'
                               : isDark ? 'text-white/70' : 'text-black/65'
                             }`}>
                               {displayName}
                             </span>
-                          )}
+                            {isEditingCanvas && (
+                              <div className="absolute inset-0 flex items-center gap-1" onClick={e => e.stopPropagation()}>
+                                <input
+                                  ref={editInputRef}
+                                  value={editing!.name}
+                                  onChange={e => setEditing(ed => ed ? { ...ed, name: e.target.value } : ed)}
+                                  onBlur={hasTouch ? undefined : commitEdit}
+                                  onKeyDown={editInputKeyDown}
+                                  className={`flex-1 min-w-0 text-[13px] font-semibold rounded-md px-1.5 outline-none h-full ${isDark ? 'bg-white/8 border border-white/20 text-white/85' : 'bg-black/5 border border-black/15 text-black/85'}`}
+                                />
+                                {hasTouch && (
+                                  <button
+                                    onPointerDown={e => e.preventDefault()}
+                                    onClick={e => { e.stopPropagation(); commitEdit() }}
+                                    className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md text-sm font-bold transition-colors ${isDark ? 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white' : 'bg-black/6 text-black/55 hover:bg-black/12 hover:text-black/80'}`}
+                                  >
+                                    ✓
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       )
                     })}
