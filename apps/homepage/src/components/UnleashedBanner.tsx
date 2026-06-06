@@ -3,8 +3,9 @@ import { useEffect, useRef } from 'react'
 const UNLEASHED_URL = 'https://unleash.drawzil.la'
 
 const PERKS = [
-  'Cloud canvas sync',
-  'Unlimited workspaces',
+  'Full cloud sync',
+  'Unlock all canvases',
+  'Workspaces',
   'Live share links',
   'Clean PNG & SVG exports',
   'Priority support',
