@@ -53,7 +53,7 @@ Sentry.init({
 
 if (import.meta.env.VITE_POSTHOG_KEY) {
   posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
-    api_host: `${import.meta.env.VITE_API_URL ?? 'http://localhost:8787'}/ingest`,
+    api_host: `${import.meta.env.VITE_API_URL ?? 'http://localhost:8787'}/ph`,
     ui_host: 'https://eu.posthog.com',
     persistence: 'localStorage+cookie',
     disable_cookie: true,
