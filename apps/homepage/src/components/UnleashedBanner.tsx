@@ -40,7 +40,8 @@ export function UnleashedBanner() {
         />
 
         <div className="relative">
-          <div className="mb-6">
+          <div className="mb-6 flex flex-col items-center gap-4">
+            <img src="/unleashed-icon.png" alt="Unleashed" width={80} height={80} style={{ objectFit: 'contain' }} />
             <span style={{
               fontFamily: "'Bangers', cursive",
               fontSize: '2rem',
