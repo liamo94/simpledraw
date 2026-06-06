@@ -184,7 +184,7 @@ export default function App() {
       <FeatureSection
         flip={false}
         badge="Shapes"
-        headline="Ten shapes. Hand-drawn feel."
+        headline="Multiple shapes, different styles and fills."
         videoLabel="VIDEO: drawing circle → rectangle → star → cloud → arrow, filling a shape, adjusting opacity, switching to dashed outline"
         body={
           <>
