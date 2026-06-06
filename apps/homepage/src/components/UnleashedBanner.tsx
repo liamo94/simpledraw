@@ -29,7 +29,7 @@ export function UnleashedBanner() {
     <section className="py-20 sm:py-28 px-6">
       <div
         ref={ref}
-        className="scroll-fade max-w-4xl mx-auto rounded-3xl p-10 sm:p-14 text-center relative overflow-hidden"
+        className="scroll-fade max-w-2xl mx-auto rounded-3xl p-10 sm:p-14 text-center relative overflow-hidden"
         style={{
           background: 'linear-gradient(135deg, rgba(57,255,20,0.08) 0%, rgba(6,6,15,0.6) 50%, rgba(57,255,20,0.05) 100%)',
           border: '1px solid rgba(57,255,20,0.2)',
@@ -60,10 +60,6 @@ export function UnleashedBanner() {
           >
             Take it further
           </h2>
-          <p className="text-base sm:text-lg mb-8 max-w-lg mx-auto" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            Upgrade to Unleashed for cloud sync, unlimited workspaces, share links, and clean exports - no watermark.
-          </p>
-
           <div className="flex flex-wrap justify-center gap-3 mb-10">
             {PERKS.map(p => (
               <span
