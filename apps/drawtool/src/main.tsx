@@ -57,7 +57,7 @@ if (import.meta.env.VITE_POSTHOG_KEY) {
     ui_host: 'https://eu.posthog.com',
     persistence: 'localStorage+cookie',
     disable_cookie: true,
-    disable_dead_click_autocapture: true,
+    capture_dead_clicks: false,
   })
 }
 
