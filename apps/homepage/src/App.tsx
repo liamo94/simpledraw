@@ -48,7 +48,7 @@ export default function App() {
       <USPSection
         number="02"
         flip={true}
-        headline="One hand draws. The other decides when."
+        headline="Your drawing hand only draws."
         videoLabel="VIDEO: Cmd+drag drawing - left hand holds Cmd, right hand does the stroke. Show clean starts and stops. Then contrast with click-to-draw showing pressure artefacts at stroke start."
         body={
           <>
