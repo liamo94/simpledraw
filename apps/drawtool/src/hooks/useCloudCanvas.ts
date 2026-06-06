@@ -377,7 +377,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
           keepalive: true,
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
           body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }),
-        })
+        }).catch(() => {})
       }
 
       useCloudSessionStore.getState().setActiveCanvas(null)
@@ -440,16 +440,16 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
         saveTimerRef.current = null
       }
       // Always flush - covers pan-only sessions (no pending stroke save) and pending saves.
-      // Use the synchronous image cache since we can't await in beforeunload.
+      // Omit images: base64 payloads can exceed the browser's 64KB keepalive limit.
+      // DIRTY_KEY ensures the next load re-sends with full image data.
       const strokes = loadStrokes(CLOUD_SLOT)
       const view = loadView(CLOUD_SLOT)
-      const images = collectImagesSync(strokes)
       fetch(`${API_URL}/canvases/${id}`, {
         method: 'PUT',
         keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }),
-      })
+        body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current }),
+      }).catch(() => {})
       // Don't clear DIRTY_KEY - keepalive success isn't guaranteed; the next page load
       // will use local state and re-send if needed, then clear it.
     }
