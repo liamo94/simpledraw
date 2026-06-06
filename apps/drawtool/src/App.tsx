@@ -1264,6 +1264,7 @@ export default function App() {
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
   const { canvasLimit, isPro, planLoading, subscription } = useUserPlan();
+  const [unleashHovered, setUnleashHovered] = useState(false);
   const cloudCanvas = useCloudCanvas(
     isDark,
     canvasLimit,
@@ -1865,7 +1866,9 @@ export default function App() {
           href="https://unleash.drawzil.la"
           target="_blank"
           rel="noopener noreferrer"
-          className="fixed top-[20px] right-[62px] z-40 h-[30px] px-2.5 flex items-center justify-center rounded-md backdrop-blur-sm select-none transition-opacity opacity-40 hover:opacity-75"
+          onMouseEnter={() => setUnleashHovered(true)}
+          onMouseLeave={() => setUnleashHovered(false)}
+          className="unleashed-btn fixed top-[20px] right-[62px] z-40 h-[30px] px-2.5 flex items-center justify-center rounded-md backdrop-blur-sm select-none opacity-40 hover:opacity-75"
           style={{
             background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
             border: isDark
@@ -1976,6 +1979,7 @@ export default function App() {
         onExportWorkspacesZip={exportWorkspacesZip}
         onResubscribe={() => openBillingPortal(getToken)}
         cloudEnabled={CLOUD_ENABLED}
+        unleashHovered={unleashHovered}
       />
       <input
         ref={importFileRef}

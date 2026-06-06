@@ -335,6 +335,7 @@ type Props = {
   onExportWorkspacesZip?: () => void;
   onResubscribe?: () => void;
   cloudEnabled?: boolean;
+  unleashHovered?: boolean;
 };
 
 export default function Menu({
@@ -377,6 +378,7 @@ export default function Menu({
   onExportWorkspacesZip,
   onResubscribe,
   cloudEnabled = false,
+  unleashHovered = false,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
@@ -616,10 +618,25 @@ export default function Menu({
           >
             <span className="relative flex items-center justify-center w-full h-full">
               <span
-                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : "opacity-100 scale-100 rotate-0"}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : unleashHovered ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}
               >
                 <img
                   src="/drawzilla-menu.png"
+                  alt=""
+                  style={{
+                    display: "block",
+                    width: "100%",
+                    height: "100%",
+                    objectFit: "contain",
+                    objectPosition: "bottom",
+                  }}
+                />
+              </span>
+              <span
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : unleashHovered ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}
+              >
+                <img
+                  src="/drawzilla-menu-pro.png"
                   alt=""
                   style={{
                     display: "block",

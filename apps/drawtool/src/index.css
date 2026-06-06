@@ -103,6 +103,15 @@ html, body, #root {
     0 -20px 28px rgba(30,160,0,0.16);
 }
 
+.unleashed-btn {
+  transition: opacity 150ms, background 150ms, border-color 150ms, color 150ms;
+}
+.unleashed-btn:hover {
+  background: rgba(57,255,20,0.12) !important;
+  border-color: rgba(57,255,20,0.35) !important;
+  color: #39ff14 !important;
+}
+
 /* Prevent touch highlighting on mobile toolbar */
 .touch-toolbar {
   -webkit-user-select: none;
