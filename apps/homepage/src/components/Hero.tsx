@@ -42,7 +42,7 @@ export function Hero() {
         </h1>
 
         <p className="text-lg sm:text-xl mb-10 max-w-xl mx-auto" style={{ color: 'rgba(255,255,255,0.6)' }}>
-          A drawing canvas that stays out of your way - whether you're sketching ideas, annotating, or creating art.
+          An infinite canvas where shortcuts do the heavy lifting, whether you're sketching ideas, annotating, or creating art.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">

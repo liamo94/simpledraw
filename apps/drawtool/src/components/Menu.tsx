@@ -618,7 +618,7 @@ export default function Menu({
           >
             <span className="relative flex items-center justify-center w-full h-full">
               <span
-                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : unleashHovered ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || settings.unleashedMenuIcon) ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}
               >
                 <img
                   src="/drawzilla-menu.png"
@@ -633,7 +633,7 @@ export default function Menu({
                 />
               </span>
               <span
-                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : unleashHovered ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || settings.unleashedMenuIcon) ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}
               >
                 <img
                   src="/drawzilla-menu-pro.png"
@@ -2358,6 +2358,26 @@ export default function Menu({
                         />
                       </span>
                     </button>
+                  )}
+                  {isPro && (
+                    <div className="flex items-center justify-between w-full text-sm">
+                      <span>Menu icon</span>
+                      <div className="flex items-center gap-1.5">
+                        {[false, true].map((useUnleashed) => (
+                          <button
+                            key={String(useUnleashed)}
+                            onClick={() => updateSettings({ unleashedMenuIcon: useUnleashed })}
+                            className={`w-7 h-7 flex items-center justify-center rounded-md border transition-colors ${settings.unleashedMenuIcon === useUnleashed ? isDark ? "border-[#3b82f6]/50 bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50" : "border-[#3b82f6]/40 bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40" : isDark ? "border-white/15 bg-white/5 hover:bg-white/10" : "border-black/10 bg-black/4 hover:bg-black/8"}`}
+                          >
+                            <img
+                              src={useUnleashed ? "/drawzilla-menu-pro.png" : "/drawzilla-menu.png"}
+                              alt={useUnleashed ? "Unleashed icon" : "Default icon"}
+                              style={{ width: 18, height: 18, objectFit: "contain", objectPosition: "bottom", display: "block" }}
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   )}
                   {!hasTouch && (
                     <div className="flex items-center justify-between w-full text-sm">

@@ -104,7 +104,7 @@ html, body, #root {
 }
 
 .unleashed-btn {
-  transition: opacity 150ms, background 150ms, border-color 150ms, color 150ms;
+  transition: opacity 150ms, background 200ms, border-color 200ms, color 200ms;
 }
 .unleashed-btn:hover {
   background: rgba(57,255,20,0.12) !important;
