@@ -74,6 +74,7 @@ export default function App() {
         badge="Freehand"
         headline="Every stroke feels real"
         videoLabel="VIDEO: slow careful strokes vs fast loose gestures - showing how line width responds to speed and pressure"
+        videoSrc="/stroke.mp4"
         body={
           <>
             <p>Powered by perfect-freehand, every stroke responds to how fast you draw and how hard you press. Thin and delicate when you're being precise. Bold and expressive when you move fast.</p>
@@ -89,6 +90,7 @@ export default function App() {
         badge="Shortcuts"
         headline="Speed comes standard"
         videoLabel="VIDEO: rapid tool switching with keyboard - draw, erase, select, undo, colour change, zoom - hands never leave the canvas"
+        videoSrc="/speed.mp4"
         body={
           <>
             <p>Beyond the hold-to-activate modes, everything else has a shortcut too. Grid, undo, canvas switching, theme cycling - all one key.</p>
@@ -114,9 +116,11 @@ export default function App() {
         videoLabel="VIDEO: pressing 1, 2, 3 keys to jump instantly between different canvases - each has a different idea, no loading, instant switch"
         body={
           <>
-            <p>Every canvas slot is its own infinite workspace. Keep your main diagram on canvas 1, rough sketches on 2, notes on 3 - and jump between them instantly with a single key.</p>
-            <p className="mt-3">No saving. No exporting. No losing your train of thought. The context switch costs you one keystroke.</p>
-            <p className="mt-3 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>Free: 3 canvas slots &nbsp;·&nbsp; Pro: 9 canvas slots</p>
+            <p>Every canvas slot is its own infinite space. Keep your main diagram on canvas 1, rough sketches on 2, notes on 3 — and jump between them instantly with a single key.</p>
+            <p className="mt-3">No saving. No exporting. No losing your train of thought. The context switch costs you one keystroke. Or use them as slides — walk an audience through your thinking without leaving the canvas.</p>
+            <p className="mt-3 text-sm flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
+              Free: 3 canvas slots &nbsp;·&nbsp; <span style={{ fontFamily: "'Bangers', cursive", fontSize: '0.75rem', letterSpacing: '0.1em', color: '#39ff14' }}>UNLEASHED</span>: 9 canvas slots
+            </p>
           </>
         }
       />
@@ -125,12 +129,13 @@ export default function App() {
 
       <FeatureSection
         flip={true}
-        badge="Presentations"
-        headline="What's better than one infinite canvas?"
-        videoLabel="VIDEO: jumping between canvas slots mid-presentation - each canvas is a different slide, switching instantly with a keypress to walk an audience through an idea"
+        badge="Unleashed"
+        headline="Separate workspaces for separate projects."
+        videoLabel="VIDEO: switching between workspaces - client project, personal notes, teaching prep - each with its own set of canvases"
         body={
           <>
-            <p>Each canvas slot is a slide. Jump between them instantly to walk an audience through your thinking - diagrams, sketches, annotations, all live as you draw. No slides to prepare, no switching apps, no leaving the canvas.</p>
+            <p>Each workspace is its own set of canvases. Keep client work away from personal notes. Teaching prep separate from side projects. Switch between them without anything bleeding together.</p>
+            <p className="mt-3">Free accounts get one workspace. Unleashed gives you workspaces.</p>
           </>
         }
       />
@@ -142,6 +147,7 @@ export default function App() {
         badge="Mouse buttons"
         headline="Two hands. Two tools."
         videoLabel="VIDEO: right-click erasing while drawing with left click - fluid back-and-forth with no tool switching at all"
+        videoSrc="/controls.mp4"
         body={
           <>
             <p>Assign any tool to each mouse button. Left click draws, right click erases - or dashes, or lasers. No switching, no interruption.</p>
@@ -226,7 +232,7 @@ export default function App() {
         videoLabel="VIDEO: selecting a canvas, opening share modal, copying link, opening it in a new tab - viewer sees live canvas with no sign-in required"
         body={
           <>
-            <p>Generate a live, read-only link for any canvas or entire workspace. Anyone with the link sees your latest version - no account, no friction.</p>
+            <p>Generate a live (<span style={{ fontFamily: "'Bangers', cursive", fontSize: '0.875rem', letterSpacing: '0.1em', color: '#39ff14' }}>UNLEASHED</span>) or static read-only link for any canvas or entire workspace. Anyone with the link sees your latest version - no account, no friction.</p>
             <p className="mt-3">Send a mockup to a client. Share a diagram with a teammate. Walk someone through your thinking without exporting anything.</p>
             <p className="mt-3">The link always shows the latest. There's no "resend the updated version".</p>
           </>

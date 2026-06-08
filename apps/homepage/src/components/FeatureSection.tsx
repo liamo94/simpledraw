@@ -1,9 +1,22 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
-export function VideoPlaceholder({ label, tall, portrait }: { label: string; tall?: boolean; portrait?: boolean }) {
+export function VideoPlaceholder({ label, tall, portrait, src }: { label: string; tall?: boolean; portrait?: boolean; src?: string }) {
+  const aspectClass = portrait ? 'aspect-[3/4]' : tall ? 'aspect-[16/9]' : 'aspect-video'
+  if (src) {
+    return (
+      <video
+        src={src}
+        className={`w-full rounded-2xl object-cover ${aspectClass}`}
+        autoPlay
+        muted
+        loop
+        playsInline
+      />
+    )
+  }
   return (
     <div
-      className={`w-full rounded-2xl flex flex-col items-center justify-center gap-3 ${portrait ? 'aspect-[3/4]' : tall ? 'aspect-[16/9]' : 'aspect-video'}`}
+      className={`w-full rounded-2xl flex flex-col items-center justify-center gap-3 ${aspectClass}`}
       style={{
         background: 'rgba(255,255,255,0.03)',
         border: '2px dashed rgba(255,255,255,0.12)',
@@ -35,23 +48,38 @@ function useScrollFade(ref: React.RefObject<HTMLElement | null>) {
 interface FeatureSectionProps {
   flip?: boolean
   videoLabel: string
+  videoSrc?: string
   badge?: string
   headline: string
   body: ReactNode
 }
 
-export function FeatureSection({ flip = false, videoLabel, badge, headline, body }: FeatureSectionProps) {
+export function FeatureSection({ flip = false, videoLabel, videoSrc, badge, headline, body }: FeatureSectionProps) {
   const ref = useRef<HTMLDivElement>(null)
   useScrollFade(ref)
 
   const textBlock = (
     <div className="flex flex-col justify-center gap-4">
       {badge && (
-        <div
-          className="self-start text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full"
-          style={{ background: 'rgba(59,130,246,0.1)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}
-        >
-          {badge}
+        <div className="self-start flex items-center gap-2">
+          <div
+            className="text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full"
+            style={badge === 'Unleashed'
+              ? { background: 'rgba(57,255,20,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(57,255,20,0.2)' }
+              : { background: 'rgba(59,130,246,0.1)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}
+          >
+            {badge === 'Unleashed' ? 'Workspaces' : badge}
+          </div>
+          {badge === 'Unleashed' && (
+            <span style={{
+              fontFamily: "'Bangers', cursive",
+              fontSize: '0.875rem',
+              letterSpacing: '0.1em',
+              color: '#39ff14',
+            }}>
+              UNLEASHED
+            </span>
+          )}
         </div>
       )}
       <h2 className="text-3xl sm:text-4xl font-bold leading-tight" style={{ letterSpacing: '-0.01em' }}>
@@ -63,7 +91,7 @@ export function FeatureSection({ flip = false, videoLabel, badge, headline, body
     </div>
   )
 
-  const videoBlock = <VideoPlaceholder label={videoLabel} />
+  const videoBlock = <VideoPlaceholder label={videoLabel} src={videoSrc} />
 
   return (
     <section className="py-20 sm:py-28 px-6">

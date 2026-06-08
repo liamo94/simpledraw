@@ -80,7 +80,7 @@ export function Hero() {
           className="hidden lg:block absolute pointer-events-none"
           style={{ left: '-218px', bottom: '-20px', transform: 'rotate(-6deg)' }}
         />
-        <VideoPlaceholder label="VIDEO: general drawzilla demo - freehand drawing, shapes, theme switching, keyboard shortcuts, stash" tall />
+        <VideoPlaceholder label="VIDEO: general drawzilla demo - freehand drawing, shapes, theme switching, keyboard shortcuts, stash" tall src="/hero.mp4" />
       </div>
     </section>
   )

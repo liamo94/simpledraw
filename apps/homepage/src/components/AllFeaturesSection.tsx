@@ -40,11 +40,13 @@ const ThemeIcon = () => (
 // ── Pro badge ────────────────────────────────────────────────────────────────
 const ProBadge = () => (
   <span style={{
-    fontSize: '8px', padding: '1px 5px', borderRadius: '3px', flexShrink: 0,
-    background: 'rgba(34,197,94,0.12)', color: '#4ade80',
-    border: '1px solid rgba(34,197,94,0.25)', fontWeight: 600,
-    letterSpacing: '0.06em', textTransform: 'uppercase', lineHeight: 1.4,
-  }}>Unleashed</span>
+    fontFamily: "'Bangers', cursive",
+    fontSize: '0.7rem',
+    letterSpacing: '0.08em',
+    color: '#39ff14',
+    flexShrink: 0,
+    lineHeight: 1,
+  }}>UNLEASHED</span>
 )
 
 // ── Item type ────────────────────────────────────────────────────────────────

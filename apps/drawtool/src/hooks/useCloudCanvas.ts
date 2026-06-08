@@ -237,7 +237,12 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       const savedCanvasId = useCloudSessionStore.getState().activeId
       // Validate saved ID against actual canvases - it may be stale/from another workspace
       const initial = (savedCanvasId ? ws.canvases.find(c => c.id === savedCanvasId) : undefined) ?? ws.canvases[0]
-      if (initial.id !== useCloudSessionStore.getState().activeId) setActiveCanvas(initial.id)
+      if (initial.id !== useCloudSessionStore.getState().activeId) {
+        // Clear slot 1 before changing activeId — without this, onBeforeUnload could read
+        // stale slot-1 content from the old canvas and send it to initial's R2.
+        populateSlot1FromCache(initial.id)
+        setActiveCanvas(initial.id)
+      }
     } else if (!planLoading && !useCloudSessionStore.getState().provisioning) {
       // New workspace with no canvases - provision one blank canvas
       setProvisioning(true)
@@ -307,13 +312,23 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       // for the first time. On BFCache restores (getUpdatedAt has a value), Canvas is already
       // rendering the correct local content, so remounting would disrupt any in-progress drawing.
       const wasInitialLoad = !getUpdatedAt(activeId)
-      localStorage.removeItem(DIRTY_KEY)
+      const capturedDirtyId = activeId
       markUpdatedAt(activeId, updated_at)
       ;(async () => {
         const strokes = loadStrokes(CLOUD_SLOT)
         const view = loadView(CLOUD_SLOT)
         const images = await collectImages(strokes)
-        api.put<{ ok: true }>(`/canvases/${activeId}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }).catch(() => {})
+        api.put<{ ok: true }>(`/canvases/${capturedDirtyId}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) })
+          .then(() => {
+            // Only clear the dirty flag after the server confirms the write. If a new save
+            // timer fired while we were in-flight (the user drew more strokes), the hook
+            // will have re-set the flag — only clear if it still points to this canvas.
+            if (localStorage.getItem(DIRTY_KEY) === capturedDirtyId) localStorage.removeItem(DIRTY_KEY)
+          })
+          .catch(() => {
+            // PUT failed — leave DIRTY_KEY intact so the next page load retries.
+            window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed - check your connection' } }))
+          })
       })()
       setCachedCanvasName(name)
       if (wasInitialLoad) bumpLoadKey()
@@ -444,6 +459,12 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       // DIRTY_KEY ensures the next load re-sends with full image data.
       const strokes = loadStrokes(CLOUD_SLOT)
       const view = loadView(CLOUD_SLOT)
+      // Safety guard: if this canvas was never loaded in this session, slot 1 may still
+      // be empty from populateSlot1FromCache (cache miss). Sending [] would overwrite
+      // real R2 data. Only skip when strokes are empty AND no dirty flag is set.
+      const canvasLoaded = !!useCloudSessionStore.getState().lastAppliedUpdatedAt[id]
+      const isDirty = localStorage.getItem(DIRTY_KEY) === id
+      if (strokes.length === 0 && !canvasLoaded && !isDirty) return
       fetch(`${API_URL}/canvases/${id}`, {
         method: 'PUT',
         keepalive: true,
@@ -509,9 +530,10 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   }
 
   function leavingCanvas(id: string, flushSucceeded = true) {
-    // Slot 1 is about to be cleared. Mark the query stale so re-entry always refetches.
-    // Only clear DIRTY_KEY if the flush succeeded - if it failed, DIRTY_KEY must survive
-    // so the dirty-recovery path on re-entry can re-send the local changes to the server.
+    // Mark the query stale so re-entry always refetches from the server.
+    // Clear DIRTY_KEY on success — populateSlot1FromCache will clear it on cache-miss
+    // regardless, but clearing early prevents a brief window where onBeforeUnload
+    // could see a stale dirty flag for the canvas we just left.
     if (flushSucceeded && localStorage.getItem(DIRTY_KEY) === id) localStorage.removeItem(DIRTY_KEY)
     queryClient.invalidateQueries({ queryKey: ['canvas', id], refetchType: 'none' })
   }
@@ -519,6 +541,12 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   function populateSlot1FromCache(id: string) {
     // Pre-populate slot 1 with cached data so the incoming Canvas mounts with
     // the correct strokes immediately, rather than blank then patched by an effect.
+    //
+    // Slot 1 is shared — repurposing it for a new canvas invalidates any existing
+    // DIRTY_KEY. Clear it unconditionally here. The initial-load path sets activeId
+    // via setActiveCanvas directly (never via switchCanvas), so populateSlot1FromCache
+    // is never called on page load — the page-reload dirty-recovery path is unaffected.
+    localStorage.removeItem(DIRTY_KEY)
     type CachedCanvas = { data: { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean } }
     const cached = queryClient.getQueryData<CachedCanvas>(['canvas', id])
     if (!cached) { saveStrokes([], CLOUD_SLOT, true); return }
