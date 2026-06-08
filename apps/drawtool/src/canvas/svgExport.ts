@@ -545,9 +545,9 @@ export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Them
       // Dynamic (pressure-sensitive) stroke
       const sw = smoothWidths(stroke.widths);
       if (pts.length < 2) continue;
-      const pfPts = pts.map((p, i) => [p.x, p.y, sw[i] / 2] as [number, number, number]);
+      const pfPts = pts.map((p, i) => [p.x, p.y, Math.min(1, sw[i] / 2)] as [number, number, number]);
       const outline = getStroke(pfPts, {
-        size: baseWidth, thinning: 1, smoothing: 0.5, streamline: 0.4,
+        size: baseWidth, thinning: 1, smoothing: 0.5, streamline: 0.1,
         simulatePressure: false, last: true,
       });
       if (outline.length < 2) continue;

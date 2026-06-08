@@ -791,13 +791,12 @@ export function renderRoughShape(
           });
           if (outline.length >= 2) {
             ctx.beginPath();
-            ctx.moveTo(outline[0][0], outline[0][1]);
-            for (let i = 1; i < outline.length - 1; i++) {
-              const mx = (outline[i][0] + outline[i + 1][0]) / 2;
-              const my = (outline[i][1] + outline[i + 1][1]) / 2;
-              ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
+            const cn = outline.length;
+            ctx.moveTo((outline[cn - 1][0] + outline[0][0]) / 2, (outline[cn - 1][1] + outline[0][1]) / 2);
+            for (let i = 0; i < cn; i++) {
+              const next = outline[(i + 1) % cn];
+              ctx.quadraticCurveTo(outline[i][0], outline[i][1], (outline[i][0] + next[0]) / 2, (outline[i][1] + next[1]) / 2);
             }
-            ctx.lineTo(outline[outline.length - 1][0], outline[outline.length - 1][1]);
             ctx.closePath();
             ctx.fillStyle = color;
             ctx.fill();
@@ -1050,13 +1049,12 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
       });
       if (outline.length >= 2) {
         ctx.beginPath();
-        ctx.moveTo(outline[0][0], outline[0][1]);
-        for (let i = 1; i < outline.length - 1; i++) {
-          const mx = (outline[i][0] + outline[i + 1][0]) / 2;
-          const my = (outline[i][1] + outline[i + 1][1]) / 2;
-          ctx.quadraticCurveTo(outline[i][0], outline[i][1], mx, my);
+        const an = outline.length;
+        ctx.moveTo((outline[an - 1][0] + outline[0][0]) / 2, (outline[an - 1][1] + outline[0][1]) / 2);
+        for (let i = 0; i < an; i++) {
+          const next = outline[(i + 1) % an];
+          ctx.quadraticCurveTo(outline[i][0], outline[i][1], (outline[i][0] + next[0]) / 2, (outline[i][1] + next[1]) / 2);
         }
-        ctx.lineTo(outline[outline.length - 1][0], outline[outline.length - 1][1]);
         ctx.closePath();
         ctx.fillStyle = color;
         ctx.fill();
@@ -1156,12 +1154,12 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
     const sw = smoothWidths(stroke.widths);
     if (pts.length < 2) return;
 
-    const pfPts = pts.map((p, i) => [p.x, p.y, sw[i] / 2] as [number, number, number]);
+    const pfPts = pts.map((p, i) => [p.x, p.y, Math.min(1, sw[i] / 2)] as [number, number, number]);
     const outline = getStroke(pfPts, {
       size: baseWidth,
       thinning: 1,
       smoothing: 0.5,
-      streamline: 0.4,
+      streamline: 0.1,
       simulatePressure: false,
       last: true,
     });
