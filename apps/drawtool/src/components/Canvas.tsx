@@ -275,6 +275,10 @@ function Canvas({
     startPositions: Map<number, { x: number; y: number }>;
     moved: boolean;
   } | null>(null);
+  // After a two/three-finger tap undo/redo, suppress the remaining finger from starting a new
+  // stroke. Without this, a tiny tremor of the drawing finger after the gesture fires clears
+  // the redo stack before the user can use it.
+  const suppressTouchStrokeRef = useRef(false);
 
   // --- Debounced persistStrokes (item 5) ---
   const persistDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2887,6 +2891,7 @@ function Canvas({
         ) {
           redo();
           threeFingerTapRef.current = null;
+          suppressTouchStrokeRef.current = true;
         }
         if (pointersRef.current.size < 2) {
           // Check for two-finger tap (undo gesture)
@@ -2896,6 +2901,7 @@ function Canvas({
             !twoFingerTapRef.current.moved
           ) {
             undo();
+            suppressTouchStrokeRef.current = true;
           }
           twoFingerTapRef.current = null;
           threeFingerTapRef.current = null;
@@ -2903,6 +2909,7 @@ function Canvas({
           persistView();
         }
         if (pointersRef.current.size === 0) {
+          suppressTouchStrokeRef.current = false;
           if (isPanningRef.current) {
             isPanningRef.current = false;
             tapStartRef.current = null;
@@ -3375,6 +3382,10 @@ function Canvas({
       }
 
       const point = screenToWorld(e.clientX, e.clientY, viewRef.current);
+
+      // Don't start new strokes with a lingering finger after a multi-finger undo/redo gesture.
+      // The flag is cleared when the last finger lifts (pointersRef.size === 0).
+      if (e.pointerType === "touch" && suppressTouchStrokeRef.current && !isDrawingRef.current) return;
 
       // Flush erase buffer when switching away from erasing
       if (modifier !== "alt" && activeModifierRef.current === "alt") {
