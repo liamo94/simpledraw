@@ -1969,7 +1969,12 @@ export default function App() {
         }
         onShareCanvas={
           isSignedIn && cloudCanvas.activeId && activeCanvas <= canvasLimit
-            ? () => cloudCanvas.createShare(cloudCanvas.activeId!)
+            ? (opts) => cloudCanvas.createShare(cloudCanvas.activeId!, opts)
+            : undefined
+        }
+        onUpdateShare={
+          isSignedIn && cloudCanvas.activeId && isPro
+            ? (token, opts) => cloudCanvas.updateShare(cloudCanvas.activeId!, token, opts)
             : undefined
         }
         onDeleteShare={

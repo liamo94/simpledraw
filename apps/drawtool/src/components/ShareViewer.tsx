@@ -52,11 +52,18 @@ function adaptStrokes(data: CanvasData, viewerIsDark: boolean): Stroke[] {
   return savedIsDark !== viewerIsDark ? swapStrokeColors(data.strokes) : data.strokes
 }
 
+const SESSION_KEY = (token: string) => `share-access-${token}`
+
 // token and isWorkspace are derived from the URL by App.tsx
 export default function ShareViewer({ token, isWorkspace }: { token: string; isWorkspace: boolean }) {
   const [shareData, setShareData] = useState<ShareData | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [error, setError] = useState(false)
+  const [expired, setExpired] = useState(false)
+  const [passwordRequired, setPasswordRequired] = useState(false)
+  const [passwordInput, setPasswordInput] = useState('')
+  const [passwordError, setPasswordError] = useState(false)
+  const [unlocking, setUnlocking] = useState(false)
   const [canvasKey, setCanvasKey] = useState(0)
   const [viewerSettings, setViewerSettings] = useState(loadViewerSettings)
   const shareDataRef = useRef<ShareData | null>(null)
@@ -65,19 +72,62 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
   activeIndexRef.current = activeIndex
   const lastDPressRef = useRef(0)
 
-  useEffect(() => {
-    const url = isWorkspace
-      ? `${API_URL}/share/workspace/${token}`
-      : `${API_URL}/share/${token}`
+  async function fetchShare(accessToken?: string) {
+    try {
+      const url = isWorkspace
+        ? `${API_URL}/share/workspace/${token}`
+        : `${API_URL}/share/${token}`
 
-    fetch(url)
-      .then(r => r.ok ? r.json() as Promise<ShareData> : Promise.reject())
-      .then(data => {
-        setShareData(data)
-        loadSlot(data, 0, isDarkTheme(viewerSettings.theme))
-      })
-      .catch(() => setError(true))
+      const headers: Record<string, string> = {}
+      if (accessToken) headers['X-Access-Token'] = accessToken
+
+      const r = await fetch(url, { headers })
+      if (r.status === 410) { setExpired(true); return }
+      if (r.status === 401) {
+        const body = await r.json() as { password_required?: boolean }
+        if (body.password_required) { setPasswordRequired(true); return }
+        setError(true); return
+      }
+      if (!r.ok) { setError(true); return }
+      const data = await r.json() as ShareData
+      setShareData(data)
+      loadSlot(data, 0, isDarkTheme(viewerSettings.theme))
+    } catch {
+      setError(true)
+    }
+  }
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem(SESSION_KEY(token))
+    fetchShare(stored ?? undefined)
   }, [token, isWorkspace])
+
+  async function handleUnlock() {
+    setUnlocking(true)
+    setPasswordError(false)
+    try {
+      const r = await fetch(`${API_URL}/share/${token}/unlock`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password: passwordInput }),
+      })
+      if (r.status === 410) { setExpired(true); setPasswordRequired(false); return }
+      if (!r.ok) {
+        const body = await r.json().catch(() => ({})) as { error?: string }
+        setPasswordError(body.error === 'Incorrect password' || r.status === 401)
+        if (body.error !== 'Incorrect password' && r.status !== 401) setError(true)
+        return
+      }
+      const { access_token } = await r.json() as { access_token: string }
+      sessionStorage.setItem(SESSION_KEY(token), access_token)
+      setPasswordRequired(false)
+      fetchShare(access_token)
+    } catch {
+      setPasswordError(true)
+    } finally {
+      setUnlocking(false)
+    }
+  }
 
   // Re-adapt stroke colours when the viewer theme changes
   useEffect(() => {
@@ -214,27 +264,79 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
   const tabInactive = dark ? 'text-white/40 hover:text-white/70 hover:bg-white/8' : 'text-black/40 hover:text-black/70 hover:bg-black/5'
   const ghostBtn = dark ? 'bg-white/10 text-white hover:bg-white/15' : 'bg-black/8 text-black hover:bg-black/12'
 
+  const logoEl = (size: number) => (
+    <span className="leading-none" style={{ fontFamily: 'Caveat Brush, cursive', fontSize: size }}>
+      {([
+        { letter: 'd', color: '#3b82f6', rotate: -6 },
+        { letter: 'r', color: '#ef4444', rotate: 3 },
+        { letter: 'a', color: '#22c55e', rotate: -4 },
+        { letter: 'w', color: '#eab308', rotate: 5 },
+        { letter: 'z', color: '#ec4899', rotate: -3 },
+        { letter: 'i', color: '#f97316', rotate: 4 },
+        { letter: 'l', color: '#8b5cf6', rotate: -5 },
+        { letter: 'l', color: '#06b6d4', rotate: 3 },
+        { letter: 'a', color: '#ef4444', rotate: -4 },
+      ] as const).map((l, i) => (
+        <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : (size > 24 ? 2 : 1), transform: `rotate(${l.rotate}deg)`, color: l.color }}>
+          {l.letter}
+        </span>
+      ))}
+    </span>
+  )
+
+  if (expired) {
+    return (
+      <div className={`fixed inset-0 flex flex-col items-center justify-center gap-6 ${fg}`} style={{ background: panelBg }}>
+        <a href="/" className="flex items-center gap-2 select-none" style={{ textDecoration: 'none' }}>
+          {logoEl(36)}
+          <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 28, height: 28, objectFit: 'contain', opacity: 0.85 }} />
+        </a>
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-base opacity-50">This share link has expired.</p>
+          <a href="/" className={`text-sm opacity-40 hover:opacity-70 transition-opacity ${fg}`}>Go to drawzil.la →</a>
+        </div>
+      </div>
+    )
+  }
+
+  if (passwordRequired) {
+    return (
+      <div className={`fixed inset-0 flex flex-col items-center justify-center gap-6 ${fg}`} style={{ background: panelBg }}>
+        <a href="/" className="flex items-center gap-2 select-none" style={{ textDecoration: 'none' }}>
+          {logoEl(36)}
+          <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 28, height: 28, objectFit: 'contain', opacity: 0.85 }} />
+        </a>
+        <div className="flex flex-col items-center gap-3" style={{ width: 280 }}>
+          <p className={`text-sm ${fgMuted}`}>This canvas is password protected.</p>
+          <div className="flex flex-col gap-2 w-full">
+            <input
+              type="password"
+              autoFocus
+              value={passwordInput}
+              onChange={e => { setPasswordInput(e.target.value); setPasswordError(false) }}
+              onKeyDown={e => { e.stopPropagation(); if (e.key === 'Enter' && passwordInput) handleUnlock() }}
+              placeholder="Enter password"
+              className={`w-full text-sm px-3 py-2 rounded-lg outline-none border ${passwordError ? 'border-red-400/60' : dark ? 'border-white/10' : 'border-black/10'} ${dark ? 'bg-white/8 text-white placeholder:text-white/25' : 'bg-black/5 text-black placeholder:text-black/30'}`}
+            />
+            {passwordError && <p className="text-xs text-red-400">Incorrect password.</p>}
+            <button
+              disabled={!passwordInput || unlocking}
+              onClick={handleUnlock}
+              className={`w-full py-2 rounded-lg text-sm font-medium transition-colors ${dark ? 'bg-white/12 hover:bg-white/18 text-white/80' : 'bg-black/8 hover:bg-black/13 text-black/70'} disabled:opacity-40`}
+            >
+              {unlocking ? 'Unlocking…' : 'Unlock'}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
   if (error) {
     return (
       <div className={`fixed inset-0 flex flex-col items-center justify-center gap-6 ${fg}`} style={{ background: panelBg }}>
         <a href="/" className="flex items-center gap-2 select-none" style={{ textDecoration: 'none' }}>
-          <span className="text-4xl leading-none" style={{ fontFamily: 'Caveat Brush, cursive' }}>
-            {([
-              { letter: 'd', color: '#3b82f6', rotate: -6 },
-              { letter: 'r', color: '#ef4444', rotate: 3 },
-              { letter: 'a', color: '#22c55e', rotate: -4 },
-              { letter: 'w', color: '#eab308', rotate: 5 },
-              { letter: 'z', color: '#ec4899', rotate: -3 },
-              { letter: 'i', color: '#f97316', rotate: 4 },
-              { letter: 'l', color: '#8b5cf6', rotate: -5 },
-              { letter: 'l', color: '#06b6d4', rotate: 3 },
-              { letter: 'a', color: '#ef4444', rotate: -4 },
-            ] as const).map((l, i) => (
-              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 2, transform: `rotate(${l.rotate}deg)`, color: l.color }}>
-                {l.letter}
-              </span>
-            ))}
-          </span>
+          {logoEl(36)}
           <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 28, height: 28, objectFit: 'contain', opacity: 0.85 }} />
         </a>
         <div className="flex flex-col items-center gap-2">
@@ -257,23 +359,7 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
         style={{ background: panelBg }}
       >
         <a href="/" className="flex items-center gap-1.5 select-none" style={{ textDecoration: 'none' }}>
-          <span className="text-xl leading-none" style={{ fontFamily: 'Caveat Brush, cursive' }}>
-            {([
-              { letter: 'd', color: '#3b82f6', rotate: -6 },
-              { letter: 'r', color: '#ef4444', rotate: 3 },
-              { letter: 'a', color: '#22c55e', rotate: -4 },
-              { letter: 'w', color: '#eab308', rotate: 5 },
-              { letter: 'z', color: '#ec4899', rotate: -3 },
-              { letter: 'i', color: '#f97316', rotate: 4 },
-              { letter: 'l', color: '#8b5cf6', rotate: -5 },
-              { letter: 'l', color: '#06b6d4', rotate: 3 },
-              { letter: 'a', color: '#ef4444', rotate: -4 },
-            ] as const).map((l, i) => (
-              <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)`, color: l.color }}>
-                {l.letter}
-              </span>
-            ))}
-          </span>
+          {logoEl(20)}
           <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 16, height: 16, objectFit: 'contain', opacity: 0.85 }} />
         </a>
         {shareData.type === 'canvas' && <span className={fgDim}>/</span>}

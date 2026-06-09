@@ -30,6 +30,7 @@ export type ShareLink = {
   token: string
   type: 'frozen' | 'live'
   expires_at: number | null
+  has_password: boolean
   view_count: number
   created_at: number
 }
@@ -716,8 +717,8 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   }
 
   const createShareMutation = useMutation({
-    mutationFn: (canvasId: string) =>
-      api.post<ShareLink & { url: string }>(`/canvases/${canvasId}/share`),
+    mutationFn: ({ canvasId, opts }: { canvasId: string; opts?: { expires_in_days?: number | null; password?: string | null } }) =>
+      api.post<ShareLink & { url: string }>(`/canvases/${canvasId}/share`, opts ?? {}),
     onSuccess: (data) => {
       setCurrentShares(prev => {
         if (data.type === 'live') {
@@ -728,9 +729,31 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     },
   })
 
-  async function createShare(canvasId: string): Promise<(ShareLink & { url: string }) | null> {
-    try { return await createShareMutation.mutateAsync(canvasId) }
+  async function createShare(canvasId: string, opts?: { expires_in_days?: number | null; password?: string | null }): Promise<(ShareLink & { url: string }) | null> {
+    try { return await createShareMutation.mutateAsync({ canvasId, opts }) }
     catch { return null }
+  }
+
+  const updateShareMutation = useMutation({
+    mutationFn: ({ canvasId, shareToken, opts }: {
+      canvasId: string; shareToken: string;
+      opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean }
+    }) =>
+      api.patch<{ ok: boolean; expires_at: number | null; has_password: boolean }>(
+        `/canvases/${canvasId}/share/${shareToken}`, opts
+      ),
+    onSuccess: (data, { shareToken }) => {
+      setCurrentShares(prev => prev.map(s =>
+        s.token === shareToken
+          ? { ...s, expires_at: data.expires_at, has_password: data.has_password }
+          : s
+      ))
+    },
+  })
+
+  async function updateShare(canvasId: string, shareToken: string, opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean }): Promise<boolean> {
+    try { await updateShareMutation.mutateAsync({ canvasId, shareToken, opts }); return true }
+    catch { return false }
   }
 
   const deleteShareMutation = useMutation({
@@ -958,7 +981,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     fetchWorkspace: () => { workspacesQuery.refetch() },
     renameCanvas, renameWorkspace, pinWorkspace, favouriteWorkspace,
     clearCanvas, deleteCanvas, clearKey, loadKey, deleteWorkspace, reorderCanvases,
-    currentShares, loadCanvasShares, createShare, deleteShare,
+    currentShares, loadCanvasShares, createShare, updateShare, deleteShare,
     shareWorkspace, unshareWorkspace,
     prefetchThumbnail,
   }

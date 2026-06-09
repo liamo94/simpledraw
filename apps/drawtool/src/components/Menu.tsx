@@ -31,6 +31,14 @@ function formatExpiry(expiresAt: number): string {
   return hours > 0 ? `${hours}h left` : 'expires soon'
 }
 
+function expiresAtToOption(expiresAt: number | null | undefined): number | null {
+  if (!expiresAt) return null
+  const daysLeft = (expiresAt - Math.floor(Date.now() / 1000)) / 86400
+  if (daysLeft <= 10) return 7
+  if (daysLeft <= 60) return 30
+  return 90
+}
+
 function expiryUrgency(expiresAt: number): 'ok' | 'warn' | 'urgent' {
   const days = (expiresAt - Math.floor(Date.now() / 1000)) / 86400
   if (days <= 1) return 'urgent'
@@ -327,7 +335,8 @@ type Props = {
   onReorderCloud?: (ids: string[]) => Promise<boolean>;
   canvasShares?: ShareLink[];
   existingShareWorkspaceUrl?: string | null;
-  onShareCanvas?: () => Promise<(ShareLink & { url: string }) | null>;
+  onShareCanvas?: (opts?: { expires_in_days?: number | null; password?: string | null }) => Promise<(ShareLink & { url: string }) | null>;
+  onUpdateShare?: (token: string, opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean }) => Promise<boolean>;
   onDeleteShare?: (token: string) => Promise<boolean>;
   onShareWorkspace?: () => Promise<string | null>;
   onUnshareWorkspace?: () => Promise<boolean>;
@@ -371,6 +380,7 @@ export default function Menu({
   canvasShares,
   existingShareWorkspaceUrl,
   onShareCanvas,
+  onUpdateShare,
   onDeleteShare,
   onShareWorkspace,
   onUnshareWorkspace,
@@ -394,6 +404,15 @@ export default function Menu({
   const [sharing, setSharing] = useState<'canvas' | 'workspace' | null>(null);
   const [copiedShareToken, setCopiedShareToken] = useState<string | null>(null);
   const copiedShareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [shareExpiry, setShareExpiry] = useState<number | null>(null);
+  const [sharePassword, setSharePassword] = useState('');
+  const [showShareOptions, setShowShareOptions] = useState(false);
+  const [editingShareToken, setEditingShareToken] = useState<string | null>(null);
+  const [editShareExpiry, setEditShareExpiry] = useState<number | null>(null);
+  const [editSharePassword, setEditSharePassword] = useState('');
+  const [editShareRemovePassword, setEditShareRemovePassword] = useState(false);
+  const [savingShareSettings, setSavingShareSettings] = useState(false);
+  const [showSharePassword, setShowSharePassword] = useState(false);
 
   useEffect(() => { setShareWorkspaceUrl(existingShareWorkspaceUrl ?? null); }, [existingShareWorkspaceUrl]);
   const [clearWipe, setClearWipe] = useState(0);
@@ -2651,10 +2670,86 @@ export default function Menu({
               const clipboardIcon = <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="5" y="1" width="9" height="11" rx="1.5" /><path d="M2 4.5V14a1 1 0 0 0 1 1h8" /></svg>
               const checkIcon = <svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="1.5,6.5 4.5,9.5 10.5,2.5" /></svg>
               const xIcon = <svg width="9" height="9" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><line x1="1" y1="1" x2="9" y2="9" /><line x1="9" y1="1" x2="1" y2="9" /></svg>
+              const gearIcon = <svg width="11" height="11" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="8" cy="8" r="2.5"/><path d="M8 1v2M8 13v2M1 8h2M13 8h2M3.22 3.22l1.42 1.42M11.36 11.36l1.42 1.42M3.22 12.78l1.42-1.42M11.36 4.64l1.42-1.42"/></svg>
+              const lockIcon = <svg width="9" height="9" viewBox="0 0 12 14" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"><rect x="1.5" y="6" width="9" height="7" rx="1"/><path d="M4 6V4a2 2 0 0 1 4 0v2"/></svg>
               const labelCls = `shrink-0 text-[11px] font-medium w-[62px] ${isDark ? "text-white/35" : "text-black/35"}`
               const inputCls = `flex-1 min-w-0 text-[11px] px-2 py-1 rounded truncate ${isDark ? "bg-white/6 text-white/50" : "bg-black/4 text-black/50"}`
               const iconBtnCls = (active: boolean) => `shrink-0 p-1 rounded transition-colors group relative ${active ? isDark ? "text-green-400" : "text-green-600" : isDark ? "hover:bg-white/10 text-white/35 hover:text-white/65" : "hover:bg-black/8 text-black/30 hover:text-black/60"}`
               const tipCls = `absolute bottom-full left-1/2 -translate-x-1/2 mb-1 px-1.5 py-0.5 rounded text-[10px] whitespace-nowrap pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity z-50 ${isDark ? 'bg-black/80 text-white' : 'bg-white text-black/75 shadow border border-black/[0.08]'}`
+              const textInputCls = `flex-1 text-[11px] px-2 py-0.5 rounded outline-none border-0 ${isDark ? "bg-white/8 text-white/70 placeholder:text-white/25" : "bg-black/5 text-black/70 placeholder:text-black/25"}`
+              const EXPIRY_OPTIONS = [{ label: '7d', value: 7 }, { label: '30d', value: 30 }, { label: '90d', value: 90 }, { label: '∞', value: null }] as const
+              const expiryPillCls = (active: boolean) => `text-[10px] px-2 py-0.5 rounded-full font-medium transition-colors ${active ? isDark ? 'bg-white/20 text-white/90' : 'bg-black/15 text-black/80' : isDark ? 'text-white/30 hover:bg-white/8 hover:text-white/55' : 'text-black/30 hover:bg-black/6 hover:text-black/55'}`
+              function shareSettingsPanel({ expiry, password, hasPassword, removePassword, onExpiry, onPassword, onRemovePassword, onSave, onCancel, saving, submitLabel = 'Save' }: {
+                expiry: number | null; password: string; hasPassword?: boolean; removePassword?: boolean
+                onExpiry: (v: number | null) => void; onPassword: (v: string) => void; onRemovePassword?: (v: boolean) => void
+                onSave: () => void; onCancel?: () => void; saving: boolean; submitLabel?: string
+              }) {
+                const eyeIcon = showSharePassword ? (
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 8s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4z"/><circle cx="8" cy="8" r="1.8"/>
+                    <line x1="3" y1="3" x2="13" y2="13"/>
+                  </svg>
+                ) : (
+                  <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M2 8s2.5-4 6-4 6 4 6 4-2.5 4-6 4-6-4-6-4z"/><circle cx="8" cy="8" r="1.8"/>
+                  </svg>
+                )
+                return (
+                  <div className={`flex flex-col gap-1.5 p-2 rounded ${isDark ? 'bg-white/5' : 'bg-black/[0.04]'}`}>
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[10px] shrink-0 mr-1 ${isDark ? 'text-white/30' : 'text-black/30'}`}>Expiry</span>
+                      {EXPIRY_OPTIONS.map(opt => (
+                        <button key={String(opt.value)} onClick={() => onExpiry(opt.value)} className={expiryPillCls(expiry === opt.value)}>
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <span className={`text-[10px] shrink-0 mr-1 ${isDark ? 'text-white/30' : 'text-black/30'}`}>Password</span>
+                      {hasPassword && !removePassword && (
+                        <>
+                          <span className={`text-[10px] tracking-widest shrink-0 ${isDark ? 'text-white/25' : 'text-black/25'}`}>••••</span>
+                          <button onClick={() => onRemovePassword?.(true)} className={`shrink-0 flex items-center justify-center w-4 h-4 rounded ${isDark ? 'text-white/30 hover:text-white/55 hover:bg-white/8' : 'text-black/30 hover:text-black/55 hover:bg-black/6'}`}>
+                            <X size={10} strokeWidth={2.5} />
+                          </button>
+                        </>
+                      )}
+                      {hasPassword && removePassword && (
+                        <>
+                          <span className={`text-[10px] tracking-widest shrink-0 line-through ${isDark ? 'text-white/20' : 'text-black/20'}`}>••••</span>
+                          <button onClick={() => onRemovePassword?.(false)} className={`ml-auto text-[10px] px-1.5 py-0.5 rounded ${isDark ? 'text-white/35 hover:bg-white/8' : 'text-black/30 hover:bg-black/6'}`}>Undo</button>
+                        </>
+                      )}
+                      {!removePassword && (
+                        <div className="flex-1 flex items-center gap-1 min-w-0">
+                          <input type={showSharePassword ? 'text' : 'password'} value={password} onChange={e => onPassword(e.target.value)} onKeyDown={e => e.stopPropagation()} placeholder={hasPassword ? 'Change…' : 'Optional…'} className={`${textInputCls} flex-1 min-w-0`} />
+                          {password && <button onClick={() => setShowSharePassword(v => !v)} className={`shrink-0 ${isDark ? 'text-white/30 hover:text-white/55' : 'text-black/30 hover:text-black/55'}`}>{eyeIcon}</button>}
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-end gap-1">
+                      {onCancel && (
+                        <button onClick={onCancel} className={`text-[11px] px-2.5 py-0.5 rounded font-medium transition-colors ${isDark ? 'text-white/35 hover:text-white/55 hover:bg-white/8' : 'text-black/35 hover:text-black/55 hover:bg-black/6'}`}>
+                          Cancel
+                        </button>
+                      )}
+                      <button
+                        disabled={saving}
+                        onClick={onSave}
+                        className={`text-[11px] px-2.5 py-0.5 rounded font-medium transition-colors ${isDark ? 'bg-white/10 hover:bg-white/16 text-white/65' : 'bg-black/7 hover:bg-black/11 text-black/55'}`}
+                      >
+                        {saving ? '…' : submitLabel}
+                      </button>
+                    </div>
+                  </div>
+                )
+              }
+              const doCreateShare = async () => {
+                setSharing('canvas')
+                const result = await onShareCanvas?.({ expires_in_days: shareExpiry, password: sharePassword || null })
+                if (result) navigator.clipboard.writeText(result.url)
+                setSharing(null); setShowShareOptions(false); setShareExpiry(null); setSharePassword('')
+              }
               return (
                 <div className="mt-2 flex flex-col gap-1.5">
                   {/* Header */}
@@ -2675,61 +2770,159 @@ export default function Menu({
                       : urgency === 'warn'
                         ? isDark ? 'bg-orange-500/20 text-orange-300' : 'bg-orange-500/15 text-orange-600'
                         : isDark ? 'bg-yellow-500/15 text-yellow-400/80' : 'bg-yellow-500/12 text-yellow-700'
+                    const isEditing = editingShareToken === share.token
                     return (
-                      <div key={share.token} className="flex items-center gap-1">
-                        <span className={labelCls}>Canvas</span>
-                        <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${share.type === 'live' ? isDark ? 'bg-green-500/15 text-green-400' : 'bg-green-500/12 text-green-700' : isDark ? 'bg-white/8 text-white/40' : 'bg-black/6 text-black/40'}`}>
-                          {share.type === 'live' ? 'Live' : 'Snap'}
-                        </span>
-                        {share.expires_at && <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${expiryBadge}`}>{formatExpiry(share.expires_at)}</span>}
-                        <input readOnly value={url} className={inputCls} />
-                        <button
-                          onClick={() => { navigator.clipboard.writeText(url); setCopiedShareToken(share.token); if (copiedShareTimerRef.current) clearTimeout(copiedShareTimerRef.current); copiedShareTimerRef.current = setTimeout(() => setCopiedShareToken(null), 1500); }}
-                          className={iconBtnCls(copiedShareToken === share.token)}
-                        >
-                          <span className={tipCls}>Copy</span>
-                          {copiedShareToken === share.token ? checkIcon : clipboardIcon}
-                        </button>
-                        {onDeleteShare && (
-                          <button title="" onClick={() => onDeleteShare(share.token)} className={iconBtnCls(false)}>
-                            <span className={tipCls}>Unshare</span>
-                            {xIcon}
+                      <div key={share.token} className="flex flex-col gap-1">
+                        <div className="flex items-center gap-1">
+                          <span className={labelCls}>Canvas</span>
+                          <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${share.type === 'live' ? isDark ? 'bg-green-500/15 text-green-400' : 'bg-green-500/12 text-green-700' : isDark ? 'bg-white/8 text-white/40' : 'bg-black/6 text-black/40'}`}>
+                            {share.type === 'live' ? 'Live' : 'Snap'}
+                          </span>
+                          {share.has_password && <span className={`shrink-0 ${isDark ? 'text-white/30' : 'text-black/30'}`}>{lockIcon}</span>}
+                          {share.expires_at && <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${expiryBadge}`}>{formatExpiry(share.expires_at)}</span>}
+                          <input readOnly value={url} className={inputCls} />
+                          <button
+                            onClick={() => { navigator.clipboard.writeText(url); setCopiedShareToken(share.token); if (copiedShareTimerRef.current) clearTimeout(copiedShareTimerRef.current); copiedShareTimerRef.current = setTimeout(() => setCopiedShareToken(null), 1500); }}
+                            className={iconBtnCls(copiedShareToken === share.token)}
+                          >
+                            <span className={tipCls}>Copy</span>
+                            {copiedShareToken === share.token ? checkIcon : clipboardIcon}
                           </button>
+                          {/* Settings gear - only for live Pro shares */}
+                          {share.type === 'live' && onUpdateShare && (
+                            <button
+                              onClick={() => {
+                                if (isEditing) {
+                                  setEditingShareToken(null)
+                                } else {
+                                  setEditingShareToken(share.token)
+                                  setEditShareExpiry(expiresAtToOption(share.expires_at))
+                                  setEditSharePassword('')
+                                  setEditShareRemovePassword(false)
+                                  setShowSharePassword(false)
+                                }
+                              }}
+                              className={iconBtnCls(isEditing)}
+                            >
+                              <span className={tipCls}>Settings</span>
+                              {gearIcon}
+                            </button>
+                          )}
+                          {onDeleteShare && (
+                            <button title="" onClick={() => onDeleteShare(share.token)} className={iconBtnCls(false)}>
+                              <span className={tipCls}>Unshare</span>
+                              {xIcon}
+                            </button>
+                          )}
+                        </div>
+                        {/* Inline settings panel for live Pro shares */}
+                        {isEditing && onUpdateShare && (
+                          <div className="ml-[70px]">
+                            {shareSettingsPanel({
+                              expiry: editShareExpiry,
+                              password: editSharePassword,
+                              hasPassword: share.has_password,
+                              removePassword: editShareRemovePassword,
+                              onExpiry: setEditShareExpiry,
+                              onPassword: setEditSharePassword,
+                              onRemovePassword: setEditShareRemovePassword,
+                              saving: savingShareSettings,
+                              onCancel: () => setEditingShareToken(null),
+                              onSave: async () => {
+                                setSavingShareSettings(true)
+                                const opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean } = {
+                                  remove_password: editShareRemovePassword,
+                                }
+                                // Only send expires_in_days if the user actually changed the expiry pill
+                                if (editShareExpiry !== expiresAtToOption(share.expires_at)) opts.expires_in_days = editShareExpiry
+                                if (editSharePassword) opts.password = editSharePassword
+                                await onUpdateShare(share.token, opts)
+                                setSavingShareSettings(false)
+                                setEditingShareToken(null)
+                              },
+                            })}
+                          </div>
                         )}
                       </div>
                     )
                   })}
+
                   {/* Canvas + Workspace idle buttons - shown side by side when neither is active */}
                   {onShareCanvas && !hasLiveCanvas && onShareWorkspace && !shareWorkspaceUrl ? (
-                    <div className="flex gap-1.5">
-                      <button
-                        disabled={sharing === 'canvas'}
-                        onClick={async () => { setSharing('canvas'); const result = await onShareCanvas(); if (result) navigator.clipboard.writeText(result.url); setSharing(null); }}
-                        className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
-                      >
-                        {sharing === 'canvas' ? '…' : canvasShares?.length ? '+ Canvas link' : 'Canvas'}
-                      </button>
-                      <button
-                        disabled={sharing === 'workspace'}
-                        onClick={async () => { setSharing('workspace'); const url = await onShareWorkspace(); if (url) { setShareWorkspaceUrl(url); navigator.clipboard.writeText(url); } setSharing(null); }}
-                        className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
-                      >
-                        {sharing === 'workspace' ? '…' : 'Workspace'}
-                      </button>
+                    <div className="flex flex-col gap-1">
+                      <div className="flex gap-1.5">
+                        <button
+                          onClick={() => {
+                            if (!isPro) {
+                              // non-Pro: create immediately
+                              setSharing('canvas')
+                              onShareCanvas().then(result => { if (result) navigator.clipboard.writeText(result.url); setSharing(null) })
+                            } else {
+                              setShowShareOptions(v => !v)
+                              if (showShareOptions) { setShareExpiry(null); setSharePassword('') }
+                            }
+                          }}
+                          className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${showShareOptions && isPro ? isDark ? 'bg-white/15 text-white/80' : 'bg-black/10 text-black/70' : isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                        >
+                          {sharing === 'canvas' ? '…' : canvasShares?.length ? '+ Canvas link' : 'Canvas'}
+                        </button>
+                        <button
+                          disabled={sharing === 'workspace'}
+                          onClick={async () => { setSharing('workspace'); const url = await onShareWorkspace(); if (url) { setShareWorkspaceUrl(url); navigator.clipboard.writeText(url); } setSharing(null); }}
+                          className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                        >
+                          {sharing === 'workspace' ? '…' : 'Workspace'}
+                        </button>
+                      </div>
+                      {/* Options panel for Pro canvas share creation */}
+                      {isPro && showShareOptions && shareSettingsPanel({
+                        expiry: shareExpiry,
+                        password: sharePassword,
+                        onExpiry: setShareExpiry,
+                        onPassword: setSharePassword,
+                        saving: sharing === 'canvas',
+                        submitLabel: 'Share canvas',
+                        onSave: doCreateShare,
+                        onCancel: () => { setShowShareOptions(false); setShareExpiry(null); setSharePassword('') },
+                      })}
                     </div>
                   ) : (
                     <>
                       {/* Canvas create button - only when canvas not yet live */}
                       {onShareCanvas && !hasLiveCanvas && (
-                        <div className="flex items-center gap-1">
-                          <span className={labelCls}>Canvas</span>
-                          <button
-                            disabled={sharing === 'canvas'}
-                            onClick={async () => { setSharing('canvas'); const result = await onShareCanvas(); if (result) navigator.clipboard.writeText(result.url); setSharing(null); }}
-                            className={`text-[11px] px-2 py-0.5 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
-                          >
-                            {sharing === 'canvas' ? '…' : canvasShares?.length ? '+ New link' : 'Share'}
-                          </button>
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span className={labelCls}>Canvas</span>
+                            <button
+                              onClick={() => {
+                                if (!isPro) {
+                                  setSharing('canvas')
+                                  onShareCanvas().then(result => { if (result) navigator.clipboard.writeText(result.url); setSharing(null) })
+                                } else {
+                                  setShowShareOptions(v => !v)
+                                  if (showShareOptions) { setShareExpiry(null); setSharePassword('') }
+                                }
+                              }}
+                              className={`text-[11px] px-2 py-0.5 rounded font-medium transition-colors ${showShareOptions && isPro ? isDark ? 'bg-white/15 text-white/80' : 'bg-black/10 text-black/70' : isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                            >
+                              {sharing === 'canvas' ? '…' : canvasShares?.length ? '+ New link' : 'Share'}
+                            </button>
+                          </div>
+                          {/* Options panel for Pro canvas share creation */}
+                          {isPro && showShareOptions && (
+                            <div className="ml-[70px]">
+                              {shareSettingsPanel({
+                                expiry: shareExpiry,
+                                password: sharePassword,
+                                onExpiry: setShareExpiry,
+                                onPassword: setSharePassword,
+                                saving: sharing === 'canvas',
+                                submitLabel: 'Share canvas',
+                                onSave: doCreateShare,
+                                onCancel: () => { setShowShareOptions(false); setShareExpiry(null); setSharePassword('') },
+                              })}
+                            </div>
+                          )}
                         </div>
                       )}
 
