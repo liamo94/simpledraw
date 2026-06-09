@@ -174,10 +174,22 @@ export default function App() {
   });
   const [touchTool, setTouchTool] = useState<TouchTool>(() => {
     const saved = localStorage.getItem("drawtool-touch-tool");
-    const valid: TouchTool[] = ["draw", "dashed", "line", "erase", "hand", "shape", "highlight", "text", "select"];
-    const resolved = (valid.includes(saved as TouchTool) ? saved : "draw") as TouchTool;
+    const valid: TouchTool[] = [
+      "draw",
+      "dashed",
+      "line",
+      "erase",
+      "hand",
+      "shape",
+      "highlight",
+      "text",
+      "select",
+    ];
+    const resolved = (
+      valid.includes(saved as TouchTool) ? saved : "draw"
+    ) as TouchTool;
     const isTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-    return (!isTouch && resolved === "select") ? "draw" : resolved;
+    return !isTouch && resolved === "select" ? "draw" : resolved;
   });
   const [hasTouch] = useState(
     () => "ontouchstart" in window || navigator.maxTouchPoints > 0,
@@ -213,7 +225,9 @@ export default function App() {
   const canvasNameRef = useRef(canvasName);
   const activeCanvasRef = useRef(activeCanvas);
   const cloudActiveIdRef = useRef<string | null>(null);
-  const cloudCanvasesRef = useRef<Array<{ position: number; name: string }>>([]);
+  const cloudCanvasesRef = useRef<Array<{ position: number; name: string }>>(
+    [],
+  );
   canvasNameRef.current = canvasName;
   activeCanvasRef.current = activeCanvas;
   const [showThicknessPicker, setShowThicknessPicker] = useState<
@@ -301,7 +315,10 @@ export default function App() {
   const prevThemeRef = useRef(settings.theme);
   useEffect(() => {
     if (prevThemeRef.current === settings.theme) return;
-    const prevIsDark = isDarkTheme(prevThemeRef.current, settingsRef.current.customThemeBg);
+    const prevIsDark = isDarkTheme(
+      prevThemeRef.current,
+      settingsRef.current.customThemeBg,
+    );
     const nowIsDark = isDarkTheme(settings.theme, settings.customThemeBg);
     prevThemeRef.current = settings.theme;
     const color = settingsRef.current.lineColor;
@@ -454,7 +471,9 @@ export default function App() {
       }
     };
     if (isProRef.current) {
-      canvas.toBlob((blob) => { if (blob) savePng(blob); });
+      canvas.toBlob((blob) => {
+        if (blob) savePng(blob);
+      });
       return;
     }
     const offscreen = document.createElement("canvas");
@@ -469,7 +488,9 @@ export default function App() {
       offscreen.height,
       window.devicePixelRatio || 1,
     );
-    offscreen.toBlob((blob) => { if (blob) savePng(blob); });
+    offscreen.toBlob((blob) => {
+      if (blob) savePng(blob);
+    });
   }, []);
 
   const importFileRef = useRef<HTMLInputElement>(null);
@@ -743,7 +764,10 @@ export default function App() {
           name: `Item ${prev.length + 1}`,
           createdAt: Date.now(),
           strokes: JSON.parse(JSON.stringify(strokes)),
-          savedDark: isDarkTheme(settingsRef.current.theme, settingsRef.current.customThemeBg),
+          savedDark: isDarkTheme(
+            settingsRef.current.theme,
+            settingsRef.current.customThemeBg,
+          ),
         };
         const next = [item, ...prev];
         saveStash(next);
@@ -854,7 +878,10 @@ export default function App() {
     };
     const onColorCycle = (e: Event) => {
       const dir = (e as CustomEvent).detail as number;
-      const dark = isDarkTheme(settingsRef.current.theme, settingsRef.current.customThemeBg);
+      const dark = isDarkTheme(
+        settingsRef.current.theme,
+        settingsRef.current.customThemeBg,
+      );
       const palette = [
         dark ? "#ffffff" : "#000000",
         dark ? "#000000" : "#ffffff",
@@ -919,10 +946,14 @@ export default function App() {
         // For cloud users, read name from cloud metadata to avoid a flash of stale/empty local name.
         // Sort by position so the lookup is robust even when positions have gaps/duplicates.
         const cloudMeta = cloudActiveIdRef.current
-          ? ([...cloudCanvasesRef.current].sort((a, b) => a.position - b.position)[n - 1] ?? null)
+          ? ([...cloudCanvasesRef.current].sort(
+              (a, b) => a.position - b.position,
+            )[n - 1] ?? null)
           : null;
         setCanvasName(
-          cloudMeta?.name ?? (localStorage.getItem(`drawtool-canvas-name-${n}`) ?? ""),
+          cloudMeta?.name ??
+            localStorage.getItem(`drawtool-canvas-name-${n}`) ??
+            "",
         );
         showToast({ type: "text", message: `Canvas ${n}` });
         cloudSwitchRef.current?.(n);
@@ -1226,7 +1257,9 @@ export default function App() {
     );
     if (exportFormatRef.current === "png") {
       window.dispatchEvent(
-        new CustomEvent("drawtool:export-selection-png", { detail: { filename } }),
+        new CustomEvent("drawtool:export-selection-png", {
+          detail: { filename },
+        }),
       );
     } else {
       window.dispatchEvent(
@@ -1487,13 +1520,18 @@ export default function App() {
     localStorage.setItem("drawtool-active-canvas", String(n));
     setCanvasName(cloudCanvas.activeCanvasMeta.name);
     canvasNameRef.current = cloudCanvas.activeCanvasMeta.name;
-  }, [cloudCanvas.activeCanvasMeta?.id, cloudCanvas.activeCanvasMeta?.name, cloudCanvas.activeCanvasIndex]);
+  }, [
+    cloudCanvas.activeCanvasMeta?.id,
+    cloudCanvas.activeCanvasMeta?.name,
+    cloudCanvas.activeCanvasIndex,
+  ]);
 
   // Welcome toast after Stripe checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     if (params.get("unleashed") === "1") {
       window.history.replaceState(null, "", window.location.pathname);
+      updateSettings({ unleashedMenuIcon: true });
       showToast({ type: "text", message: "Welcome to Unleashed!" }, 3000);
     }
   }, []);
@@ -1675,7 +1713,6 @@ export default function App() {
     return () => clearInterval(timer);
   }, [settings.showTips, hasTouch, kbTips.length]);
 
-
   const visibleLineColor =
     (settings.lineColor === "#000000" && isDark) ||
     (settings.lineColor === "#ffffff" && !isDark)
@@ -1823,7 +1860,7 @@ export default function App() {
           loading={cloudCanvas.loading}
           isDark={isDark}
           theme={settings.theme}
-              customThemeBg={settings.customThemeBg}
+          customThemeBg={settings.customThemeBg}
           onSelectCanvas={async (workspaceId, canvasId) => {
             if (workspaceId !== cloudCanvas.workspace?.id) {
               await cloudCanvas.switchWorkspace(workspaceId, canvasId);
@@ -1978,7 +2015,8 @@ export default function App() {
         }
         onUpdateShare={
           isSignedIn && cloudCanvas.activeId && isPro
-            ? (token, opts) => cloudCanvas.updateShare(cloudCanvas.activeId!, token, opts)
+            ? (token, opts) =>
+                cloudCanvas.updateShare(cloudCanvas.activeId!, token, opts)
             : undefined
         }
         onDeleteShare={
@@ -2030,7 +2068,7 @@ export default function App() {
           dashGap={settings.dashGap}
           gridType={settings.gridType}
           theme={settings.theme}
-              customThemeBg={settings.customThemeBg}
+          customThemeBg={settings.customThemeBg}
           touchTool={touchTool}
           activeShape={settings.activeShape}
           shapeFill={settings.shapeFill}
@@ -2115,7 +2153,7 @@ export default function App() {
         <SelectControls
           isDark={isDark}
           theme={settings.theme}
-              customThemeBg={settings.customThemeBg}
+          customThemeBg={settings.customThemeBg}
           selectionCount={selectionCount}
           selectionIsCombined={selectionIsCombined}
           selectionIsText={selectionIsText}
@@ -2228,52 +2266,50 @@ export default function App() {
               </div>
             )}
             {/* Undo / Redo / Delete - tablet: below toolbar right; mobile: above toolbar right */}
-            <div className={`absolute right-1 flex items-center gap-0.5 ${isTablet ? "top-full mt-1" : "bottom-full mb-1"}`}>
-                <button
-                  aria-label="Undo"
-                  disabled={!canUndo}
-                  onClick={() =>
-                    window.dispatchEvent(new Event("drawtool:undo"))
-                  }
-                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-                >
-                  <Undo2 size={20} strokeWidth={1.75} />
-                </button>
-                <button
-                  aria-label="Redo"
-                  disabled={!canRedo}
-                  onClick={() =>
-                    window.dispatchEvent(new Event("drawtool:redo"))
-                  }
-                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-                >
-                  <Redo2 size={20} strokeWidth={1.75} />
-                </button>
-                <button
-                  aria-label="Delete selection"
-                  disabled={!hasSelection}
-                  onClick={() =>
-                    window.dispatchEvent(
-                      new KeyboardEvent("keydown", {
-                        key: "Backspace",
-                        bubbles: true,
-                      }),
-                    )
-                  }
-                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-                >
-                  <Trash2 size={20} strokeWidth={1.75} />
-                </button>
-                <button
-                  aria-label="Save to stash"
-                  disabled={!hasSelection}
-                  onClick={() =>
-                    window.dispatchEvent(new Event("drawtool:save-to-stash"))
-                  }
-                  className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
-                >
-                  <Layers size={20} strokeWidth={1.75} />
-                </button>
+            <div
+              className={`absolute right-1 flex items-center gap-0.5 ${isTablet ? "top-full mt-1" : "bottom-full mb-1"}`}
+            >
+              <button
+                aria-label="Undo"
+                disabled={!canUndo}
+                onClick={() => window.dispatchEvent(new Event("drawtool:undo"))}
+                className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canUndo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <Undo2 size={20} strokeWidth={1.75} />
+              </button>
+              <button
+                aria-label="Redo"
+                disabled={!canRedo}
+                onClick={() => window.dispatchEvent(new Event("drawtool:redo"))}
+                className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${canRedo ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <Redo2 size={20} strokeWidth={1.75} />
+              </button>
+              <button
+                aria-label="Delete selection"
+                disabled={!hasSelection}
+                onClick={() =>
+                  window.dispatchEvent(
+                    new KeyboardEvent("keydown", {
+                      key: "Backspace",
+                      bubbles: true,
+                    }),
+                  )
+                }
+                className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <Trash2 size={20} strokeWidth={1.75} />
+              </button>
+              <button
+                aria-label="Save to stash"
+                disabled={!hasSelection}
+                onClick={() =>
+                  window.dispatchEvent(new Event("drawtool:save-to-stash"))
+                }
+                className={`flex items-center justify-center w-9 h-9 leading-none rounded-lg transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${hasSelection ? (isDark ? "text-white/70 hover:text-white" : "text-black/55 hover:text-black") : isDark ? "text-white/20" : "text-black/15"}`}
+              >
+                <Layers size={20} strokeWidth={1.75} />
+              </button>
             </div>
             <div
               className="relative flex items-center gap-0.5 sm:gap-1 p-1 rounded-lg border backdrop-blur-sm"
@@ -3178,8 +3214,12 @@ export default function App() {
               <div
                 className={`absolute rounded-xl border backdrop-blur-sm ${isTablet ? "top-full mt-2" : "bottom-full mb-2"}`}
                 style={{
-                  background: isDark ? "rgba(0,0,0,0.88)" : "rgba(255,255,255,0.88)",
-                  borderColor: isDark ? "rgba(255,255,255,0.15)" : "rgba(0,0,0,0.15)",
+                  background: isDark
+                    ? "rgba(0,0,0,0.88)"
+                    : "rgba(255,255,255,0.88)",
+                  borderColor: isDark
+                    ? "rgba(255,255,255,0.15)"
+                    : "rgba(0,0,0,0.15)",
                   left: "50%",
                   transform: "translateX(-50%)",
                   maxWidth: "calc(100vw - 2rem)",
@@ -3188,82 +3228,151 @@ export default function App() {
                 }}
                 onPointerDown={(e) => e.stopPropagation()}
               >
-                {hasSelection ? (() => {
-                  const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
-                  const layerActions = COMMON_ACTIONS.filter(a => a.group === "layer");
-                  const editActions = COMMON_ACTIONS.filter(a => a.group === "edit");
-                  const viewActions = COMMON_ACTIONS.filter(a => a.group === "view");
-                  const contextActions = selectionIsText ? TEXT_ACTIONS : DRAWING_ACTIONS;
-                  const lockA: SelectAction = {
-                    label: selectionIsLocked ? "Unlock" : "Lock",
-                    group: "lock",
-                    icon: selectionIsLocked ? (
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="4" y="9" width="12" height="9" rx="1.5" />
-                        <path d="M7 9V6.5a3 3 0 016 0" />
-                      </svg>
-                    ) : (
-                      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="4" y="9" width="12" height="9" rx="1.5" />
-                        <path d="M7 9V6.5a3 3 0 016 0V9" />
-                      </svg>
-                    ),
-                    action: () => selectKd({ key: "k" }),
-                  };
-                  const tailActions: SelectAction[] = [
-                    DANGER_ACTION,
-                    ...(selectionCount > 1 ? [COMBINE_ACTION] : []),
-                    ...(selectionIsCombined ? [UNCOMBINE_ACTION] : []),
-                  ];
+                {hasSelection ? (
+                  (() => {
+                    const border = isDark
+                      ? "rgba(255,255,255,0.12)"
+                      : "rgba(0,0,0,0.10)";
+                    const layerActions = COMMON_ACTIONS.filter(
+                      (a) => a.group === "layer",
+                    );
+                    const editActions = COMMON_ACTIONS.filter(
+                      (a) => a.group === "edit",
+                    );
+                    const viewActions = COMMON_ACTIONS.filter(
+                      (a) => a.group === "view",
+                    );
+                    const contextActions = selectionIsText
+                      ? TEXT_ACTIONS
+                      : DRAWING_ACTIONS;
+                    const lockA: SelectAction = {
+                      label: selectionIsLocked ? "Unlock" : "Lock",
+                      group: "lock",
+                      icon: selectionIsLocked ? (
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.75"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect x="4" y="9" width="12" height="9" rx="1.5" />
+                          <path d="M7 9V6.5a3 3 0 016 0" />
+                        </svg>
+                      ) : (
+                        <svg
+                          width="20"
+                          height="20"
+                          viewBox="0 0 20 20"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="1.75"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <rect x="4" y="9" width="12" height="9" rx="1.5" />
+                          <path d="M7 9V6.5a3 3 0 016 0V9" />
+                        </svg>
+                      ),
+                      action: () => selectKd({ key: "k" }),
+                    };
+                    const tailActions: SelectAction[] = [
+                      DANGER_ACTION,
+                      ...(selectionCount > 1 ? [COMBINE_ACTION] : []),
+                      ...(selectionIsCombined ? [UNCOMBINE_ACTION] : []),
+                    ];
 
-                  const renderBtn = (a: SelectAction) => (
-                    <button
-                      key={a.label}
-                      aria-label={a.label}
-                      onPointerDown={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        a.action();
-                        setShowSelectPicker(false);
-                      }}
-                      className={`flex flex-col items-center justify-center gap-0.5 w-12 h-12 rounded-lg transition-colors ${
-                        a.group === "danger"
-                          ? (isDark ? "text-red-400 hover:bg-red-500/10" : "text-red-600 hover:bg-red-500/10")
-                          : a.group === "lock" && selectionIsLocked
-                            ? (isDark ? "text-[#78b8ff] hover:bg-white/10" : "text-[#2d64c8] hover:bg-black/5")
-                            : (isDark ? "text-white/65 hover:bg-white/10" : "text-black/55 hover:bg-black/5")
-                      }`}
-                    >
-                      {a.icon}
-                      <span className="text-[9px] leading-none opacity-60">{a.label}</span>
-                    </button>
-                  );
+                    const renderBtn = (a: SelectAction) => (
+                      <button
+                        key={a.label}
+                        aria-label={a.label}
+                        onPointerDown={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          a.action();
+                          setShowSelectPicker(false);
+                        }}
+                        className={`flex flex-col items-center justify-center gap-0.5 w-12 h-12 rounded-lg transition-colors ${
+                          a.group === "danger"
+                            ? isDark
+                              ? "text-red-400 hover:bg-red-500/10"
+                              : "text-red-600 hover:bg-red-500/10"
+                            : a.group === "lock" && selectionIsLocked
+                              ? isDark
+                                ? "text-[#78b8ff] hover:bg-white/10"
+                                : "text-[#2d64c8] hover:bg-black/5"
+                              : isDark
+                                ? "text-white/65 hover:bg-white/10"
+                                : "text-black/55 hover:bg-black/5"
+                        }`}
+                      >
+                        {a.icon}
+                        <span className="text-[9px] leading-none opacity-60">
+                          {a.label}
+                        </span>
+                      </button>
+                    );
 
-                  const Divider = () => (
-                    <div className="col-span-4" style={{ height: 1, background: border, margin: "2px 6px" }} />
-                  );
+                    const Divider = () => (
+                      <div
+                        className="col-span-4"
+                        style={{
+                          height: 1,
+                          background: border,
+                          margin: "2px 6px",
+                        }}
+                      />
+                    );
 
-                  return (
-                    <div className="p-2 grid grid-cols-4 gap-0.5">
-                      {[...viewActions, ...layerActions].map(renderBtn)}
-                      <Divider />
-                      {editActions.map(renderBtn)}
-                      <Divider />
-                      {[...contextActions, lockA, ...tailActions].map(renderBtn)}
-                    </div>
-                  );
-                })() : (
+                    return (
+                      <div className="p-2 grid grid-cols-4 gap-0.5">
+                        {[...viewActions, ...layerActions].map(renderBtn)}
+                        <Divider />
+                        {editActions.map(renderBtn)}
+                        <Divider />
+                        {[...contextActions, lockA, ...tailActions].map(
+                          renderBtn,
+                        )}
+                      </div>
+                    );
+                  })()
+                ) : (
                   <div className="p-1.5 flex gap-1">
                     <button
                       aria-label="Select All"
                       onClick={() => {
-                        window.dispatchEvent(new KeyboardEvent("keydown", { key: "a", metaKey: true, bubbles: true }));
+                        window.dispatchEvent(
+                          new KeyboardEvent("keydown", {
+                            key: "a",
+                            metaKey: true,
+                            bubbles: true,
+                          }),
+                        );
                         setShowSelectPicker(false);
                       }}
                       className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                     >
-                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
-                        <rect x="1.5" y="1.5" width="13" height="13" rx="1" strokeDasharray="2.5 1.5" />
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <rect
+                          x="1.5"
+                          y="1.5"
+                          width="13"
+                          height="13"
+                          rx="1"
+                          strokeDasharray="2.5 1.5"
+                        />
                         <path d="M4 8h8M8 4v8" />
                       </svg>
                       All
@@ -3276,10 +3385,25 @@ export default function App() {
                       }}
                       className={`flex items-center gap-1.5 px-3 py-2.5 rounded text-xs transition-colors ${isDark ? "text-white/80 hover:bg-white/10" : "text-black/70 hover:bg-black/10"}`}
                     >
-                      <svg width="17" height="17" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round">
+                      <svg
+                        width="17"
+                        height="17"
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="1.4"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
                         <rect x="1.5" y="4" width="8" height="10.5" rx="1" />
-                        <path d="M5.5 4V2.5A1 1 0 016.5 1.5h6A1 1 0 0113.5 2.5v9a1 1 0 01-1 1H10" strokeOpacity="0.45" />
-                        <path d="M3.5 7.5h4M3.5 9.5h5M3.5 11.5h3" strokeOpacity="0.55" />
+                        <path
+                          d="M5.5 4V2.5A1 1 0 016.5 1.5h6A1 1 0 0113.5 2.5v9a1 1 0 01-1 1H10"
+                          strokeOpacity="0.45"
+                        />
+                        <path
+                          d="M3.5 7.5h4M3.5 9.5h5M3.5 11.5h3"
+                          strokeOpacity="0.55"
+                        />
                       </svg>
                       Paste
                     </button>
@@ -3502,7 +3626,12 @@ export default function App() {
             <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
               <div
                 className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
-                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
+                style={{
+                  background: getPanelBackground(
+                    settings.theme,
+                    settings.customThemeBg,
+                  ),
+                }}
               >
                 <button
                   onClick={zoomOut}
@@ -3536,7 +3665,12 @@ export default function App() {
                 onClick={centerView}
                 aria-label="Fit to content"
                 className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "border-white/15 text-white/70 hover:text-white hover:bg-white/10" : "border-black/15 text-black/60 hover:text-black hover:bg-black/8"}`}
-                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
+                style={{
+                  background: getPanelBackground(
+                    settings.theme,
+                    settings.customThemeBg,
+                  ),
+                }}
               >
                 <svg
                   width="14"
@@ -3560,7 +3694,12 @@ export default function App() {
           <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
             <div
               className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
-              style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
+              style={{
+                background: getPanelBackground(
+                  settings.theme,
+                  settings.customThemeBg,
+                ),
+              }}
             >
               <button
                 onClick={zoomOut}
@@ -3575,10 +3714,21 @@ export default function App() {
               <div className="relative group/zoom h-full">
                 <div
                   className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded-lg border shadow-md opacity-0 group-hover/zoom:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "border-white/12 text-white/80" : "border-black/8 text-black/70"}`}
-                  style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
+                  style={{
+                    background: getPanelBackground(
+                      settings.theme,
+                      settings.customThemeBg,
+                    ),
+                  }}
                 >
                   Reset zoom
-                  {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}>⇧ + 1</kbd>}
+                  {settings.showTips && !hasTouch && (
+                    <kbd
+                      className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}
+                    >
+                      ⇧ + 1
+                    </kbd>
+                  )}
                 </div>
                 <button
                   onClick={resetView}
@@ -3602,16 +3752,32 @@ export default function App() {
             <div className="relative group">
               <div
                 className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded-lg border shadow-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "border-white/12 text-white/80" : "border-black/8 text-black/70"}`}
-                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
+                style={{
+                  background: getPanelBackground(
+                    settings.theme,
+                    settings.customThemeBg,
+                  ),
+                }}
               >
                 Fit to content
-                {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}>⇧ + 2</kbd>}
+                {settings.showTips && !hasTouch && (
+                  <kbd
+                    className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}
+                  >
+                    ⇧ + 2
+                  </kbd>
+                )}
               </div>
               <button
                 onClick={centerView}
                 aria-label="Fit to content"
                 className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "border-white/15 text-white/70 hover:text-white hover:bg-white/10" : "border-black/15 text-black/60 hover:text-black hover:bg-black/8"}`}
-                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
+                style={{
+                  background: getPanelBackground(
+                    settings.theme,
+                    settings.customThemeBg,
+                  ),
+                }}
               >
                 <svg
                   width="14"
@@ -4217,7 +4383,10 @@ export default function App() {
           aria-live="polite"
           className={`fixed z-[60] px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${isPro ? "top-4 right-16" : "top-14 right-4"} ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
-            background: getPanelBackground(settings.theme, settings.customThemeBg),
+            background: getPanelBackground(
+              settings.theme,
+              settings.customThemeBg,
+            ),
             borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
             color: isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.8)",
             boxShadow: isDark
@@ -4663,7 +4832,7 @@ export default function App() {
           items={stashItems}
           isDark={isDark}
           theme={settings.theme}
-              customThemeBg={settings.customThemeBg}
+          customThemeBg={settings.customThemeBg}
           hasTouch={hasTouch}
           onClose={() => setShowStash(false)}
           onDrop={(item) => {
@@ -4871,7 +5040,10 @@ export default function App() {
           className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none flex flex-wrap items-center gap-px justify-center"
           style={{
             top: isWide ? 32 : 40,
-            background: getPanelBackground(settings.theme, settings.customThemeBg),
+            background: getPanelBackground(
+              settings.theme,
+              settings.customThemeBg,
+            ),
             borderRadius: 8,
             border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
             backdropFilter: "blur(8px)",
@@ -5007,7 +5179,7 @@ export default function App() {
                     <path d="M4 2 L4 12 L7 9.5 L9 13.5 L10.5 12.8 L8.5 8.8 L12 8.8 Z" />
                   </svg>
                 ),
-                label: "Hold V",
+                label: "V + drag / click",
               },
               {
                 icon: <Hand size={12} strokeWidth={1.5} />,

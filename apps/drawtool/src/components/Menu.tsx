@@ -416,6 +416,19 @@ export default function Menu({
   const [savingShareSettings, setSavingShareSettings] = useState(false);
   const [showSharePassword, setShowSharePassword] = useState(false);
   const [showRecentColors, setShowRecentColors] = useState(false);
+  const [unleashReveal, setUnleashReveal] = useState(false);
+  const prevIsProRef = useRef(isPro);
+  const hasUnleashRevealedRef = useRef(false);
+
+  useEffect(() => {
+    if (!prevIsProRef.current && isPro && settings.unleashedMenuIcon && !hasUnleashRevealedRef.current) {
+      hasUnleashRevealedRef.current = true;
+      setUnleashReveal(true);
+      const t = setTimeout(() => setUnleashReveal(false), 700);
+      return () => clearTimeout(t);
+    }
+    prevIsProRef.current = isPro;
+  }, [isPro, settings.unleashedMenuIcon]);
 
   useEffect(() => { setShareWorkspaceUrl(existingShareWorkspaceUrl ?? null); }, [existingShareWorkspaceUrl]);
   useEffect(() => { if (!open) setShowRecentColors(false); }, [open]);
@@ -641,7 +654,7 @@ export default function Menu({
           >
             <span className="relative flex items-center justify-center w-full h-full">
               <span
-                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${unleashReveal ? "unleash-icon-exit" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}`}
               >
                 <img
                   src="/drawzilla-menu.png"
@@ -656,7 +669,7 @@ export default function Menu({
                 />
               </span>
               <span
-                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${unleashReveal ? "unleash-icon-enter" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}`}
               >
                 <img
                   src="/drawzilla-menu-pro.png"
@@ -2852,7 +2865,7 @@ export default function Menu({
                           <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${share.type === 'live' ? isDark ? 'bg-green-500/15 text-green-400' : 'bg-green-500/12 text-green-700' : isDark ? 'bg-white/8 text-white/40' : 'bg-black/6 text-black/40'}`}>
                             {share.type === 'live' ? 'Live' : 'Snap'}
                           </span>
-                          {share.has_password && <span className={`shrink-0 ${isDark ? 'text-white/30' : 'text-black/30'}`}>{lockIcon}</span>}
+                          {!!share.has_password && <span className={`shrink-0 ${isDark ? 'text-white/30' : 'text-black/30'}`}>{lockIcon}</span>}
                           {share.expires_at && <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${expiryBadge}`}>{formatExpiry(share.expires_at)}</span>}
                           <input readOnly value={url} className={inputCls} />
                           <button
