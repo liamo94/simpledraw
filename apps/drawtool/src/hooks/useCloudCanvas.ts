@@ -5,11 +5,11 @@ import { loadStrokes, loadView, saveStrokes, saveView, setSaveHook } from '../ca
 import { getImageDataUrl, getImageDataUrlFromIdb, storeImage } from '../canvas/imageStore'
 import type { Stroke } from '../canvas/types'
 import { generateCanvasThumbnail } from '../canvas/rendering'
-import { createApi } from '../lib/api'
+import { createApi, ApiError } from '../lib/api'
 import { useCloudSessionStore } from '../stores/cloudSessionStore'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
-const SAVE_DEBOUNCE_MS = 300
+const SAVE_DEBOUNCE_MS = 2000
 const CLOUD_SLOT = 1
 // Tracks which canvas has local changes not yet confirmed by the server.
 // Survives page reloads so we can skip overwriting localStorage with stale server data.
@@ -328,7 +328,8 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
             // will have re-set the flag — only clear if it still points to this canvas.
             if (localStorage.getItem(DIRTY_KEY) === capturedDirtyId) localStorage.removeItem(DIRTY_KEY)
           })
-          .catch(() => {
+          .catch((err) => {
+            if (err instanceof ApiError && err.status === 429) return
             // PUT failed — leave DIRTY_KEY intact so the next page load retries.
             window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed - check your connection' } }))
           })
@@ -443,7 +444,8 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
             old.map(w => ({ ...w, canvases: w.canvases.map(c => c.id === id ? { ...c, is_empty: 0, stroke_count: strokes.length } : c) }))
           )
           storeThumbnail(id, strokes, isDarkRef.current)
-        }).catch(() => {
+        }).catch((err) => {
+          if (err instanceof ApiError && err.status === 429) return
           window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed - check your connection' } }))
         })
       }, SAVE_DEBOUNCE_MS)
