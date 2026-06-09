@@ -7,11 +7,25 @@ import { getImageEl } from "./imageStore";
 
 // ─── Theme helpers ────────────────────────────────────────────────────────────
 
-export function isDarkTheme(theme: Theme): boolean {
+function hexLuminance(hex: string): number {
+  const r = parseInt(hex.slice(1, 3), 16) / 255;
+  const g = parseInt(hex.slice(3, 5), 16) / 255;
+  const b = parseInt(hex.slice(5, 7), 16) / 255;
+  const lin = (c: number) => c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  return 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+}
+
+export function isColorDark(hex: string): boolean {
+  return hexLuminance(hex) < 0.179;
+}
+
+export function isDarkTheme(theme: Theme, customBg?: string): boolean {
+  if (theme === "custom") return customBg ? isColorDark(customBg) : false;
   return theme === "dark" || theme === "midnight" || theme === "lumber" || theme === "slate";
 }
 
-export function getBackgroundColor(theme: Theme): string {
+export function getBackgroundColor(theme: Theme, customBg?: string): string {
+  if (theme === "custom") return customBg ?? "#f5f5f0";
   if (theme === "midnight") return "#15152a";
   if (theme === "dark") return "#06060e";
   if (theme === "lumber") return "#141404";
@@ -22,7 +36,16 @@ export function getBackgroundColor(theme: Theme): string {
   return "#f5f5f0";
 }
 
-export function getPanelBackground(theme: Theme): string {
+export function getPanelBackground(theme: Theme, customBg?: string): string {
+  if (theme === "custom" && customBg) {
+    const r = parseInt(customBg.slice(1, 3), 16);
+    const g = parseInt(customBg.slice(3, 5), 16);
+    const b = parseInt(customBg.slice(5, 7), 16);
+    const dark = isColorDark(customBg);
+    const shift = dark ? 18 : -12;
+    const clamp = (v: number) => Math.max(0, Math.min(255, v));
+    return `rgba(${clamp(r + shift)},${clamp(g + shift)},${clamp(b + shift)},${dark ? 0.92 : 0.97})`;
+  }
   if (theme === "midnight") return "rgba(15,15,30,0.92)";
   if (theme === "dark")     return "rgba(10,10,10,0.92)";
   if (theme === "lumber")   return "rgba(10,10,2,0.92)";
@@ -33,7 +56,8 @@ export function getPanelBackground(theme: Theme): string {
   return "rgba(255,255,255,0.92)";
 }
 
-export function getGridColor(theme: Theme): string {
+export function getGridColor(theme: Theme, customBg?: string): string {
+  if (theme === "custom") return customBg && isColorDark(customBg) ? "#ffffff" : "#707070";
   if (isDarkTheme(theme)) return "#ffffff";
   if (theme === "journal") return "#7a5c30";
   if (theme === "sky") return "#2a6898";

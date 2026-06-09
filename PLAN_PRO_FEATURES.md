@@ -31,29 +31,55 @@ Ordered roughly by complexity. Tackle one at a time.
 
 ---
 
-## 3. Expiring / Password-Protected Share Links ✅ Moderate backend + frontend
+## 3. Expiring / Password-Protected Share Links ✅ DONE
 **Scope:** Pro users can optionally set an expiry date and/or a passcode on a share link.
 
-**Backend:**
-- Add columns to shares table: `expires_at DATETIME`, `password_hash TEXT`
-- `POST /canvases/:id/share` and workspace equivalent: accept optional `expires_in_days` and `password` fields
-- On share fetch: return 410 Gone if expired, 401 if password required (with a flag `password_required: true`)
-- Password check: separate `POST /share/:token/unlock` endpoint that returns a short-lived session token (stored in sessionStorage on client)
+**Backend (`drawzilla-backend`):**
+- Migration `0014_share_passwords.sql`: added `password_hash TEXT` to `shares` table (`expires_at` already existed)
+- `src/utils/crypto.ts`: SHA-256+salt password hashing, HMAC-SHA256 access token (1h TTL) signed with `ADMIN_SECRET`
+- `POST /canvases/:id/share`: Pro users can pass `expires_in_days` (7/30/90) and `password`
+- `PATCH /canvases/:id/share/:token`: Pro-only, updates expiry/password; only recalculates expiry if `expires_in_days` explicitly sent (preserves existing otherwise)
+- `GET /share/:token`: returns 410 if expired, 401 `{ password_required: true }` if locked
+- `POST /share/:token/unlock`: verifies password, returns short-lived HMAC access token
+- `cleanupExpiredShares` now deletes all expired shares (live + frozen), not just frozen
+- CORS: added `X-Access-Token` to `allowHeaders`
 
 **Frontend:**
-- Share modal: expiry picker (7 / 30 / 90 days / never) and password field (Pro only)
-- Share viewer (`ShareViewer.tsx`): handle 410 (expired notice) and 401 (password entry form before showing canvas)
+- Share modal: Pro-only expiry pill picker (7d / 30d / 90d / ∞) and password field with eye toggle
+- Edit panel: gear icon on existing live shares; pre-selects current expiry; can change password or remove it; Cancel/Save buttons; expiry only re-sent if user changed the pill
+- `ShareViewer.tsx`: 410 expired screen, 401 password gate (Enter key, autoFocus); access token stored in `sessionStorage`, sent as `X-Access-Token` header on retry
 
 ---
 
-## 4. Custom Themes / Brand Colors ✅ Frontend only
-**Scope:** Pro users can define a custom background color (and optionally a default stroke color). Free users see the existing 8 themes only.
+## 4. Custom Themes / Brand Colors ✅ DONE
+**Scope:** Pro users can pick any background color. Dark/light detection is automatic. Menu/panel color auto-derived.
 
-- Add `"custom"` to the `theme` type in `useSettings.ts`
-- Add `customThemeBg: string` and `customThemeStroke: string` to settings
-- In `Menu.tsx`: after the 8 theme swatches, show a `+` custom color picker (Pro only; locked icon for free)
-- `getBackgroundColor()` in `canvasUtils.ts`: handle `"custom"` by returning `customThemeBg`
-- `adaptStrokes()` in `rendering.ts`: treat custom theme like the nearest light/dark equivalent for stroke re-adaptation
+- `"custom"` added to `Theme` type; `customThemeBg: string` added to `Settings` (default `#1a1040`)
+- `rendering.ts`: `hexLuminance()` + `isColorDark()` for luminance-based dark/light detection
+- All 4 theme functions (`getBackgroundColor`, `getPanelBackground`, `getGridColor`, `isDarkTheme`) updated to accept optional `customBg?: string` and handle `"custom"` theme
+- `getPanelBackground` for custom: shifts RGB ±18/12 from bg color (lighten for dark, darken for light) with 0.92/0.97 opacity
+- Canvas.tsx: `customThemeBgRef` prop; theme-swap effect uses `prevIsDarkRef` instead of `prevThemeRef` — detects polarity changes even mid-custom-color
+- All components that use theme functions (App.tsx, Canvas.tsx, Menu.tsx, SelectControls, StashPanel, WorkspaceSwitcherModal, ShareViewer) updated to pass `customThemeBg`
+- Menu.tsx (Pro only): pipette icon opens color picker; small rounded square swatch activates custom theme without opening picker; active swatch has outer ring for clarity
+
+## 4a. Recent Colors + Settings Sync ✅ DONE
+**Scope:** Custom color picker gains a recents history; all signed-in users get settings synced across devices.
+
+**Recent colors:**
+- `recentColors: string[]` added to `Settings` (default `[]`, max 8)
+- Populated only via the pipette (not palette clicks); deduped, newest first
+- Shown as a 4-column grid popover triggered by a chevron button to the left of the pipette (Pro only); selecting a recent updates `customColor` and applies the color immediately
+- Dropdown resets when menu panel closes
+
+**Settings sync (`usePreferencesSync.ts`):**
+- Uses existing `/preferences` GET/PUT endpoint — no backend changes or migrations needed
+- All signed-in users sync (not Pro-gated)
+- Split into two buckets stored as `{ synced, prefs }`:
+  - **Synced** (backend always wins on load): `lineColor`, `customColor`, `recentColors`, `customThemeBg`, `lineWidth`, `dashGap`, font/text settings, shape settings, export format
+  - **Local-first** (seeds new device only; localStorage wins once set): `theme`, `gridType`, `pressureSensitivity`, display toggles, click tools
+- New-device detection via `drawtool-settings-initialized` localStorage flag
+- Legacy flat format detected and migrated to new `{ synced, prefs }` shape on first load
+- 800 ms debounce on PUT; clears on sign-out
 
 ---
 

@@ -20,7 +20,8 @@ export type Theme =
   | "journal"
   | "sky"
   | "slate"
-  | "sand";
+  | "sand"
+  | "custom";
 
 export type TextSize = "xs" | "s" | "m" | "l" | "xl";
 
@@ -69,6 +70,8 @@ export type Settings = {
   exportIncludeImages: boolean;
   lastActiveCanvasId?: string;
   customColor: string;
+  recentColors: string[];
+  customThemeBg: string;
   unleashedMenuIcon: boolean;
 };
 
@@ -114,6 +117,8 @@ function getDefaults(): Settings {
     exportTransparentBg: false,
     exportIncludeImages: true,
     customColor: "#ff6600",
+    recentColors: [],
+    customThemeBg: "#1a1040",
     unleashedMenuIcon: false,
   };
 }

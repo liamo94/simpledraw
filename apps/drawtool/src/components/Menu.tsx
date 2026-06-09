@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, SlidersHorizontal } from "lucide-react";
+import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser, useClerk } from "@clerk/clerk-react";
 import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
@@ -17,6 +17,7 @@ import DrawzillaLogo from "./DrawzillaLogo";
 import {
   CONFIRM_CLEAR_STROKE_THRESHOLD,
   getPanelBackground,
+  isColorDark,
 } from "../canvas/canvasUtils";
 import type { ShareLink } from "../hooks/useCloudCanvas";
 import type { Subscription } from "../hooks/useUserPlan";
@@ -55,7 +56,8 @@ function Tooltip({ label, align = 'center', isDark = true }: { label: string; al
   );
 }
 
-function isDarkTheme(theme: Theme): boolean {
+function isDarkTheme(theme: Theme, customBg?: string): boolean {
+  if (theme === "custom") return customBg ? isColorDark(customBg) : false;
   return (
     theme === "dark" ||
     theme === "midnight" ||
@@ -413,8 +415,10 @@ export default function Menu({
   const [editShareRemovePassword, setEditShareRemovePassword] = useState(false);
   const [savingShareSettings, setSavingShareSettings] = useState(false);
   const [showSharePassword, setShowSharePassword] = useState(false);
+  const [showRecentColors, setShowRecentColors] = useState(false);
 
   useEffect(() => { setShareWorkspaceUrl(existingShareWorkspaceUrl ?? null); }, [existingShareWorkspaceUrl]);
+  useEffect(() => { if (!open) setShowRecentColors(false); }, [open]);
   const [clearWipe, setClearWipe] = useState(0);
   const [clearConfirming, setClearConfirming] = useState(false);
   const clearConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -429,7 +433,7 @@ export default function Menu({
   const mod = isMac ? "⌘" : "Ctrl";
   const alt = isMac ? "⌥" : "Alt";
 
-  const isDark = isDarkTheme(settings.theme);
+  const isDark = isDarkTheme(settings.theme, settings.customThemeBg);
   const showTips = settings.showTips && !hasTouch;
   const { user } = useUser();
   const { signOut } = useClerk();
@@ -633,7 +637,7 @@ export default function Menu({
               (e.currentTarget as HTMLElement).blur();
             }}
             className={`w-[38px] h-[38px] flex items-center justify-center rounded-lg border backdrop-blur-sm transition-all duration-200 outline-none focus:outline-none ${open ? (isDark ? "border-white/30 text-white" : "border-black/30 text-black") : isDark ? "border-white/20 text-white/70 hover:text-white" : "border-black/20 text-black/70 hover:text-black"}`}
-            style={{ background: getPanelBackground(settings.theme) }}
+            style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
           >
             <span className="relative flex items-center justify-center w-full h-full">
               <span
@@ -689,7 +693,7 @@ export default function Menu({
           <nav
             aria-label="Settings menu"
             className={`mt-2 p-4 rounded-xl border backdrop-blur-sm shadow-2xl w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden scroll-pb-6 ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
-            style={{ background: getPanelBackground(settings.theme) }}
+            style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
           >
             <a href="/" className={`${isPro ? "mb-1" : "mb-3"} text-center select-none block`} style={{ textDecoration: "none" }}>
               <DrawzillaLogo fontSize={30} isDark={isDark} animate={logoAnimate} />
@@ -823,6 +827,45 @@ export default function Menu({
               )}
               {isPro && (
                 <div className="ml-auto flex items-center gap-1.5">
+                  {settings.recentColors.length > 0 && (
+                    <div className="relative">
+                      <button
+                        onClick={() => setShowRecentColors((s) => !s)}
+                        className={`relative w-5 h-5 flex items-center justify-center rounded cursor-pointer transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
+                        title="Recent colors"
+                      >
+                        <ChevronDown size={11} strokeWidth={2} />
+                      </button>
+                      {showRecentColors && (
+                        <>
+                          <div className="fixed inset-0 z-40" onClick={() => setShowRecentColors(false)} />
+                          <div
+                            className={`absolute bottom-full right-0 mb-1.5 p-1.5 rounded-lg shadow-lg grid grid-cols-4 gap-1.5 z-50 w-max ${isDark ? "bg-[#2a2a3a] border border-white/10" : "bg-white border border-black/10"}`}
+                          >
+                            {settings.recentColors.map((color) => (
+                              <button
+                                key={color}
+                                onClick={() => {
+                                  updateSettings({ customColor: color });
+                                  window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: color }));
+                                  setShowRecentColors(false);
+                                }}
+                                className="w-[18px] h-[18px] shrink-0 rounded-full border-2 transition-transform focus:outline-none"
+                                style={{
+                                  backgroundColor: color,
+                                  borderColor:
+                                    color === settings.lineColor
+                                      ? isDark ? "white" : "black"
+                                      : isDark ? "rgba(255,255,255,0.3)" : "rgba(0,0,0,0.2)",
+                                  transform: color === settings.lineColor ? "scale(1.2)" : undefined,
+                                }}
+                              />
+                            ))}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
                   <label
                     className={`relative w-5 h-5 flex items-center justify-center rounded cursor-pointer transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
                     title="Pick custom color"
@@ -833,7 +876,8 @@ export default function Menu({
                       value={settings.customColor ?? "#ff6600"}
                       onChange={(e) => {
                         const c = e.target.value;
-                        updateSettings({ customColor: c });
+                        const recents = [c, ...settings.recentColors.filter((r) => r !== c)].slice(0, 8);
+                        updateSettings({ customColor: c, recentColors: recents });
                         window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: c }));
                       }}
                     />
@@ -1841,7 +1885,7 @@ export default function Menu({
               </span>
             </button>
 
-            <div className="mt-5 flex items-baseline gap-2">
+            <div className="mt-5 flex items-center gap-2">
               <div
                 className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
               >
@@ -1853,6 +1897,34 @@ export default function Menu({
                 >
                   D D
                 </span>
+              )}
+              {isPro && (
+                <div className="ml-auto flex items-center gap-1.5">
+                  <label
+                    className={`relative w-5 h-5 flex items-center justify-center rounded cursor-pointer transition-colors ${isDark ? "text-white/40 hover:text-white/70 hover:bg-white/10" : "text-black/35 hover:text-black/60 hover:bg-black/[0.07]"}`}
+                    title="Pick custom theme color"
+                  >
+                    <input
+                      type="color"
+                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                      value={settings.customThemeBg}
+                      onChange={(e) => updateSettings({ theme: "custom", customThemeBg: e.target.value })}
+                    />
+                    <Pipette size={11} strokeWidth={2} />
+                  </label>
+                  <button
+                    onClick={() => updateSettings({ theme: "custom" })}
+                    aria-label="Custom theme"
+                    aria-pressed={settings.theme === "custom"}
+                    className={`h-[14px] w-[14px] rounded outline-none transition-[opacity,transform] duration-150 shrink-0 ${settings.theme === "custom" ? "opacity-100 scale-110" : "opacity-45 hover:opacity-75"}`}
+                    style={{
+                      backgroundColor: settings.customThemeBg,
+                      boxShadow: settings.theme === "custom"
+                        ? `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}, 0 0 0 2px ${isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.55)"}`
+                        : `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`,
+                    }}
+                  />
+                </div>
               )}
             </div>
             <div className="grid grid-cols-8 gap-2 mt-1.5">
@@ -1918,7 +1990,9 @@ export default function Menu({
                   }`}
                   style={{
                     backgroundColor: t.bg,
-                    boxShadow: `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`,
+                    boxShadow: settings.theme === t.id
+                      ? `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}, 0 0 0 2px ${isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.55)"}`
+                      : `inset 0 0 0 1px ${isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.15)"}`,
                   }}
                 >
                   <Tooltip label={t.label} isDark={isDark} />

@@ -74,6 +74,7 @@ export default function StashPanel({
   items,
   isDark,
   theme,
+  customThemeBg,
   hasTouch,
   onClose,
   onDrop,
@@ -85,6 +86,7 @@ export default function StashPanel({
   items: StashItem[];
   isDark: boolean;
   theme: Theme;
+  customThemeBg?: string;
   hasTouch: boolean;
   onClose: () => void;
   onDrop: (item: StashItem) => void;
@@ -180,7 +182,7 @@ export default function StashPanel({
       className="fixed inset-y-0 right-0 z-50 flex flex-col shadow-2xl"
       style={{
         width: 300,
-        background: getPanelBackground(theme),
+        background: getPanelBackground(theme, customThemeBg),
         borderLeft: `1px solid ${border}`,
         backdropFilter: "blur(16px)",
       }}

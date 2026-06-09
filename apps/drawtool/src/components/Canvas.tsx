@@ -61,6 +61,7 @@ function Canvas({
   dashGap,
   gridType,
   theme,
+  customThemeBg,
   touchTool,
   activeShape,
   shapeFill,
@@ -86,6 +87,7 @@ function Canvas({
   dashGap: number;
   gridType: GridType;
   theme: Theme;
+  customThemeBg?: string;
   touchTool: TouchTool;
   activeShape: ShapeKind;
   shapeFill: import("../hooks/useSettings").FillStyle;
@@ -133,6 +135,8 @@ function Canvas({
   gridTypeRef.current = gridType;
   const themeRef = useRef(theme);
   themeRef.current = theme;
+  const customThemeBgRef = useRef(customThemeBg);
+  customThemeBgRef.current = customThemeBg;
   const touchToolRef = useRef(touchTool);
   touchToolRef.current = touchTool;
   const lineWidthRef = useRef(lineWidth);
@@ -377,11 +381,11 @@ function Canvas({
     const { x, y, scale } = viewRef.current;
     const dpr = dprRef.current;
 
-    const isDark = isDarkTheme(themeRef.current);
+    const isDark = isDarkTheme(themeRef.current, customThemeBgRef.current);
 
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    ctx.fillStyle = getBackgroundColor(themeRef.current);
+    ctx.fillStyle = getBackgroundColor(themeRef.current, customThemeBgRef.current);
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
     ctx.setTransform(dpr * scale, 0, 0, dpr * scale, dpr * x, dpr * y);
@@ -452,7 +456,7 @@ function Canvas({
         const gctx = offscreen.getContext("2d")!;
         gctx.clearRect(0, 0, offscreen.width, offscreen.height);
         gctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-        const gridColor = getGridColor(themeRef.current);
+        const gridColor = getGridColor(themeRef.current, customThemeBgRef.current);
 
         if (gridTypeRef.current === "dot") {
           let coarseWorld = 125;
@@ -1314,62 +1318,59 @@ function Canvas({
   }, [scheduleRedraw, persistStrokes, scheduleImageGC]);
 
   // Swap default stroke colors when switching between dark/light themes, then redraw
-  const prevThemeRef = useRef(theme);
+  const prevIsDarkRef = useRef(isDarkTheme(theme, customThemeBg));
   useEffect(() => {
-    if (prevThemeRef.current !== theme) {
-      const prevIsDark = isDarkTheme(prevThemeRef.current);
-      const nowIsDark = isDarkTheme(theme);
-      if (prevIsDark !== nowIsDark) {
-        // Bidirectional swap: black↔white. This preserves layer relationships -
-        // e.g. a white-on-dark mouth interior becomes black-on-light, and the
-        // black-on-dark teeth become white-on-light, keeping contrast intact.
-        const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
-        // Use a Set to avoid double-swapping strokes that appear in both
-        // strokesRef.current and in undo/redo action references.
-        const swapped = new Set<Stroke>();
-        const swapOne = (s: Stroke) => {
-          if (!swapped.has(s)) { s.color = swapColor(s.color); swapped.add(s); if (s.subStrokes) for (const sub of s.subStrokes) swapOne(sub); }
-        };
-        const swapStrokes = (strokes: Stroke[]) => { for (const s of strokes) swapOne(s); };
-        const swapAction = (a: UndoAction) => {
-          const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "size-change" || a.type === "reshape" ? [a.stroke] : a.type === "combine" || a.type === "uncombine" ? a.originals : [];
-          for (const s of list) swapOne(s);
-          // Update stored from/to color values in color-related undo actions
-          if (a.type === "color-change") {
-            a.from = swapColor(a.from); a.to = swapColor(a.to);
-          } else if (a.type === "group-color-change") {
-            a.from = a.from.map(swapColor); a.to = swapColor(a.to);
-          }
-        };
-        // Swap active canvas
-        swapStrokes(strokesRef.current);
-        undoStackRef.current.forEach(swapAction);
-        redoStackRef.current.forEach(swapAction);
-        persistStrokes();
-        // Swap cached (inactive) canvases
-        for (const [idx, snapshot] of snapshotCache) {
-          if (idx === canvasIndexRef.current) continue;
-          swapped.clear();
-          swapStrokes(snapshot.strokes);
-          snapshot.undoStack.forEach(swapAction);
-          snapshot.redoStack.forEach(swapAction);
-          saveStrokes(snapshot.strokes, idx);
+    const nowIsDark = isDarkTheme(themeRef.current, customThemeBgRef.current);
+    if (prevIsDarkRef.current !== nowIsDark) {
+      // Bidirectional swap: black↔white. This preserves layer relationships -
+      // e.g. a white-on-dark mouth interior becomes black-on-light, and the
+      // black-on-dark teeth become white-on-light, keeping contrast intact.
+      const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
+      // Use a Set to avoid double-swapping strokes that appear in both
+      // strokesRef.current and in undo/redo action references.
+      const swapped = new Set<Stroke>();
+      const swapOne = (s: Stroke) => {
+        if (!swapped.has(s)) { s.color = swapColor(s.color); swapped.add(s); if (s.subStrokes) for (const sub of s.subStrokes) swapOne(sub); }
+      };
+      const swapStrokes = (strokes: Stroke[]) => { for (const s of strokes) swapOne(s); };
+      const swapAction = (a: UndoAction) => {
+        const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "size-change" || a.type === "reshape" ? [a.stroke] : a.type === "combine" || a.type === "uncombine" ? a.originals : [];
+        for (const s of list) swapOne(s);
+        // Update stored from/to color values in color-related undo actions
+        if (a.type === "color-change") {
+          a.from = swapColor(a.from); a.to = swapColor(a.to);
+        } else if (a.type === "group-color-change") {
+          a.from = a.from.map(swapColor); a.to = swapColor(a.to);
         }
-        // Swap uncached canvases still in localStorage
-        for (let i = 1; i <= 9; i++) {
-          if (i === canvasIndexRef.current || snapshotCache.has(i)) continue;
-          const strokes = loadStrokes(i);
-          if (strokes.length > 0) {
-            swapStrokes(strokes);
-            saveStrokes(strokes, i);
-          }
+      };
+      // Swap active canvas
+      swapStrokes(strokesRef.current);
+      undoStackRef.current.forEach(swapAction);
+      redoStackRef.current.forEach(swapAction);
+      persistStrokes();
+      // Swap cached (inactive) canvases
+      for (const [idx, snapshot] of snapshotCache) {
+        if (idx === canvasIndexRef.current) continue;
+        swapped.clear();
+        swapStrokes(snapshot.strokes);
+        snapshot.undoStack.forEach(swapAction);
+        snapshot.redoStack.forEach(swapAction);
+        saveStrokes(snapshot.strokes, idx);
+      }
+      // Swap uncached canvases still in localStorage
+      for (let i = 1; i <= 9; i++) {
+        if (i === canvasIndexRef.current || snapshotCache.has(i)) continue;
+        const strokes = loadStrokes(i);
+        if (strokes.length > 0) {
+          swapStrokes(strokes);
+          saveStrokes(strokes, i);
         }
       }
-      prevThemeRef.current = theme;
+      prevIsDarkRef.current = nowIsDark;
     }
     strokesCacheRef.current = null; strokesBBoxRef.current = null;
     scheduleRedraw();
-  }, [gridType, theme, scheduleRedraw, persistStrokes]);
+  }, [gridType, theme, customThemeBg, scheduleRedraw, persistStrokes]);
 
   // When lineColor changes, immediately re-evaluate the same-color glow at the current cursor position
   useEffect(() => {
@@ -1800,7 +1801,7 @@ function Canvas({
     ctx.fillRect(0, 0, offscreen.width, offscreen.height);
     ctx.scale(scale, scale);
     ctx.translate(-minX + pad, -minY + pad);
-    const printStrokes = isDarkTheme(themeRef.current)
+    const printStrokes = isDarkTheme(themeRef.current, customThemeBgRef.current)
       ? strokes.map(adaptStrokeForPrint)
       : strokes;
     renderStrokesToCtx(ctx, printStrokes);
@@ -2389,7 +2390,7 @@ function Canvas({
     const onDropStashItem = (e: Event) => {
       const { strokes, savedDark } = (e as CustomEvent<{ strokes: Stroke[]; savedDark?: boolean }>).detail;
       if (!strokes?.length) return;
-      const currentIsDark = isDarkTheme(themeRef.current);
+      const currentIsDark = isDarkTheme(themeRef.current, customThemeBgRef.current);
       const needsColorSwap = savedDark !== undefined && savedDark !== currentIsDark;
       const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
       const maybeSwap = (c: string) => needsColorSwap ? swapColor(c) : c;
@@ -2756,7 +2757,7 @@ function Canvas({
           const rect = canvas.getBoundingClientRect();
           const screenX = e.clientX - rect.left;
           const screenY = e.clientY - rect.top;
-          const currentIsDark = isDarkTheme(themeRef.current);
+          const currentIsDark = isDarkTheme(themeRef.current, customThemeBgRef.current);
           const needsColorSwap = savedDark !== undefined && savedDark !== currentIsDark;
           const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
           const maybeSwap = (c: string) => needsColorSwap ? swapColor(c) : c;
@@ -3867,7 +3868,7 @@ function Canvas({
   const fgG = parseInt(lineColor.slice(3, 5), 16) / 255;
   const fgB = parseInt(lineColor.slice(5, 7), 16) / 255;
   const fgLum = 0.2126 * fgR + 0.7152 * fgG + 0.0722 * fgB;
-  const bgHex = getBackgroundColor(theme);
+  const bgHex = getBackgroundColor(theme, customThemeBg);
   const bgR = parseInt(bgHex.slice(1, 3), 16) / 255;
   const bgG = parseInt(bgHex.slice(3, 5), 16) / 255;
   const bgB = parseInt(bgHex.slice(5, 7), 16) / 255;

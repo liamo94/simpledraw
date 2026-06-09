@@ -284,8 +284,8 @@ export default function App() {
 
   // Apply body styles based on theme + notify ClerkRoot so sign-in modal updates live
   useEffect(() => {
-    const isDark = isDarkTheme(settings.theme);
-    const bg = getBackgroundColor(settings.theme);
+    const isDark = isDarkTheme(settings.theme, settings.customThemeBg);
+    const bg = getBackgroundColor(settings.theme, settings.customThemeBg);
     document.body.style.background = bg;
     document.documentElement.style.background = bg;
     document.body.style.color = isDark
@@ -301,8 +301,8 @@ export default function App() {
   const prevThemeRef = useRef(settings.theme);
   useEffect(() => {
     if (prevThemeRef.current === settings.theme) return;
-    const prevIsDark = isDarkTheme(prevThemeRef.current);
-    const nowIsDark = isDarkTheme(settings.theme);
+    const prevIsDark = isDarkTheme(prevThemeRef.current, settingsRef.current.customThemeBg);
+    const nowIsDark = isDarkTheme(settings.theme, settings.customThemeBg);
     prevThemeRef.current = settings.theme;
     const color = settingsRef.current.lineColor;
     if (!nowIsDark && prevIsDark && color === "#ffffff") {
@@ -743,7 +743,7 @@ export default function App() {
           name: `Item ${prev.length + 1}`,
           createdAt: Date.now(),
           strokes: JSON.parse(JSON.stringify(strokes)),
-          savedDark: isDarkTheme(settingsRef.current.theme),
+          savedDark: isDarkTheme(settingsRef.current.theme, settingsRef.current.customThemeBg),
         };
         const next = [item, ...prev];
         saveStash(next);
@@ -854,7 +854,7 @@ export default function App() {
     };
     const onColorCycle = (e: Event) => {
       const dir = (e as CustomEvent).detail as number;
-      const dark = isDarkTheme(settingsRef.current.theme);
+      const dark = isDarkTheme(settingsRef.current.theme, settingsRef.current.customThemeBg);
       const palette = [
         dark ? "#ffffff" : "#000000",
         dark ? "#000000" : "#ffffff",
@@ -1041,6 +1041,7 @@ export default function App() {
       sky: "Sky",
       sand: "Sand",
       white: "White",
+      custom: "Custom",
     };
     const onCycleTheme = (e: Event) => {
       const dir = (e as CustomEvent).detail === -1 ? -1 : 1;
@@ -1271,7 +1272,7 @@ export default function App() {
     };
   }, [showOnboarding, dismissOnboarding]);
 
-  const isDark = isDarkTheme(settings.theme);
+  const isDark = isDarkTheme(settings.theme, settings.customThemeBg);
   const { isSignedIn } = useUser();
   const { getToken } = useAuth();
   const { canvasLimit, isPro, planLoading, subscription } = useUserPlan();
@@ -1820,6 +1821,7 @@ export default function App() {
           loading={cloudCanvas.loading}
           isDark={isDark}
           theme={settings.theme}
+              customThemeBg={settings.customThemeBg}
           onSelectCanvas={async (workspaceId, canvasId) => {
             if (workspaceId !== cloudCanvas.workspace?.id) {
               await cloudCanvas.switchWorkspace(workspaceId, canvasId);
@@ -2026,6 +2028,7 @@ export default function App() {
           dashGap={settings.dashGap}
           gridType={settings.gridType}
           theme={settings.theme}
+              customThemeBg={settings.customThemeBg}
           touchTool={touchTool}
           activeShape={settings.activeShape}
           shapeFill={settings.shapeFill}
@@ -2110,6 +2113,7 @@ export default function App() {
         <SelectControls
           isDark={isDark}
           theme={settings.theme}
+              customThemeBg={settings.customThemeBg}
           selectionCount={selectionCount}
           selectionIsCombined={selectionIsCombined}
           selectionIsText={selectionIsText}
@@ -3496,7 +3500,7 @@ export default function App() {
             <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
               <div
                 className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
-                style={{ background: getPanelBackground(settings.theme) }}
+                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
               >
                 <button
                   onClick={zoomOut}
@@ -3530,7 +3534,7 @@ export default function App() {
                 onClick={centerView}
                 aria-label="Fit to content"
                 className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "border-white/15 text-white/70 hover:text-white hover:bg-white/10" : "border-black/15 text-black/60 hover:text-black hover:bg-black/8"}`}
-                style={{ background: getPanelBackground(settings.theme) }}
+                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
               >
                 <svg
                   width="14"
@@ -3554,7 +3558,7 @@ export default function App() {
           <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
             <div
               className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
-              style={{ background: getPanelBackground(settings.theme) }}
+              style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
             >
               <button
                 onClick={zoomOut}
@@ -3569,7 +3573,7 @@ export default function App() {
               <div className="relative group/zoom h-full">
                 <div
                   className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded-lg border shadow-md opacity-0 group-hover/zoom:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "border-white/12 text-white/80" : "border-black/8 text-black/70"}`}
-                  style={{ background: getPanelBackground(settings.theme) }}
+                  style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
                 >
                   Reset zoom
                   {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}>⇧ + 1</kbd>}
@@ -3596,7 +3600,7 @@ export default function App() {
             <div className="relative group">
               <div
                 className={`pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-2 py-1 text-xs whitespace-nowrap rounded-lg border shadow-md opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1.5 ${isDark ? "border-white/12 text-white/80" : "border-black/8 text-black/70"}`}
-                style={{ background: getPanelBackground(settings.theme) }}
+                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
               >
                 Fit to content
                 {settings.showTips && !hasTouch && <kbd className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "border-white/20 bg-white/[0.08] text-white/50" : "border-black/12 bg-black/[0.04] text-black/40"}`}>⇧ + 2</kbd>}
@@ -3605,7 +3609,7 @@ export default function App() {
                 onClick={centerView}
                 aria-label="Fit to content"
                 className={`w-8 h-8 flex items-center justify-center rounded border transition-colors focus-visible:ring-2 focus-visible:ring-blue-400 ${isDark ? "border-white/15 text-white/70 hover:text-white hover:bg-white/10" : "border-black/15 text-black/60 hover:text-black hover:bg-black/8"}`}
-                style={{ background: getPanelBackground(settings.theme) }}
+                style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
               >
                 <svg
                   width="14"
@@ -4211,7 +4215,7 @@ export default function App() {
           aria-live="polite"
           className={`fixed z-[60] px-3 py-1.5 rounded-full border backdrop-blur-md text-xs font-medium shadow-lg pointer-events-none flex items-center gap-1.5 ${isPro ? "top-4 right-16" : "top-14 right-4"} ${toastFading ? "animate-toast-out" : "animate-toast-in"}`}
           style={{
-            background: getPanelBackground(settings.theme),
+            background: getPanelBackground(settings.theme, settings.customThemeBg),
             borderColor: isDark ? "rgba(255,255,255,0.1)" : "rgba(0,0,0,0.1)",
             color: isDark ? "rgba(255,255,255,0.85)" : "rgba(0,0,0,0.8)",
             boxShadow: isDark
@@ -4657,6 +4661,7 @@ export default function App() {
           items={stashItems}
           isDark={isDark}
           theme={settings.theme}
+              customThemeBg={settings.customThemeBg}
           hasTouch={hasTouch}
           onClose={() => setShowStash(false)}
           onDrop={(item) => {
@@ -4864,7 +4869,7 @@ export default function App() {
           className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none flex flex-wrap items-center gap-px justify-center"
           style={{
             top: isWide ? 32 : 40,
-            background: getPanelBackground(settings.theme),
+            background: getPanelBackground(settings.theme, settings.customThemeBg),
             borderRadius: 8,
             border: `1px solid ${isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.08)"}`,
             backdropFilter: "blur(8px)",

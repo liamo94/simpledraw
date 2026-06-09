@@ -12,6 +12,7 @@ type Props = {
   loading: boolean
   isDark: boolean
   theme: Theme
+  customThemeBg?: string
   onSelectCanvas: (workspaceId: string, canvasId: string) => void
   onSelectWorkspace: (workspaceId: string) => void
   onCreateWorkspace: (name: string) => void
@@ -41,6 +42,7 @@ export default function WorkspaceSwitcherModal({
   loading,
   isDark,
   theme,
+  customThemeBg,
   showTips,
   onSelectCanvas,
   onSelectWorkspace,
@@ -200,7 +202,7 @@ export default function WorkspaceSwitcherModal({
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div
         className={`relative z-10 w-[min(860px,calc(100vw-2rem))] rounded-2xl border shadow-2xl flex flex-col h-[min(84vh,720px)] ${isDark ? 'border-white/12' : 'border-black/10'}`}
-        style={{ background: getPanelBackground(theme) }}
+        style={{ background: getPanelBackground(theme, customThemeBg) }}
         onKeyDown={e => {
           if (editing || creatingWs) return
           if (e.key === 'Escape') { e.preventDefault(); onClose() }

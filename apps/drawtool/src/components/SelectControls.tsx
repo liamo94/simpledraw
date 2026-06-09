@@ -282,6 +282,7 @@ function Btn({
 export default memo(function SelectControls({
   isDark,
   theme,
+  customThemeBg,
   selectionCount,
   selectionIsCombined,
   selectionIsText,
@@ -290,13 +291,14 @@ export default memo(function SelectControls({
 }: {
   isDark: boolean;
   theme: Theme;
+  customThemeBg?: string;
   selectionCount: number;
   selectionIsCombined: boolean;
   selectionIsText: boolean;
   selectionIsLocked: boolean;
   isPro: boolean;
 }) {
-  const bg = getPanelBackground(theme);
+  const bg = getPanelBackground(theme, customThemeBg);
   const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
 
   const [windowHeight, setWindowHeight] = useState(() => window.innerHeight);

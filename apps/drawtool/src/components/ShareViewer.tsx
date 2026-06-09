@@ -6,7 +6,7 @@ import type { Stroke } from '../canvas/types'
 import { isDarkTheme, getPanelBackground } from '../canvas/rendering'
 import type { Theme, GridType } from '../hooks/useSettings'
 
-function loadViewerSettings(): { theme: Theme; gridType: GridType } {
+function loadViewerSettings(): { theme: Theme; gridType: GridType; customThemeBg: string } {
   try {
     const raw = localStorage.getItem('drawtool-settings')
     if (raw) {
@@ -14,10 +14,11 @@ function loadViewerSettings(): { theme: Theme; gridType: GridType } {
       return {
         theme: parsed.theme ?? 'dark',
         gridType: parsed.gridType ?? 'off',
+        customThemeBg: parsed.customThemeBg ?? '#1a1040',
       }
     }
   } catch { /* ignore */ }
-  return { theme: 'dark', gridType: 'off' }
+  return { theme: 'dark', gridType: 'off', customThemeBg: '#1a1040' }
 }
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
@@ -91,7 +92,7 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
       if (!r.ok) { setError(true); return }
       const data = await r.json() as ShareData
       setShareData(data)
-      loadSlot(data, 0, isDarkTheme(viewerSettings.theme))
+      loadSlot(data, 0, isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg))
     } catch {
       setError(true)
     }
@@ -132,7 +133,7 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
   // Re-adapt stroke colours when the viewer theme changes
   useEffect(() => {
     if (!shareDataRef.current) return
-    loadSlot(shareDataRef.current, activeIndexRef.current, isDarkTheme(viewerSettings.theme))
+    loadSlot(shareDataRef.current, activeIndexRef.current, isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg))
   }, [viewerSettings.theme])
 
   // Keyboard shortcuts: g = cycle grid, dd = cycle theme
@@ -195,7 +196,7 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
   function switchCanvas(idx: number) {
     if (!shareData || shareData.type !== 'workspace') return
     setActiveIndex(idx)
-    loadSlot(shareData, idx, isDarkTheme(viewerSettings.theme))
+    loadSlot(shareData, idx, isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg))
   }
 
   function triggerDownload(filename: string, data: unknown) {
@@ -254,8 +255,8 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
       ? (shareData.canvases[activeIndex]?.name ?? shareData.name)
       : ''
 
-  const dark = isDarkTheme(viewerSettings.theme)
-  const panelBg = getPanelBackground(viewerSettings.theme)
+  const dark = isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg)
+  const panelBg = getPanelBackground(viewerSettings.theme, viewerSettings.customThemeBg)
   const fg = dark ? 'text-white' : 'text-black'
   const fgMuted = dark ? 'text-white/60' : 'text-black/50'
   const fgDim = dark ? 'text-white/20' : 'text-black/15'
