@@ -1018,6 +1018,7 @@ export default function App() {
     const onExportShortcut = () => {
       if (exportFormatRef.current === "svg")
         exportSvgFn(exportTransparentBgRef.current);
+      else if (exportFormatRef.current === "pdf") exportPdf();
       else if (exportTransparentBgRef.current) exportTransparent();
       else exportPng();
     };
@@ -1204,6 +1205,16 @@ export default function App() {
       new CustomEvent("drawtool:export-svg", {
         detail: { transparent, filename, watermark: false },
       }),
+    );
+  }, []);
+
+  const exportPdf = useCallback(() => {
+    const filename = buildExportFilename(
+      canvasNameRef.current,
+      activeCanvasRef.current,
+    );
+    window.dispatchEvent(
+      new CustomEvent("drawtool:export-pdf", { detail: { filename } }),
     );
   }, []);
 
@@ -1890,6 +1901,7 @@ export default function App() {
           activeCanvas <= canvasLimit || isPro
             ? (format, transparent) => {
                 if (format === "svg") exportSvgFn(transparent);
+                else if (format === "pdf") exportPdf();
                 else if (transparent) exportTransparent();
                 else exportPng();
               }

@@ -13,12 +13,13 @@ type SubStatus = {
 type SharedCanvas = {
   token: string;
   type: string;
+  view_count: number;
   canvas_id: string;
   canvas_name: string;
   workspace_id: string;
   workspace_name: string;
 };
-type SharedWorkspace = { id: string; name: string; token: string };
+type SharedWorkspace = { id: string; name: string; token: string; view_count: number };
 type SharedItems = { workspaces: SharedWorkspace[]; canvases: SharedCanvas[] };
 
 const FEATURES: {
@@ -442,6 +443,18 @@ function TypeBadge({ type }: { type: "live" | "snap" | "ws" }) {
   );
 }
 
+function ViewCount({ count }: { count: number }) {
+  if (count === 0) return null;
+  return (
+    <span className="shrink-0 flex items-center gap-1 text-[11px] text-white/25">
+      <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/>
+      </svg>
+      {count}
+    </span>
+  );
+}
+
 function ProfileSection({ startedAt }: { startedAt: number | null }) {
   const { getToken } = useAuth();
   const { items, loading, refetch } = useSharedItems();
@@ -577,6 +590,7 @@ function ProfileSection({ startedAt }: { startedAt: number | null }) {
                   <span className="text-sm text-white/75 truncate flex-1">
                     {ws.name}
                   </span>
+                  <ViewCount count={ws.view_count} />
                   <CopyButton url={`${DRAW_URL}/s/w/${ws.token}`} />
                   <button
                     onClick={() => revokeWorkspace(ws.id)}
@@ -609,6 +623,7 @@ function ProfileSection({ startedAt }: { startedAt: number | null }) {
                   <span className="text-[11px] text-white/25 shrink-0 hidden sm:block">
                     {c.workspace_name}
                   </span>
+                  <ViewCount count={c.view_count} />
                   <CopyButton url={`${DRAW_URL}/s/${c.token}`} />
                   <button
                     onClick={() => revokeCanvas(c.canvas_id, c.token)}

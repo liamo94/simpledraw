@@ -17,6 +17,16 @@ import {
 import type { Stroke, UndoAction, BBox, TouchTool } from "../canvas/canvasUtils";
 export type { TouchTool } from "../canvas/canvasUtils";
 
+// Swap white→black so strokes are visible on a white PDF background
+function adaptStrokeForPrint(s: Stroke): Stroke {
+  const c = (col: string) => col === "#ffffff" ? "#000000" : col;
+  return {
+    ...s,
+    color: c(s.color),
+    subStrokes: s.subStrokes ? (s.subStrokes as Stroke[]).map(adaptStrokeForPrint) : undefined,
+  };
+}
+
 function rgbToHue(r: number, g: number, b: number): number | null {
   const rn = r / 255, gn = g / 255, bn = b / 255;
   const max = Math.max(rn, gn, bn), min = Math.min(rn, gn, bn);
@@ -1686,36 +1696,39 @@ function Canvas({
       maxX = -Infinity,
       maxY = -Infinity;
     for (const stroke of strokes) {
-      if (stroke.text) {
-        const anchor = stroke.points[0];
-        const basePx = TEXT_SIZE_MAP[stroke.fontSize || "m"];
-        const lines = stroke.text.split("\n");
-        const maxLineLen = Math.max(...lines.map((l) => l.length));
-        const textW = maxLineLen * basePx * 0.6;
-        const textH = lines.length * basePx * 1.2;
-        if (anchor.x < minX) minX = anchor.x;
-        if (anchor.y < minY) minY = anchor.y;
-        if (anchor.x + textW > maxX) maxX = anchor.x + textW;
-        if (anchor.y + textH > maxY) maxY = anchor.y + textH;
-        continue;
-      }
-      for (const p of stroke.points) {
-        if (p.x < minX) minX = p.x;
-        if (p.y < minY) minY = p.y;
-        if (p.x > maxX) maxX = p.x;
-        if (p.y > maxY) maxY = p.y;
-      }
-      // Cloud bump centers sit margin=0.55×bumpR inside the bbox, so bumps protrude
-      // only ~0.45×bumpR beyond it. Sharp spikes extend up to ~1.25×bumpR beyond.
-      if (stroke.shape === "cloud" && stroke.points.length === 2) {
-        const p0 = stroke.points[0], p1 = stroke.points[1];
-        const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
-        const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
-        const extra = stroke.sharp ? bumpR * 1.4 : bumpR * 0.6;
-        minX -= extra; minY -= extra; maxX += extra; maxY += extra;
+      const leaves = (stroke.subStrokes?.length ? stroke.subStrokes as Stroke[] : [stroke]);
+      for (const s of leaves) {
+        if (s.text) {
+          const anchor = s.points[0];
+          const basePx = TEXT_SIZE_MAP[s.fontSize || "m"];
+          const lines = s.text.split("\n");
+          const maxLineLen = Math.max(...lines.map((l) => l.length));
+          const textW = maxLineLen * basePx * 0.6;
+          const textH = lines.length * basePx * 1.2;
+          if (anchor.x < minX) minX = anchor.x;
+          if (anchor.y < minY) minY = anchor.y;
+          if (anchor.x + textW > maxX) maxX = anchor.x + textW;
+          if (anchor.y + textH > maxY) maxY = anchor.y + textH;
+          continue;
+        }
+        for (const p of s.points) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        }
+        // Cloud bump centers sit margin=0.55×bumpR inside the bbox, so bumps protrude
+        // only ~0.45×bumpR beyond it. Sharp spikes extend up to ~1.25×bumpR beyond.
+        if (s.shape === "cloud" && s.points.length === 2) {
+          const p0 = s.points[0], p1 = s.points[1];
+          const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
+          const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
+          const extra = s.sharp ? bumpR * 1.4 : bumpR * 0.6;
+          minX -= extra; minY -= extra; maxX += extra; maxY += extra;
+        }
       }
     }
-    const maxLW = Math.max(...strokes.map((s) => s.lineWidth));
+    const maxLW = Math.max(...strokes.flatMap((s) => s.subStrokes?.length ? (s.subStrokes as Stroke[]).map(ss => ss.lineWidth) : [s.lineWidth]));
     const pad = 20 + maxLW / 2;
     const w = Math.ceil(maxX - minX + pad * 2);
     const h = Math.ceil(maxY - minY + pad * 2);
@@ -1738,6 +1751,64 @@ function Canvas({
       URL.revokeObjectURL(url);
       window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported PNG", duration: 1500 } }));
     });
+  }, []);
+
+  const exportPdf = useCallback(async (filename?: string) => {
+    const strokes = strokesRef.current;
+    if (strokes.length === 0) return;
+    let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+    for (const stroke of strokes) {
+      const leaves = (stroke.subStrokes?.length ? stroke.subStrokes as Stroke[] : [stroke]);
+      for (const s of leaves) {
+        if (s.text) {
+          const anchor = s.points[0];
+          const basePx = TEXT_SIZE_MAP[s.fontSize || "m"];
+          const lines = s.text.split("\n");
+          const maxLineLen = Math.max(...lines.map((l) => l.length));
+          const textW = maxLineLen * basePx * 0.6;
+          const textH = lines.length * basePx * 1.2;
+          if (anchor.x < minX) minX = anchor.x;
+          if (anchor.y < minY) minY = anchor.y;
+          if (anchor.x + textW > maxX) maxX = anchor.x + textW;
+          if (anchor.y + textH > maxY) maxY = anchor.y + textH;
+          continue;
+        }
+        for (const p of s.points) {
+          if (p.x < minX) minX = p.x;
+          if (p.y < minY) minY = p.y;
+          if (p.x > maxX) maxX = p.x;
+          if (p.y > maxY) maxY = p.y;
+        }
+        if (s.shape === "cloud" && s.points.length === 2) {
+          const p0 = s.points[0], p1 = s.points[1];
+          const cw = Math.abs(p1.x - p0.x), ch = Math.abs(p1.y - p0.y);
+          const bumpR = Math.max(3 * Math.sqrt(Math.max(1, Math.min(cw, ch))), 2 * (cw + ch) / 42);
+          const extra = s.sharp ? bumpR * 1.4 : bumpR * 0.6;
+          minX -= extra; minY -= extra; maxX += extra; maxY += extra;
+        }
+      }
+    }
+    const maxLW = Math.max(...strokes.flatMap((s) => s.subStrokes?.length ? (s.subStrokes as Stroke[]).map(ss => ss.lineWidth) : [s.lineWidth]));
+    const pad = 20 + maxLW / 2;
+    const w = Math.ceil(maxX - minX + pad * 2);
+    const h = Math.ceil(maxY - minY + pad * 2);
+    const scale = 2;
+    const offscreen = document.createElement("canvas");
+    offscreen.width = w * scale;
+    offscreen.height = h * scale;
+    const ctx = offscreen.getContext("2d")!;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, offscreen.width, offscreen.height);
+    ctx.scale(scale, scale);
+    ctx.translate(-minX + pad, -minY + pad);
+    const printStrokes = isDarkTheme(themeRef.current)
+      ? strokes.map(adaptStrokeForPrint)
+      : strokes;
+    renderStrokesToCtx(ctx, printStrokes);
+    const dataUrl = offscreen.toDataURL("image/png");
+    const { exportToPdf } = await import("../canvas/pdfExport");
+    await exportToPdf(dataUrl, w, h, filename);
+    window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported PDF", duration: 1500 } }));
   }, []);
 
   const exportSvg = useCallback((transparent: boolean, filename?: string, watermark = false) => {
@@ -2048,6 +2119,7 @@ function Canvas({
       (e as CustomEvent).detail.count = strokesRef.current.length;
     };
     const onExportTransparent = (e: Event) => exportTransparent((e as CustomEvent).detail?.filename, (e as CustomEvent).detail?.watermark ?? false);
+    const onExportPdf = (e: Event) => exportPdf((e as CustomEvent).detail?.filename);
     const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false, (e as CustomEvent).detail?.filename, (e as CustomEvent).detail?.watermark ?? false);
     const onExportSelectionSvg = (e: Event) => {
       const { transparent = true, filename, watermark = false } = (e as CustomEvent).detail ?? {};
@@ -2175,6 +2247,7 @@ function Canvas({
     window.addEventListener("drawtool:zoom-step", onZoomStep);
     window.addEventListener("drawtool:query-stroke-count", onQueryCount);
     window.addEventListener("drawtool:export-transparent", onExportTransparent);
+    window.addEventListener("drawtool:export-pdf", onExportPdf);
     window.addEventListener("drawtool:export-svg", onExportSvg);
     window.addEventListener("drawtool:export-selection-svg", onExportSelectionSvg);
     window.addEventListener("drawtool:export-selection-png", onExportSelectionPng);
@@ -2405,6 +2478,7 @@ function Canvas({
       window.removeEventListener("drawtool:zoom-step", onZoomStep);
       window.removeEventListener("drawtool:query-stroke-count", onQueryCount);
       window.removeEventListener("drawtool:export-transparent", onExportTransparent);
+      window.removeEventListener("drawtool:export-pdf", onExportPdf);
       window.removeEventListener("drawtool:export-svg", onExportSvg);
       window.removeEventListener("drawtool:export-selection-svg", onExportSelectionSvg);
       window.removeEventListener("drawtool:export-selection-png", onExportSelectionPng);
@@ -2420,7 +2494,7 @@ function Canvas({
       window.removeEventListener("drawtool:drop-stash-item", onDropStashItem);
       window.removeEventListener("drawtool:insert-image", onInsertImage);
     };
-  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomToSelection, zoomBy, exportTransparent, exportSvg, scheduleRedraw, undo, redo]);
+  }, [clearCanvas, resetView, resetViewOrigin, centerView, zoomToSelection, zoomBy, exportTransparent, exportPdf, exportSvg, scheduleRedraw, undo, redo]);
 
   // 6 screen pixels converted to world units - so zooming in doesn't cause
   // intentional small strokes to be discarded.

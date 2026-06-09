@@ -64,7 +64,7 @@ export type Settings = {
   rightClickTool: ClickTool;
   showSelectControls: boolean;
   showTips: boolean;
-  exportFormat: "png" | "svg";
+  exportFormat: "png" | "svg" | "pdf";
   exportTransparentBg: boolean;
   exportIncludeImages: boolean;
   lastActiveCanvasId?: string;
@@ -144,7 +144,7 @@ function load(): Settings {
       // Migrate export settings from their old standalone localStorage keys
       if (!("exportFormat" in parsed)) {
         const fmt = localStorage.getItem("drawtool-export-format");
-        if (fmt === "png" || fmt === "svg") parsed.exportFormat = fmt;
+        if (fmt === "png" || fmt === "svg" || fmt === "pdf") parsed.exportFormat = fmt;
       }
       if (!("exportTransparentBg" in parsed)) {
         parsed.exportTransparentBg =

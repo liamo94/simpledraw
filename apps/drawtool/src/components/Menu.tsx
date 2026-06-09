@@ -298,10 +298,10 @@ function AccordionSection({
 type Props = {
   settings: Settings;
   updateSettings: (partial: Partial<Settings>) => void;
-  onExport?: (format: "png" | "svg", transparent: boolean) => void;
-  exportFormat: "png" | "svg";
+  onExport?: (format: "png" | "svg" | "pdf", transparent: boolean) => void;
+  exportFormat: "png" | "svg" | "pdf";
   exportTransparentBg: boolean;
-  onSetExportFormat: (f: "png" | "svg") => void;
+  onSetExportFormat: (f: "png" | "svg" | "pdf") => void;
   onSetExportTransparentBg: (v: boolean) => void;
   hasTouch: boolean;
   isTablet: boolean;
@@ -2028,20 +2028,20 @@ export default function Menu({
               >
                 <div ref={exportContentRef} className="space-y-3">
                   {/* Format + transparent + export on one row */}
-                  <div className="flex items-center gap-1.5 pt-1">
+                  <div className="flex items-center gap-1 pt-1">
                     {/* Format pills */}
                     <div
                       className={`flex rounded overflow-hidden border ${isDark ? "border-white/10" : "border-black/10"}`}
                     >
-                      {(["PNG", "SVG"] as const).map((fmt) => {
+                      {(["PNG", "SVG", "PDF"] as const).map((fmt) => {
                         const active = exportFormat === fmt.toLowerCase();
-                        const locked = fmt === "SVG" && !isPro;
+                        const locked = (fmt === "SVG" || fmt === "PDF") && !isPro;
                         return (
                           <button
                             key={fmt}
-                            onClick={() => !locked && onSetExportFormat(fmt.toLowerCase() as "png" | "svg")}
-                            title={locked ? "SVG export requires Unleashed" : undefined}
-                            className={`px-2.5 py-1 text-[11px] font-medium transition-colors focus:outline-none flex items-center gap-1 ${
+                            onClick={() => !locked && onSetExportFormat(fmt.toLowerCase() as "png" | "svg" | "pdf")}
+                            title={locked ? `${fmt} export requires Unleashed` : undefined}
+                            className={`px-2 py-1 text-[11px] font-medium transition-colors focus:outline-none flex items-center gap-1 ${
                               locked
                                 ? isDark ? "text-white/20 cursor-default" : "text-black/20 cursor-default"
                                 : active
@@ -2055,13 +2055,13 @@ export default function Menu({
                         );
                       })}
                     </div>
-                    {/* Transparent toggle */}
-                    <button
+                    {/* Transparent toggle — not applicable for PDF */}
+                    {exportFormat !== "pdf" && <button
                       onClick={() =>
                         onSetExportTransparentBg(!exportTransparentBg)
                       }
                       title="Transparent background"
-                      className={`flex items-center gap-1 px-2 py-1 rounded text-[11px] transition-colors focus:outline-none border ${
+                      className={`flex items-center gap-1 px-1.5 py-1 rounded text-[11px] transition-colors focus:outline-none border ${
                         exportTransparentBg
                           ? isDark
                             ? "bg-white/15 text-white border-white/20"
@@ -2118,7 +2118,7 @@ export default function Menu({
                         />
                       </svg>
                       <span>Transparent</span>
-                    </button>
+                    </button>}
                     {/* Export button */}
                     <button
                       onClick={() =>

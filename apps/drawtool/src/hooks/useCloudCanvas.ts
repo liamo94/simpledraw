@@ -30,6 +30,7 @@ export type ShareLink = {
   token: string
   type: 'frozen' | 'live'
   expires_at: number | null
+  view_count: number
   created_at: number
 }
 
@@ -38,6 +39,7 @@ export type CloudWorkspace = {
   name: string
   share_token: string | null
   share_enabled: number
+  view_count: number
   is_pinned: number
   is_favourite: number
   canvases: CloudCanvasMeta[]
@@ -630,7 +632,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     mutationFn: (name?: string) =>
       api.post<{ id: string; name: string }>('/workspaces', { name }),
     onSuccess: ({ id, name: wsName }) => {
-      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
+      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) => [...old, newWs])
     },
   })
@@ -638,7 +640,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
   async function createWorkspace(name?: string): Promise<CloudWorkspace | null> {
     try {
       const { id, name: wsName } = await createWorkspaceMutation.mutateAsync(name)
-      return { id, name: wsName, share_token: null, share_enabled: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
+      return { id, name: wsName, share_token: null, share_enabled: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
     } catch {
       return null
     }
