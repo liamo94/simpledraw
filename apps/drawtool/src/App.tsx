@@ -1279,6 +1279,8 @@ export default function App() {
   const [unleashHovered, setUnleashHovered] = useState(false);
   const cloudCanvas = useCloudCanvas(
     isDark,
+    settings.theme,
+    settings.customThemeBg,
     canvasLimit,
     planLoading,
     isPro,

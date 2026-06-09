@@ -25,7 +25,7 @@ const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
 // Dedicated slot for share viewer - doesn't conflict with user's slots 1–9
 const SHARE_SLOT = 10
 
-type CanvasData = { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; images?: Record<string, string> }
+type CanvasData = { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; savedTheme?: string; savedCustomThemeBg?: string; images?: Record<string, string> }
 
 type CanvasEntry = {
   id: string
@@ -51,6 +51,27 @@ function swapStrokeColors(strokes: Stroke[]): Stroke[] {
 function adaptStrokes(data: CanvasData, viewerIsDark: boolean): Stroke[] {
   const savedIsDark = data.savedDark !== false // undefined treated as dark (historical default)
   return savedIsDark !== viewerIsDark ? swapStrokeColors(data.strokes) : data.strokes
+}
+
+// Set viewer theme to match the canvas's saved theme, falling back to dark/light polarity.
+// This ensures the share viewer defaults to showing the canvas as the creator intended,
+// rather than using the viewer's own local preferences.
+function deriveViewerTheme(
+  canvasData: CanvasData | undefined,
+  current: { theme: Theme; gridType: GridType; customThemeBg: string }
+): { theme: Theme; gridType: GridType; customThemeBg: string } {
+  if (!canvasData) return current
+  if (canvasData.savedTheme) {
+    const t = canvasData.savedTheme as Theme
+    const customThemeBg = t === 'custom' && canvasData.savedCustomThemeBg
+      ? canvasData.savedCustomThemeBg
+      : current.customThemeBg
+    return { ...current, theme: t, customThemeBg }
+  }
+  if (canvasData.savedDark !== undefined) {
+    return { ...current, theme: canvasData.savedDark ? 'dark' : 'white' }
+  }
+  return current
 }
 
 const SESSION_KEY = (token: string) => `share-access-${token}`
@@ -92,7 +113,10 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
       if (!r.ok) { setError(true); return }
       const data = await r.json() as ShareData
       setShareData(data)
-      loadSlot(data, 0, isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg))
+      const firstCanvas = data.type === 'canvas' ? data.data : data.canvases[0]?.data
+      const effectiveSettings = deriveViewerTheme(firstCanvas, viewerSettings)
+      if (effectiveSettings !== viewerSettings) setViewerSettings(effectiveSettings)
+      loadSlot(data, 0, isDarkTheme(effectiveSettings.theme, effectiveSettings.customThemeBg))
     } catch {
       setError(true)
     }
@@ -419,6 +443,7 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
           dashGap={5}
           gridType={viewerSettings.gridType}
           theme={viewerSettings.theme}
+          customThemeBg={viewerSettings.customThemeBg}
           touchTool="hand"
           activeShape="line"
           shapeFill="solid"

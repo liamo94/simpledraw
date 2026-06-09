@@ -1986,7 +1986,7 @@ export default function Menu({
                   className={`h-7 rounded-md outline-none transition-[opacity,transform] duration-150 relative group ${
                     settings.theme === t.id
                       ? "opacity-100 scale-110"
-                      : "opacity-45 hover:opacity-75"
+                      : "opacity-70 hover:opacity-90"
                   }`}
                   style={{
                     backgroundColor: t.bg,

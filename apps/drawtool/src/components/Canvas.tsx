@@ -1487,6 +1487,13 @@ function Canvas({
     );
   }, []);
 
+  // Sync the zoom UI on mount. The canvas-switching effect returns early when the canvas
+  // remounts via a key change (prevIndex === canvasIndex), so without this the parent's
+  // zoom display stays stale from the previous canvas.
+  useEffect(() => {
+    broadcastZoom();
+  }, [broadcastZoom]);
+
   // Canvas switching effect
   useEffect(() => {
     const prevIndex = canvasIndexRef.current;

@@ -8,6 +8,7 @@ import { anyStrokeBBox } from '../canvas/geometry'
 import { generateCanvasThumbnail } from '../canvas/rendering'
 import { createApi, ApiError } from '../lib/api'
 import { useCloudSessionStore } from '../stores/cloudSessionStore'
+import type { Theme } from './useSettings'
 
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
 const SAVE_DEBOUNCE_MS = 2000
@@ -133,11 +134,15 @@ function imagePayload(images: Record<string, string>): { images: Record<string, 
   return Object.keys(images).length > 0 ? { images } : {}
 }
 
-export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoading: boolean = false, isPro: boolean = false, preferredCanvasId?: string, newRoute: boolean = false) {
+export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: string | undefined, canvasLimit: number = 3, planLoading: boolean = false, isPro: boolean = false, preferredCanvasId?: string, newRoute: boolean = false) {
   const { isSignedIn } = useUser()
   const { getToken } = useAuth()
   const isDarkRef = useRef(isDark)
   isDarkRef.current = isDark
+  const themeRef = useRef(theme)
+  themeRef.current = theme
+  const customThemeBgRef = useRef(customThemeBg)
+  customThemeBgRef.current = customThemeBg
   const queryClient = useQueryClient()
 
   const {
@@ -356,7 +361,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
         const strokes = loadStrokes(CLOUD_SLOT)
         const view = loadView(CLOUD_SLOT)
         const images = await collectImages(strokes)
-        api.put<{ ok: true }>(`/canvases/${capturedDirtyId}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) })
+        api.put<{ ok: true }>(`/canvases/${capturedDirtyId}`, { strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) })
           .then(() => {
             // Only clear the dirty flag after the server confirms the write. If a new save
             // timer fired while we were in-flight (the user drew more strokes), the hook
@@ -432,7 +437,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
           method: 'PUT',
           keepalive: true,
           headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }),
+          body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) }),
         }).catch(() => {})
       }
 
@@ -474,7 +479,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
         if (localStorage.getItem(DIRTY_KEY) !== forId) return // dirty-recovery path already handled this save
         const view = loadView(CLOUD_SLOT)
         const images = await collectImages(strokes)
-        api.put<{ ok: true }>(`/canvases/${id}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }).then(() => {
+        api.put<{ ok: true }>(`/canvases/${id}`, { strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) }).then(() => {
           localStorage.removeItem(DIRTY_KEY)
           broadcastRef.current?.postMessage({ canvasId: id })
           queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
@@ -511,7 +516,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
         method: 'PUT',
         keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current }),
+        body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}) }),
       }).catch(() => {})
       // Don't clear DIRTY_KEY - keepalive success isn't guaranteed; the next page load
       // will use local state and re-send if needed, then clear it.
@@ -549,7 +554,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
     const view = loadView(CLOUD_SLOT)
     const images = await collectImages(strokes)
     const updated_at = Math.floor(Date.now() / 1000)
-    const ok = await api.put<{ ok: true }>(`/canvases/${currentId}`, { strokes, view, savedDark: isDarkRef.current, ...imagePayload(images) }).then(() => true).catch(() => false)
+    const ok = await api.put<{ ok: true }>(`/canvases/${currentId}`, { strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) }).then(() => true).catch(() => false)
     if (ok) {
       // Only clear DIRTY_KEY if no new strokes arrived while the PUT was in flight.
       // If saveTimerRef is armed, new strokes came in - that timer will clear DIRTY_KEY after saving them.
@@ -560,7 +565,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
       queryClient.setQueryData<CachedCanvas>(['canvas', currentId], old => ({
         name: old?.name ?? '',
         updated_at,
-        data: { strokes, view, savedDark: isDarkRef.current, ...(Object.keys(images).length > 0 ? { images } : {}) },
+        data: { strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...(Object.keys(images).length > 0 ? { images } : {}) },
       }))
       markUpdatedAt(currentId, updated_at)
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
@@ -854,7 +859,7 @@ export function useCloudCanvas(isDark: boolean, canvasLimit: number = 3, planLoa
 
   async function clearCanvas(id: string): Promise<boolean> {
     try {
-      const empty = { strokes: [], view: { x: 0, y: 0, scale: 1 }, savedDark: isDarkRef.current }
+      const empty = { strokes: [], view: { x: 0, y: 0, scale: 1 }, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}) }
       await api.put<{ ok: true }>(`/canvases/${id}`, empty)
       if (id === useCloudSessionStore.getState().activeId) {
         saveStrokes([], CLOUD_SLOT)
