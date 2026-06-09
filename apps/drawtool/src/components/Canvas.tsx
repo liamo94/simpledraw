@@ -2,7 +2,6 @@ import { useRef, useEffect, useCallback, useState, memo, type MutableRefObject }
 import type { ShapeKind, Theme, TextSize, GridType, FontFamily, TextAlign, ClickTool } from "../hooks/useSettings";
 import { useKeyboardShortcuts } from "../hooks/useKeyboardShortcuts";
 import { useTextSelection } from "../hooks/useTextSelection";
-import { generateSvg } from "../canvas/svgExport";
 import { drawWatermark } from "../canvas/watermark";
 import {
   isDarkTheme, getBackgroundColor, getGridColor,
@@ -1811,9 +1810,10 @@ function Canvas({
     window.dispatchEvent(new CustomEvent("drawtool:toast", { detail: { message: "Exported PDF", duration: 1500 } }));
   }, []);
 
-  const exportSvg = useCallback((transparent: boolean, filename?: string, watermark = false) => {
+  const exportSvg = useCallback(async (transparent: boolean, filename?: string, watermark = false) => {
     const strokes = strokesRef.current;
     if (strokes.length === 0) return;
+    const { generateSvg } = await import("../canvas/svgExport");
     const svgStr = generateSvg(strokes, transparent, theme, watermark);
     if (!svgStr) return;
     const blob = new Blob([svgStr], { type: "image/svg+xml" });
@@ -2121,7 +2121,7 @@ function Canvas({
     const onExportTransparent = (e: Event) => exportTransparent((e as CustomEvent).detail?.filename, (e as CustomEvent).detail?.watermark ?? false);
     const onExportPdf = (e: Event) => exportPdf((e as CustomEvent).detail?.filename);
     const onExportSvg = (e: Event) => exportSvg((e as CustomEvent).detail?.transparent ?? false, (e as CustomEvent).detail?.filename, (e as CustomEvent).detail?.watermark ?? false);
-    const onExportSelectionSvg = (e: Event) => {
+    const onExportSelectionSvg = async (e: Event) => {
       const { transparent = true, filename, watermark = false } = (e as CustomEvent).detail ?? {};
       const strokes = selectedGroupRef.current.length > 0
         ? selectedGroupRef.current
@@ -2129,6 +2129,7 @@ function Canvas({
         ? [selectedTextRef.current]
         : [];
       if (!strokes.length) return;
+      const { generateSvg } = await import("../canvas/svgExport");
       const svgStr = generateSvg(strokes, transparent, theme, watermark);
       if (!svgStr) return;
       const blob = new Blob([svgStr], { type: "image/svg+xml" });

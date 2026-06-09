@@ -1,4 +1,4 @@
-import { StrictMode, Component, useState, useEffect } from 'react'
+import { StrictMode, Component, useState, useEffect, lazy, Suspense } from 'react'
 import type { ReactNode, ErrorInfo } from 'react'
 import { createRoot } from 'react-dom/client'
 import { ClerkProvider } from '@clerk/clerk-react'
@@ -7,7 +7,7 @@ import * as Sentry from '@sentry/react'
 import posthog from 'posthog-js'
 import './index.css'
 import App from './App'
-import ShareViewer from './components/ShareViewer'
+const ShareViewer = lazy(() => import('./components/ShareViewer'))
 import DrawzillaLogo from './components/DrawzillaLogo'
 
 class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -122,7 +122,9 @@ function ClerkRoot() {
       elements: clerkElementsForTheme(theme),
     }}>
       {shareMatch ? (
-        <ShareViewer token={shareMatch[2]} isWorkspace={shareMatch[1] === 'w/'} />
+        <Suspense fallback={null}>
+          <ShareViewer token={shareMatch[2]} isWorkspace={shareMatch[1] === 'w/'} />
+        </Suspense>
       ) : (
         <App />
       )}

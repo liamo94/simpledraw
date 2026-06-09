@@ -4,7 +4,7 @@ import type { Stroke, Theme } from "./types";
 import { TEXT_SIZE_MAP, smoothPoints, smoothWidths, getFontCss, anyStrokeBBox } from "./geometry";
 import {
   cloudArcData, starPoints, regularPolygonPoints, roughPolyPath,
-  hexToRgba, getBackgroundColor,
+  hexToRgba, getBackgroundColor, isDarkTheme,
 } from "./rendering";
 import { getImageDataUrl } from "./imageStore";
 
@@ -216,7 +216,9 @@ const WATERMARK_LETTERS = [
 export function generateSvg(strokes: Stroke[], transparent: boolean, theme: Theme, watermark = false): string {
   if (!strokes.length) return "";
 
-  const adaptColor = (c: string) => c;
+  const adaptColor = (transparent && isDarkTheme(theme))
+    ? (c: string) => c === "#ffffff" ? "#000000" : c
+    : (c: string) => c;
 
   strokes = flattenStrokes(strokes);
   if (!strokes.length) return "";
