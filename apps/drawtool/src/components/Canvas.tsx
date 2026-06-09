@@ -1042,8 +1042,6 @@ function Canvas({
   const contentOffScreenRef = useRef(false);
   const contentOffScreenSyncedRef = useRef(false); // false = parent state is unknown (fresh mount)
   const strokesBBoxRef = useRef<{ minX: number; minY: number; maxX: number; maxY: number } | null>(null);
-  // Populated after centerView is defined so checkContentOffScreen can auto-center on first sync
-  const centerViewRef = useRef<(() => void) | null>(null);
   const checkContentOffScreen = useCallback(() => {
     const cb = onContentOffScreenRef.current;
     if (!cb) return;
@@ -1075,15 +1073,6 @@ function Canvas({
       maxX * scale + x < 0 || minX * scale + x > window.innerWidth ||
       maxY * scale + y < 0 || minY * scale + y > window.innerHeight;
     if (offScreen !== contentOffScreenRef.current || !contentOffScreenSyncedRef.current) {
-      // On the very first check after mount, if content is off-screen, auto-center silently.
-      // This handles cross-device view mismatch (e.g. desktop view loaded on mobile).
-      if (offScreen && !contentOffScreenSyncedRef.current && centerViewRef.current) {
-        contentOffScreenRef.current = false;
-        contentOffScreenSyncedRef.current = true;
-        cb(false);
-        centerViewRef.current();
-        return;
-      }
       contentOffScreenRef.current = offScreen;
       contentOffScreenSyncedRef.current = true;
       cb(offScreen);
@@ -1698,7 +1687,6 @@ function Canvas({
     }
     animateView(target);
   }, [animateView]);
-  centerViewRef.current = centerView;
 
   const exportTransparent = useCallback(async (filename?: string, watermark = false) => {
     const strokes = strokesRef.current;
