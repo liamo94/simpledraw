@@ -26,10 +26,10 @@ function formatExpiry(expiresAt: number): string {
   const secs = expiresAt - Math.floor(Date.now() / 1000)
   if (secs <= 0) return 'expired'
   const days = Math.ceil(secs / 86400)
-  if (days > 1) return `${days}d left`
-  if (days === 1) return '1d left'
+  if (days > 1) return `${days}d`
+  if (days === 1) return '1d'
   const hours = Math.floor(secs / 3600)
-  return hours > 0 ? `${hours}h left` : 'expires soon'
+  return hours > 0 ? `${hours}h` : 'soon'
 }
 
 function expiresAtToOption(expiresAt: number | null | undefined): number | null {
@@ -412,6 +412,8 @@ export default function Menu({
   const [sharing, setSharing] = useState<'canvas' | 'workspace' | null>(null);
   const [copiedShareToken, setCopiedShareToken] = useState<string | null>(null);
   const copiedShareTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [copiedEmbedToken, setCopiedEmbedToken] = useState<string | null>(null);
+  const copiedEmbedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shareExpiry, setShareExpiry] = useState<number | null>(null);
   const [sharePassword, setSharePassword] = useState('');
   const [showShareOptions, setShowShareOptions] = useState(false);
@@ -2922,6 +2924,27 @@ export default function Menu({
                             >
                               <span className={tipCls}>Settings</span>
                               {gearIcon}
+                            </button>
+                          )}
+                          {/* Embed copy — Pro live shares only */}
+                          {isPro && share.type === 'live' && (
+                            <button
+                              onClick={() => {
+                                const embedCode = `<iframe src="${window.location.origin}/embed/${share.token}" style="width:100%;height:500px;border:none;border-radius:8px;" allowfullscreen></iframe>`
+                                navigator.clipboard.writeText(embedCode)
+                                setCopiedEmbedToken(share.token)
+                                if (copiedEmbedTimerRef.current) clearTimeout(copiedEmbedTimerRef.current)
+                                copiedEmbedTimerRef.current = setTimeout(() => setCopiedEmbedToken(null), 1500)
+                              }}
+                              className={iconBtnCls(copiedEmbedToken === share.token)}
+                            >
+                              <span className={tipCls}>Copy embed code</span>
+                              {copiedEmbedToken === share.token ? checkIcon : (
+                                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                                  <polyline points="7 8 3 12 7 16" />
+                                  <polyline points="13 8 17 12 13 16" />
+                                </svg>
+                              )}
                             </button>
                           )}
                           {onDeleteShare && (

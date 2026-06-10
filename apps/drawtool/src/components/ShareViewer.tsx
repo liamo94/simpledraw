@@ -77,7 +77,7 @@ function deriveViewerTheme(
 const SESSION_KEY = (token: string) => `share-access-${token}`
 
 // token and isWorkspace are derived from the URL by App.tsx
-export default function ShareViewer({ token, isWorkspace }: { token: string; isWorkspace: boolean }) {
+export default function ShareViewer({ token, isWorkspace, embedded }: { token: string; isWorkspace: boolean; embedded?: boolean }) {
   const [shareData, setShareData] = useState<ShareData | null>(null)
   const [activeIndex, setActiveIndex] = useState(0)
   const [error, setError] = useState(false)
@@ -381,58 +381,60 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
 
   return (
     <div className="fixed inset-0 flex flex-col">
-      {/* Header */}
-      <div
-        className={`flex items-center gap-3 px-4 h-12 shrink-0 border-b ${border} backdrop-blur-sm z-10`}
-        style={{ background: panelBg }}
-      >
-        <a href="/" className="flex items-center gap-1.5 select-none" style={{ textDecoration: 'none' }}>
-          {logoEl(20)}
-          <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 16, height: 16, objectFit: 'contain', opacity: 0.85 }} />
-        </a>
-        {shareData.type === 'canvas' && <span className={fgDim}>/</span>}
-        <span className={`text-[13px] ${fgMuted} truncate max-w-[200px]`}>
-          {shareData.type === 'workspace' ? shareData.name : canvasName}
-        </span>
+      {/* Header — hidden in embed mode */}
+      {!embedded && (
+        <div
+          className={`flex items-center gap-3 px-4 h-12 shrink-0 border-b ${border} backdrop-blur-sm z-10`}
+          style={{ background: panelBg }}
+        >
+          <a href="/" className="flex items-center gap-1.5 select-none" style={{ textDecoration: 'none' }}>
+            {logoEl(20)}
+            <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 16, height: 16, objectFit: 'contain', opacity: 0.85 }} />
+          </a>
+          {shareData.type === 'canvas' && <span className={fgDim}>/</span>}
+          <span className={`text-[13px] ${fgMuted} truncate max-w-[200px]`}>
+            {shareData.type === 'workspace' ? shareData.name : canvasName}
+          </span>
 
-        {/* Workspace canvas tabs */}
-        {shareData.type === 'workspace' && shareData.canvases.length > 1 && (
-          <div className="flex items-center gap-1">
-            <span className={fgDim}>/</span>
-            {shareData.canvases.map((c, i) => (
-              <button
-                key={c.id}
-                onClick={() => switchCanvas(i)}
-                className={`px-2.5 py-1 rounded text-[12px] transition-colors ${i === activeIndex ? tabActive : tabInactive}`}
-              >
-                {c.name}
-              </button>
-            ))}
-          </div>
-        )}
-
-        <div className="ml-auto flex items-center gap-2">
-          {expiresAt && (
-            <span className={`text-[11px] px-2 py-0.5 rounded ${dark ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-400/25 text-yellow-700'}`}>
-              {formatExpiry(expiresAt)}
-            </span>
+          {/* Workspace canvas tabs */}
+          {shareData.type === 'workspace' && shareData.canvases.length > 1 && (
+            <div className="flex items-center gap-1">
+              <span className={fgDim}>/</span>
+              {shareData.canvases.map((c, i) => (
+                <button
+                  key={c.id}
+                  onClick={() => switchCanvas(i)}
+                  className={`px-2.5 py-1 rounded text-[12px] transition-colors ${i === activeIndex ? tabActive : tabInactive}`}
+                >
+                  {c.name}
+                </button>
+              ))}
+            </div>
           )}
-          <button
-            onClick={downloadCanvas}
-            className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}
-          >
-            Download canvas
-          </button>
-          {shareData.type === 'workspace' && (
+
+          <div className="ml-auto flex items-center gap-2">
+            {expiresAt && (
+              <span className={`text-[11px] px-2 py-0.5 rounded ${dark ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-400/25 text-yellow-700'}`}>
+                {formatExpiry(expiresAt)}
+              </span>
+            )}
             <button
-              onClick={downloadWorkspace}
+              onClick={downloadCanvas}
               className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}
             >
-              Download workspace
+              Download canvas
             </button>
-          )}
+            {shareData.type === 'workspace' && (
+              <button
+                onClick={downloadWorkspace}
+                className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}
+              >
+                Download workspace
+              </button>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Canvas */}
       <div className="flex-1 relative overflow-hidden">
@@ -464,6 +466,18 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
           readOnly
         />
         <div className="absolute inset-0 pointer-events-none" style={{ cursor: 'default' }} />
+        {embedded && (
+          <a
+            href="https://drawzil.la"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 opacity-60 hover:opacity-90 transition-opacity select-none"
+            style={{ textDecoration: 'none', pointerEvents: 'auto' }}
+          >
+            {logoEl(17)}
+            <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 16, height: 16, objectFit: 'contain' }} />
+          </a>
+        )}
       </div>
     </div>
   )

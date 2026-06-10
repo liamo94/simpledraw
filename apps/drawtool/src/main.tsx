@@ -106,6 +106,7 @@ const queryClient = new QueryClient({
 })
 
 const shareMatch = window.location.pathname.match(/^\/s\/(w\/)?([^/]+)$/)
+const embedMatch = window.location.pathname.match(/^\/embed\/([^/]+)$/)
 
 function ClerkRoot() {
   const [theme, setTheme] = useState(readTheme)
@@ -121,7 +122,11 @@ function ClerkRoot() {
       variables: { colorPrimary: '#3b82f6', borderRadius: '10px', ...clerkVarsForTheme(theme) },
       elements: clerkElementsForTheme(theme),
     }}>
-      {shareMatch ? (
+      {embedMatch ? (
+        <Suspense fallback={null}>
+          <ShareViewer token={embedMatch[1]} isWorkspace={false} embedded />
+        </Suspense>
+      ) : shareMatch ? (
         <Suspense fallback={null}>
           <ShareViewer token={shareMatch[2]} isWorkspace={shareMatch[1] === 'w/'} />
         </Suspense>
