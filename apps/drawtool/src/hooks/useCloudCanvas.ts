@@ -76,6 +76,8 @@ export type CloudWorkspace = {
   name: string
   share_token: string | null
   share_enabled: number
+  share_expires_at: number | null
+  share_has_password: number
   view_count: number
   is_pinned: number
   is_favourite: number
@@ -677,7 +679,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     mutationFn: (name?: string) =>
       api.post<{ id: string; name: string }>('/workspaces', { name }),
     onSuccess: ({ id, name: wsName }) => {
-      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
+      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) => [...old, newWs])
     },
   })
@@ -685,7 +687,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   async function createWorkspace(name?: string): Promise<CloudWorkspace | null> {
     try {
       const { id, name: wsName } = await createWorkspaceMutation.mutateAsync(name)
-      return { id, name: wsName, share_token: null, share_enabled: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
+      return { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
     } catch {
       return null
     }
@@ -814,18 +816,18 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   }
 
   const shareWorkspaceMutation = useMutation({
-    mutationFn: (id: string) =>
-      api.post<{ token: string; url: string }>(`/workspaces/${id}/share`),
-    onSuccess: (data, id) => {
+    mutationFn: ({ id, opts }: { id: string; opts?: { expires_in_days?: number | null; password?: string | null } }) =>
+      api.post<{ token: string; url: string; expires_at: number | null; has_password: boolean }>(`/workspaces/${id}/share`, opts ?? {}),
+    onSuccess: (data, { id }) => {
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
-        old.map(w => w.id === id ? { ...w, share_token: data.token, share_enabled: 1 } : w)
+        old.map(w => w.id === id ? { ...w, share_token: data.token, share_enabled: 1, share_expires_at: data.expires_at, share_has_password: data.has_password ? 1 : 0 } : w)
       )
     },
   })
 
-  async function shareWorkspace(): Promise<{ token: string; url: string } | null> {
+  async function shareWorkspace(opts?: { expires_in_days?: number | null; password?: string | null }): Promise<{ token: string; url: string; expires_at: number | null; has_password: boolean } | null> {
     if (!workspace) return null
-    try { return await shareWorkspaceMutation.mutateAsync(workspace.id) }
+    try { return await shareWorkspaceMutation.mutateAsync({ id: workspace.id, opts }) }
     catch { return null }
   }
 
@@ -834,7 +836,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       api.delete<void>(`/workspaces/${id}/share`),
     onSuccess: (_, id) => {
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
-        old.map(w => w.id === id ? { ...w, share_enabled: 0 } : w)
+        old.map(w => w.id === id ? { ...w, share_enabled: 0, share_expires_at: null, share_has_password: 0 } : w)
       )
     },
   })
@@ -842,6 +844,22 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   async function unshareWorkspace(): Promise<boolean> {
     if (!workspace) return false
     try { await unshareWorkspaceMutation.mutateAsync(workspace.id); return true }
+    catch { return false }
+  }
+
+  const updateWorkspaceShareMutation = useMutation({
+    mutationFn: ({ id, opts }: { id: string; opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean } }) =>
+      api.patch<{ ok: boolean; expires_at: number | null; has_password: boolean }>(`/workspaces/${id}/share`, opts),
+    onSuccess: (data, { id }) => {
+      queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
+        old.map(w => w.id === id ? { ...w, share_expires_at: data.expires_at, share_has_password: data.has_password ? 1 : 0 } : w)
+      )
+    },
+  })
+
+  async function updateWorkspaceShare(opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean }): Promise<boolean> {
+    if (!workspace) return false
+    try { await updateWorkspaceShareMutation.mutateAsync({ id: workspace.id, opts }); return true }
     catch { return false }
   }
 
@@ -1026,7 +1044,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     renameCanvas, renameWorkspace, pinWorkspace, favouriteWorkspace,
     clearCanvas, deleteCanvas, clearKey, loadKey, deleteWorkspace, reorderCanvases,
     currentShares, loadCanvasShares, createShare, updateShare, deleteShare,
-    shareWorkspace, unshareWorkspace,
+    shareWorkspace, unshareWorkspace, updateWorkspaceShare,
     prefetchThumbnail,
   }
 }

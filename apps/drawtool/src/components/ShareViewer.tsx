@@ -36,7 +36,7 @@ type CanvasEntry = {
 
 type ShareData =
   | { type: 'canvas'; name: string; data: CanvasData; expires_at?: number | null }
-  | { type: 'workspace'; name: string; canvases: CanvasEntry[] }
+  | { type: 'workspace'; name: string; canvases: CanvasEntry[]; expires_at?: number | null; has_password?: boolean }
 
 function swapStrokeColors(strokes: Stroke[]): Stroke[] {
   const swap = (c: string) => c === '#000000' ? '#ffffff' : c === '#ffffff' ? '#000000' : c
@@ -131,7 +131,10 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
     setUnlocking(true)
     setPasswordError(false)
     try {
-      const r = await fetch(`${API_URL}/share/${token}/unlock`, {
+      const unlockUrl = isWorkspace
+        ? `${API_URL}/share/workspace/${token}/unlock`
+        : `${API_URL}/share/${token}/unlock`
+      const r = await fetch(unlockUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ password: passwordInput }),
@@ -262,7 +265,7 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
     })
   }
 
-  const expiresAt = shareData?.type === 'canvas' ? (shareData.expires_at ?? null) : null
+  const expiresAt = shareData ? (shareData.expires_at ?? null) : null
 
   function formatExpiry(ts: number): string {
     const secs = ts - Math.floor(Date.now() / 1000)
@@ -332,7 +335,7 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
           <img src="/drawzilla-simplifed.svg" alt="" style={{ width: 28, height: 28, objectFit: 'contain', opacity: 0.85 }} />
         </a>
         <div className="flex flex-col items-center gap-3" style={{ width: 280 }}>
-          <p className={`text-sm ${fgMuted}`}>This canvas is password protected.</p>
+          <p className={`text-sm ${fgMuted}`}>This {isWorkspace ? 'workspace' : 'canvas'} is password protected.</p>
           <div className="flex flex-col gap-2 w-full">
             <input
               type="password"
@@ -408,13 +411,12 @@ export default function ShareViewer({ token, isWorkspace }: { token: string; isW
           </div>
         )}
 
-        {expiresAt && (
-          <span className={`text-[11px] px-2 py-0.5 rounded ${dark ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-400/25 text-yellow-700'}`}>
-            {formatExpiry(expiresAt)}
-          </span>
-        )}
-
         <div className="ml-auto flex items-center gap-2">
+          {expiresAt && (
+            <span className={`text-[11px] px-2 py-0.5 rounded ${dark ? 'bg-yellow-500/20 text-yellow-300' : 'bg-yellow-400/25 text-yellow-700'}`}>
+              {formatExpiry(expiresAt)}
+            </span>
+          )}
           <button
             onClick={downloadCanvas}
             className={`px-3 py-1.5 rounded text-[12px] font-medium transition-colors ${ghostBtn}`}

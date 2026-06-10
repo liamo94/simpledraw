@@ -340,8 +340,11 @@ type Props = {
   onShareCanvas?: (opts?: { expires_in_days?: number | null; password?: string | null }) => Promise<(ShareLink & { url: string }) | null>;
   onUpdateShare?: (token: string, opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean }) => Promise<boolean>;
   onDeleteShare?: (token: string) => Promise<boolean>;
-  onShareWorkspace?: () => Promise<string | null>;
+  onShareWorkspace?: (opts?: { expires_in_days?: number | null; password?: string | null }) => Promise<{ url: string; expires_at: number | null; has_password: boolean } | null>;
+  onUpdateWorkspaceShare?: (opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean }) => Promise<boolean>;
   onUnshareWorkspace?: () => Promise<boolean>;
+  existingWorkspaceShareExpiresAt?: number | null;
+  existingWorkspaceShareHasPassword?: boolean;
   subscription?: Subscription | null;
   onExportWorkspacesZip?: () => void;
   onResubscribe?: () => void;
@@ -385,7 +388,10 @@ export default function Menu({
   onUpdateShare,
   onDeleteShare,
   onShareWorkspace,
+  onUpdateWorkspaceShare,
   onUnshareWorkspace,
+  existingWorkspaceShareExpiresAt,
+  existingWorkspaceShareHasPassword,
   subscription,
   onExportWorkspacesZip,
   onResubscribe,
@@ -415,6 +421,16 @@ export default function Menu({
   const [editShareRemovePassword, setEditShareRemovePassword] = useState(false);
   const [savingShareSettings, setSavingShareSettings] = useState(false);
   const [showSharePassword, setShowSharePassword] = useState(false);
+  const [workspaceShareExpiresAt, setWorkspaceShareExpiresAt] = useState<number | null>(existingWorkspaceShareExpiresAt ?? null);
+  const [workspaceShareHasPassword, setWorkspaceShareHasPassword] = useState(existingWorkspaceShareHasPassword ?? false);
+  const [showWorkspaceShareOptions, setShowWorkspaceShareOptions] = useState(false);
+  const [wsShareExpiry, setWsShareExpiry] = useState<number | null>(null);
+  const [wsSharePassword, setWsSharePassword] = useState('');
+  const [editingWorkspaceShare, setEditingWorkspaceShare] = useState(false);
+  const [editWsShareExpiry, setEditWsShareExpiry] = useState<number | null>(null);
+  const [editWsSharePassword, setEditWsSharePassword] = useState('');
+  const [editWsShareRemovePassword, setEditWsShareRemovePassword] = useState(false);
+  const [savingWsShareSettings, setSavingWsShareSettings] = useState(false);
   const [showRecentColors, setShowRecentColors] = useState(false);
   const [unleashReveal, setUnleashReveal] = useState(false);
   const prevIsProRef = useRef(isPro);
@@ -430,8 +446,21 @@ export default function Menu({
     prevIsProRef.current = isPro;
   }, [isPro, settings.unleashedMenuIcon]);
 
-  useEffect(() => { setShareWorkspaceUrl(existingShareWorkspaceUrl ?? null); }, [existingShareWorkspaceUrl]);
-  useEffect(() => { if (!open) setShowRecentColors(false); }, [open]);
+  useEffect(() => {
+    setShareWorkspaceUrl(existingShareWorkspaceUrl ?? null);
+    setEditingWorkspaceShare(false);
+    setShowWorkspaceShareOptions(false);
+  }, [existingShareWorkspaceUrl]);
+  useEffect(() => { setWorkspaceShareExpiresAt(existingWorkspaceShareExpiresAt ?? null); }, [existingWorkspaceShareExpiresAt]);
+  useEffect(() => { setWorkspaceShareHasPassword(existingWorkspaceShareHasPassword ?? false); }, [existingWorkspaceShareHasPassword]);
+  useEffect(() => {
+    if (!open) {
+      setShowRecentColors(false);
+      setShowShareOptions(false);
+      setShowWorkspaceShareOptions(false);
+      setEditingWorkspaceShare(false);
+    }
+  }, [open]);
   const [clearWipe, setClearWipe] = useState(0);
   const [clearConfirming, setClearConfirming] = useState(false);
   const clearConfirmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(
@@ -2955,12 +2984,31 @@ export default function Menu({
                         </button>
                         <button
                           disabled={sharing === 'workspace'}
-                          onClick={async () => { setSharing('workspace'); const url = await onShareWorkspace(); if (url) { setShareWorkspaceUrl(url); navigator.clipboard.writeText(url); } setSharing(null); }}
-                          className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                          onClick={() => {
+                            setShowWorkspaceShareOptions(v => !v)
+                            if (showWorkspaceShareOptions) { setWsShareExpiry(null); setWsSharePassword('') }
+                          }}
+                          className={`flex-1 text-[11px] px-2 py-1 rounded font-medium transition-colors ${showWorkspaceShareOptions ? isDark ? 'bg-white/15 text-white/80' : 'bg-black/10 text-black/70' : isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
                         >
                           {sharing === 'workspace' ? '…' : 'Workspace'}
                         </button>
                       </div>
+                      {/* Options panel for workspace share creation */}
+                      {showWorkspaceShareOptions && shareSettingsPanel({
+                        expiry: wsShareExpiry,
+                        password: wsSharePassword,
+                        onExpiry: setWsShareExpiry,
+                        onPassword: setWsSharePassword,
+                        saving: sharing === 'workspace',
+                        submitLabel: 'Share workspace',
+                        onSave: async () => {
+                          setSharing('workspace')
+                          const result = await onShareWorkspace?.({ expires_in_days: wsShareExpiry, password: wsSharePassword || null })
+                          if (result) { setShareWorkspaceUrl(result.url); setWorkspaceShareExpiresAt(result.expires_at); setWorkspaceShareHasPassword(result.has_password); navigator.clipboard.writeText(result.url) }
+                          setSharing(null); setShowWorkspaceShareOptions(false); setWsShareExpiry(null); setWsSharePassword('')
+                        },
+                        onCancel: () => { setShowWorkspaceShareOptions(false); setWsShareExpiry(null); setWsSharePassword('') },
+                      })}
                       {/* Options panel for Pro canvas share creation */}
                       {isPro && showShareOptions && shareSettingsPanel({
                         expiry: shareExpiry,
@@ -3015,32 +3063,113 @@ export default function Menu({
 
                       {/* Workspace row - Pro only */}
                       {onShareWorkspace && (
-                        <div className="flex items-center gap-1">
-                          <span className={labelCls}>Workspace</span>
-                          {shareWorkspaceUrl ? (<>
-                            <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${isDark ? 'bg-green-500/15 text-green-400' : 'bg-green-500/12 text-green-700'}`}>Live</span>
-                            <input readOnly value={shareWorkspaceUrl} className={inputCls} />
-                            <button
-                              onClick={() => { navigator.clipboard.writeText(shareWorkspaceUrl); setCopiedShareToken('workspace'); if (copiedShareTimerRef.current) clearTimeout(copiedShareTimerRef.current); copiedShareTimerRef.current = setTimeout(() => setCopiedShareToken(null), 1500); }}
-                              className={iconBtnCls(copiedShareToken === 'workspace')}
-                            >
-                              <span className={tipCls}>Copy</span>
-                              {copiedShareToken === 'workspace' ? checkIcon : clipboardIcon}
-                            </button>
-                            {onUnshareWorkspace && (
-                              <button title="" onClick={async () => { await onUnshareWorkspace(); setShareWorkspaceUrl(null); }} className={iconBtnCls(false)}>
-                                <span className={tipCls}>Unshare</span>
-                                {xIcon}
+                        <div className="flex flex-col gap-1">
+                          <div className="flex items-center gap-1">
+                            <span className={labelCls}>Workspace</span>
+                            {shareWorkspaceUrl ? (<>
+                              <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${isDark ? 'bg-green-500/15 text-green-400' : 'bg-green-500/12 text-green-700'}`}>Live</span>
+                              {!!workspaceShareHasPassword && <span className={`shrink-0 ${isDark ? 'text-white/30' : 'text-black/30'}`}>{lockIcon}</span>}
+                              {workspaceShareExpiresAt && (() => {
+                                const urgency = expiryUrgency(workspaceShareExpiresAt)
+                                const badge = urgency === 'urgent'
+                                  ? isDark ? 'bg-red-500/20 text-red-300' : 'bg-red-500/15 text-red-600'
+                                  : urgency === 'warn'
+                                    ? isDark ? 'bg-orange-500/20 text-orange-300' : 'bg-orange-500/15 text-orange-600'
+                                    : isDark ? 'bg-yellow-500/15 text-yellow-400/80' : 'bg-yellow-500/12 text-yellow-700'
+                                return <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded font-medium ${badge}`}>{formatExpiry(workspaceShareExpiresAt)}</span>
+                              })()}
+                              <input readOnly value={shareWorkspaceUrl} className={inputCls} />
+                              <button
+                                onClick={() => { navigator.clipboard.writeText(shareWorkspaceUrl); setCopiedShareToken('workspace'); if (copiedShareTimerRef.current) clearTimeout(copiedShareTimerRef.current); copiedShareTimerRef.current = setTimeout(() => setCopiedShareToken(null), 1500); }}
+                                className={iconBtnCls(copiedShareToken === 'workspace')}
+                              >
+                                <span className={tipCls}>Copy</span>
+                                {copiedShareToken === 'workspace' ? checkIcon : clipboardIcon}
+                              </button>
+                              {onUpdateWorkspaceShare && (
+                                <button
+                                  onClick={() => {
+                                    if (editingWorkspaceShare) {
+                                      setEditingWorkspaceShare(false)
+                                    } else {
+                                      setEditingWorkspaceShare(true)
+                                      setEditWsShareExpiry(expiresAtToOption(workspaceShareExpiresAt))
+                                      setEditWsSharePassword('')
+                                      setEditWsShareRemovePassword(false)
+                                      setShowSharePassword(false)
+                                    }
+                                  }}
+                                  className={iconBtnCls(editingWorkspaceShare)}
+                                >
+                                  <span className={tipCls}>Settings</span>
+                                  {gearIcon}
+                                </button>
+                              )}
+                              {onUnshareWorkspace && (
+                                <button title="" onClick={async () => { await onUnshareWorkspace(); setShareWorkspaceUrl(null); setEditingWorkspaceShare(false); }} className={iconBtnCls(false)}>
+                                  <span className={tipCls}>Unshare</span>
+                                  {xIcon}
+                                </button>
+                              )}
+                            </>) : (
+                              <button
+                                disabled={sharing === 'workspace'}
+                                onClick={() => {
+                                  setShowWorkspaceShareOptions(v => !v)
+                                  if (showWorkspaceShareOptions) { setWsShareExpiry(null); setWsSharePassword('') }
+                                }}
+                                className={`text-[11px] px-2 py-0.5 rounded font-medium transition-colors ${showWorkspaceShareOptions ? isDark ? 'bg-white/15 text-white/80' : 'bg-black/10 text-black/70' : isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
+                              >
+                                {sharing === 'workspace' ? '…' : 'Share'}
                               </button>
                             )}
-                          </>) : (
-                            <button
-                              disabled={sharing === 'workspace'}
-                              onClick={async () => { setSharing('workspace'); const url = await onShareWorkspace(); if (url) { setShareWorkspaceUrl(url); navigator.clipboard.writeText(url); } setSharing(null); }}
-                              className={`text-[11px] px-2 py-0.5 rounded font-medium transition-colors ${isDark ? "bg-white/8 hover:bg-white/14 text-white/55 hover:text-white/80" : "bg-black/6 hover:bg-black/10 text-black/50 hover:text-black/70"}`}
-                            >
-                              {sharing === 'workspace' ? '…' : 'Share'}
-                            </button>
+                          </div>
+                          {/* Inline settings panel for workspace share */}
+                          {editingWorkspaceShare && onUpdateWorkspaceShare && (
+                            <div className="ml-[70px]">
+                              {shareSettingsPanel({
+                                expiry: editWsShareExpiry,
+                                password: editWsSharePassword,
+                                hasPassword: workspaceShareHasPassword,
+                                removePassword: editWsShareRemovePassword,
+                                onExpiry: setEditWsShareExpiry,
+                                onPassword: setEditWsSharePassword,
+                                onRemovePassword: setEditWsShareRemovePassword,
+                                saving: savingWsShareSettings,
+                                onCancel: () => setEditingWorkspaceShare(false),
+                                onSave: async () => {
+                                  setSavingWsShareSettings(true)
+                                  const opts: { expires_in_days?: number | null; password?: string | null; remove_password?: boolean } = {
+                                    remove_password: editWsShareRemovePassword,
+                                  }
+                                  if (editWsShareExpiry !== expiresAtToOption(workspaceShareExpiresAt)) opts.expires_in_days = editWsShareExpiry
+                                  if (editWsSharePassword) opts.password = editWsSharePassword
+                                  await onUpdateWorkspaceShare(opts)
+                                  setSavingWsShareSettings(false)
+                                  setEditingWorkspaceShare(false)
+                                },
+                              })}
+                            </div>
+                          )}
+                          {/* Options panel for workspace share creation */}
+                          {!shareWorkspaceUrl && showWorkspaceShareOptions && (
+                            <div className="ml-[70px]">
+                              {shareSettingsPanel({
+                                expiry: wsShareExpiry,
+                                password: wsSharePassword,
+                                onExpiry: setWsShareExpiry,
+                                onPassword: setWsSharePassword,
+                                saving: sharing === 'workspace',
+                                submitLabel: 'Share workspace',
+                                onSave: async () => {
+                                  setSharing('workspace')
+                                  const result = await onShareWorkspace?.({ expires_in_days: wsShareExpiry, password: wsSharePassword || null })
+                                  if (result) { setShareWorkspaceUrl(result.url); setWorkspaceShareExpiresAt(result.expires_at); setWorkspaceShareHasPassword(result.has_password); navigator.clipboard.writeText(result.url) }
+                                  setSharing(null); setShowWorkspaceShareOptions(false); setWsShareExpiry(null); setWsSharePassword('')
+                                },
+                                onCancel: () => { setShowWorkspaceShareOptions(false); setWsShareExpiry(null); setWsSharePassword('') },
+                              })}
+                            </div>
                           )}
                         </div>
                       )}

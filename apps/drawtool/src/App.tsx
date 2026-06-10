@@ -2008,6 +2008,8 @@ export default function App() {
             ? `${window.location.origin}/s/w/${cloudCanvas.workspace.share_token}`
             : null
         }
+        existingWorkspaceShareExpiresAt={cloudCanvas.workspace?.share_expires_at ?? null}
+        existingWorkspaceShareHasPassword={(cloudCanvas.workspace?.share_has_password ?? 0) === 1}
         onShareCanvas={
           isSignedIn && cloudCanvas.activeId && activeCanvas <= canvasLimit
             ? (opts) => cloudCanvas.createShare(cloudCanvas.activeId!, opts)
@@ -2026,7 +2028,12 @@ export default function App() {
         }
         onShareWorkspace={
           isSignedIn && cloudCanvas.workspace && isPro
-            ? () => cloudCanvas.shareWorkspace().then((r) => r?.url ?? null)
+            ? (opts) => cloudCanvas.shareWorkspace(opts)
+            : undefined
+        }
+        onUpdateWorkspaceShare={
+          isSignedIn && cloudCanvas.workspace && isPro
+            ? (opts) => cloudCanvas.updateWorkspaceShare(opts)
             : undefined
         }
         onUnshareWorkspace={
