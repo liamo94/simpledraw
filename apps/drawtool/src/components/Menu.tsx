@@ -451,6 +451,10 @@ export default function Menu({
   }, [isPro, settings.unleashedMenuIcon]);
 
   useEffect(() => {
+    if (open && unleashReveal) setUnleashReveal(false);
+  }, [open, unleashReveal]);
+
+  useEffect(() => {
     setShareWorkspaceUrl(existingShareWorkspaceUrl ?? null);
     setEditingWorkspaceShare(false);
     setShowWorkspaceShareOptions(false);
@@ -687,7 +691,7 @@ export default function Menu({
           >
             <span className="relative flex items-center justify-center w-full h-full">
               <span
-                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${unleashReveal ? "unleash-icon-exit" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${(unleashReveal && !open) ? "unleash-icon-exit" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}`}
               >
                 <img
                   src="/drawzilla-menu.png"
@@ -702,7 +706,7 @@ export default function Menu({
                 />
               </span>
               <span
-                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${unleashReveal ? "unleash-icon-enter" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}`}
+                className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${(unleashReveal && !open) ? "unleash-icon-enter" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}`}
               >
                 <img
                   src="/drawzilla-menu-pro.png"

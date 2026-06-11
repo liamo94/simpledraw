@@ -204,12 +204,17 @@ export function saveStash(items: StashItem[]) {
 
 function slidesWsKey(wsKey: string) { return `drawtool-slides-ws-${wsKey}` }
 
+function slideThumbKey(slideId: string) { return `drawtool-slide-thumb-${slideId}` }
+
 export function loadSlides(wsKey: string): Slide[] {
   try {
     const raw = localStorage.getItem(slidesWsKey(wsKey))
     if (raw) {
       const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed)) return parsed
+      if (Array.isArray(parsed)) return parsed.map((s: Slide) => ({
+        ...s,
+        thumbnail: localStorage.getItem(slideThumbKey(s.id)) ?? undefined,
+      }))
     }
   } catch { /* ignore */ }
   return []
@@ -218,7 +223,13 @@ export function loadSlides(wsKey: string): Slide[] {
 export function saveSlides(slides: Slide[], wsKey: string) {
   try {
     if (slides.length === 0) { localStorage.removeItem(slidesWsKey(wsKey)); return }
-    const stripped = slides.map(({ thumbnail: _t, ...s }) => s)
+    const stripped = slides.map(({ thumbnail, ...s }) => {
+      try {
+        if (thumbnail) localStorage.setItem(slideThumbKey(s.id), thumbnail)
+        else localStorage.removeItem(slideThumbKey(s.id))
+      } catch { /* ignore quota */ }
+      return s
+    })
     localStorage.setItem(slidesWsKey(wsKey), JSON.stringify(stripped))
   } catch { /* ignore */ }
 }
