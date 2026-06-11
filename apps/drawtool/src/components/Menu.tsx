@@ -350,6 +350,7 @@ type Props = {
   onResubscribe?: () => void;
   cloudEnabled?: boolean;
   unleashHovered?: boolean;
+  slideCount?: number;
 };
 
 export default function Menu({
@@ -397,6 +398,7 @@ export default function Menu({
   onResubscribe,
   cloudEnabled = false,
   unleashHovered = false,
+  slideCount = 0,
 }: Props) {
   const [open, setOpen] = useState(false);
   const isWritingRef = useRef(false);
@@ -2119,6 +2121,41 @@ export default function Menu({
                   )}
                 </span>
               </button>
+              {isPro && (
+                <button
+                  onClick={() => {
+                    window.dispatchEvent(new Event("drawtool:toggle-slides"));
+                    closeMenu();
+                  }}
+                  className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium transition-all ${isDark ? "bg-white/5 text-white/55 hover:bg-white/[0.11] hover:text-white/85" : "bg-black/[0.04] text-black/50 hover:bg-black/[0.09] hover:text-black/75"}`}
+                >
+                  <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+                    <rect x="2" y="3" width="16" height="11" rx="1.5"/>
+                    <line x1="7" y1="17" x2="13" y2="17"/>
+                    <line x1="10" y1="14" x2="10" y2="17"/>
+                  </svg>
+                  <span className="flex flex-col items-start gap-0.5">
+                    Presentation
+                    {showTips && (
+                      <span className={`text-[9px] font-normal leading-tight ${isDark ? "text-white/25" : "text-black/25"}`}>
+                        Slides across your workspace
+                      </span>
+                    )}
+                  </span>
+                  <span className="ml-auto flex items-center gap-1">
+                    {showTips && (
+                      <span className={`text-[9px] font-mono px-1 py-px rounded border ${isDark ? "text-white/30 border-white/12 bg-white/5" : "text-black/30 border-black/10 bg-black/[0.04]"}`}>
+                        ⇧ P
+                      </span>
+                    )}
+                    {slideCount > 0 && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${isDark ? "bg-white/10 text-white/40" : "bg-black/[0.07] text-black/40"}`}>
+                        {slideCount}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              )}
               {!hasTouch && (
                 <button
                   onClick={() => {

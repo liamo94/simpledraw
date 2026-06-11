@@ -105,7 +105,7 @@ const queryClient = new QueryClient({
   },
 })
 
-const shareMatch = window.location.pathname.match(/^\/s\/(w\/)?([^/]+)$/)
+const shareMatch = window.location.pathname.match(/^\/s\/(w\/|p\/)?([^/]+)$/)
 const embedMatch = window.location.pathname.match(/^\/embed\/([^/]+)$/)
 
 function ClerkRoot() {
@@ -128,7 +128,7 @@ function ClerkRoot() {
         </Suspense>
       ) : shareMatch ? (
         <Suspense fallback={null}>
-          <ShareViewer token={shareMatch[2]} isWorkspace={shareMatch[1] === 'w/'} />
+          <ShareViewer token={shareMatch[2]} isWorkspace={shareMatch[1] === 'w/'} isPresentation={shareMatch[1] === 'p/'} />
         </Suspense>
       ) : (
         <App />

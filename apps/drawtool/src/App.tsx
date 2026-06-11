@@ -29,7 +29,7 @@ import {
   storeImage,
 } from "./canvas/canvasUtils";
 import { drawWatermark } from "./canvas/watermark";
-import { getPanelBackground } from "./canvas/rendering";
+import { getPanelBackground, generateSlideThumbnail } from "./canvas/rendering";
 import {
   loadStrokes,
   saveStrokes,
@@ -41,9 +41,12 @@ import {
   loadStash,
   saveStash,
   reorderCanvases,
+  loadSlides,
+  saveSlides,
 } from "./canvas/storage";
-import type { StashItem, Stroke } from "./canvas/types";
+import type { StashItem, Stroke, Slide } from "./canvas/types";
 import StashPanel from "./components/StashPanel";
+import SlidesPanel from "./components/SlidesPanel";
 import SelectControls, {
   COMMON_ACTIONS,
   DRAWING_ACTIONS,
@@ -508,6 +511,27 @@ export default function App() {
   const [showStash, setShowStash] = useState(false);
   const [stashItems, setStashItems] = useState<StashItem[]>(() => loadStash());
   const [dropZoneActive, setDropZoneActive] = useState(false);
+  const [slides, setSlides] = useState<Slide[]>([]);
+  const [showSlides, setShowSlides] = useState(false);
+  const [presentationMode, setPresentationMode] = useState(false);
+  const [presentationIndex, setPresentationIndex] = useState(0);
+  const [presentationControlsVisible, setPresentationControlsVisible] = useState(true);
+  const [presentationLasering, setPresentationLasering] = useState(false);
+  const [presentationCanvasLoading, setPresentationCanvasLoading] = useState(false);
+  const presentationCanvasLoadingRef = useRef(false);
+  presentationCanvasLoadingRef.current = presentationCanvasLoading;
+  // True when the current presentation cover is waiting for a cloud canvas load (loadKey bump).
+  // False when waiting for a local canvas switch (activeCanvas change).
+  const presentationWaitingForCloudLoad = useRef(false);
+  // Index of slide whose thumbnail should be refreshed once the canvas settles.
+  const pendingThumbnailSlideRef = useRef<number | null>(null);
+  // Stable function ref — always captures current slides/isDark/activeCanvas without stale closure.
+  const captureSlideThumbnailRef = useRef<(idx: number) => void>(() => {});
+  // True when the cloud switch target was already in the query cache (slot 1 pre-populated).
+  // Cover can drop on activeCanvas change instead of waiting for loadKey.
+  const presentationCloudCacheHit = useRef(false);
+  const presentationHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNavViewRef = useRef<{ x: number; y: number; scale: number } | null>(null);
   const dropZoneCounterRef = useRef(0);
 
   const exportData = useCallback(async () => {
@@ -1322,6 +1346,16 @@ export default function App() {
   );
   cloudActiveIdRef.current = cloudCanvas.activeId;
   cloudCanvasesRef.current = cloudCanvas.workspace?.canvases ?? [];
+  captureSlideThumbnailRef.current = (idx: number) => {
+    const slide = slides[idx]
+    if (!slide) return
+    const slotN = cloudCanvas.activeId ? 1 : activeCanvas
+    const thumb = generateSlideThumbnail(
+      loadStrokes(slotN), slide.view, isDark, 480, 270,
+      getBackgroundColor(settings.theme, settings.customThemeBg),
+    )
+    if (thumb) setSlides(prev => prev.map((s, i) => i === idx ? { ...s, thumbnail: thumb } : s))
+  }
   const hasCloudCanvases = (cloudCanvas.workspace?.canvases.length ?? 0) > 0;
 
   // When /new finds all cloud canvases occupied, open the dialog + blur
@@ -1526,6 +1560,157 @@ export default function App() {
     cloudCanvas.activeCanvasIndex,
   ]);
 
+  // Workspace key — stable per workspace (cloud) or 'local' for unauthed users
+  const wsKey = cloudCanvas.workspace?.id ?? 'local'
+  const wsKeyRef = useRef(wsKey)
+  wsKeyRef.current = wsKey
+
+  // Load slides when workspace changes
+  useEffect(() => {
+    setSlides(loadSlides(wsKey))
+    setPresentationMode(false)
+  }, [wsKey])
+
+  // Persist slides whenever they change
+  useEffect(() => {
+    saveSlides(slides, wsKeyRef.current)
+  }, [slides])
+
+  // Cloud cache-miss path: loadKey bumps only after server data is written to slot 1.
+  // Also dispatches deferred view navigation for cloud switches.
+  useEffect(() => {
+    if (pendingNavViewRef.current) {
+      const view = pendingNavViewRef.current
+      pendingNavViewRef.current = null
+      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: view }))
+    }
+    if (!presentationCanvasLoadingRef.current || !presentationWaitingForCloudLoad.current) return
+    // Only handle cache-miss path here; cache hits are handled by the activeCanvas effect.
+    if (presentationCloudCacheHit.current) return
+    presentationWaitingForCloudLoad.current = false
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      setPresentationCanvasLoading(false)
+      const thumbIdx = pendingThumbnailSlideRef.current
+      if (thumbIdx !== null) { pendingThumbnailSlideRef.current = null; captureSlideThumbnailRef.current(thumbIdx) }
+    }))
+  }, [cloudCanvas.loadKey])
+
+  // Local switch + cloud cache-hit: Canvas has pre-populated slot data, safe to drop cover.
+  useEffect(() => {
+    if (!presentationCanvasLoadingRef.current) return
+    // Cloud cache-miss: slot 1 still empty — let loadKey effect handle it instead.
+    if (presentationWaitingForCloudLoad.current && !presentationCloudCacheHit.current) return
+    presentationWaitingForCloudLoad.current = false
+    presentationCloudCacheHit.current = false
+    requestAnimationFrame(() => requestAnimationFrame(() => {
+      setPresentationCanvasLoading(false)
+      const thumbIdx = pendingThumbnailSlideRef.current
+      if (thumbIdx !== null) { pendingThumbnailSlideRef.current = null; captureSlideThumbnailRef.current(thumbIdx) }
+    }))
+  }, [activeCanvas])
+
+  // Toggle slides panel via event bus
+  useEffect(() => {
+    const handler = () => setShowSlides(v => !v)
+    window.addEventListener('drawtool:toggle-slides', handler)
+    return () => window.removeEventListener('drawtool:toggle-slides', handler)
+  }, [])
+
+  // Escape closes slides panel
+  useEffect(() => {
+    if (!showSlides) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') { e.stopPropagation(); setShowSlides(false) }
+    }
+    window.addEventListener('keydown', onKey, { capture: true })
+    return () => window.removeEventListener('keydown', onKey, { capture: true })
+  }, [showSlides])
+
+  // Prefetch all slide canvases when the panel opens so presentation navigation is instant.
+  useEffect(() => {
+    if (!showSlides || !isSignedIn) return
+    const ids = [...new Set(slides.map(s => s.canvasId).filter(Boolean) as string[])]
+    if (ids.length > 0) cloudCanvas.prefetchCanvases(ids)
+  }, [showSlides, isSignedIn])
+
+  // Shortcut: enter presentation
+  useEffect(() => {
+    const handler = () => { if (slides.length > 0) enterPresentation(0) }
+    window.addEventListener('drawtool:enter-presentation', handler)
+    return () => window.removeEventListener('drawtool:enter-presentation', handler)
+  }, [slides])
+
+  // Shortcut: add current viewport as slide
+  useEffect(() => {
+    const handler = () => { if (isPro) handleAddSlide() }
+    window.addEventListener('drawtool:add-slide', handler)
+    return () => window.removeEventListener('drawtool:add-slide', handler)
+  }, [isPro])
+
+  // Sync slides to backend for sharing (debounced, Pro cloud users only)
+  const slidesSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => {
+    const workspaceId = cloudCanvas.workspace?.id
+    if (!isSignedIn || !workspaceId || !isPro) return
+    if (slidesSyncTimerRef.current) clearTimeout(slidesSyncTimerRef.current)
+    slidesSyncTimerRef.current = setTimeout(async () => {
+      const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
+      const token = await getToken()
+      if (!token) return
+      const slidesForCloud = slides.length === 0 ? null : slides.map(({ thumbnail: _t, ...s }) => s)
+      fetch(`${API_URL}/workspaces/${workspaceId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ slides: slidesForCloud }),
+      }).catch(() => {})
+    }, 1500)
+    return () => { if (slidesSyncTimerRef.current) clearTimeout(slidesSyncTimerRef.current) }
+  }, [slides, isSignedIn, cloudCanvas.workspace?.id, isPro])
+
+  // Keep controls visible while laser is active in presentation mode
+  useEffect(() => {
+    if (!presentationLasering) return
+    setPresentationControlsVisible(true)
+    if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+  }, [presentationLasering])
+
+  // Keyboard navigation in presentation mode
+  useEffect(() => {
+    if (!presentationMode) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
+        e.preventDefault(); e.stopPropagation()
+        setPresentationControlsVisible(true)
+        if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+        presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+        const next = Math.min(slides.length - 1, presentationIndex + 1)
+        if (next !== presentationIndex) navigateToSlide(next)
+      } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+        e.preventDefault(); e.stopPropagation()
+        setPresentationControlsVisible(true)
+        if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+        presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+        const prev = Math.max(0, presentationIndex - 1)
+        if (prev !== presentationIndex) navigateToSlide(prev)
+      } else if (e.key === 'Escape') {
+        e.preventDefault(); e.stopPropagation()
+        exitPresentation()
+      } else if (e.key === 'q' || e.key === 'l') {
+        setPresentationLasering(true)
+      }
+    }
+    const onKeyUp = (e: KeyboardEvent) => {
+      if (e.key === 'q' || e.key === 'l') setPresentationLasering(false)
+    }
+    window.addEventListener('keydown', onKey, { capture: true })
+    window.addEventListener('keyup', onKeyUp)
+    return () => {
+      window.removeEventListener('keydown', onKey, { capture: true })
+      window.removeEventListener('keyup', onKeyUp)
+      setPresentationLasering(false)
+    }
+  }, [presentationMode, presentationIndex, slides])
+
   // Welcome toast after Stripe checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1535,6 +1720,120 @@ export default function App() {
       showToast({ type: "text", message: "Welcome to Unleashed!" }, 3000);
     }
   }, []);
+  function navigateToSlide(idx: number) {
+    const slide = slides[idx]
+    if (!slide) return
+    setPresentationIndex(idx)
+    pendingThumbnailSlideRef.current = idx
+    // Use refs to avoid stale closure — cloudCanvas.activeId updates async after cloud switch
+    const currentCloudId = cloudActiveIdRef.current
+    const currentActiveCanvas = activeCanvasRef.current
+    const needsSwitch = currentCloudId
+      ? slide.canvasId && slide.canvasId !== currentCloudId
+      : slide.canvasIndex !== currentActiveCanvas
+    if (needsSwitch) {
+      setPresentationCanvasLoading(true)
+      if (currentCloudId && slide.canvasId) {
+        // If target canvas is already cached, slot 1 will be pre-populated synchronously.
+        // Cover can drop on activeCanvas change. If not cached, wait for loadKey bump.
+        presentationWaitingForCloudLoad.current = true
+        presentationCloudCacheHit.current = cloudCanvas.hasCanvasData(slide.canvasId)
+        saveView(slide.view, 1)
+        pendingNavViewRef.current = slide.view
+        cloudSwitchRef.current?.(slide.canvasIndex)
+      } else {
+        // Local: cover waits for activeCanvas state change (Canvas remounts with pre-saved data)
+        presentationWaitingForCloudLoad.current = false
+        saveView(slide.view, slide.canvasIndex)
+        setActiveCanvas(slide.canvasIndex)
+        activeCanvasRef.current = slide.canvasIndex
+        localStorage.setItem('drawtool-active-canvas', String(slide.canvasIndex))
+      }
+    } else {
+      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: slide.view }))
+      // No canvas switch — strokes are already current, render from the slide's stored view.
+      setTimeout(() => {
+        if (pendingThumbnailSlideRef.current !== idx) return  // navigated away before capture
+        pendingThumbnailSlideRef.current = null
+        captureSlideThumbnailRef.current(idx)
+      }, 100)
+    }
+  }
+
+  function handleAddSlide() {
+    const viewDetail = { view: null as { x: number; y: number; scale: number } | null }
+    window.dispatchEvent(new CustomEvent('drawtool:get-view', { detail: viewDetail }))
+    if (!viewDetail.view) return
+    const slotN = cloudCanvas.activeId ? 1 : activeCanvas
+    const thumbnail = generateSlideThumbnail(
+      loadStrokes(slotN), viewDetail.view, isDark, 480, 270,
+      getBackgroundColor(settings.theme, settings.customThemeBg),
+    ) ?? undefined
+    const activeCanvasMeta = cloudCanvas.activeCanvasMeta
+    const newSlide: Slide = {
+      id: Math.random().toString(36).slice(2, 10),
+      name: `Slide ${slides.length + 1}`,
+      canvasIndex: activeCanvas,
+      canvasId: cloudCanvas.activeId ?? undefined,
+      canvasName: activeCanvasMeta?.name || canvasNameRef.current || undefined,
+      view: viewDetail.view,
+      thumbnail,
+    }
+    setSlides(prev => [...prev, newSlide])
+    showToast({ type: "text", message: "Slide added" }, 2000)
+  }
+
+  const presentationSnapshotRef = useRef<{ canvasIndex: number; canvasId: string | null; view: { x: number; y: number; scale: number } } | null>(null)
+
+  function enterPresentation(startIndex = 0) {
+    if (slides.length === 0) return
+    const viewDetail = { view: null as { x: number; y: number; scale: number } | null }
+    window.dispatchEvent(new CustomEvent('drawtool:get-view', { detail: viewDetail }))
+    presentationSnapshotRef.current = {
+      canvasIndex: activeCanvasRef.current,
+      canvasId: cloudActiveIdRef.current,
+      view: viewDetail.view ?? { x: 0, y: 0, scale: 1 },
+    }
+    setPresentationMode(true)
+    setPresentationControlsVisible(true)
+    if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+    presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+    navigateToSlide(startIndex)
+  }
+
+  function exitPresentation() {
+    setPresentationMode(false)
+    setShowSlides(true)
+    setPresentationCanvasLoading(false)
+    setPresentationLasering(false)
+    presentationWaitingForCloudLoad.current = false
+    pendingThumbnailSlideRef.current = null
+    if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+    const snap = presentationSnapshotRef.current
+    if (!snap) return
+    const currentCloudId = cloudActiveIdRef.current
+    const currentActiveCanvas = activeCanvasRef.current
+    const needsSwitch = currentCloudId
+      ? snap.canvasId && snap.canvasId !== currentCloudId
+      : snap.canvasIndex !== currentActiveCanvas
+    if (needsSwitch) {
+      if (currentCloudId && snap.canvasId) {
+        presentationWaitingForCloudLoad.current = true
+        presentationCloudCacheHit.current = cloudCanvas.hasCanvasData(snap.canvasId)
+        saveView(snap.view, 1)
+        pendingNavViewRef.current = snap.view
+        cloudSwitchRef.current?.(snap.canvasIndex)
+      } else {
+        saveView(snap.view, snap.canvasIndex)
+        setActiveCanvas(snap.canvasIndex)
+        activeCanvasRef.current = snap.canvasIndex
+        localStorage.setItem('drawtool-active-canvas', String(snap.canvasIndex))
+      }
+    } else {
+      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: snap.view }))
+    }
+  }
+
   const mod = isMac ? "\u2318" : "Ctrl";
   const alt = isMac ? "\u2325" : "Alt";
   const shift = "\u21e7";
@@ -1689,6 +1988,11 @@ export default function App() {
     <>
       Hold <K>S</K> to peek shape
     </>,
+    ...(isPro ? [
+      <><K>{shift}</K> + <K>N</K> to bookmark a slide</>,
+      <><K>{shift}</K> + <K>P</K> to open slides panel</>,
+      <>Arrow keys to step through slides</>,
+    ] : []),
   ];
 
   const tipOrderRef = useRef<number[] | null>(null);
@@ -1913,7 +2217,7 @@ export default function App() {
           isDark={isDark}
         />
       )}
-      {CLOUD_ENABLED && !isPro && !planLoading && (
+      {CLOUD_ENABLED && !isPro && !planLoading && !presentationMode && (
         <a
           href="https://unleash.drawzil.la"
           target="_blank"
@@ -1935,7 +2239,7 @@ export default function App() {
           Unleashed
         </a>
       )}
-      <Menu
+      {!presentationMode && <Menu
         settings={settings}
         updateSettings={updateSettings}
         onExport={
@@ -2046,7 +2350,8 @@ export default function App() {
         onResubscribe={() => openBillingPortal(getToken)}
         cloudEnabled={CLOUD_ENABLED}
         unleashHovered={unleashHovered}
-      />
+        slideCount={isPro ? slides.length : 0}
+      />}
       <input
         ref={importFileRef}
         type="file"
@@ -2102,6 +2407,7 @@ export default function App() {
           pressureSensitivity={settings.pressureSensitivity}
           leftClickTool={settings.leftClickTool}
           rightClickTool={settings.rightClickTool}
+          presentationMode={presentationMode}
           onContentOffScreen={setContentOffScreen}
         />
       )}
@@ -3629,7 +3935,7 @@ export default function App() {
               </div>
             )}
           </nav>
-          {isTablet && settings.showZoomControls && (
+          {isTablet && !presentationMode && settings.showZoomControls && (
             <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
               <div
                 className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
@@ -3697,7 +4003,7 @@ export default function App() {
           )}
         </>
       ) : (
-        settings.showZoomControls && (
+        !presentationMode && settings.showZoomControls && (
           <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
             <div
               className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
@@ -3896,7 +4202,7 @@ export default function App() {
           </button>
         </div>
       )}
-      {isSignedIn !== false &&
+      {!presentationMode && isSignedIn !== false &&
       (cloudCanvas.workspace || cloudCanvas.cachedWorkspaceName) ? (
         isEditingName && !hasTouch && cloudCanvas.activeId ? (
           <div className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5 overflow-hidden max-w-[min(38vw,280px)] rounded-lg px-1 py-0.5">
@@ -4022,7 +4328,7 @@ export default function App() {
             )}
           </button>
         )
-      ) : isSignedIn === false ? (
+      ) : !presentationMode && isSignedIn === false ? (
         <div
           className="fixed top-2 left-2 z-30 select-none flex items-center gap-1.5"
           style={{ pointerEvents: isEditingName ? "auto" : "none" }}
@@ -4891,6 +5197,34 @@ export default function App() {
           }}
         />
       )}
+      {showSlides && isPro && !presentationMode && (
+        <SlidesPanel
+          slides={slides}
+          isDark={isDark}
+          theme={settings.theme}
+          customThemeBg={settings.customThemeBg}
+          presentationShareEnabled={!!cloudCanvas.workspace?.presentation_share_enabled}
+          presentationShareToken={cloudCanvas.workspace?.presentation_share_token ?? undefined}
+          presentationShareHasPassword={!!cloudCanvas.workspace?.presentation_share_has_password}
+          onTogglePresentationShare={cloudCanvas.workspace ? () => {
+            if (cloudCanvas.workspace!.presentation_share_enabled) {
+              cloudCanvas.unsharePresentation()
+            } else {
+              cloudCanvas.sharePresentation()
+            }
+          } : undefined}
+          onSetPresentationSharePassword={cloudCanvas.workspace?.presentation_share_enabled
+            ? (pw) => cloudCanvas.setPresentationSharePassword(pw)
+            : undefined}
+          showTips={settings.showTips && !hasTouch}
+          hasTouch={hasTouch}
+          onClose={() => setShowSlides(false)}
+          onSlidesChange={setSlides}
+          onAddSlide={handleAddSlide}
+          onNavigate={(slide) => navigateToSlide(slides.findIndex(s => s.id === slide.id))}
+          onPresent={(startIndex) => { enterPresentation(startIndex); setShowSlides(false) }}
+        />
+      )}
       {pendingWorkspaceImport && (
         <div
           role="dialog"
@@ -5042,7 +5376,7 @@ export default function App() {
           </div>
         </div>
       )}
-      {settings.showTips && !hasTouch && (
+      {!presentationMode && settings.showTips && !hasTouch && (
         <div
           className="fixed left-1/2 -translate-x-1/2 z-20 pointer-events-none select-none flex flex-wrap items-center gap-px justify-center"
           style={{
@@ -5244,7 +5578,7 @@ export default function App() {
           ))}
         </div>
       )}
-      {settings.showTips && !hasTouch && (
+      {!presentationMode && settings.showTips && !hasTouch && (
         <div
           className="fixed bottom-4 right-4 z-20 pointer-events-none select-none"
           style={{ maxWidth: "18rem" }}
@@ -5263,6 +5597,140 @@ export default function App() {
           </div>
         </div>
       )}
+      {presentationMode && slides.length > 0 && (() => {
+        const slide = slides[presentationIndex]
+        const hasPrev = presentationIndex > 0
+        const hasNext = presentationIndex < slides.length - 1
+        const panelBg = getPanelBackground(settings.theme, settings.customThemeBg)
+        const borderCol = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)'
+        const navArrow = (dir: 'prev' | 'next') => {
+          const isPrev = dir === 'prev'
+          const disabled = isPrev ? !hasPrev : !hasNext
+          return (
+            <button
+              disabled={disabled}
+              onClick={() => navigateToSlide(isPrev ? presentationIndex - 1 : presentationIndex + 1)}
+              className="flex items-center justify-center w-8 h-8 rounded-xl transition-all select-none disabled:opacity-20 disabled:pointer-events-none"
+              style={{ background: isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)', color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}
+              onMouseEnter={e => { if (!disabled) { (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.10)'; (e.currentTarget as HTMLElement).style.color = isDark ? 'rgba(255,255,255,0.95)' : 'rgba(0,0,0,0.85)' } }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'; (e.currentTarget as HTMLElement).style.color = isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)' }}
+            >
+              {isPrev
+                ? <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="13 4 7 10 13 16"/></svg>
+                : <svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="7 4 13 10 7 16"/></svg>
+              }
+            </button>
+          )
+        }
+        return (
+          <div
+            className="fixed inset-0 z-[200] touch-none"
+            style={{ pointerEvents: presentationLasering ? 'none' : 'auto' }}
+            onPointerDown={e => e.stopPropagation()}
+            onMouseMove={() => {
+              setPresentationControlsVisible(true)
+              if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+              presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+            }}
+          >
+            {/* Canvas-switch cover — hides blank canvas during cross-canvas navigation */}
+            {presentationCanvasLoading && (
+              <div className="absolute inset-0" style={{ background: getBackgroundColor(settings.theme, settings.customThemeBg), zIndex: 1 }} />
+            )}
+            {/* Left click zone — prev */}
+            {hasPrev && (
+              <div className="absolute left-0 top-0 bottom-0 w-1/2" style={{ cursor: 'w-resize' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateToSlide(presentationIndex - 1)} />
+            )}
+            {/* Right click zone — next */}
+            {hasNext && (
+              <div className="absolute right-0 top-0 bottom-0 w-1/2" style={{ cursor: 'e-resize' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateToSlide(presentationIndex + 1)} />
+            )}
+            {/* Bottom control bar — pointer-events-none on wrapper so click zones work through it */}
+            <div
+              className="absolute bottom-0 left-0 right-0 flex justify-center pb-5 pointer-events-none transition-opacity duration-300"
+              style={{ opacity: presentationControlsVisible ? 1 : 0 }}
+            >
+              <div
+                className="pointer-events-auto flex items-center gap-2 px-3 py-2.5 rounded-2xl select-none"
+                style={{
+                  background: panelBg,
+                  backdropFilter: 'blur(20px)',
+                  WebkitBackdropFilter: 'blur(20px)',
+                  border: `1px solid ${borderCol}`,
+                  boxShadow: isDark ? '0 8px 32px rgba(0,0,0,0.5)' : '0 8px 32px rgba(0,0,0,0.15)',
+                }}
+              >
+                {/* Logo */}
+                <a href="https://drawzil.la" target="_blank" rel="noopener noreferrer" className="flex items-center" style={{ textDecoration: 'none' }}>
+                  <img src="/drawzilla-simplifed.svg" alt="drawzilla" style={{ width: 18, height: 18, objectFit: 'contain' }} />
+                </a>
+                <div className="w-px h-5 mx-1" style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)' }} />
+
+                {navArrow('prev')}
+
+                {/* Slide name + number + dot indicators */}
+                <div className="flex flex-col items-center gap-1 px-2" style={{ minWidth: 80, maxWidth: 200 }}>
+                  <div className="flex items-baseline gap-1.5 leading-none w-full">
+                    <span className="shrink-0" style={{ fontSize: 11, color: isDark ? 'rgba(255,255,255,0.35)' : 'rgba(0,0,0,0.3)', fontVariantNumeric: 'tabular-nums' }}>
+                      {presentationIndex + 1}/{slides.length}
+                    </span>
+                    <span
+                      className="truncate"
+                      style={{
+                        fontFamily: 'Caveat Brush, cursive',
+                        fontSize: 18,
+                        color: isDark ? 'rgba(255,255,255,0.85)' : 'rgba(0,0,0,0.75)',
+                        letterSpacing: '0.01em',
+                      }}
+                    >
+                      {slide?.name ?? `Slide ${presentationIndex + 1}`}
+                    </span>
+                  </div>
+                  {/* Dot indicators (max 8; fall back to numbers beyond that) */}
+                  {slides.length <= 8 ? (
+                    <div className="flex items-center gap-1">
+                      {slides.map((_, i) => (
+                        <button
+                          key={i}
+                          onClick={() => navigateToSlide(i)}
+                          className="rounded-full transition-all duration-150"
+                          style={{
+                            width: i === presentationIndex ? 14 : 6,
+                            height: 6,
+                            background: i === presentationIndex
+                              ? (isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.55)')
+                              : (isDark ? 'rgba(255,255,255,0.2)' : 'rgba(0,0,0,0.18)'),
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <span className="text-[10px] tabular-nums" style={{ color: isDark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }}>
+                      {presentationIndex + 1} / {slides.length}
+                    </span>
+                  )}
+                </div>
+
+                {navArrow('next')}
+
+                <div className="w-px h-5 mx-1" style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)' }} />
+
+                {/* Exit */}
+                <button
+                  onClick={exitPresentation}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors"
+                  style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)' }}
+                  title="Exit presentation (Esc)"
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'; (e.currentTarget as HTMLElement).style.color = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)' }}
+                >
+                  <svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><line x1="1" y1="1" x2="9" y2="9"/><line x1="9" y1="1" x2="1" y2="9"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        )
+      })()}
     </>
   );
 }

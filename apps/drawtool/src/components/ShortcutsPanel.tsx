@@ -219,6 +219,8 @@ export default function ShortcutsPanel({ isDark, modal, isPro }: { isDark: boole
         <Row label="Cycle theme" kbd="D D / ⇧D D" />
         <Row label={<><StashIcon />Stash</>} kbd="⇧ + B" />
         <Row label={<><StashIcon />Save to stash</>} kbd={`${mod} ⇧ S`} />
+        {isPro && <Row label={<><Presentation size={12} strokeWidth={1.5} />Add slide</>} kbd="⇧ + N" />}
+        {isPro && <Row label={<><Presentation size={12} strokeWidth={1.5} />Slides panel</>} kbd="⇧ + P" />}
       </div>
     </div>,
 

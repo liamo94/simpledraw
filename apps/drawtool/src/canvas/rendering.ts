@@ -1278,3 +1278,36 @@ export function generateCanvasThumbnail(strokes: Stroke[], isDark: boolean, w = 
 
   return canvas.toDataURL('image/jpeg', 0.88);
 }
+
+// Render a thumbnail from a specific slide view rather than fitting all content.
+// ratio maps world→thumb by scaling the view transform to the thumbnail width.
+export function generateSlideThumbnail(
+  strokes: Stroke[],
+  view: { x: number; y: number; scale: number },
+  isDark: boolean,
+  w = 480,
+  h = 270,
+  bgColor?: string,
+): string | null {
+  const drawable = strokes.filter(s => !s.imageId);
+
+  const canvas = document.createElement('canvas');
+  canvas.width = w;
+  canvas.height = h;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return null;
+
+  ctx.fillStyle = bgColor ?? (isDark ? '#111111' : '#f5f5f0');
+  ctx.fillRect(0, 0, w, h);
+
+  if (drawable.length > 0) {
+    const ratio = w / window.innerWidth;
+    ctx.save();
+    ctx.translate(view.x * ratio, view.y * ratio);
+    ctx.scale(view.scale * ratio, view.scale * ratio);
+    renderStrokesToCtx(ctx, drawable);
+    ctx.restore();
+  }
+
+  return canvas.toDataURL('image/jpeg', 0.88);
+}

@@ -102,57 +102,79 @@ Ordered roughly by complexity. Tackle one at a time.
 
 ---
 
-## 6. Embed Widget ✅ Moderate backend + new viewer
+## 6. Embed Widget ✅ DONE
 **Scope:** Pro users get an `<iframe>` embed code for any shared canvas. The embed viewer is minimal (canvas only, no toolbar).
 
-**Backend:**
-- New route `GET /embed/:token` → same as share read but returns embed-specific metadata
-- Reuse existing share token; no new token type needed
-- Add `embed_enabled: boolean` flag to canvas share (so owner can allow share but disallow embed)
-
-**Frontend:**
-- Share modal: "Embed" tab (Pro only) with copy-able `<iframe src="https://drawzil.la/embed/:token" ...>` snippet
-- New route `/embed/:token` in `main.tsx` → renders `EmbedViewer.tsx`
-- `EmbedViewer.tsx`: stripped-down canvas viewer — no menu, no keyboard shortcuts, pan/zoom only, tiny "Made with drawzilla" badge in corner
+- No backend changes needed — reuses existing share token and `GET /share/:token` endpoint
+- `/embed/:token` route added in `main.tsx` → renders `ShareViewer` with `embedded` prop
+- `ShareViewer.tsx`: `embedded` prop hides header entirely; small drawzilla logo + text badge in bottom-right corner links back to drawzil.la
+- Canvas-only embeds; workspace tokens on the embed route show the standard error screen
+- `</>` icon button added to each live Pro canvas share row in the menu — copies `<iframe>` snippet to clipboard
 - Respects expiry and password protection from feature #3
 
 ---
 
-## 7. Presentation Mode ✅ Most complex, all frontend
-**Scope:** Users bookmark named viewport positions ("slides") and step through them in sequence. Works in the canvas and in share/embed viewers.
+## 7. Presentation Mode ✅ DONE
+
+**Scope:** Users bookmark named viewport positions ("slides") and step through them in sequence. Multi-canvas workspace aware. Shareable via workspace share links.
 
 **Data model:**
 ```ts
-type Slide = { id: string; name: string; view: { x: number; y: number; scale: number } };
+type Slide = {
+  id: string;
+  name: string;
+  canvasIndex: number;   // local slot index (1–9)
+  canvasId?: string;     // cloud UUID for cross-canvas identification
+  canvasName?: string;   // display label in panel
+  view: { x: number; y: number; scale: number };
+  thumbnail?: string;    // base64 data URL, not persisted to cloud
+};
 ```
-Stored as `slides?: Slide[]` on the canvas JSON (alongside `strokes`).
+Slides stored in localStorage per workspace key; synced to `workspaces.slides_json` on backend for sharing (thumbnails stripped before upload).
 
 **Editing (canvas owner):**
-- "Slides" panel in `Menu.tsx` (Pro only)
-- "Add slide" captures current `view` → appended to slide list with auto-name ("Slide 1", etc.)
-- Slides reorderable (drag) and renameable inline
-- "Present" button enters presentation mode
+- Dedicated `SlidesPanel.tsx` component (280px right drawer, same glass-morphism style as other panels)
+- `Shift+N` adds current viewport as a new slide (also "+ Add slide" button in panel header)
+- `Shift+P` enters presentation mode
+- Slides show a 16:9 thumbnail (canvas screenshot), slide number badge, hover actions (navigate / delete)
+- Drag-to-reorder; double-click name to rename inline
+- Canvas label shows which canvas each slide belongs to (+ "· here" indicator for active canvas)
+- "▶ Present" button in panel footer
 
 **Presentation mode:**
-- Full-screen overlay; hides all toolbar chrome
-- Arrow keys / on-screen prev/next buttons navigate between slides
-- Smooth animated pan/zoom transition between viewport positions (lerp over ~400ms)
-- `Esc` exits back to editing mode
+- Full-screen overlay; arrow keys left/right/up/down to step through slides
+- On-screen prev/next chevron buttons + slide name + "X / N" counter at bottom
+- "Exit" button (top-right) or `Esc` to return to editing
+- Smooth animated pan/zoom transition (lerp ~400ms, same as `navigate-slide` event handler in Canvas.tsx)
+- Keyboard arrow keys blocked from panning canvas while in presentation mode (`presentationModeRef` guard in `useKeyboardShortcuts`)
+- **Multi-canvas**: slides referencing a different canvas trigger an async cloud switch; `navigateToSlide` uses `cloudActiveIdRef` / `activeCanvasRef` (not closure values) to avoid stale-ID bug after async switch
 
-**Share/embed viewer:**
-- If canvas has slides, show a "Present" button in share viewer
-- Embed viewer: if `?present=1` query param, auto-starts in presentation mode with nav arrows
+**Sharing:**
+- Backend: migration `0016_workspace_slides.sql` adds `slides_json TEXT DEFAULT NULL` to `workspaces`; workspace `PATCH /:id` handles `{ slides }` body; workspace share `GET /share/workspace/:token` includes `slides` in response
+- Debounced cloud sync in App.tsx (1500ms, Pro cloud users only)
+- `SlidesPanel`: "Copy presentation link" button appears when workspace share is active — copies share URL, shows "✓ Copied!" for 2 s
+- `ShareViewer`: workspace `ShareData` type includes `slides?: Slide[]`; "Present" button appears in header when slides exist; cross-canvas navigation loads the correct canvas with slide's view override via `loadSlot(..., viewOverride)`
+
+**Polish / bug fixes:**
+- Cover div uses `getBackgroundColor(...)` (solid hex) not `getPanelBackground` (semi-transparent) — prevents strokes bleeding through while loading
+- Two-path cover drop: `presentationWaitingForCloudLoad` + `presentationCloudCacheHit` refs distinguish cache-miss (wait for `loadKey` bump) from cache-hit (drop on `activeCanvas` change) — fixes cover getting stuck on cached canvases
+- Prefetch all slide canvas IDs when slides panel opens (`cloudCanvas.prefetchCanvases`) — fixes blank screen on first presentation start when on a different canvas
+- `generateSlideThumbnail` renders to offscreen canvas at stored `slide.view`, not live canvas position — thumbnails never drift after pan/zoom
+- Thumbnails auto-refreshed on every slide navigation (no manual refresh button)
+- Toast "Slide added" shown for 2 s when a slide is added
+- Escape key closes the slides panel
 
 ---
 
 ## Order of attack
 
-| # | Feature | Backend? | Effort |
+| # | Feature | Backend? | Status |
 |---|---------|----------|--------|
-| 1 | PDF Export | No | S |
-| 2 | Share View Counts | Yes | S |
-| 3 | Expiring / Password Shares | Yes | M |
-| 4 | Custom Themes | No | M |
-| 5 | Canvas Version History | Yes | L |
-| 6 | Embed Widget | Yes | M |
-| 7 | Presentation Mode | No | L |
+| 1 | PDF Export | No | ✅ Done |
+| 2 | Share View Counts | Yes | ✅ Done |
+| 3 | Expiring / Password Shares | Yes | ✅ Done |
+| 4 | Custom Themes | No | ✅ Done |
+| 4a | Recent Colors + Settings Sync | No | ✅ Done |
+| 5 | Canvas Version History | Yes | ⏳ Not started |
+| 6 | Embed Widget | No | ✅ Done |
+| 7 | Presentation Mode | Yes (slides sync) | ✅ Done |

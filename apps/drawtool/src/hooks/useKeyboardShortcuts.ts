@@ -108,6 +108,7 @@ export type KeyboardRefs = {
   cursorRef: MutableRefObject<string>;
   lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
   textareaRef?: MutableRefObject<HTMLTextAreaElement | null>;
+  presentationModeRef?: MutableRefObject<boolean>;
 };
 
 // ─── Callback bag type ────────────────────────────────────────────────────────
@@ -147,7 +148,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-    sprayKeyRef, lastCycleRef, textareaRef, canvasLimitRef,
+    sprayKeyRef, lastCycleRef, textareaRef, canvasLimitRef, presentationModeRef,
   } = refs;
 
   const {
@@ -166,6 +167,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
   useEffect(() => {
     let mounted = true;
     const onKeyDown = (e: KeyboardEvent) => {
+      if (presentationModeRef?.current) {
+        // Allow laser through in presentation mode
+        if ((e.key === "q" || e.key === "l") && !cmdKey(e) && !e.altKey && !e.ctrlKey) {
+          laserKeyRef.current = true;
+          setLasering(true);
+        }
+        return;
+      }
       // Handle text input while in writing mode - runs before the native-input guard so our
       // handlers fire even when the hidden textarea has focus (avoids relying on inconsistent
       // browser behaviour for shortcuts like Cmd+Backspace in a focused textarea).
@@ -924,6 +933,14 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (e.key === "p" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         window.dispatchEvent(new Event("drawtool:toggle-pressure"));
+      }
+      if (e.key === "P" && e.shiftKey && !cmdKey(e) && !e.altKey) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("drawtool:toggle-slides"));
+      }
+      if (e.key === "N" && e.shiftKey && !cmdKey(e) && !e.altKey) {
+        e.preventDefault();
+        window.dispatchEvent(new CustomEvent("drawtool:add-slide"));
       }
       if (e.key === "e" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         window.dispatchEvent(new Event("drawtool:toggle-corners"));

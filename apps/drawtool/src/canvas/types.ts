@@ -93,3 +93,13 @@ export type StashItem = {
   strokes: Stroke[];
   savedDark?: boolean;
 };
+
+export type Slide = {
+  id: string;
+  name: string;
+  canvasIndex: number;
+  canvasId?: string;
+  canvasName?: string;
+  view: { x: number; y: number; scale: number };
+  thumbnail?: string;
+};

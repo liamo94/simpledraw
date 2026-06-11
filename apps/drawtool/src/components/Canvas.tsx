@@ -80,6 +80,7 @@ function Canvas({
   leftClickTool,
   rightClickTool,
   readOnly,
+  presentationMode,
   onContentOffScreen,
 }: {
   lineWidth: number;
@@ -106,6 +107,7 @@ function Canvas({
   leftClickTool: ClickTool;
   rightClickTool: ClickTool;
   readOnly?: boolean;
+  presentationMode?: boolean;
   onContentOffScreen?: (offScreen: boolean) => void;
 }) {
   const isTouchDevice = "ontouchstart" in window || navigator.maxTouchPoints > 0;
@@ -113,6 +115,8 @@ function Canvas({
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const canvasIndexRef = useRef(canvasIndex);
   const canvasLimitRef = useRef(canvasLimit);
+  const presentationModeRef = useRef(presentationMode ?? false);
+  presentationModeRef.current = presentationMode ?? false;
   const dprRef = useRef(window.devicePixelRatio || 1);
   const [loadedStrokes] = useState(() => loadStrokes(canvasIndex));
   const strokesRef = useRef<Stroke[]>(loadedStrokes);
@@ -444,7 +448,7 @@ function Canvas({
     }
 
     // --- Grid (cached offscreen - only redrawn when view/theme/grid config changes) ---
-    if (gridTypeRef.current !== "off") {
+    if (gridTypeRef.current !== "off" && !presentationModeRef.current) {
       const screenW = window.innerWidth;
       const screenH = window.innerHeight;
       const gridCacheKey = `${x},${y},${scale},${gridTypeRef.current},${themeRef.current},${canvas.width},${canvas.height}`;
@@ -1212,6 +1216,8 @@ function Canvas({
     persistStrokes();
     scheduleRedraw();
   }, [shapeCorners, persistStrokes, scheduleRedraw]);
+
+  useEffect(() => { scheduleRedraw(); }, [presentationMode, scheduleRedraw]);
 
   const cancelErase = useCallback(() => {
     eraseTrailRef.current = [];
@@ -2248,6 +2254,30 @@ function Canvas({
         scheduleRedraw();
       }
     };
+    const onGetView = (e: Event) => { (e as CustomEvent).detail.view = { ...viewRef.current } }
+    const onNavigateSlide = (e: Event) => {
+      const v = (e as CustomEvent).detail as { x: number; y: number; scale: number }
+      if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = 0 }
+      viewRef.current.x = v.x; viewRef.current.y = v.y; viewRef.current.scale = v.scale
+      strokesCacheRef.current = null
+      scheduleRedraw()
+      broadcastZoom()
+      persistView()
+    }
+    const onGetThumbnail = (e: Event) => {
+      const src = canvasRef.current
+      if (!src) return
+      const W = 480, H = 270
+      const off = document.createElement("canvas")
+      off.width = W; off.height = H
+      const ctx = off.getContext("2d")
+      if (!ctx) return
+      ctx.drawImage(src, 0, 0, W, H)
+      ;(e as CustomEvent).detail.thumbnail = off.toDataURL("image/jpeg", 0.82)
+    }
+    window.addEventListener("drawtool:get-view", onGetView);
+    window.addEventListener("drawtool:navigate-slide", onNavigateSlide);
+    window.addEventListener("drawtool:get-thumbnail", onGetThumbnail);
     window.addEventListener("drawtool:clear", onClear);
     window.addEventListener("drawtool:reset-view", onResetView);
     window.addEventListener("drawtool:reset-view-origin", onResetViewOrigin);
@@ -2480,6 +2510,9 @@ function Canvas({
     window.addEventListener("drawtool:insert-image", onInsertImage);
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
+      window.removeEventListener("drawtool:get-view", onGetView);
+      window.removeEventListener("drawtool:navigate-slide", onNavigateSlide);
+      window.removeEventListener("drawtool:get-thumbnail", onGetThumbnail);
       window.removeEventListener("drawtool:reset-view", onResetView);
       window.removeEventListener("drawtool:reset-view-origin", onResetViewOrigin);
       window.removeEventListener("drawtool:center-view", onCenterView);
@@ -2615,7 +2648,7 @@ function Canvas({
       spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
       shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
       lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-      sprayKeyRef, textareaRef, canvasLimitRef,
+      sprayKeyRef, textareaRef, canvasLimitRef, presentationModeRef,
     },
     {
       scheduleRedraw, persistStrokes, persistView, clearCanvas,

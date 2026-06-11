@@ -82,6 +82,9 @@ export type CloudWorkspace = {
   is_pinned: number
   is_favourite: number
   canvases: CloudCanvasMeta[]
+  presentation_share_token: string | null
+  presentation_share_enabled: number
+  presentation_share_has_password: number
 }
 
 function swapStrokeColors(strokes: Stroke[]): Stroke[] {
@@ -679,7 +682,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     mutationFn: (name?: string) =>
       api.post<{ id: string; name: string }>('/workspaces', { name }),
     onSuccess: ({ id, name: wsName }) => {
-      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
+      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [], presentation_share_token: null, presentation_share_enabled: 0, presentation_share_has_password: 0 }
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) => [...old, newWs])
     },
   })
@@ -687,7 +690,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   async function createWorkspace(name?: string): Promise<CloudWorkspace | null> {
     try {
       const { id, name: wsName } = await createWorkspaceMutation.mutateAsync(name)
-      return { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [] }
+      return { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [], presentation_share_token: null, presentation_share_enabled: 0, presentation_share_has_password: 0 }
     } catch {
       return null
     }
@@ -844,6 +847,54 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   async function unshareWorkspace(): Promise<boolean> {
     if (!workspace) return false
     try { await unshareWorkspaceMutation.mutateAsync(workspace.id); return true }
+    catch { return false }
+  }
+
+  const sharePresentationMutation = useMutation({
+    mutationFn: ({ id, password }: { id: string; password?: string | null }) =>
+      api.post<{ token: string; url: string; has_password: boolean }>(`/workspaces/${id}/presentation-share`, { password: password ?? null }),
+    onSuccess: (data, { id }) => {
+      queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
+        old.map(w => w.id === id ? { ...w, presentation_share_token: data.token, presentation_share_enabled: 1, presentation_share_has_password: data.has_password ? 1 : 0 } : w)
+      )
+    },
+  })
+
+  async function sharePresentation(password?: string | null): Promise<{ token: string; url: string } | null> {
+    if (!workspace) return null
+    try { return await sharePresentationMutation.mutateAsync({ id: workspace.id, password }) }
+    catch { return null }
+  }
+
+  const setPresentationSharePasswordMutation = useMutation({
+    mutationFn: ({ id, password }: { id: string; password: string | null }) =>
+      api.patch<{ ok: boolean; has_password: boolean }>(`/workspaces/${id}/presentation-share/password`, { password }),
+    onSuccess: (data, { id }) => {
+      queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
+        old.map(w => w.id === id ? { ...w, presentation_share_has_password: data.has_password ? 1 : 0 } : w)
+      )
+    },
+  })
+
+  async function setPresentationSharePassword(password: string | null): Promise<boolean> {
+    if (!workspace) return false
+    try { await setPresentationSharePasswordMutation.mutateAsync({ id: workspace.id, password }); return true }
+    catch { return false }
+  }
+
+  const unsharePresentationMutation = useMutation({
+    mutationFn: (id: string) =>
+      api.delete<void>(`/workspaces/${id}/presentation-share`),
+    onSuccess: (_, id) => {
+      queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
+        old.map(w => w.id === id ? { ...w, presentation_share_enabled: 0 } : w)
+      )
+    },
+  })
+
+  async function unsharePresentation(): Promise<boolean> {
+    if (!workspace) return false
+    try { await unsharePresentationMutation.mutateAsync(workspace.id); return true }
     catch { return false }
   }
 
@@ -1045,6 +1096,22 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     clearCanvas, deleteCanvas, clearKey, loadKey, deleteWorkspace, reorderCanvases,
     currentShares, loadCanvasShares, createShare, updateShare, deleteShare,
     shareWorkspace, unshareWorkspace, updateWorkspaceShare,
+    sharePresentation, unsharePresentation, setPresentationSharePassword,
     prefetchThumbnail,
+    hasCanvasData: (id: string) => !!queryClient.getQueryData(['canvas', id]),
+    prefetchCanvases: (ids: string[]) => {
+      for (const id of ids) {
+        if (queryClient.getQueryData(['canvas', id])) continue
+        queryClient.prefetchQuery({
+          queryKey: ['canvas', id],
+          queryFn: () => api.get<{
+            name: string
+            updated_at: number
+            data: { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; images?: Record<string, string> }
+          }>(`/canvases/${id}`),
+          staleTime: Infinity,
+        })
+      }
+    },
   }
 }

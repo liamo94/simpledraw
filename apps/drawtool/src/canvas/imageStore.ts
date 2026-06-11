@@ -44,6 +44,7 @@ function idbKey(id: string) {
 }
 
 export async function storeImage(id: string, dataUrl: string): Promise<void> {
+  if (!dataUrl.startsWith('data:image/')) return;
   await set(idbKey(id), dataUrl);
   await new Promise<void>((resolve) => {
     const el = new Image();

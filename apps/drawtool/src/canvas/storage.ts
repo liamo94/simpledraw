@@ -1,4 +1,4 @@
-import type { Stroke, StashItem } from "./types";
+import type { Stroke, StashItem, Slide } from "./types";
 
 // ─── Cloud save hook ──────────────────────────────────────────────────────────
 
@@ -198,6 +198,29 @@ export function saveStash(items: StashItem[]) {
   } catch {
     /* ignore */
   }
+}
+
+// ─── Slides persistence (per-workspace) ───────────────────────────────────────
+
+function slidesWsKey(wsKey: string) { return `drawtool-slides-ws-${wsKey}` }
+
+export function loadSlides(wsKey: string): Slide[] {
+  try {
+    const raw = localStorage.getItem(slidesWsKey(wsKey))
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed)) return parsed
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
+export function saveSlides(slides: Slide[], wsKey: string) {
+  try {
+    if (slides.length === 0) { localStorage.removeItem(slidesWsKey(wsKey)); return }
+    const stripped = slides.map(({ thumbnail: _t, ...s }) => s)
+    localStorage.setItem(slidesWsKey(wsKey), JSON.stringify(stripped))
+  } catch { /* ignore */ }
 }
 
 // ─── View persistence ─────────────────────────────────────────────────────────
