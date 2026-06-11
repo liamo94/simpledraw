@@ -3,7 +3,7 @@ import { useAuth, useUser } from '@clerk/clerk-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { loadStrokes, loadView, saveStrokes, saveView, setSaveHook } from '../canvas/storage'
 import { getImageDataUrl, getImageDataUrlFromIdb, storeImage } from '../canvas/imageStore'
-import type { Stroke } from '../canvas/types'
+import type { Stroke, Slide } from '../canvas/types'
 import { anyStrokeBBox } from '../canvas/geometry'
 import { generateCanvasThumbnail } from '../canvas/rendering'
 import { createApi, ApiError } from '../lib/api'
@@ -82,6 +82,7 @@ export type CloudWorkspace = {
   is_pinned: number
   is_favourite: number
   canvases: CloudCanvasMeta[]
+  slides: Omit<Slide, 'thumbnail'>[] | null
   presentation_share_token: string | null
   presentation_share_enabled: number
   presentation_share_has_password: number
@@ -682,7 +683,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     mutationFn: (name?: string) =>
       api.post<{ id: string; name: string }>('/workspaces', { name }),
     onSuccess: ({ id, name: wsName }) => {
-      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [], presentation_share_token: null, presentation_share_enabled: 0, presentation_share_has_password: 0 }
+      const newWs: CloudWorkspace = { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [], slides: null, presentation_share_token: null, presentation_share_enabled: 0, presentation_share_has_password: 0 }
       queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) => [...old, newWs])
     },
   })
@@ -690,7 +691,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   async function createWorkspace(name?: string): Promise<CloudWorkspace | null> {
     try {
       const { id, name: wsName } = await createWorkspaceMutation.mutateAsync(name)
-      return { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [], presentation_share_token: null, presentation_share_enabled: 0, presentation_share_has_password: 0 }
+      return { id, name: wsName, share_token: null, share_enabled: 0, share_expires_at: null, share_has_password: 0, view_count: 0, is_pinned: 0, is_favourite: 0, canvases: [], slides: null, presentation_share_token: null, presentation_share_enabled: 0, presentation_share_has_password: 0 }
     } catch {
       return null
     }

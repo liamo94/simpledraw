@@ -1565,9 +1565,16 @@ export default function App() {
   const wsKeyRef = useRef(wsKey)
   wsKeyRef.current = wsKey
 
-  // Load slides when workspace changes
+  // Load slides when workspace changes — prefer cloud slides over empty localStorage
   useEffect(() => {
-    setSlides(loadSlides(wsKey))
+    const local = loadSlides(wsKey)
+    if (local.length === 0 && cloudCanvas.workspace?.slides?.length) {
+      const cloudSlides = cloudCanvas.workspace.slides as Slide[]
+      setSlides(cloudSlides)
+      saveSlides(cloudSlides, wsKey)
+    } else {
+      setSlides(local)
+    }
     setPresentationMode(false)
   }, [wsKey])
 
@@ -2474,7 +2481,7 @@ export default function App() {
           isPro={isPro}
         />
       )}
-      {hasTouch ? (
+      {!presentationMode && hasTouch ? (
         <>
           {(showShapePicker ||
             showThicknessPicker ||
