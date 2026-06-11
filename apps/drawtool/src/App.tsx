@@ -1727,6 +1727,15 @@ export default function App() {
       showToast({ type: "text", message: "Welcome to Unleashed!" }, 3000);
     }
   }, []);
+  function resolveSlideView(slide: Slide): { x: number; y: number; scale: number } {
+    if (!slide.worldCenter) return slide.view
+    return {
+      x: window.innerWidth / 2 - slide.worldCenter.x * slide.view.scale,
+      y: window.innerHeight / 2 - slide.worldCenter.y * slide.view.scale,
+      scale: slide.view.scale,
+    }
+  }
+
   function navigateToSlide(idx: number) {
     const slide = slides[idx]
     if (!slide) return
@@ -1738,6 +1747,7 @@ export default function App() {
     const needsSwitch = currentCloudId
       ? slide.canvasId && slide.canvasId !== currentCloudId
       : slide.canvasIndex !== currentActiveCanvas
+    const resolvedView = resolveSlideView(slide)
     if (needsSwitch) {
       setPresentationCanvasLoading(true)
       if (currentCloudId && slide.canvasId) {
@@ -1745,19 +1755,19 @@ export default function App() {
         // Cover can drop on activeCanvas change. If not cached, wait for loadKey bump.
         presentationWaitingForCloudLoad.current = true
         presentationCloudCacheHit.current = cloudCanvas.hasCanvasData(slide.canvasId)
-        saveView(slide.view, 1)
-        pendingNavViewRef.current = slide.view
+        saveView(resolvedView, 1)
+        pendingNavViewRef.current = resolvedView
         cloudSwitchRef.current?.(slide.canvasIndex)
       } else {
         // Local: cover waits for activeCanvas state change (Canvas remounts with pre-saved data)
         presentationWaitingForCloudLoad.current = false
-        saveView(slide.view, slide.canvasIndex)
+        saveView(resolvedView, slide.canvasIndex)
         setActiveCanvas(slide.canvasIndex)
         activeCanvasRef.current = slide.canvasIndex
         localStorage.setItem('drawtool-active-canvas', String(slide.canvasIndex))
       }
     } else {
-      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: slide.view }))
+      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: resolvedView }))
       // No canvas switch — strokes are already current, render from the slide's stored view.
       setTimeout(() => {
         if (pendingThumbnailSlideRef.current !== idx) return  // navigated away before capture
@@ -1777,6 +1787,11 @@ export default function App() {
       getBackgroundColor(settings.theme, settings.customThemeBg),
     ) ?? undefined
     const activeCanvasMeta = cloudCanvas.activeCanvasMeta
+    const v = viewDetail.view
+    const worldCenter = {
+      x: (window.innerWidth / 2 - v.x) / v.scale,
+      y: (window.innerHeight / 2 - v.y) / v.scale,
+    }
     const newSlide: Slide = {
       id: Math.random().toString(36).slice(2, 10),
       name: `Slide ${slides.length + 1}`,
@@ -1784,6 +1799,7 @@ export default function App() {
       canvasId: cloudCanvas.activeId ?? undefined,
       canvasName: activeCanvasMeta?.name || canvasNameRef.current || undefined,
       view: viewDetail.view,
+      worldCenter,
       thumbnail,
     }
     setSlides(prev => [...prev, newSlide])

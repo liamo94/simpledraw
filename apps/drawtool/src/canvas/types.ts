@@ -101,5 +101,7 @@ export type Slide = {
   canvasId?: string;
   canvasName?: string;
   view: { x: number; y: number; scale: number };
+  /** World-space center point stored when the slide was created. Used to re-center the view correctly on different screen sizes / orientations. */
+  worldCenter?: { x: number; y: number };
   thumbnail?: string;
 };
