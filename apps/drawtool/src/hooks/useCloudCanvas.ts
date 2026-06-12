@@ -4,7 +4,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { loadStrokes, loadView, saveStrokes, saveView, setSaveHook } from '../canvas/storage'
 import { getImageDataUrl, getImageDataUrlFromIdb, storeImage } from '../canvas/imageStore'
 import type { Stroke, Slide } from '../canvas/types'
-import { anyStrokeBBox } from '../canvas/geometry'
 import { generateCanvasThumbnail } from '../canvas/rendering'
 import { createApi, ApiError } from '../lib/api'
 import { useCloudSessionStore } from '../stores/cloudSessionStore'
@@ -20,36 +19,6 @@ const DIRTY_KEY = 'drawtool-cloud-dirty'
 // If the server's saved view would put all strokes off-screen on this device (e.g. view was
 // saved on a desktop and is now loading on mobile), compute a centered fit view instead.
 // This runs before Canvas mounts so there's no visible snap.
-function viewForDevice(
-  view: { x: number; y: number; scale: number },
-  strokes: Stroke[]
-): { x: number; y: number; scale: number } {
-  if (strokes.length === 0) return view;
-  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-  for (const stroke of strokes) {
-    const bb = anyStrokeBBox(stroke);
-    if (bb.x < minX) minX = bb.x;
-    if (bb.y < minY) minY = bb.y;
-    if (bb.x + bb.w > maxX) maxX = bb.x + bb.w;
-    if (bb.y + bb.h > maxY) maxY = bb.y + bb.h;
-  }
-  if (!isFinite(minX)) return view;
-  const { x, y, scale } = view;
-  const vw = window.innerWidth;
-  const vh = window.innerHeight;
-  const offScreen =
-    maxX * scale + x < 0 || minX * scale + x > vw ||
-    maxY * scale + y < 0 || minY * scale + y > vh;
-  if (!offScreen) return view;
-  const pad = 60;
-  const w = maxX - minX;
-  const h = maxY - minY;
-  if (w === 0 && h === 0) return { x: vw / 2 - minX * scale, y: vh / 2 - minY * scale, scale };
-  const newScale = Math.min(10, Math.max(0.1, Math.min((vw - pad * 2) / w, (vh - pad * 2) / h)));
-  const cx = (minX + maxX) / 2;
-  const cy = (minY + maxY) / 2;
-  return { x: vw / 2 - cx * newScale, y: vh / 2 - cy * newScale, scale: newScale };
-}
 
 export type CloudCanvasMeta = {
   id: string
@@ -409,10 +378,8 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       if (isInitialLoad) storeThumbnail(capturedActiveId, strokes, isDarkRef.current)
       setCachedCanvasName(name)
       if (isInitialLoad) {
-        // First load: restore saved viewport and remount Canvas.
-        // viewForDevice guards against a view saved on a different screen size (e.g. desktop
-        // view loaded on mobile) snapping content off-screen before the user can interact.
-        saveView(viewForDevice(data.view, strokes), CLOUD_SLOT)
+        // Remount Canvas with server strokes. Do NOT restore the server's saved view —
+        // keep the view already in slot 1 (saved by this device's last session).
         bumpLoadKey()
       } else {
         // Live sync: update strokes in-place so viewport is preserved
