@@ -477,7 +477,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         }
         // Printable character - handled by keydown on desktop (preventDefault prevents double-insert
         // if textarea also has focus); mobile soft keyboard sends input events instead
-        if (e.key.length === 1) {
+        if (e.key?.length === 1) {
           e.preventDefault();
           replaceSelection(e.key);
           return;
