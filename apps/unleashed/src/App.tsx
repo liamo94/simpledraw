@@ -22,171 +22,261 @@ type SharedCanvas = {
 type SharedWorkspace = { id: string; name: string; token: string; view_count: number };
 type SharedItems = { workspaces: SharedWorkspace[]; canvases: SharedCanvas[] };
 
-const FEATURES: {
-  icon: React.ReactNode;
+// ─── Comparison data ──────────────────────────────────────────────────────────
+
+type CellValue = boolean | string;
+
+type ComparisonRow = {
+  feature: string;
+  free: CellValue;
+  pro: CellValue;
+  soon?: boolean;
+};
+
+type ComparisonSection = {
   title: string;
-  description: string;
-}[] = [
+  rows: ComparisonRow[];
+};
+
+const COMPARISON: ComparisonSection[] = [
   {
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect x="1" y="1" width="4" height="4" rx="0.8" />
-        <rect x="6" y="1" width="4" height="4" rx="0.8" />
-        <rect x="11" y="1" width="4" height="4" rx="0.8" />
-        <rect x="1" y="6" width="4" height="4" rx="0.8" />
-        <rect x="6" y="6" width="4" height="4" rx="0.8" />
-        <rect x="11" y="6" width="4" height="4" rx="0.8" />
-        <rect x="1" y="11" width="4" height="4" rx="0.8" />
-        <rect x="6" y="11" width="4" height="4" rx="0.8" />
-        <rect x="11" y="11" width="4" height="4" rx="0.8" />
-      </svg>
-    ),
-    title: "All 9 canvases unlocked",
-    description: "Access all 9 canvas slots per workspace, not just 3.",
+    title: "Tools",
+    rows: [
+      { feature: "Infinite canvas", free: true, pro: true },
+      { feature: "Drawing tools", free: "11", pro: "11" },
+      { feature: "Shapes", free: "10", pro: "10" },
+      { feature: "Font families", free: "6", pro: "6" },
+      { feature: "All keyboard shortcuts", free: true, pro: true },
+      { feature: "Pressure sensitivity", free: true, pro: true },
+      { feature: "Insert images", free: true, pro: true },
+      { feature: "Stash", free: true, pro: true },
+      { feature: "Rebindable mouse buttons", free: true, pro: true },
+    ],
   },
   {
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <rect x="1" y="5.5" width="14" height="8.5" rx="1.5" />
-        <path d="M4 5.5V4A1.5 1.5 0 0 1 5.5 2.5h5A1.5 1.5 0 0 1 12 4v1.5" />
-      </svg>
-    ),
-    title: "Workspaces",
-    description: "Organise your work into as many workspaces as you like.",
+    title: "Themes & colors",
+    rows: [
+      { feature: "Colors", free: "Palette", pro: "Palette + custom" },
+      { feature: "Themes", free: "8 included", pro: "8 + custom" },
+      { feature: "Custom canvas icon", free: false, pro: true },
+    ],
   },
   {
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M8 2v8M5 7l3 3 3-3" />
-        <path d="M2 12v.5A1.5 1.5 0 0 0 3.5 14h9a1.5 1.5 0 0 0 1.5-1.5V12" />
-      </svg>
-    ),
-    title: "Clean exports",
-    description: "Download PNG and SVG without the drawzilla watermark.",
+    title: "Canvases",
+    rows: [
+      { feature: "Canvas slots", free: "3", pro: "9" },
+      { feature: "Cloud sync", free: true, pro: true },
+      { feature: "Settings sync across devices", free: true, pro: true },
+    ],
   },
   {
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M6.5 9.5a3.2 3.2 0 0 0 4.5 0l1.5-1.5a3.2 3.2 0 0 0-4.5-4.5L7.2 4.3" />
-        <path d="M9.5 6.5a3.2 3.2 0 0 0-4.5 0L3.5 8a3.2 3.2 0 0 0 4.5 4.5L8.8 11.7" />
-      </svg>
-    ),
-    title: "Share permanent live links",
-    description:
-      "Share any canvas as a read-only link. Anyone can view and fork it.",
+    title: "Export",
+    rows: [
+      { feature: "Export & import canvases", free: true, pro: true },
+      { feature: "PNG export", free: "Watermarked", pro: "Clean" },
+      { feature: "SVG export", free: false, pro: true },
+      { feature: "PDF export", free: false, pro: true },
+      { feature: "Export selection", free: false, pro: true },
+    ],
   },
   {
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M9 1.5L3.5 9H8L7 14.5l5.5-7H9L10 1.5z" />
-      </svg>
-    ),
-    title: "Priority support",
-    description: "Get help faster when something goes wrong.",
+    title: "Organization",
+    rows: [
+      { feature: "Workspaces", free: "1", pro: true },
+    ],
   },
   {
-    icon: (
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 16 16"
-        fill="none"
-        stroke="currentColor"
-        strokeWidth="1.5"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      >
-        <path d="M13.5 8a5.5 5.5 0 0 1-9.9 3.3" />
-        <path d="M2.5 8a5.5 5.5 0 0 1 9.9-3.3" />
-        <path d="M13.5 4.5V8H10M2.5 11.5V8H6" />
-      </svg>
-    ),
-    title: "Sync everywhere",
-    description: "Your canvases follow you - open drawzilla on any device.",
+    title: "Sharing",
+    rows: [
+      { feature: "Canvas share links", free: true, pro: "Live" },
+      { feature: "Workspace share links", free: false, pro: true },
+      { feature: "View counts", free: false, pro: true },
+      { feature: "Expiring links", free: false, pro: true },
+      { feature: "Password-protected links", free: false, pro: true },
+      { feature: "Embed widget", free: false, pro: true },
+      { feature: "Presentation mode", free: false, pro: true },
+    ],
+  },
+  {
+    title: "Coming soon",
+    rows: [
+      { feature: "Version history", free: false, pro: true, soon: true },
+    ],
   },
 ];
 
-function FeatureCard({
-  icon,
-  title,
-  description,
-}: {
-  icon: React.ReactNode;
-  title: string;
-  description: string;
-}) {
+// ─── Comparison table ─────────────────────────────────────────────────────────
+
+function CheckIcon({ color }: { color: string }) {
   return (
-    <div
-      className="rounded-xl p-5 border transition-colors"
-      style={{
-        background: "rgba(255,255,255,0.03)",
-        borderColor: "rgba(255,255,255,0.07)",
-      }}
-      onMouseEnter={(e) => {
-        e.currentTarget.style.borderColor = "rgba(57,255,20,0.22)";
-        e.currentTarget.style.background = "rgba(57,255,20,0.03)";
-      }}
-      onMouseLeave={(e) => {
-        e.currentTarget.style.borderColor = "rgba(255,255,255,0.07)";
-        e.currentTarget.style.background = "rgba(255,255,255,0.03)";
-      }}
-    >
-      <div
-        className="w-8 h-8 rounded-lg flex items-center justify-center mb-4"
-        style={{ background: "rgba(57,255,20,0.1)", color: "#39ff14" }}
-      >
-        {icon}
-      </div>
-      <div className="text-sm font-semibold text-white/90 mb-1.5">{title}</div>
-      <div className="text-xs text-white/40 leading-relaxed">{description}</div>
-    </div>
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M3 8l3.5 3.5L13 4"
+        stroke={color}
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
+
+function CrossIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <path
+        d="M5 5l6 6M11 5l-6 6"
+        stroke="rgba(255,255,255,0.15)"
+        strokeWidth="1.5"
+        strokeLinecap="round"
+      />
+    </svg>
+  );
+}
+
+function Cell({ value, isPro }: { value: CellValue; isPro: boolean }) {
+  if (typeof value === "boolean") {
+    return value ? (
+      <CheckIcon color={isPro ? "#39ff14" : "rgba(255,255,255,0.4)"} />
+    ) : (
+      <CrossIcon />
+    );
+  }
+  return (
+    <span
+      className="text-sm font-medium"
+      style={{ color: isPro ? "#a8ff87" : "rgba(255,255,255,0.45)" }}
+    >
+      {value}
+    </span>
+  );
+}
+
+function ComparisonTable() {
+  return (
+    <section className="max-w-2xl mx-auto px-4 pb-24">
+      <p className="text-center text-[11px] text-white/25 uppercase tracking-widest mb-4">
+        Compare plans
+      </p>
+      <p className="text-center text-white/50 text-sm mb-8 leading-relaxed">
+        drawzilla is free forever. Unleashed is your upgrade when you're ready to take it to the next level.
+      </p>
+
+      <div
+        className="rounded-2xl overflow-hidden border"
+        style={{
+          borderColor: "rgba(255,255,255,0.07)",
+          background: "rgba(255,255,255,0.02)",
+        }}
+      >
+        {/* Column headers */}
+        <div
+          className="grid border-b"
+          style={{
+            gridTemplateColumns: "1fr 100px 130px",
+            borderColor: "rgba(255,255,255,0.07)",
+          }}
+        >
+          <div className="px-5 py-4" />
+          <div
+            className="flex items-center justify-center px-2 py-4 border-l"
+            style={{ borderColor: "rgba(255,255,255,0.07)" }}
+          >
+            <span className="text-xs font-semibold text-white/30">drawzilla</span>
+          </div>
+          <div
+            className="flex items-center justify-center px-2 py-4 border-l"
+            style={{
+              borderColor: "rgba(57,255,20,0.15)",
+              background: "rgba(57,255,20,0.05)",
+            }}
+          >
+            <span style={{
+              fontFamily: "'Bangers', cursive",
+              fontSize: "0.9rem",
+              letterSpacing: "0.1em",
+              color: "#39ff14",
+            }}>
+              UNLEASHED
+            </span>
+          </div>
+        </div>
+
+        {COMPARISON.map((section, si) => (
+          <div key={section.title}>
+            {/* Section header */}
+            <div
+              className="grid border-b"
+              style={{
+                gridTemplateColumns: "1fr 100px 130px",
+                borderColor: "rgba(255,255,255,0.05)",
+              }}
+            >
+              <div
+                className="col-span-3 px-5 py-2"
+                style={{ background: "rgba(255,255,255,0.025)" }}
+              >
+                <span className="text-[10px] font-semibold text-white/25 uppercase tracking-widest">
+                  {section.title}
+                </span>
+              </div>
+            </div>
+
+            {section.rows.map((row, ri) => {
+              const isLast =
+                ri === section.rows.length - 1 && si === COMPARISON.length - 1;
+              return (
+                <div
+                  key={row.feature}
+                  className="grid"
+                  style={{
+                    gridTemplateColumns: "1fr 100px 130px",
+                    borderBottom: isLast
+                      ? "none"
+                      : "1px solid rgba(255,255,255,0.04)",
+                  }}
+                >
+                  <div className="flex items-center gap-2 px-5 py-3">
+                    <span className="text-sm text-white/60">{row.feature}</span>
+                    {row.soon && (
+                      <span
+                        className="text-[9px] font-semibold px-1.5 py-0.5 rounded uppercase tracking-wide"
+                        style={{
+                          background: "rgba(255,200,50,0.1)",
+                          color: "rgba(255,200,50,0.6)",
+                          border: "1px solid rgba(255,200,50,0.15)",
+                        }}
+                      >
+                        soon
+                      </span>
+                    )}
+                  </div>
+                  <div
+                    className="flex items-center justify-center border-l"
+                    style={{ borderColor: "rgba(255,255,255,0.05)" }}
+                  >
+                    <Cell value={row.free} isPro={false} />
+                  </div>
+                  <div
+                    className="flex items-center justify-center border-l"
+                    style={{
+                      borderColor: "rgba(57,255,20,0.1)",
+                      background: "rgba(57,255,20,0.025)",
+                    }}
+                  >
+                    <Cell value={row.pro} isPro={true} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+// ─── Hooks ────────────────────────────────────────────────────────────────────
 
 function formatSince(ts: number): string {
   return new Date(ts * 1000).toLocaleDateString("en-GB", {
@@ -240,6 +330,8 @@ function useSharedItems() {
 
   return { items: items ?? null, loading: isLoading, refetch };
 }
+
+// ─── Shared UI components ─────────────────────────────────────────────────────
 
 import { DrawzillaLogo, LOGO_LETTERS, DRAW_URL } from "./Logo";
 
@@ -512,7 +604,6 @@ function ProfileSection({ startedAt }: { startedAt: number | null }) {
             "0 0 60px rgba(57,255,20,0.05), 0 1px 0 rgba(255,255,255,0.04) inset",
         }}
       >
-        {/* Header */}
         <div
           className="flex items-center justify-between px-5 py-4 border-b"
           style={{
@@ -544,7 +635,6 @@ function ProfileSection({ startedAt }: { startedAt: number | null }) {
           <CtaButton hideIfPro={false} />
         </div>
 
-        {/* Shared items */}
         <div className="px-5 py-4">
           <div className="text-[10px] font-semibold text-white/30 uppercase tracking-widest mb-3">
             Shared publicly
@@ -644,6 +734,8 @@ function ProfileSection({ startedAt }: { startedAt: number | null }) {
   );
 }
 
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
 export default function App() {
   const { isSignedIn, isLoaded } = useUser();
   const { status, loading: statusLoading } = useSubStatus();
@@ -683,7 +775,6 @@ export default function App() {
 
       {/* Hero */}
       <section className="min-h-[92vh] flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-20 px-6 pt-24 pb-16 max-w-6xl mx-auto">
-        {/* Text */}
         <div className="relative flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-lg">
           <div ref={heroLogoRef} className="mb-6">
             <DrawzillaLogo iconSize={64} fontSize="3.5rem" letterGap={2} />
@@ -709,7 +800,7 @@ export default function App() {
           </h1>
 
           <p className="text-white/50 text-base max-w-sm mb-10 leading-relaxed">
-            All canvases unlocked, workspaces, permanent share links, and more - synced across every device.
+            9 canvases, clean exports, custom themes, presentation mode, shareable embeds, and more — synced across every device.
           </p>
 
           <CtaButton hideIfPro />
@@ -723,7 +814,7 @@ export default function App() {
           </p>
         </div>
 
-        {/* Mascot - evolves once on load */}
+        {/* Mascot */}
         <div
           style={{
             position: "relative",
@@ -748,7 +839,6 @@ export default function App() {
             </defs>
           </svg>
 
-          {/* Normal mascot - shown until flash */}
           {evoPhase !== "unleashed" && (
             <img
               src="/mascot-normal.png"
@@ -780,7 +870,6 @@ export default function App() {
             />
           )}
 
-          {/* Roaring mascot - bursts in after flash, then floats */}
           {evoPhase === "unleashed" && (
             <img
               src="/mascot.png"
@@ -804,19 +893,10 @@ export default function App() {
         <ProfileSection startedAt={status?.startedAt ?? null} />
       )}
 
-      {/* Features */}
-      <section className="max-w-2xl mx-auto px-6 pb-24">
-        <p className="text-center text-[11px] text-white/25 uppercase tracking-widest mb-8">
-          What's included
-        </p>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {FEATURES.map((f) => (
-            <FeatureCard key={f.title} {...f} />
-          ))}
-        </div>
-      </section>
+      {/* Comparison table */}
+      <ComparisonTable />
 
-      {/* Pricing - hidden until plan is known and for existing subscribers */}
+      {/* Pricing - hidden for existing subscribers */}
       {planKnown && !isUnleashed && (
         <section className="flex justify-center px-6 pb-32">
           <div
@@ -837,40 +917,6 @@ export default function App() {
               Billed monthly. Cancel anytime via your account portal. No refunds
               for partial months.
             </p>
-
-            <div className="flex flex-col gap-2 text-left mb-6">
-              {[
-                "All 9 canvases unlocked",
-                "Workspaces",
-                "Clean PNG & SVG export",
-                "Share links",
-                "Priority support",
-              ].map((item) => (
-                <div
-                  key={item}
-                  className="flex items-center gap-2 text-xs text-white/60"
-                >
-                  <svg width="12" height="12" viewBox="0 0 12 12" fill="none">
-                    <circle
-                      cx="6"
-                      cy="6"
-                      r="5.5"
-                      stroke="#39ff14"
-                      strokeOpacity="0.5"
-                    />
-                    <path
-                      d="M3.5 6L5.5 8L8.5 4"
-                      stroke="#39ff14"
-                      strokeWidth="1.2"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    />
-                  </svg>
-                  {item}
-                </div>
-              ))}
-            </div>
-
             <CtaButton />
           </div>
         </section>
