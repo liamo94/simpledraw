@@ -1344,6 +1344,9 @@ export default function App() {
     settings.lastActiveCanvasId,
     _newRouteForCloud,
   );
+  // Show a cover until the first cloud load completes to hide the stale-view flash
+  // that occurs when bumpLoadKey remounts Canvas with the server's saved viewport.
+  const isCloudInitialLoading = isSignedIn === true && !!cloudCanvas.activeId && cloudCanvas.loadKey === 0;
   cloudActiveIdRef.current = cloudCanvas.activeId;
   cloudCanvasesRef.current = cloudCanvas.workspace?.canvases ?? [];
   captureSlideThumbnailRef.current = (idx: number) => {
@@ -2432,6 +2435,12 @@ export default function App() {
           rightClickTool={settings.rightClickTool}
           presentationMode={presentationMode}
           onContentOffScreen={setContentOffScreen}
+        />
+      )}
+      {isCloudInitialLoading && (
+        <div
+          className="fixed inset-0"
+          style={{ background: getBackgroundColor(settings.theme, settings.customThemeBg), zIndex: 5 }}
         />
       )}
       {activeCanvas > canvasLimit &&
