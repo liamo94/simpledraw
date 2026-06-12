@@ -83,7 +83,8 @@ function clerkVarsForTheme(theme: string) {
 }
 
 function clerkElementsForTheme(theme: string) {
-  if (!DARK_THEMES.has(theme)) return {}
+  const isDark = DARK_THEMES.has(theme)
+  if (!isDark) return {}
   return {
     socialButtonsBlockButton: {
       backgroundColor: 'rgba(255,255,255,0.07)',

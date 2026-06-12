@@ -514,6 +514,7 @@ export default function App() {
   const [slides, setSlides] = useState<Slide[]>([]);
   const [showSlides, setShowSlides] = useState(false);
   const [presentationMode, setPresentationMode] = useState(false);
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const [presentationIndex, setPresentationIndex] = useState(0);
   const [presentationControlsVisible, setPresentationControlsVisible] = useState(true);
   const [presentationLasering, setPresentationLasering] = useState(false);
@@ -1514,6 +1515,9 @@ export default function App() {
       const name = localStorage.getItem(`drawtool-canvas-name-${slot}`) ?? "";
       setCanvasName(name);
       canvasNameRef.current = name;
+      if (settings.theme === "custom") {
+        updateSettings({ theme: isDarkTheme(settings.theme, settings.customThemeBg) ? "dark" : "white" });
+      }
     }
   }, [isSignedIn]);
 
@@ -1677,12 +1681,37 @@ export default function App() {
     return () => { if (slidesSyncTimerRef.current) clearTimeout(slidesSyncTimerRef.current) }
   }, [slides, isSignedIn, cloudCanvas.workspace?.id, isPro])
 
+  // Track fullscreen state
+  useEffect(() => {
+    const handler = () => setIsFullscreen(!!document.fullscreenElement)
+    document.addEventListener('fullscreenchange', handler)
+    return () => document.removeEventListener('fullscreenchange', handler)
+  }, [])
+
   // Keep controls visible while laser is active in presentation mode
   useEffect(() => {
     if (!presentationLasering) return
     setPresentationControlsVisible(true)
     if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
   }, [presentationLasering])
+
+  // Hide cursor after inactivity in presentation mode
+  useEffect(() => {
+    if (!presentationMode) return
+    let timer: ReturnType<typeof setTimeout> | null = null
+    const showCursor = () => {
+      document.documentElement.classList.remove('presentation-cursor-hidden')
+      if (timer) clearTimeout(timer)
+      timer = setTimeout(() => { document.documentElement.classList.add('presentation-cursor-hidden') }, 2500)
+    }
+    showCursor()
+    document.addEventListener('mousemove', showCursor)
+    return () => {
+      document.removeEventListener('mousemove', showCursor)
+      if (timer) clearTimeout(timer)
+      document.documentElement.classList.remove('presentation-cursor-hidden')
+    }
+  }, [presentationMode])
 
   // Keyboard navigation in presentation mode
   useEffect(() => {
@@ -1702,6 +1731,9 @@ export default function App() {
         presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
         const prev = Math.max(0, presentationIndex - 1)
         if (prev !== presentationIndex) navigateToSlide(prev)
+      } else if (e.key === 'f') {
+        e.preventDefault(); e.stopPropagation()
+        toggleFullscreen()
       } else if (e.key === 'Escape') {
         e.preventDefault(); e.stopPropagation()
         exitPresentation()
@@ -1828,6 +1860,7 @@ export default function App() {
   }
 
   function exitPresentation() {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {})
     setPresentationMode(false)
     setShowSlides(true)
     setPresentationCanvasLoading(false)
@@ -5747,6 +5780,20 @@ export default function App() {
 
                 <div className="w-px h-5 mx-1" style={{ background: isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.10)' }} />
 
+                {/* Fullscreen */}
+                <button
+                  onClick={toggleFullscreen}
+                  className="flex items-center justify-center w-7 h-7 rounded-lg transition-colors"
+                  style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)' }}
+                  title={isFullscreen ? 'Exit fullscreen (F)' : 'Fullscreen (F)'}
+                  onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'; (e.currentTarget as HTMLElement).style.color = isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = 'transparent'; (e.currentTarget as HTMLElement).style.color = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)' }}
+                >
+                  {isFullscreen
+                    ? <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="8 3 3 3 3 8"/><polyline points="12 3 17 3 17 8"/><polyline points="8 17 3 17 3 12"/><polyline points="12 17 17 17 17 12"/></svg>
+                    : <svg width="13" height="13" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 8 3 3 8 3"/><polyline points="17 8 17 3 12 3"/><polyline points="3 12 3 17 8 17"/><polyline points="17 12 17 17 12 17"/></svg>
+                  }
+                </button>
                 {/* Exit */}
                 <button
                   onClick={exitPresentation}

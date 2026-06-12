@@ -5,6 +5,11 @@ button {
   -webkit-tap-highlight-color: transparent;
 }
 
+html.presentation-cursor-hidden,
+html.presentation-cursor-hidden * {
+  cursor: none !important;
+}
+
 html, body, #root {
   height: 100%;
   margin: 0;
