@@ -284,7 +284,7 @@ export default function SlidesPanel({
                           e.stopPropagation();
                           onPresent(i);
                         }}
-                        className="w-6 h-6 flex items-center justify-center rounded-md"
+                        className={`${hasTouch ? "w-10 h-10" : "w-6 h-6"} flex items-center justify-center rounded-md`}
                         style={{
                           background: "rgba(0,0,0,0.55)",
                           color: "rgba(255,255,255,0.9)",
@@ -320,7 +320,7 @@ export default function SlidesPanel({
                             slides.filter((s) => s.id !== slide.id),
                           );
                         }}
-                        className="w-6 h-6 flex items-center justify-center rounded-md transition-colors"
+                        className={`${hasTouch ? "w-10 h-10" : "w-6 h-6"} flex items-center justify-center rounded-md transition-colors`}
                         style={{
                           background: "rgba(0,0,0,0.55)",
                           color: "rgba(255,255,255,0.7)",
