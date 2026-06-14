@@ -1,5 +1,5 @@
 import React from "react";
-import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame, Upload, Presentation, LayoutDashboard, Square, SquareDashed, Circle } from "lucide-react";
+import { Scissors, Combine, Ungroup, Undo2, Redo2, RotateCw, Layers, Copy, ClipboardPaste, Maximize2, ScanSearch, MoveRight, BringToFront, CopyPlus, Hand, Search, ZoomIn, ZoomOut, MousePointer2, BoxSelect, SquareDashedMousePointer, Frame, Upload, Presentation, LayoutDashboard, Square, SquareDashed, Circle, SprayCan } from "lucide-react";
 
 const isMac = navigator.platform.toUpperCase().includes("MAC");
 const mod = isMac ? "⌘" : "Ctrl";
@@ -101,18 +101,7 @@ const ShieldLockIcon = () => <I strokeWidth="1.4"><path d="M8 2.5 L13 4.5 L13 9 
 const CombineIcon = () => <Combine size={12} strokeWidth={1.5} />;
 const StashIcon = () => <Layers size={12} strokeWidth={1.5} />;
 const UncombineIcon = () => <Ungroup size={12} strokeWidth={1.5} />;
-const SprayIcon = () => (
-  <svg width="12" height="12" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <circle cx="1.5" cy="3.5" r="0.85" fill="currentColor" stroke="none" />
-    <circle cx="0.5" cy="6.5" r="0.75" fill="currentColor" stroke="none" />
-    <circle cx="1.5" cy="9.5" r="0.75" fill="currentColor" stroke="none" />
-    <g transform="rotate(-12 9.5 10)">
-      <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
-      <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
-      <line x1="7.5" y1="5.5" x2="5" y2="5.5" />
-    </g>
-  </svg>
-);
+const SprayIcon = () => <SprayCan size={12} strokeWidth={1.5} />;
 
 // ─── Panel ────────────────────────────────────────────────────────────────────
 

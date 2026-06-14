@@ -3211,7 +3211,11 @@ function Canvas({
   const onPointerMove = useCallback(
     (e: React.PointerEvent<HTMLCanvasElement>) => {
       // Apple Pencil hover (pressure=0 = pen near screen but not touching)
-      if (e.pointerType === "pen" && e.pressure === 0 && !isDrawingRef.current) {
+      // pressure===0 with no button = genuine hover (pencil near but not touching).
+      // Guard against (e.buttons & 1): on some iPads the first pointermove after
+      // contact reports pressure=0 even though the pencil is touching; treating that
+      // as hover would silently drop the start of a hard-pressed stroke.
+      if (e.pointerType === "pen" && e.pressure === 0 && (e.buttons & 1) === 0 && !isDrawingRef.current) {
         penHoverScreenRef.current = { x: e.clientX, y: e.clientY };
         scheduleRedraw();
         return;

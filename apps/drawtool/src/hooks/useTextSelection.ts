@@ -208,6 +208,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
   } = refs;
 
   const lastLockedTapRef = useRef<{ time: number; stroke: Stroke } | null>(null);
+  const justStartedWritingRef = useRef(false);
   const pendingInteriorDragRef = useRef<{
     startPtr: { x: number; y: number };
     startPoints: { x: number; y: number }[];
@@ -322,6 +323,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
       scheduleRedraw();
     }, 530);
     isWritingRef.current = true;
+    justStartedWritingRef.current = true;
     // Expand textarea to full-screen so iOS doesn't auto-blur when canvas is touched.
     if (textareaRef?.current && ("ontouchstart" in window)) {
       textareaRef.current.style.pointerEvents = "auto";
@@ -429,12 +431,16 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             return;
           }
         }
-        // On touch, outside-bbox tap handling differs by mode:
-        // - New text session (text-tool, no editStroke): keep alive - commit via Done button only.
-        // - Editing existing stroke (editStroke set): commit on outside-bbox tap so the user
-        //   can dismiss editing by tapping away, consistent with iOS text-field behaviour.
+        // On touch, outside-bbox tap: commit and close keyboard.
+        // Guard against the tap that started writing - onTouchStartForText fires first
+        // (setting isWritingRef=true), then this handler fires for the same touch event.
+        // justStartedWritingRef distinguishes that initial tap from subsequent outside taps.
         if (e.pointerType === "touch") {
-          if (editStroke) finishWriting();
+          if (justStartedWritingRef.current) {
+            justStartedWritingRef.current = false;
+            return;
+          }
+          finishWriting();
           return;
         }
         // Pen in text-tool mode, new text: same - keep alive until tool switch.
@@ -450,6 +456,11 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
         // (inside onWriting) may break the gesture chain on some iOS versions.
         if (textareaRef?.current) textareaRef.current.focus();
         startWriting(wp);
+        // startWriting sets justStartedWritingRef=true to guard against the
+        // onTouchStartForText → handlePointerDownForText race. But when startWriting
+        // is called HERE (handlePointerDownForText itself, not via the race), there's
+        // no second handlePointerDownForText coming for this tap, so clear it immediately.
+        justStartedWritingRef.current = false;
         return;
       }
 

@@ -84,6 +84,7 @@ import {
   Undo2,
   Redo2,
   Trash2,
+  SprayCan,
 } from "lucide-react";
 
 const CLOUD_ENABLED = true; // set false to hide login/cloud features
@@ -2773,6 +2774,7 @@ export default function App() {
                             if (t.id === "shape") {
                               shapeLongPressRef.current = setTimeout(() => {
                                 setShowShapePicker(true);
+                                setShowTextPicker(false);
                                 setShowThicknessPicker(null);
                                 setShowHighlightPicker(false);
                                 setTouchTool(t.id);
@@ -2907,43 +2909,7 @@ export default function App() {
                         />
                       </svg>
                     ) : t.id === "highlight" && lastMarkTool === "spray" ? (
-                      <svg
-                        width="17"
-                        height="17"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        stroke={visibleLineColor}
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle
-                          cx="1.5"
-                          cy="3.5"
-                          r="0.85"
-                          fill={visibleLineColor}
-                          stroke="none"
-                        />
-                        <circle
-                          cx="0.5"
-                          cy="6.5"
-                          r="0.75"
-                          fill={visibleLineColor}
-                          stroke="none"
-                        />
-                        <circle
-                          cx="1.5"
-                          cy="9.5"
-                          r="0.75"
-                          fill={visibleLineColor}
-                          stroke="none"
-                        />
-                        <g transform="rotate(-12 9.5 10)">
-                          <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
-                          <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
-                          <line x1="7.5" y1="5.5" x2="5" y2="5.5" />
-                        </g>
-                      </svg>
+                      <SprayCan size={17} strokeWidth={1.75} />
                     ) : (
                       t.icon
                     )}
@@ -3504,7 +3470,7 @@ export default function App() {
                         height="17"
                         viewBox="0 0 16 16"
                         fill="none"
-                        stroke={visibleLineColor}
+                        stroke="currentColor"
                         strokeWidth="3"
                         strokeLinecap="round"
                         strokeOpacity="0.4"
@@ -3536,45 +3502,7 @@ export default function App() {
                         />
                       </svg>
                     )}
-                    {tool === "spray" && (
-                      <svg
-                        width="17"
-                        height="17"
-                        viewBox="0 0 16 16"
-                        fill="none"
-                        stroke={visibleLineColor}
-                        strokeWidth="1.5"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle
-                          cx="1.5"
-                          cy="3.5"
-                          r="0.85"
-                          fill={visibleLineColor}
-                          stroke="none"
-                        />
-                        <circle
-                          cx="0.5"
-                          cy="6.5"
-                          r="0.75"
-                          fill={visibleLineColor}
-                          stroke="none"
-                        />
-                        <circle
-                          cx="1.5"
-                          cy="9.5"
-                          r="0.75"
-                          fill={visibleLineColor}
-                          stroke="none"
-                        />
-                        <g transform="rotate(-12 9.5 10)">
-                          <rect x="6" y="7" width="7" height="8.5" rx="1.5" />
-                          <rect x="7.5" y="4" width="4" height="3" rx="0.5" />
-                          <line x1="7.5" y1="5.5" x2="5" y2="5.5" />
-                        </g>
-                      </svg>
-                    )}
+                    {tool === "spray" && <SprayCan size={17} strokeWidth={1.75} />}
                   </button>
                 ))}
               </div>
