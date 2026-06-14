@@ -8,12 +8,15 @@ export type Subscription = { status: string; cancelAt: number | null }
 
 type PlanData = { plan: UserPlan; subscription: Subscription | null }
 
-export async function openBillingPortal(getToken: () => Promise<string | null>) {
+export async function openBillingPortal(getToken: () => Promise<string | null>): Promise<boolean> {
   const api = createApi(getToken)
   try {
     const { url } = await api.post<{ url: string }>('/stripe/portal', { returnUrl: window.location.href })
-    if (url) window.location.href = url
-  } catch { /* ignore */ }
+    if (url) { window.location.href = url; return true }
+    return false
+  } catch {
+    return false
+  }
 }
 
 export function useUserPlan() {

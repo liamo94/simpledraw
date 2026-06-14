@@ -2404,7 +2404,10 @@ export default function App() {
         }
         subscription={subscription}
         onExportWorkspacesZip={exportWorkspacesZip}
-        onResubscribe={() => openBillingPortal(getToken)}
+        onResubscribe={async () => {
+          const ok = await openBillingPortal(getToken)
+          if (!ok) showToast({ type: 'text', message: "Couldn't open billing portal — please try again or contact support@drawzil.la" }, 5000)
+        }}
         cloudEnabled={CLOUD_ENABLED}
         unleashHovered={unleashHovered}
         slideCount={isPro ? slides.length : 0}

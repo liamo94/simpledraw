@@ -3350,6 +3350,22 @@ export default function Menu({
               </a>
             </div>
 
+            {subscription?.status === 'past_due' && onResubscribe && (
+              <div className={`mt-2 pt-2 border-t ${isDark ? "border-white/10" : "border-black/8"}`}>
+                <div className={`rounded-lg px-3 py-2.5 text-xs ${isDark ? "bg-red-900/40 text-red-200/80" : "bg-red-50 text-red-800"}`}>
+                  <div className="mb-2">
+                    Payment failed. Update your payment method to keep Unleashed.
+                  </div>
+                  <button
+                    onClick={onResubscribe}
+                    className={`px-2.5 py-1 rounded font-medium transition-colors ${isDark ? "bg-red-500/20 hover:bg-red-500/30 text-red-200" : "bg-red-100 hover:bg-red-200 text-red-800"}`}
+                  >
+                    Update payment
+                  </button>
+                </div>
+              </div>
+            )}
+
             {subscription?.status === 'cancelling' && subscription.cancelAt && (
               <div className={`mt-2 pt-2 border-t ${isDark ? "border-white/10" : "border-black/8"}`}>
                 <div className={`rounded-lg px-3 py-2.5 text-xs ${isDark ? "bg-amber-900/40 text-amber-200/80" : "bg-amber-50 text-amber-800"}`}>
