@@ -143,6 +143,10 @@ export function roughPolyPath(pts: { x: number; y: number }[], r: number): strin
     const l1 = Math.hypot(d1x, d1y);
     const d2x = next.x - curr.x, d2y = next.y - curr.y;
     const l2 = Math.hypot(d2x, d2y);
+    if (l1 < 1e-6 || l2 < 1e-6) {
+      d += i === 0 ? `M ${curr.x} ${curr.y} ` : `L ${curr.x} ${curr.y} `;
+      continue;
+    }
     const cr = Math.min(r, l1 / 2, l2 / 2);
     const t1x = curr.x + (d1x / l1) * cr, t1y = curr.y + (d1y / l1) * cr;
     const t2x = curr.x + (d2x / l2) * cr, t2y = curr.y + (d2y / l2) * cr;
