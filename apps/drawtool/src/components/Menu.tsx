@@ -14,6 +14,8 @@ import type {
 } from "../hooks/useSettings";
 import ShortcutsPanel from "./ShortcutsPanel";
 import DrawzillaLogo from "./DrawzillaLogo";
+import DrawzillaMenuIcon from "./DrawzillaMenuIcon";
+import UnleashedMenuIcon from "./UnleashedMenuIcon";
 import {
   CONFIRM_CLEAR_STROKE_THRESHOLD,
   getPanelBackground,
@@ -401,6 +403,7 @@ export default function Menu({
   slideCount = 0,
 }: Props) {
   const [open, setOpen] = useState(false);
+  const [menuBtnHovered, setMenuBtnHovered] = useState(false);
   const isWritingRef = useRef(false);
   const [logoAnimate, setLogoAnimate] = useState(false);
   const hasWavedRef = useRef(!!sessionStorage.getItem("drawtool-logo-waved"));
@@ -670,6 +673,8 @@ export default function Menu({
         <button
             aria-label="Menu"
             aria-expanded={open}
+            onMouseEnter={() => setMenuBtnHovered(true)}
+            onMouseLeave={() => setMenuBtnHovered(false)}
             onClick={(e) => {
               if (!open && !hasWavedRef.current) {
                 hasWavedRef.current = true;
@@ -693,32 +698,12 @@ export default function Menu({
               <span
                 className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${(unleashReveal && !open) ? "unleash-icon-exit" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-0 scale-100 rotate-0" : "opacity-100 scale-100 rotate-0"}`}`}
               >
-                <img
-                  src="/drawzilla-menu.png"
-                  alt=""
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    objectPosition: "bottom",
-                  }}
-                />
+                <DrawzillaMenuIcon hovered={menuBtnHovered && !open} />
               </span>
               <span
                 className={`absolute left-[7%] right-[7%] -top-[10%] bottom-0 ${(unleashReveal && !open) ? "unleash-icon-enter" : `transition-all duration-200 ${open ? "opacity-0 scale-50 rotate-90" : (unleashHovered || (isPro && settings.unleashedMenuIcon)) ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-100 rotate-0"}`}`}
               >
-                <img
-                  src="/drawzilla-menu-pro.png"
-                  alt=""
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    height: "100%",
-                    objectFit: "contain",
-                    objectPosition: "bottom",
-                  }}
-                />
+                <UnleashedMenuIcon hovered={menuBtnHovered && !open} />
               </span>
               <span
                 className={`absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 transition-all duration-200 ${open ? "opacity-100 scale-100 rotate-0" : "opacity-0 scale-50 -rotate-90"}`}
