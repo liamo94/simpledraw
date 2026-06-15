@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
-import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { Layers, Keyboard, Upload, Download, Image, Info, HelpCircle, X, Hand, Pipette, Square, Circle, Triangle, Diamond, Pentagon, Hexagon, Star, ArrowRight, Cloud, SlidersHorizontal, ChevronDown, SprayCan } from "lucide-react";
 import { SignInButton, SignedIn, SignedOut, UserButton, useUser, useClerk } from "@clerk/clerk-react";
 import CanvasReorderPanel from "./CanvasReorderPanel";
 import type {
@@ -353,6 +353,8 @@ type Props = {
   cloudEnabled?: boolean;
   unleashHovered?: boolean;
   slideCount?: number;
+  markTool?: "highlight" | "laser" | "spray";
+  onSetMarkTool?: (t: "highlight" | "laser" | "spray") => void;
 };
 
 export default function Menu({
@@ -401,6 +403,8 @@ export default function Menu({
   cloudEnabled = false,
   unleashHovered = false,
   slideCount = 0,
+  markTool = "highlight" as "highlight" | "laser" | "spray",
+  onSetMarkTool,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [menuBtnHovered, setMenuBtnHovered] = useState(false);
@@ -1217,6 +1221,116 @@ export default function Menu({
               </>
             )}
 
+            {hasTouch && (
+              <>
+                <div className={`mt-4 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+                  Text size
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  {(["xs", "s", "m", "l", "xl"] as TextSize[]).map((size) => (
+                    <button
+                      key={size}
+                      onClick={() => updateSettings({ textSize: size })}
+                      aria-label={`Text size ${size.toUpperCase()}`}
+                      aria-pressed={settings.textSize === size}
+                      className={`flex-1 flex items-center justify-center py-1 rounded text-xs font-medium transition-all duration-150 ${
+                        settings.textSize === size
+                          ? isDark
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark
+                            ? "text-white/40 hover:text-white/60"
+                            : "text-black/35 hover:text-black/55"
+                      }`}
+                    >
+                      {size.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+                <div className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+                  Font
+                </div>
+                <div className="flex items-center gap-1 mt-1">
+                  {(
+                    [
+                      { key: "caveat", label: "Abc", css: "'Caveat', cursive" },
+                      { key: "comic", label: "Abc", css: "'Bangers', cursive" },
+                      { key: "cartoon", label: "Abc", css: "'Boogaloo', cursive" },
+                      { key: "sans", label: "Abc", css: "system-ui, -apple-system, sans-serif" },
+                      { key: "serif", label: "Abc", css: "Georgia, serif" },
+                      { key: "mono", label: "Abc", css: "ui-monospace, 'Courier New', monospace" },
+                    ] as { key: FontFamily; label: string; css: string }[]
+                  ).map(({ key, label, css }) => (
+                    <button
+                      key={key}
+                      onClick={() =>
+                        window.dispatchEvent(new CustomEvent("drawtool:font-family", { detail: key }))
+                      }
+                      aria-label={`Font ${key}`}
+                      aria-pressed={settings.fontFamily === key}
+                      style={{ fontFamily: css }}
+                      className={`flex-1 flex items-center justify-center py-1 rounded text-base transition-all duration-150 relative group ${
+                        settings.fontFamily === key
+                          ? isDark
+                            ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50"
+                            : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark
+                            ? "text-white/40 hover:text-white/60"
+                            : "text-black/35 hover:text-black/55"
+                      }`}
+                    >
+                      <Tooltip label={key.charAt(0).toUpperCase() + key.slice(1)} isDark={isDark} />
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1 mt-2.5">
+                  <button
+                    onClick={() => window.dispatchEvent(new Event("drawtool:text-bold"))}
+                    aria-label="Bold"
+                    aria-pressed={settings.textBold}
+                    className={`flex-1 flex items-center justify-center py-1 rounded text-sm font-bold transition-all duration-150 ${
+                      settings.textBold
+                        ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                    }`}
+                  >B</button>
+                  <button
+                    onClick={() => window.dispatchEvent(new Event("drawtool:text-italic"))}
+                    aria-label="Italic"
+                    aria-pressed={settings.textItalic}
+                    className={`flex-1 flex items-center justify-center py-1 rounded text-sm italic transition-all duration-150 ${
+                      settings.textItalic
+                        ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                        : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                    }`}
+                  >I</button>
+                  {(["left", "center", "right"] as TextAlign[]).map((align) => (
+                    <button
+                      key={align}
+                      onClick={() =>
+                        window.dispatchEvent(new CustomEvent("drawtool:text-align", { detail: align }))
+                      }
+                      aria-label={`Align ${align}`}
+                      aria-pressed={settings.textAlign === align}
+                      className={`flex-1 flex items-center justify-center py-1 rounded transition-all duration-150 ${
+                        settings.textAlign === align
+                          ? isDark ? "bg-[#3b82f6]/20 text-[#93c5fd] ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 text-[#3b82f6] ring-1 ring-[#3b82f6]/40"
+                          : isDark ? "text-white/40 hover:text-white/60" : "text-black/35 hover:text-black/55"
+                      }`}
+                    >
+                      <svg width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                        <rect x="1" y="2" width="12" height="1.5" rx="0.75" />
+                        {align === "left" && <><rect x="1" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="1" y="9" width="10" height="1.5" rx="0.75" /></>}
+                        {align === "center" && <><rect x="3" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="2" y="9" width="10" height="1.5" rx="0.75" /></>}
+                        {align === "right" && <><rect x="5" y="5.5" width="8" height="1.5" rx="0.75" /><rect x="3" y="9" width="10" height="1.5" rx="0.75" /></>}
+                      </svg>
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+
             <div className="mt-3 flex items-baseline gap-2">
               <div
                 className={`text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}
@@ -1308,6 +1422,36 @@ export default function Menu({
               )}
             </div>
             <div className="flex items-center gap-1.5 mt-1">
+              {hasTouch && (
+                <>
+                  <button
+                    aria-label={settings.shapeFillEnabled ? "Fill on" : "Fill off"}
+                    aria-pressed={settings.shapeFillEnabled}
+                    onClick={() => updateSettings({ shapeFillEnabled: !settings.shapeFillEnabled })}
+                    className={`w-7 h-7 shrink-0 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
+                      settings.shapeFillEnabled
+                        ? isDark ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
+                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    }`}
+                  >
+                    <Tooltip label={settings.shapeFillEnabled ? "Fill on" : "Fill off"} isDark={isDark} />
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                      stroke={settings.shapeFillEnabled ? (isDark ? "#93c5fd" : "#3b82f6") : (isDark ? "white" : "black")}
+                      strokeWidth="1.5" strokeLinejoin="round"
+                      opacity={settings.shapeFillEnabled ? 1 : 0.5}
+                    >
+                      <rect x="2" y="2" width="12" height="12" rx="1.5"
+                        fill={settings.shapeFillEnabled ? (isDark ? "#93c5fd" : "#3b82f6") : "none"}
+                        fillOpacity={settings.shapeFillEnabled ? 0.35 : 0}
+                      />
+                      {!settings.shapeFillEnabled && (
+                        <line x1="3.5" y1="12.5" x2="12.5" y2="3.5" strokeLinecap="round" />
+                      )}
+                    </svg>
+                  </button>
+                  <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+                </>
+              )}
               {(["solid", "dots", "hatch", "crosshatch"] as FillStyle[]).map(
                 (f) => (
                   <button
@@ -1525,7 +1669,7 @@ export default function Menu({
               <div
                 className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
               />
-              <div className={`flex items-center gap-1.5 ${showTips ? "w-28" : "flex-1"}`}>
+              <div className="flex items-center gap-1.5 flex-1 max-w-[7rem]">
                 <input
                   type="range"
                   min={5}
@@ -1615,6 +1759,30 @@ export default function Menu({
               <div
                 className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`}
               />
+              {hasTouch && (
+                <>
+                  <button
+                    aria-label="Dashed outline"
+                    aria-pressed={settings.shapeDashed}
+                    onClick={() => updateSettings({ shapeDashed: !settings.shapeDashed })}
+                    className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
+                      settings.shapeDashed
+                        ? isDark ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
+                        : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                    }`}
+                  >
+                    <Tooltip label="Dashed" isDark={isDark} />
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                      stroke={settings.shapeDashed ? (isDark ? "#93c5fd" : "#3b82f6") : (isDark ? "white" : "black")}
+                      strokeWidth="1.5" strokeLinejoin="round" strokeDasharray="3.5 2.5"
+                      opacity={settings.shapeDashed ? 1 : 0.5}
+                    >
+                      <rect x="2" y="2" width="12" height="12" rx="1.5" />
+                    </svg>
+                  </button>
+                  <div className={`w-px h-4 mx-0.5 ${isDark ? "bg-white/15" : "bg-black/15"}`} />
+                </>
+              )}
               {([false, true] as const).map((on) => (
                 <button
                   key={String(on)}
@@ -1771,6 +1939,56 @@ export default function Menu({
                 );
               })}
             </div>
+
+            {hasTouch && onSetMarkTool && (
+              <>
+                <div className={`mt-3 text-[10px] uppercase tracking-wider font-semibold ${isDark ? "text-white/40" : "text-black/40"}`}>
+                  Mark
+                </div>
+                <div className="flex items-center gap-1.5 mt-1">
+                  {(["highlight", "laser", "spray"] as const).map((tool) => {
+                    const active = markTool === tool;
+                    const activeColor = isDark ? "#93c5fd" : "#3b82f6";
+                    const inactiveColor = isDark ? "white" : "black";
+                    return (
+                      <button
+                        key={tool}
+                        aria-label={tool === "highlight" ? "Highlight" : tool === "laser" ? "Laser" : "Spray"}
+                        aria-pressed={active}
+                        onClick={() => { onSetMarkTool(tool); }}
+                        className={`w-7 h-7 flex items-center justify-center rounded transition-colors focus:outline-none relative group ${
+                          active
+                            ? isDark ? "bg-[#3b82f6]/20 ring-1 ring-[#3b82f6]/50" : "bg-[#3b82f6]/12 ring-1 ring-[#3b82f6]/40"
+                            : isDark ? "hover:bg-white/10" : "hover:bg-black/10"
+                        }`}
+                      >
+                        <Tooltip label={tool === "highlight" ? "Highlight" : tool === "laser" ? "Laser" : "Spray"} isDark={isDark} />
+                        {tool === "highlight" && (
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none"
+                            stroke={active ? activeColor : inactiveColor}
+                            strokeWidth="3.5" strokeLinecap="round"
+                            opacity={active ? 0.7 : 0.35}
+                          >
+                            <line x1="2" y1="8" x2="14" y2="8" />
+                          </svg>
+                        )}
+                        {tool === "laser" && (
+                          <svg width="16" height="16" viewBox="0 0 16 16" fill="none" opacity={active ? 1 : 0.5}>
+                            <circle cx="8" cy="8" r="3" fill="#ff3030" fillOpacity="0.9" />
+                            <circle cx="8" cy="8" r="5.5" stroke="#ff3030" strokeWidth="1" strokeOpacity="0.4" />
+                          </svg>
+                        )}
+                        {tool === "spray" && (
+                          <span style={{ opacity: active ? 1 : 0.5, color: active ? activeColor : inactiveColor, display: "flex" }}>
+                            <SprayCan size={14} strokeWidth={1.75} />
+                          </span>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
 
             <div className="flex items-center justify-between mt-3">
               <span className="flex items-baseline gap-2">

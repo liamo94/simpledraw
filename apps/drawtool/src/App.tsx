@@ -2411,6 +2411,8 @@ export default function App() {
         cloudEnabled={CLOUD_ENABLED}
         unleashHovered={unleashHovered}
         slideCount={isPro ? slides.length : 0}
+        markTool={lastMarkTool}
+        onSetMarkTool={(t) => { setLastMarkTool(t); setTouchTool(t); }}
       />}
       <input
         ref={importFileRef}
