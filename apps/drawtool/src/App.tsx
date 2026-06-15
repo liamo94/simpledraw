@@ -3925,7 +3925,7 @@ export default function App() {
             )}
           </nav>
           {isTablet && !presentationMode && settings.showZoomControls && (
-            <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
+            <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 select-none">
               <div
                 className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
                 style={{
@@ -3993,7 +3993,7 @@ export default function App() {
         </>
       ) : (
         !presentationMode && settings.showZoomControls && (
-          <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2">
+          <div className="fixed bottom-4 left-4 z-50 flex items-center gap-2 select-none">
             <div
               className={`flex items-center h-8 rounded-lg border ${isDark ? "border-white/15" : "border-black/15"}`}
               style={{
