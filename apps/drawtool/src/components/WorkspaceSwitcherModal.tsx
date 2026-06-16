@@ -95,6 +95,7 @@ export default function WorkspaceSwitcherModal({
   const newWsInputRef = useRef<HTMLInputElement>(null)
   const activeTabRef = useRef<HTMLButtonElement>(null)
   const activeCardRef = useRef<HTMLDivElement>(null)
+  const confirmDeleteTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
     activeTabRef.current?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
@@ -146,12 +147,27 @@ export default function WorkspaceSwitcherModal({
   function requestDelete(e: React.MouseEvent, kind: 'workspace' | 'canvas', id: string) {
     e.stopPropagation()
     setEditing(null)
-    setConfirmDelete(prev => (prev?.id === id ? null : { kind, id }))
+    if (confirmDeleteTimerRef.current) {
+      clearTimeout(confirmDeleteTimerRef.current)
+      confirmDeleteTimerRef.current = null
+    }
+    const wasConfirming = confirmDelete?.id === id
+    setConfirmDelete(wasConfirming ? null : { kind, id })
+    if (!wasConfirming && kind === 'workspace') {
+      confirmDeleteTimerRef.current = setTimeout(() => {
+        setConfirmDelete(null)
+        confirmDeleteTimerRef.current = null
+      }, 3000)
+    }
   }
 
   async function confirmDeleteAction(e: React.MouseEvent) {
     e.stopPropagation()
     if (!confirmDelete) return
+    if (confirmDeleteTimerRef.current) {
+      clearTimeout(confirmDeleteTimerRef.current)
+      confirmDeleteTimerRef.current = null
+    }
     const { kind, id } = confirmDelete
     setConfirmDelete(null)
     if (kind === 'canvas') {
@@ -448,7 +464,8 @@ export default function WorkspaceSwitcherModal({
               return (
                 <div className="flex-1 min-h-0 flex flex-col">
                   {/* Workspace header - sits above the scroll container so bottom-full tooltips aren't clipped */}
-                  <div className="flex items-center gap-2 px-5 pt-5 pb-1 shrink-0">
+                  <div className="px-5 pt-5 pb-1 shrink-0">
+                    <div className="flex items-center gap-2">
                     {isEditingWs ? (
                       <div className="flex items-center gap-1 flex-1 min-w-0">
                         <input
@@ -475,13 +492,21 @@ export default function WorkspaceSwitcherModal({
                       </span>
                     )}
                     {isConfirmingWs ? (
-                      <>
-                        <span className={`text-[10px] font-semibold ${isDark ? 'text-red-400' : 'text-red-500'}`}>
-                          {allWorkspaces.length === 1 ? 'Clear?' : 'Delete?'}
-                        </span>
-                        <button onClick={confirmDeleteAction} className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md ${isDark ? 'text-red-400 hover:bg-red-500/20' : 'text-red-500 hover:bg-red-500/10'}`}>✓</button>
-                        <button onClick={e => { e.stopPropagation(); setConfirmDelete(null) }} className={`shrink-0 w-6 h-6 flex items-center justify-center rounded-md ${isDark ? 'text-white/30 hover:bg-white/10' : 'text-black/30 hover:bg-black/7'}`}>✕</button>
-                      </>
+                      <button
+                        onClick={confirmDeleteAction}
+                        className={`shrink-0 px-2.5 py-1 rounded text-xs transition-colors flex items-center gap-1.5 ${
+                          isDark ? 'text-red-400 bg-red-500/10 hover:bg-red-500/20' : 'text-red-600 bg-red-500/8 hover:bg-red-500/15'
+                        }`}
+                      >
+                        <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+                          <line x1="2" y1="4.5" x2="14" y2="4.5" />
+                          <path d="M5.5 4.5V3a.5.5 0 0 1 .5-.5h4a.5.5 0 0 1 .5.5v1.5" />
+                          <path d="M3.5 4.5L4.2 13a.5.5 0 0 0 .5.5h6.6a.5.5 0 0 0 .5-.5l.7-8.5" />
+                          <line x1="6.5" y1="7.5" x2="6.5" y2="11" />
+                          <line x1="9.5" y1="7.5" x2="9.5" y2="11" />
+                        </svg>
+                        Are you sure?
+                      </button>
                     ) : !isEditingWs && (
                       <div className="flex items-center gap-0.5">
                         <button
@@ -508,6 +533,7 @@ export default function WorkspaceSwitcherModal({
                         </button>
                       </div>
                     )}
+                    </div>
                   </div>
 
                   {/* Scrollable canvas grid */}

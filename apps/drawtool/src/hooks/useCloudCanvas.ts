@@ -374,6 +374,15 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       if (useCloudSessionStore.getState().activeId !== capturedActiveId) return
       const savedDark = data.savedDark ?? false
       const strokes = savedDark !== isDarkRef.current ? swapStrokeColors(data.strokes) : data.strokes
+      // Race guard: if the initial canvas fetch returned empty strokes but local slot 1
+      // already has content, local is more recent. This happens when the user draws on a
+      // new canvas, the debounced PUT clears DIRTY_KEY, and only then does the initial
+      // fetch resolve with stale provisioning data. Overwriting slot 1 would blank the
+      // canvas; instead keep local and skip the remount.
+      if (isInitialLoad && strokes.length === 0 && loadStrokes(CLOUD_SLOT).length > 0) {
+        setCachedCanvasName(name)
+        return
+      }
       saveStrokes(strokes, CLOUD_SLOT, true)
       if (isInitialLoad) storeThumbnail(capturedActiveId, strokes, isDarkRef.current)
       setCachedCanvasName(name)

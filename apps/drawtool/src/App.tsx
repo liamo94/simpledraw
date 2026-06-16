@@ -1652,9 +1652,12 @@ export default function App() {
     return () => window.removeEventListener('drawtool:enter-presentation', handler)
   }, [slides])
 
+  const handleAddSlideRef = useRef(handleAddSlide)
+  handleAddSlideRef.current = handleAddSlide
+
   // Shortcut: add current viewport as slide
   useEffect(() => {
-    const handler = () => { if (isPro) handleAddSlide() }
+    const handler = () => { if (isPro) handleAddSlideRef.current() }
     window.addEventListener('drawtool:add-slide', handler)
     return () => window.removeEventListener('drawtool:add-slide', handler)
   }, [isPro])
@@ -1751,6 +1754,18 @@ export default function App() {
     }
   }, [presentationMode, presentationIndex, slides])
 
+  // Re-apply slide view on window resize during presentation
+  useEffect(() => {
+    if (!presentationMode) return
+    const onResize = () => {
+      const slide = slides[presentationIndex]
+      if (!slide) return
+      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: resolveSlideView(slide) }))
+    }
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [presentationMode, presentationIndex, slides])
+
   // Welcome toast after Stripe checkout
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -1762,10 +1777,14 @@ export default function App() {
   }, []);
   function resolveSlideView(slide: Slide): { x: number; y: number; scale: number } {
     if (!slide.worldCenter) return slide.view
+    const scaleFactor = slide.refSize
+      ? Math.min(window.innerWidth / slide.refSize.width, window.innerHeight / slide.refSize.height)
+      : 1
+    const scale = slide.view.scale * scaleFactor
     return {
-      x: window.innerWidth / 2 - slide.worldCenter.x * slide.view.scale,
-      y: window.innerHeight / 2 - slide.worldCenter.y * slide.view.scale,
-      scale: slide.view.scale,
+      x: window.innerWidth / 2 - slide.worldCenter.x * scale,
+      y: window.innerHeight / 2 - slide.worldCenter.y * scale,
+      scale,
     }
   }
 
@@ -1833,6 +1852,7 @@ export default function App() {
       canvasName: activeCanvasMeta?.name || canvasNameRef.current || undefined,
       view: viewDetail.view,
       worldCenter,
+      refSize: { width: window.innerWidth, height: window.innerHeight },
       thumbnail,
     }
     setSlides(prev => [...prev, newSlide])

@@ -103,5 +103,7 @@ export type Slide = {
   view: { x: number; y: number; scale: number };
   /** World-space center point stored when the slide was created. Used to re-center the view correctly on different screen sizes / orientations. */
   worldCenter?: { x: number; y: number };
+  /** Window size when the slide was created. Used to scale the zoom proportionally on resize. */
+  refSize?: { width: number; height: number };
   thumbnail?: string;
 };
