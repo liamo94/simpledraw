@@ -1610,17 +1610,21 @@ export default function App() {
   // Local switch + cloud cache-hit: Canvas has pre-populated slot data, safe to drop cover.
   // Also dispatches deferred view for cache-hit path — loadKey doesn't bump on second+ visits
   // when the canvas data is unchanged (sync-strokes path), so pendingNavViewRef would never fire.
+  // Also handles exit-presentation cache-hit path where presentationCanvasLoadingRef may be false
+  // (no cover shown on exit) but pendingNavViewRef still needs to be dispatched.
   useEffect(() => {
-    if (!presentationCanvasLoadingRef.current) return
-    // Cloud cache-miss: slot 1 still empty — let loadKey effect handle it instead.
+    // Cache-miss: slot 1 still empty — let loadKey effect handle it instead.
     if (presentationWaitingForCloudLoad.current && !presentationCloudCacheHit.current) return
+    // Not a presentation-related switch — no cover to drop, no pending view.
+    if (!presentationCanvasLoadingRef.current && !presentationWaitingForCloudLoad.current) return
+    const shouldDropCover = presentationCanvasLoadingRef.current
     presentationWaitingForCloudLoad.current = false
     presentationCloudCacheHit.current = false
     // Capture before RAFs so loadKey effect doesn't also consume it (for cache-hit first visit).
     const pendingView = pendingNavViewRef.current
     if (pendingView) pendingNavViewRef.current = null
     requestAnimationFrame(() => requestAnimationFrame(() => {
-      setPresentationCanvasLoading(false)
+      if (shouldDropCover) setPresentationCanvasLoading(false)
       if (pendingView) window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: pendingView }))
       const thumbIdx = pendingThumbnailSlideRef.current
       if (thumbIdx !== null) { pendingThumbnailSlideRef.current = null; captureSlideThumbnailRef.current(thumbIdx) }

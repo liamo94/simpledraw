@@ -1995,14 +1995,41 @@ function Canvas({
   }, [persistStrokes, scheduleRedraw, setZCursor]);
 
   const redo = useCallback(() => {
+    // Abort any in-progress drawing before applying the redo action.
+    // Without this, the redone stroke lands after the current in-progress stroke, so
+    // subsequent pointer moves add points to the wrong (redone) stroke instead of the
+    // one being drawn — orphaning the in-progress stroke in the undo stack.
+    if (isDrawingRef.current && activeModifierRef.current !== "alt") {
+      strokesRef.current.pop();
+      undoStackRef.current.pop();
+      if (sprayIntervalRef.current) { clearInterval(sprayIntervalRef.current); sprayIntervalRef.current = null; }
+      isDrawingRef.current = false;
+      activeModifierRef.current = null;
+    }
     const action = redoStackRef.current.pop();
+    // actionForUndo is what actually gets pushed to the undo stack after redo.
+    // For erase, we track only the strokes that were actually present and removed, so
+    // that a later undo-of-erase doesn't incorrectly re-insert strokes that were already
+    // absent (which would leave them permanently stuck on canvas with no draw entry).
+    let actionForUndo: typeof action = action;
     if (action) {
       if (action.type === "draw") {
         strokesRef.current.push(action.stroke);
       } else if (action.type === "erase") {
+        const actuallyErasedStrokes: typeof action.strokes = [];
         for (const s of action.strokes) {
           const idx = strokesRef.current.lastIndexOf(s);
-          if (idx !== -1) strokesRef.current.splice(idx, 1);
+          if (idx !== -1) {
+            strokesRef.current.splice(idx, 1);
+            actuallyErasedStrokes.push(s);
+          }
+        }
+        if (actuallyErasedStrokes.length === 0) {
+          actionForUndo = undefined; // complete no-op: nothing to undo
+        } else if (actuallyErasedStrokes.length < action.strokes.length) {
+          // Partial: only push the strokes that were actually removed so undo
+          // doesn't re-insert strokes that were already absent.
+          actionForUndo = { type: "erase" as const, strokes: actuallyErasedStrokes };
         }
       } else if (action.type === "move") {
         action.to.forEach((p, i) => { action.stroke.points[i] = { ...p }; });
@@ -2097,7 +2124,7 @@ function Canvas({
           s.locked = action.to ? true : undefined;
         }
       }
-      undoStackRef.current.push(action);
+      if (actionForUndo) undoStackRef.current.push(actionForUndo);
     }
     // Abort any in-progress edit
     if (editingStrokeRef.current) {

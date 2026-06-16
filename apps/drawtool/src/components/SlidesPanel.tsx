@@ -51,6 +51,8 @@ export default function SlidesPanel({
   const [pwInput, setPwInput] = useState("");
   const [pwSaving, setPwSaving] = useState(false);
   const [showPwRow, setShowPwRow] = useState(false);
+  const onPresentRef = useRef(onPresent);
+  onPresentRef.current = onPresent;
   useEffect(() => {
     if (!presentationShareEnabled) {
       setShowPwRow(false);
@@ -69,12 +71,12 @@ export default function SlidesPanel({
         slides.length > 0
       ) {
         e.preventDefault();
-        onPresent(0);
+        onPresentRef.current(0);
       }
     };
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [slides.length, onPresent]);
+  }, [slides.length]);
 
   const border = isDark ? "rgba(255,255,255,0.12)" : "rgba(0,0,0,0.10)";
   const placeholderBg = isDark ? "rgba(255,255,255,0.04)" : "rgba(0,0,0,0.04)";
