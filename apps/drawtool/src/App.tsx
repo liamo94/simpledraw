@@ -1589,7 +1589,7 @@ export default function App() {
   }, [slides])
 
   // Cloud cache-miss path: loadKey bumps only after server data is written to slot 1.
-  // Also dispatches deferred view navigation for cloud switches.
+  // Dispatches deferred view navigation for initial-load switches (cache-hit path uses activeCanvas effect).
   useEffect(() => {
     if (pendingNavViewRef.current) {
       const view = pendingNavViewRef.current
@@ -1608,14 +1608,20 @@ export default function App() {
   }, [cloudCanvas.loadKey])
 
   // Local switch + cloud cache-hit: Canvas has pre-populated slot data, safe to drop cover.
+  // Also dispatches deferred view for cache-hit path — loadKey doesn't bump on second+ visits
+  // when the canvas data is unchanged (sync-strokes path), so pendingNavViewRef would never fire.
   useEffect(() => {
     if (!presentationCanvasLoadingRef.current) return
     // Cloud cache-miss: slot 1 still empty — let loadKey effect handle it instead.
     if (presentationWaitingForCloudLoad.current && !presentationCloudCacheHit.current) return
     presentationWaitingForCloudLoad.current = false
     presentationCloudCacheHit.current = false
+    // Capture before RAFs so loadKey effect doesn't also consume it (for cache-hit first visit).
+    const pendingView = pendingNavViewRef.current
+    if (pendingView) pendingNavViewRef.current = null
     requestAnimationFrame(() => requestAnimationFrame(() => {
       setPresentationCanvasLoading(false)
+      if (pendingView) window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: pendingView }))
       const thumbIdx = pendingThumbnailSlideRef.current
       if (thumbIdx !== null) { pendingThumbnailSlideRef.current = null; captureSlideThumbnailRef.current(thumbIdx) }
     }))
@@ -1805,9 +1811,10 @@ export default function App() {
       if (currentCloudId && slide.canvasId) {
         // If target canvas is already cached, slot 1 will be pre-populated synchronously.
         // Cover can drop on activeCanvas change. If not cached, wait for loadKey bump.
+        // Do NOT saveView to slot 1 here — flushCurrentCanvas reads slot 1's view to save
+        // the current canvas; writing the target view now would corrupt the current canvas.
         presentationWaitingForCloudLoad.current = true
         presentationCloudCacheHit.current = cloudCanvas.hasCanvasData(slide.canvasId)
-        saveView(resolvedView, 1)
         pendingNavViewRef.current = resolvedView
         cloudSwitchRef.current?.(slide.canvasIndex)
       } else {
@@ -1895,9 +1902,11 @@ export default function App() {
       : snap.canvasIndex !== currentActiveCanvas
     if (needsSwitch) {
       if (currentCloudId && snap.canvasId) {
+        // Do NOT saveView to slot 1 here — same reason as in navigateToSlide: flushCurrentCanvas
+        // reads slot 1's view for the current canvas; corrupting it here makes the current canvas
+        // (e.g. Canvas 2) get saved with the wrong view and appear blank on next visit.
         presentationWaitingForCloudLoad.current = true
         presentationCloudCacheHit.current = cloudCanvas.hasCanvasData(snap.canvasId)
-        saveView(snap.view, 1)
         pendingNavViewRef.current = snap.view
         cloudSwitchRef.current?.(snap.canvasIndex)
       } else {

@@ -576,9 +576,13 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     // via setActiveCanvas directly (never via switchCanvas), so populateSlot1FromCache
     // is never called on page load — the page-reload dirty-recovery path is unaffected.
     localStorage.removeItem(DIRTY_KEY)
-    type CachedCanvas = { data: { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean } }
+    type CachedCanvas = { data: { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; images?: Record<string, string> } }
     const cached = queryClient.getQueryData<CachedCanvas>(['canvas', id])
     if (!cached) { saveStrokes([], CLOUD_SLOT, true); return }
+    // Pre-load images into IDB so Canvas can draw them immediately on remount.
+    if (cached.data.images) {
+      Promise.allSettled(Object.entries(cached.data.images).map(([imgId, url]) => storeImage(imgId, url))).catch(() => {})
+    }
     const strokes = (cached.data.savedDark ?? false) !== isDarkRef.current
       ? swapStrokeColors(cached.data.strokes)
       : cached.data.strokes
