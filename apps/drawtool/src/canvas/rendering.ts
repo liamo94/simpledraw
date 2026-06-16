@@ -1293,8 +1293,6 @@ export function generateSlideThumbnail(
   h = 270,
   bgColor?: string,
 ): string | null {
-  const drawable = strokes.filter(s => !s.imageId);
-
   const canvas = document.createElement('canvas');
   canvas.width = w;
   canvas.height = h;
@@ -1304,12 +1302,12 @@ export function generateSlideThumbnail(
   ctx.fillStyle = bgColor ?? (isDark ? '#111111' : '#f5f5f0');
   ctx.fillRect(0, 0, w, h);
 
-  if (drawable.length > 0) {
+  if (strokes.length > 0) {
     const ratio = w / window.innerWidth;
     ctx.save();
     ctx.translate(view.x * ratio, view.y * ratio);
     ctx.scale(view.scale * ratio, view.scale * ratio);
-    renderStrokesToCtx(ctx, drawable);
+    renderStrokesToCtx(ctx, strokes);
     ctx.restore();
   }
 

@@ -3329,7 +3329,11 @@ function Canvas({
       }
 
       // Same-color glow: read the single pixel under the cursor (O(1), throttled to ~20fps)
-      if (e.pointerType !== "touch") {
+      // While drawing, always keep the glow on — the stroke renders under the tip and would
+      // cause rapid on/off flickering if we let the pixel check run.
+      if (isDrawingRef.current) {
+        if (!overSameColorRef.current) { overSameColorRef.current = true; setOverSameColor(true); }
+      } else if (e.pointerType !== "touch") {
         const now = performance.now();
         if (now - lastSameColorCheckRef.current > 50) {
           lastSameColorCheckRef.current = now;

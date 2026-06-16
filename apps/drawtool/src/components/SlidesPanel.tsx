@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { Slide } from "../canvas/types";
 import { getPanelBackground } from "../canvas/canvasUtils";
 import type { Theme } from "../hooks/useSettings";
@@ -42,6 +43,8 @@ export default function SlidesPanel({
 }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editingName, setEditingName] = useState("");
+  const [playTooltipPos, setPlayTooltipPos] = useState<{ top: number; right: number } | null>(null);
+  const [delTooltipPos, setDelTooltipPos] = useState<{ top: number; right: number } | null>(null);
   const [copied, setCopied] = useState(false);
   const [dragOver, setDragOver] = useState<number | null>(null);
   const dragFrom = useRef<number | null>(null);
@@ -278,12 +281,18 @@ export default function SlidesPanel({
                   <div
                     className={`absolute top-1.5 right-1.5 z-10 flex gap-1 transition-opacity ${hasTouch ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                   >
-                    <div className="relative group/play">
+                    <div className="relative">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           onPresent(i);
                         }}
+                        onMouseEnter={(e) => {
+                          if (hasTouch) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setPlayTooltipPos({ top: rect.top - 28, right: window.innerWidth - rect.right });
+                        }}
+                        onMouseLeave={() => setPlayTooltipPos(null)}
                         className={`${hasTouch ? "w-10 h-10" : "w-6 h-6"} flex items-center justify-center rounded-md`}
                         style={{
                           background: "rgba(0,0,0,0.55)",
@@ -300,19 +309,8 @@ export default function SlidesPanel({
                           <polygon points="2,1 9,5 2,9" />
                         </svg>
                       </button>
-                      {!hasTouch && (
-                        <span
-                          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap opacity-0 group-hover/play:opacity-100 transition-opacity"
-                          style={{
-                            background: "rgba(0,0,0,0.75)",
-                            color: "rgba(255,255,255,0.92)",
-                          }}
-                        >
-                          Present from here
-                        </span>
-                      )}
                     </div>
-                    <div className="relative group/del">
+                    <div className="relative">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
@@ -326,12 +324,14 @@ export default function SlidesPanel({
                           color: "rgba(255,255,255,0.7)",
                         }}
                         onMouseEnter={(e) => {
-                          (e.currentTarget as HTMLElement).style.color =
-                            "#f87171";
+                          (e.currentTarget as HTMLElement).style.color = "#f87171";
+                          if (hasTouch) return;
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setDelTooltipPos({ top: rect.top - 28, right: window.innerWidth - rect.right });
                         }}
                         onMouseLeave={(e) => {
-                          (e.currentTarget as HTMLElement).style.color =
-                            "rgba(255,255,255,0.7)";
+                          (e.currentTarget as HTMLElement).style.color = "rgba(255,255,255,0.7)";
+                          setDelTooltipPos(null);
                         }}
                       >
                         <svg
@@ -347,17 +347,6 @@ export default function SlidesPanel({
                           <line x1="8.5" y1="1.5" x2="1.5" y2="8.5" />
                         </svg>
                       </button>
-                      {!hasTouch && (
-                        <span
-                          className="pointer-events-none absolute bottom-full left-1/2 -translate-x-1/2 mb-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap opacity-0 group-hover/del:opacity-100 transition-opacity"
-                          style={{
-                            background: "rgba(0,0,0,0.75)",
-                            color: "rgba(255,255,255,0.92)",
-                          }}
-                        >
-                          Delete
-                        </span>
-                      )}
                     </div>
                   </div>
 
@@ -785,6 +774,34 @@ export default function SlidesPanel({
             )}
           </button>
         </div>
+      )}
+      {playTooltipPos && createPortal(
+        <span
+          className="pointer-events-none fixed px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap z-[9999]"
+          style={{
+            top: playTooltipPos.top,
+            right: playTooltipPos.right,
+            background: "rgba(0,0,0,0.75)",
+            color: "rgba(255,255,255,0.92)",
+          }}
+        >
+          Present from here
+        </span>,
+        document.body,
+      )}
+      {delTooltipPos && createPortal(
+        <span
+          className="pointer-events-none fixed px-1.5 py-0.5 rounded text-[10px] font-medium whitespace-nowrap z-[9999]"
+          style={{
+            top: delTooltipPos.top,
+            right: delTooltipPos.right,
+            background: "rgba(0,0,0,0.75)",
+            color: "rgba(255,255,255,0.92)",
+          }}
+        >
+          Delete
+        </span>,
+        document.body,
       )}
     </div>
   );
