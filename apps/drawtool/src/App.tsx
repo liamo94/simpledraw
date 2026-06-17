@@ -1085,8 +1085,8 @@ export default function App() {
       "lumber",
       "slate",
       "journal",
-      "sky",
       "sand",
+      "sky",
       "white",
     ];
     const THEME_LABELS: Record<Theme, string> = {
@@ -1633,7 +1633,10 @@ export default function App() {
 
   // Toggle slides panel via event bus
   useEffect(() => {
-    const handler = () => setShowSlides(v => !v)
+    const handler = () => setShowSlides(v => {
+      if (!v) window.dispatchEvent(new CustomEvent('drawtool:close-menu'));
+      return !v;
+    })
     window.addEventListener('drawtool:toggle-slides', handler)
     return () => window.removeEventListener('drawtool:toggle-slides', handler)
   }, [])

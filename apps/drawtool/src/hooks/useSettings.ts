@@ -159,6 +159,9 @@ function load(): Settings {
         parsed.exportIncludeImages =
           localStorage.getItem("drawtool-export-include-images") === "1";
       }
+      if (Array.isArray(parsed.recentColors)) {
+        parsed.recentColors = [...new Set(parsed.recentColors as string[])];
+      }
       return { ...defaults, ...parsed };
     }
   } catch {

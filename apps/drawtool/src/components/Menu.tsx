@@ -444,6 +444,8 @@ export default function Menu({
   const [savingWsShareSettings, setSavingWsShareSettings] = useState(false);
   const [showRecentColors, setShowRecentColors] = useState(false);
   const [unleashReveal, setUnleashReveal] = useState(false);
+  const settingsRef = useRef(settings);
+  settingsRef.current = settings;
   const prevIsProRef = useRef(isPro);
   const hasUnleashRevealedRef = useRef(false);
 
@@ -677,8 +679,8 @@ export default function Menu({
         <button
             aria-label="Menu"
             aria-expanded={open}
-            onMouseEnter={() => setMenuBtnHovered(true)}
-            onMouseLeave={() => setMenuBtnHovered(false)}
+            onPointerEnter={(e) => { if (e.pointerType !== "touch") setMenuBtnHovered(true); }}
+            onPointerLeave={() => setMenuBtnHovered(false)}
             onClick={(e) => {
               if (!open && !hasWavedRef.current) {
                 hasWavedRef.current = true;
@@ -866,7 +868,7 @@ export default function Menu({
               )}
               {isPro && (
                 <div className="ml-auto flex items-center gap-1.5">
-                  {settings.recentColors.length > 0 && (
+                  {[...new Set(settings.recentColors)].length > 0 && (
                     <div className="relative">
                       <button
                         onClick={() => setShowRecentColors((s) => !s)}
@@ -881,7 +883,7 @@ export default function Menu({
                           <div
                             className={`absolute bottom-full right-0 mb-1.5 p-1.5 rounded-lg shadow-lg grid grid-cols-4 gap-1.5 z-50 w-max ${isDark ? "bg-[#2a2a3a] border border-white/10" : "bg-white border border-black/10"}`}
                           >
-                            {settings.recentColors.map((color) => (
+                            {[...new Set(settings.recentColors)].map((color) => (
                               <button
                                 key={color}
                                 onClick={() => {
@@ -915,9 +917,13 @@ export default function Menu({
                       value={settings.customColor ?? "#ff6600"}
                       onChange={(e) => {
                         const c = e.target.value;
-                        const recents = [c, ...settings.recentColors.filter((r) => r !== c)].slice(0, 8);
-                        updateSettings({ customColor: c, recentColors: recents });
+                        updateSettings({ customColor: c });
                         window.dispatchEvent(new CustomEvent("drawtool:set-color", { detail: c }));
+                      }}
+                      onBlur={(e) => {
+                        const c = e.target.value;
+                        const recents = [...new Set([c, ...settingsRef.current.recentColors])].slice(0, 8);
+                        updateSettings({ recentColors: recents });
                       }}
                     />
                     <Pipette size={11} strokeWidth={2} />
