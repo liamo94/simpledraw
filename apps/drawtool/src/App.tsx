@@ -1844,19 +1844,39 @@ export default function App() {
   }
 
   function handleAddSlide() {
-    const viewDetail = { view: null as { x: number; y: number; scale: number } | null }
-    window.dispatchEvent(new CustomEvent('drawtool:get-view', { detail: viewDetail }))
-    if (!viewDetail.view) return
+    // If there's an active selection, fit the slide to the selection bbox with padding
+    const selDetail = { bbox: null as { x: number; y: number; w: number; h: number } | null }
+    window.dispatchEvent(new CustomEvent('drawtool:get-selection-bbox', { detail: selDetail }))
+
+    let view: { x: number; y: number; scale: number }
+    if (selDetail.bbox) {
+      const { x, y, w, h } = selDetail.bbox
+      const PAD = 80
+      const scale = Math.min(
+        (window.innerWidth - PAD * 2) / Math.max(w, 1),
+        (window.innerHeight - PAD * 2) / Math.max(h, 1),
+      )
+      view = {
+        x: window.innerWidth / 2 - (x + w / 2) * scale,
+        y: window.innerHeight / 2 - (y + h / 2) * scale,
+        scale,
+      }
+    } else {
+      const viewDetail = { view: null as { x: number; y: number; scale: number } | null }
+      window.dispatchEvent(new CustomEvent('drawtool:get-view', { detail: viewDetail }))
+      if (!viewDetail.view) return
+      view = viewDetail.view
+    }
+
     const slotN = cloudCanvas.activeId ? 1 : activeCanvas
     const thumbnail = generateSlideThumbnail(
-      loadStrokes(slotN), viewDetail.view, isDark, 480, 270,
+      loadStrokes(slotN), view, isDark, 480, 270,
       getBackgroundColor(settings.theme, settings.customThemeBg),
     ) ?? undefined
     const activeCanvasMeta = cloudCanvas.activeCanvasMeta
-    const v = viewDetail.view
     const worldCenter = {
-      x: (window.innerWidth / 2 - v.x) / v.scale,
-      y: (window.innerHeight / 2 - v.y) / v.scale,
+      x: (window.innerWidth / 2 - view.x) / view.scale,
+      y: (window.innerHeight / 2 - view.y) / view.scale,
     }
     const newSlide: Slide = {
       id: Math.random().toString(36).slice(2, 10),
@@ -1864,13 +1884,13 @@ export default function App() {
       canvasIndex: activeCanvas,
       canvasId: cloudCanvas.activeId ?? undefined,
       canvasName: activeCanvasMeta?.name || canvasNameRef.current || undefined,
-      view: viewDetail.view,
+      view,
       worldCenter,
       refSize: { width: window.innerWidth, height: window.innerHeight },
       thumbnail,
     }
     setSlides(prev => [...prev, newSlide])
-    showToast({ type: "text", message: "Slide added" }, 2000)
+    showToast({ type: "text", message: selDetail.bbox ? "Slide added from selection" : "Slide added" }, 2000)
   }
 
   const presentationSnapshotRef = useRef<{ canvasIndex: number; canvasId: string | null; view: { x: number; y: number; scale: number } } | null>(null)

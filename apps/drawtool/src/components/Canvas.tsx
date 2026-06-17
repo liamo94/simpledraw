@@ -2282,6 +2282,21 @@ function Canvas({
       }
     };
     const onGetView = (e: Event) => { (e as CustomEvent).detail.view = { ...viewRef.current } }
+    const onGetSelectionBBox = (e: Event) => {
+      const sel: Stroke[] = selectedGroupRef.current.length > 0
+        ? selectedGroupRef.current
+        : selectedTextRef.current
+          ? [selectedTextRef.current]
+          : [];
+      if (sel.length === 0) return;
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+      for (const s of sel) {
+        const bb = visualStrokeBBox(s);
+        if (bb.x < minX) minX = bb.x; if (bb.y < minY) minY = bb.y;
+        if (bb.x + bb.w > maxX) maxX = bb.x + bb.w; if (bb.y + bb.h > maxY) maxY = bb.y + bb.h;
+      }
+      (e as CustomEvent).detail.bbox = { x: minX, y: minY, w: maxX - minX, h: maxY - minY };
+    }
     const onNavigateSlide = (e: Event) => {
       const v = (e as CustomEvent).detail as { x: number; y: number; scale: number }
       if (animFrameRef.current) { cancelAnimationFrame(animFrameRef.current); animFrameRef.current = 0 }
@@ -2303,6 +2318,7 @@ function Canvas({
       ;(e as CustomEvent).detail.thumbnail = off.toDataURL("image/jpeg", 0.82)
     }
     window.addEventListener("drawtool:get-view", onGetView);
+    window.addEventListener("drawtool:get-selection-bbox", onGetSelectionBBox);
     window.addEventListener("drawtool:navigate-slide", onNavigateSlide);
     window.addEventListener("drawtool:get-thumbnail", onGetThumbnail);
     window.addEventListener("drawtool:clear", onClear);
@@ -2538,6 +2554,7 @@ function Canvas({
     return () => {
       window.removeEventListener("drawtool:clear", onClear);
       window.removeEventListener("drawtool:get-view", onGetView);
+      window.removeEventListener("drawtool:get-selection-bbox", onGetSelectionBBox);
       window.removeEventListener("drawtool:navigate-slide", onNavigateSlide);
       window.removeEventListener("drawtool:get-thumbnail", onGetThumbnail);
       window.removeEventListener("drawtool:reset-view", onResetView);
