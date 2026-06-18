@@ -630,6 +630,7 @@ export default function Menu({
           activeCanvas={activeCanvas}
           isDark={isDark}
           theme={settings.theme}
+          customBg={settings.customThemeBg}
           onReorderCanvases={onReorderCanvases}
           onSwitchCanvas={onSwitchCanvas}
           onClose={() => setShowReorder(false)}

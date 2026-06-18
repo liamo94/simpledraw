@@ -864,6 +864,7 @@ export default function App() {
         setShowThicknessPicker(null);
         setShowHighlightPicker(false);
         setShowStash(false);
+        setShowSlides(false);
       }
     };
     window.addEventListener("drawtool:state", onState);

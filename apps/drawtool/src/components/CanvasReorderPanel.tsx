@@ -25,6 +25,7 @@ type Props = {
   activeCanvas: number;
   isDark: boolean;
   theme: Theme;
+  customBg?: string;
   onReorderCanvases: (newOrder: number[]) => void;
   onSwitchCanvas: (n: number) => void;
   onClose: () => void;
@@ -34,7 +35,7 @@ type Props = {
   onReorderCloud?: (ids: string[]) => Promise<boolean>;
 };
 
-export default function CanvasReorderPanel({ activeCanvas, isDark, theme, onReorderCanvases, onSwitchCanvas, onClose, cloudCanvases, activeCloudCanvasId, onReorderCloud }: Props) {
+export default function CanvasReorderPanel({ activeCanvas, isDark, theme, customBg, onReorderCanvases, onSwitchCanvas, onClose, cloudCanvases, activeCloudCanvasId, onReorderCloud }: Props) {
   const isCloud = !!cloudCanvases;
 
   const [localInfos, setLocalInfos] = useState<CanvasInfo[]>(() =>
@@ -76,7 +77,7 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, onReor
         className={`relative z-10 rounded-xl border w-[min(380px,calc(100vw-2rem))] flex flex-col max-h-[90vh] ${
           isDark ? "border-white/15" : "border-black/15"
         }`}
-        style={{ background: getPanelBackground(theme) }}
+        style={{ background: getPanelBackground(theme, customBg) }}
       >
         <div className="flex items-center justify-between px-4 pt-4 pb-3 shrink-0">
           <span className={`text-[10px] uppercase tracking-widest font-semibold ${isDark ? "text-white/30" : "text-black/30"}`}>
