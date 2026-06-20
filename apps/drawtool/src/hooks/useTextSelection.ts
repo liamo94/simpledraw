@@ -1,4 +1,4 @@
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { MutableRefObject } from "react";
 import type { TextAlign } from "./useSettings";
 import type { Stroke, UndoAction, BBox } from "../canvas/types";
@@ -1816,15 +1816,36 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
             persistStrokes();
             window.dispatchEvent(new Event("drawtool:selection-moved"));
           } else {
-            // Click without drag inside group - select the clicked item, or deselect if none
+            // Click without drag inside group
             const { scale } = viewRef.current;
             const wp = drag.startPtr;
-            let hit: Stroke | null = null;
-            for (let i = strokesRef.current.length - 1; i >= 0; i--) {
-              if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+            // Collect group members at the click point (in z-order)
+            const groupHits = selectedGroupRef.current.filter(
+              s => !s.locked && hitTestStroke(s, wp.x, wp.y, scale)
+            );
+            if (groupHits.length >= 2) {
+              // Multiple strokes under click — show picker popover
+              window.dispatchEvent(
+                new CustomEvent("drawtool:stroke-picker-show", {
+                  detail: { x: e.clientX, y: e.clientY, strokes: groupHits },
+                })
+              );
+              groupDragRef.current = null;
+              setZCursor("default");
+              scheduleRedraw();
+              return;
+            } else if (groupHits.length === 1) {
+              selectedGroupRef.current = [];
+              selectedTextRef.current = groupHits[0];
+            } else {
+              // No group member at click point - fall back to any stroke there
+              let hit: Stroke | null = null;
+              for (let i = strokesRef.current.length - 1; i >= 0; i--) {
+                if (!strokesRef.current[i].locked && hitTestStroke(strokesRef.current[i], wp.x, wp.y, scale)) { hit = strokesRef.current[i]; break; }
+              }
+              selectedGroupRef.current = [];
+              selectedTextRef.current = hit ?? null;
             }
-            selectedGroupRef.current = [];
-            selectedTextRef.current = hit ?? null;
           }
         }
 
@@ -2022,6 +2043,19 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     },
     [onPointerUp, persistStrokes, scheduleRedraw, setZCursor],
   );
+
+  useEffect(() => {
+    const onPickerSelect = (e: Event) => {
+      const stroke = (e as CustomEvent).detail as Stroke;
+      selectedGroupRef.current = [];
+      selectedTextRef.current = stroke;
+      strokesCacheRef.current = null;
+      setZCursor("default");
+      scheduleRedraw();
+    };
+    window.addEventListener("drawtool:stroke-picker-select", onPickerSelect);
+    return () => window.removeEventListener("drawtool:stroke-picker-select", onPickerSelect);
+  }, [selectedGroupRef, selectedTextRef, strokesCacheRef, setZCursor, scheduleRedraw]);
 
   return {
     finishWriting,

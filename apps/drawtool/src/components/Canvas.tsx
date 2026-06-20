@@ -257,6 +257,7 @@ function Canvas({
   const lockedIconPositionsRef = useRef<{ stroke: Stroke; wx: number; wy: number; wr: number }[]>([]);
   const lockedHoverRef = useRef<Stroke | null>(null);
   const lastCycleRef = useRef<{ selectedStroke: Stroke; hits: Stroke[] } | null>(null);
+  const pickerHoverRef = useRef<Stroke | null>(null);
   const groupDragRef = useRef<{
     mode: "move" | "corner" | "rotate";
     startPtr: { x: number; y: number };
@@ -933,6 +934,23 @@ function Canvas({
       ctx.beginPath(); ctx.arc(hx, hy, rotHr, 0, Math.PI * 2);
       ctx.fillStyle = "#ffffff"; ctx.fill();
       ctx.strokeStyle = "#4895ef"; ctx.stroke();
+      ctx.restore();
+    }
+
+    // Draw picker hover highlight (amber outline over the stroke being hovered in the picker popover)
+    if (pickerHoverRef.current && selectedGroupRef.current.length > 0) {
+      const ph = pickerHoverRef.current;
+      const bb = visualStrokeBBox(ph);
+      const pad = 5 / scale;
+      ctx.save();
+      ctx.strokeStyle = "#f59e0b";
+      ctx.lineWidth = 2.5 / scale;
+      ctx.setLineDash([]);
+      ctx.shadowColor = "#f59e0b";
+      ctx.shadowBlur = 6 / scale;
+      ctx.beginPath();
+      ctx.rect(bb.x - pad, bb.y - pad, bb.w + pad * 2, bb.h + pad * 2);
+      ctx.stroke();
       ctx.restore();
     }
 
@@ -2639,6 +2657,8 @@ function Canvas({
       } else if (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current) {
         e.preventDefault();
         e.stopImmediatePropagation();
+        window.dispatchEvent(new CustomEvent("drawtool:stroke-picker-close"));
+        pickerHoverRef.current = null;
         selectedTextRef.current = null;
         hoverTextRef.current = null;
         selectDragRef.current = null;
@@ -2655,6 +2675,26 @@ function Canvas({
     window.addEventListener("keydown", onCapture, { capture: true });
     return () => window.removeEventListener("keydown", onCapture, { capture: true });
   }, [finishWritingRef, setZCursor, scheduleRedraw]);
+
+  // Picker hover highlight and close
+  useEffect(() => {
+    const onHover = (e: Event) => {
+      pickerHoverRef.current = (e as CustomEvent).detail as Stroke | null;
+      scheduleRedraw();
+    };
+    const onClose = () => {
+      pickerHoverRef.current = null;
+      scheduleRedraw();
+    };
+    window.addEventListener("drawtool:stroke-picker-hover", onHover);
+    window.addEventListener("drawtool:stroke-picker-close", onClose);
+    window.addEventListener("drawtool:stroke-picker-select", onClose);
+    return () => {
+      window.removeEventListener("drawtool:stroke-picker-hover", onHover);
+      window.removeEventListener("drawtool:stroke-picker-close", onClose);
+      window.removeEventListener("drawtool:stroke-picker-select", onClose);
+    };
+  }, [scheduleRedraw]);
 
   // Show lock icon briefly when a locked stroke is clicked
   useEffect(() => {

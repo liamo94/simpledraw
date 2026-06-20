@@ -59,6 +59,7 @@ import SelectControls, {
 } from "./components/SelectControls";
 import MigrationModal from "./components/MigrationModal";
 import WorkspaceSwitcherModal from "./components/WorkspaceSwitcherModal";
+import StrokePickerPopover from "./components/StrokePickerPopover";
 import { useMigration } from "./hooks/useMigration";
 import { useCloudCanvas } from "./hooks/useCloudCanvas";
 import { useUserPlan, openBillingPortal } from "./hooks/useUserPlan";
@@ -255,6 +256,7 @@ export default function App() {
   const [showHighlightPicker, setShowHighlightPicker] = useState(false);
   const [showTextPicker, setShowTextPicker] = useState(false);
   const [showSelectPicker, setShowSelectPicker] = useState(false);
+  const [strokePickerState, setStrokePickerState] = useState<{ x: number; y: number; strokes: Stroke[] } | null>(null);
   const [lastMarkTool, setLastMarkTool] = useState<
     "highlight" | "laser" | "spray"
   >("highlight");
@@ -872,6 +874,21 @@ export default function App() {
     return () => {
       window.removeEventListener("drawtool:state", onState);
       window.removeEventListener("drawtool:menu-state", onMenuState);
+    };
+  }, []);
+
+  useEffect(() => {
+    const onShow = (e: Event) => {
+      setStrokePickerState((e as CustomEvent).detail as { x: number; y: number; strokes: Stroke[] });
+    };
+    const onClose = () => setStrokePickerState(null);
+    window.addEventListener("drawtool:stroke-picker-show", onShow);
+    window.addEventListener("drawtool:stroke-picker-close", onClose);
+    window.addEventListener("drawtool:stroke-picker-select", onClose);
+    return () => {
+      window.removeEventListener("drawtool:stroke-picker-show", onShow);
+      window.removeEventListener("drawtool:stroke-picker-close", onClose);
+      window.removeEventListener("drawtool:stroke-picker-select", onClose);
     };
   }, []);
 
@@ -2591,6 +2608,16 @@ export default function App() {
           selectionIsText={selectionIsText}
           selectionIsLocked={selectionIsLocked}
           isPro={isPro}
+        />
+      )}
+      {strokePickerState && (
+        <StrokePickerPopover
+          x={strokePickerState.x}
+          y={strokePickerState.y}
+          strokes={strokePickerState.strokes}
+          isDark={isDark}
+          theme={settings.theme}
+          customThemeBg={settings.customThemeBg}
         />
       )}
       {!presentationMode && hasTouch ? (
