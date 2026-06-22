@@ -539,7 +539,7 @@ export default function App() {
   const dropZoneCounterRef = useRef(0);
 
   const exportData = useCallback(async () => {
-    const strokes = loadStrokes(activeCanvas);
+    const strokes = loadStrokes(cloudActiveIdRef.current ? 1 : activeCanvas);
     const name = canvasNameRef.current || undefined;
     let images: Record<string, string> | undefined;
     if (exportIncludeImagesRef.current) {
@@ -584,6 +584,11 @@ export default function App() {
           );
           const targetSlot = cloudActiveIdRef.current ? 1 : activeCanvas;
           saveStrokes(strokes, targetSlot);
+          // Mark dirty so flushCurrentCanvas saves these strokes on canvas switch.
+          // Canvas's import handler replaces in-memory strokes but doesn't arm the save timer.
+          if (cloudActiveIdRef.current) {
+            localStorage.setItem("drawtool-cloud-dirty", cloudActiveIdRef.current);
+          }
           if (name !== undefined) {
             if (!cloudActiveIdRef.current)
               localStorage.setItem(
@@ -634,8 +639,10 @@ export default function App() {
         const index = i + 1;
         const strokes = loadStrokes(index);
         const view = loadView(index);
-        const name =
-          localStorage.getItem(`drawtool-canvas-name-${index}`) || undefined;
+        // For cloud users only slot 1 is active canvas data; use cloud name for it.
+        const name = (cloudActiveIdRef.current && index === 1)
+          ? (canvasNameRef.current || undefined)
+          : (localStorage.getItem(`drawtool-canvas-name-${index}`) || undefined);
         let images: Record<string, string> | undefined;
         if (exportIncludeImagesRef.current) {
           const ids = [
@@ -683,6 +690,43 @@ export default function App() {
       file.text().then((text) => {
         try {
           let canvases = validateWorkspaceFile(JSON.parse(text));
+
+          // Cloud users: workspace JSON uses local slot indices which don't map to cloud
+          // canvas UUIDs. Only import the first canvas into the active cloud canvas (slot 1).
+          if (cloudActiveIdRef.current) {
+            const first = canvases[0];
+            if (!first) return;
+            saveStrokes(first.strokes, 1);
+            if (first.view) saveView(first.view, 1);
+            // Mark dirty so flushCurrentCanvas saves on canvas switch
+            localStorage.setItem("drawtool-cloud-dirty", cloudActiveIdRef.current);
+            const allImageEntries: [string, string][] = first.images
+              ? Object.entries(first.images)
+              : [];
+            const dispatch = () => {
+              window.dispatchEvent(
+                new CustomEvent("drawtool:import-strokes", { detail: first.strokes }),
+              );
+              window.dispatchEvent(new Event("drawtool:center-view"));
+              const extra = canvases.length > 1
+                ? ` (${canvases.length - 1} other canvas${canvases.length > 2 ? "es" : ""} skipped — use Export Data for full cloud backup)`
+                : "";
+              showToast(
+                { type: "text", message: `Imported canvas${extra}` },
+                canvases.length > 1 ? 4000 : 1500,
+              );
+            };
+            if (allImageEntries.length > 0) {
+              Promise.all(
+                allImageEntries.map(([id, dataUrl]) => storeImage(id, dataUrl)),
+              ).then(dispatch);
+            } else {
+              dispatch();
+            }
+            return;
+          }
+
+          // Local (not logged in) path: import all canvases into local slots
           // Non-Pro users: intercept if workspace exceeds their canvas limit
           if (
             confirmedLimit === undefined &&
@@ -3239,11 +3283,14 @@ export default function App() {
                       return (
                         <button
                           key={n}
-                          onClick={() =>
+                          onClick={() => {
                             updateSettings(
                               isDashed ? { dashGap: n } : { lineWidth: n },
-                            )
-                          }
+                            );
+                            if (!isDashed && hasSelection) {
+                              window.dispatchEvent(new CustomEvent("drawtool:set-line-width", { detail: n }));
+                            }
+                          }}
                           aria-label={`${isDashed ? "Dash gap" : "Thickness"} ${n}`}
                           aria-pressed={current === n}
                           className="flex-1 flex items-center justify-center py-1.5 group"
@@ -5258,15 +5305,19 @@ export default function App() {
               return next;
             });
           }}
-          onImport={(imported) => {
+          onImport={(imported, mode) => {
             setStashItems((prev) => {
-              const existingIds = new Set(prev.map((i) => i.id));
-              const fresh = imported.filter((i) => !existingIds.has(i.id));
-              const next = [...fresh, ...prev];
+              const next = mode === "replace"
+                ? imported
+                : (() => {
+                    const existingIds = new Set(prev.map((i) => i.id));
+                    const fresh = imported.filter((i) => !existingIds.has(i.id));
+                    return [...fresh, ...prev];
+                  })();
               saveStash(next);
               return next;
             });
-            showToast({ type: "text", message: "Stash imported" });
+            showToast({ type: "text", message: mode === "replace" ? "Stash replaced" : "Added to stash" });
           }}
         />
       )}

@@ -151,9 +151,16 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
 
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const pendingSwitchRef = useRef<string | null>(null)
+  // Set when populateSlot1FromCache has a cache miss during a canvas switch.
+  // Signals the canvas data effect to write the server's view to slot 1 before remounting,
+  // since the previous canvas's view is still in slot 1 and would show content off-screen.
+  const uncachedSwitchRef = useRef(false)
   const cachedTokenRef = useRef<string | null>(null)
   const broadcastRef = useRef<BroadcastChannel | null>(null)
   const newRouteHandledRef = useRef(false)
+  // Set when our own PUT completes; cleared when the resulting sync is processed.
+  // Used to skip undo-stack clearing on self-originated syncs.
+  const selfSavedRef = useRef(false)
   // Captured at mount: was there already a saved canvas on this device?
   // Cloud prefs (preferredCanvasId) should only apply on fresh devices with no prior history.
   const hadLocalCanvasRef = useRef(!!localStorage.getItem('drawtool-cloud-active-canvas'))
@@ -326,6 +333,8 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     // Skip overwriting it and re-send the local state to the server instead.
     const dirtyId = localStorage.getItem(DIRTY_KEY)
     if (dirtyId === activeId) {
+      // Local content wins — discard any pending uncached-switch flag so we keep the local view.
+      uncachedSwitchRef.current = false
       // Only remount Canvas (bumpLoadKey) on a fresh page load - Canvas needs to read slot 1
       // for the first time. On BFCache restores (getUpdatedAt has a value), Canvas is already
       // rendering the correct local content, so remounting would disrupt any in-progress drawing.
@@ -334,6 +343,9 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       markUpdatedAt(activeId, updated_at)
       ;(async () => {
         const strokes = loadStrokes(CLOUD_SLOT)
+        // Dirty recovery only fires when DIRTY_KEY === activeId, meaning the user made a
+        // deliberate change (draw, erase, select+delete). Sending [] here is intentional —
+        // the user erased everything. No empty-strokes guard needed in this path.
         const view = loadView(CLOUD_SLOT)
         const images = await collectImages(strokes)
         api.put<{ ok: true }>(`/canvases/${capturedDirtyId}`, { strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) })
@@ -354,8 +366,8 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       return
     }
 
-    // Poll re-fetch returned unchanged data - skip Canvas remount
-    if (updated_at && getUpdatedAt(activeId) === updated_at) return
+    // Poll re-fetch returned data we already applied (or older than our last confirmed save) - skip
+    if (updated_at && (getUpdatedAt(activeId) ?? 0) >= updated_at) return
 
     const isInitialLoad = !getUpdatedAt(activeId)
     markUpdatedAt(activeId, updated_at)
@@ -383,16 +395,31 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
         setCachedCanvasName(name)
         return
       }
-      saveStrokes(strokes, CLOUD_SLOT, true)
-      if (isInitialLoad) storeThumbnail(capturedActiveId, strokes, isDarkRef.current)
       setCachedCanvasName(name)
       if (isInitialLoad) {
-        // Remount Canvas with server strokes. Do NOT restore the server's saved view —
-        // keep the view already in slot 1 (saved by this device's last session).
+        // Initial load: write server strokes to slot 1 unconditionally.
+        saveStrokes(strokes, CLOUD_SLOT, true)
+        storeThumbnail(capturedActiveId, strokes, isDarkRef.current)
+        // On a canvas switch to an uncached canvas, slot 1 still holds the previous
+        // canvas's view. Use the server's saved view so content isn't off-screen.
+        // On page reload, uncachedSwitchRef is false and we preserve the local view.
+        if (uncachedSwitchRef.current) {
+          uncachedSwitchRef.current = false
+          saveView(data.view, CLOUD_SLOT)
+        }
         bumpLoadKey()
       } else {
-        // Live sync: update strokes in-place so viewport is preserved
-        window.dispatchEvent(new CustomEvent('drawtool:sync-strokes', { detail: { slot: CLOUD_SLOT, strokes } }))
+        // Live sync: update strokes in-place so viewport is preserved.
+        const isSelfSave = selfSavedRef.current
+        selfSavedRef.current = false
+        // For cross-device syncs (isSelfSave = false), write the server's strokes to slot 1
+        // so flushCurrentCanvas and onBeforeUnload read the authoritative latest state.
+        // For self-save round-trips (isSelfSave = true), do NOT overwrite slot 1: the local
+        // slot already has the correct or more recent data (user may have drawn more strokes
+        // since the PUT was sent). Overwriting would cause flushCurrentCanvas to save stale
+        // data if the user switches canvases before their next pointer-up.
+        if (!isSelfSave) saveStrokes(strokes, CLOUD_SLOT, true)
+        window.dispatchEvent(new CustomEvent('drawtool:sync-strokes', { detail: { slot: CLOUD_SLOT, strokes, isSelfSave } }))
       }
     })()
   }, [canvasQuery.data, activeId])
@@ -413,14 +440,18 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
           saveTimerRef.current = null
         }
         const strokes = loadStrokes(CLOUD_SLOT)
-        const view = loadView(CLOUD_SLOT)
-        const images = collectImagesSync(strokes)
-        fetch(`${API_URL}/canvases/${id}`, {
-          method: 'PUT',
-          keepalive: true,
-          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) }),
-        }).catch(() => {})
+        const isDirty = localStorage.getItem(DIRTY_KEY) === id
+        // Skip if empty with no DIRTY_KEY — slot was wiped internally, not by a user action.
+        if (strokes.length > 0 || isDirty) {
+          const view = loadView(CLOUD_SLOT)
+          const images = collectImagesSync(strokes)
+          fetch(`${API_URL}/canvases/${id}`, {
+            method: 'PUT',
+            keepalive: true,
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) }),
+          }).catch(() => {})
+        }
       }
 
       useCloudSessionStore.getState().setActiveCanvas(null)
@@ -456,13 +487,20 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       const forId = useCloudSessionStore.getState().activeId
       localStorage.setItem(DIRTY_KEY, forId ?? '')
       saveTimerRef.current = setTimeout(async () => {
+        saveTimerRef.current = null // timer has fired; clear stale ref so flushCurrentCanvas early-return is accurate
         const id = useCloudSessionStore.getState().activeId
         if (!id || id !== forId) return // canvas switched since timer was scheduled
         if (localStorage.getItem(DIRTY_KEY) !== forId) return // dirty-recovery path already handled this save
         const view = loadView(CLOUD_SLOT)
         const images = await collectImages(strokes)
         api.put<{ ok: true }>(`/canvases/${id}`, { strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) }).then(() => {
+          selfSavedRef.current = true
           localStorage.removeItem(DIRTY_KEY)
+          // Stamp the save time so polls skip re-syncing with this confirmed save.
+          // Without this, getUpdatedAt stays at the initial-load timestamp and every poll
+          // after a save dispatches sync-strokes, which can overwrite newer in-memory strokes
+          // with the server's older data if the user kept drawing after the debounce fired.
+          markUpdatedAt(id, Math.floor(Date.now() / 1000))
           broadcastRef.current?.postMessage({ canvasId: id })
           queryClient.setQueryData<CloudWorkspace[]>(['workspaces'], (old = []) =>
             old.map(w => ({ ...w, canvases: w.canvases.map(c => c.id === id ? { ...c, is_empty: 0, stroke_count: strokes.length } : c) }))
@@ -488,12 +526,9 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       // DIRTY_KEY ensures the next load re-sends with full image data.
       const strokes = loadStrokes(CLOUD_SLOT)
       const view = loadView(CLOUD_SLOT)
-      // Safety guard: if this canvas was never loaded in this session, slot 1 may still
-      // be empty from populateSlot1FromCache (cache miss). Sending [] would overwrite
-      // real R2 data. Only skip when strokes are empty AND no dirty flag is set.
-      const canvasLoaded = !!useCloudSessionStore.getState().lastAppliedUpdatedAt[id]
-      const isDirty = localStorage.getItem(DIRTY_KEY) === id
-      if (strokes.length === 0 && !canvasLoaded && !isDirty) return
+      // Skip only if strokes are empty AND no user action caused it (no DIRTY_KEY).
+      // If DIRTY_KEY is set, the user deliberately emptied the canvas and we must persist it.
+      if (strokes.length === 0 && localStorage.getItem(DIRTY_KEY) !== id) return
       fetch(`${API_URL}/canvases/${id}`, {
         method: 'PUT',
         keepalive: true,
@@ -533,6 +568,13 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       saveTimerRef.current = null
     }
     const strokes = loadStrokes(CLOUD_SLOT)
+    // Skip sending [] only when there's no dirty flag — an empty slot 1 without DIRTY_KEY
+    // means it was wiped internally (cache-miss switch), not by a user action.
+    // If DIRTY_KEY is set, the user deliberately emptied the canvas (eraser, select+delete)
+    // and that empty state must be persisted.
+    if (strokes.length === 0 && localStorage.getItem(DIRTY_KEY) !== currentId) {
+      return true
+    }
     const view = loadView(CLOUD_SLOT)
     const images = await collectImages(strokes)
     const updated_at = Math.floor(Date.now() / 1000)
@@ -578,7 +620,14 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     localStorage.removeItem(DIRTY_KEY)
     type CachedCanvas = { data: { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; images?: Record<string, string> } }
     const cached = queryClient.getQueryData<CachedCanvas>(['canvas', id])
-    if (!cached) { saveStrokes([], CLOUD_SLOT, true); return }
+    if (!cached) {
+      // Cache miss: slot 1 keeps the previous canvas's view. Signal the canvas data
+      // effect to write the server's view before remounting so content isn't off-screen.
+      uncachedSwitchRef.current = true
+      saveStrokes([], CLOUD_SLOT, true)
+      return
+    }
+    uncachedSwitchRef.current = false
     // Pre-load images into IDB so Canvas can draw them immediately on remount.
     if (cached.data.images) {
       Promise.allSettled(Object.entries(cached.data.images).map(([imgId, url]) => storeImage(imgId, url))).catch(() => {})
@@ -594,10 +643,24 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     pendingSwitchRef.current = id
     if (id === useCloudSessionStore.getState().activeId) return
     const currentId = useCloudSessionStore.getState().activeId
-    const flushOk = await flushCurrentCanvas()
+    let flushOk = await flushCurrentCanvas()
     // If the user switched again while the flush was in flight, abandon this switch.
     if (pendingSwitchRef.current !== id) return
-    if (currentId) leavingCanvas(currentId, flushOk)
+
+    // If new draws arrived during the async flush (save timer re-armed or DIRTY_KEY still set),
+    // retry once so those strokes aren't lost when slot 1 is repurposed for the new canvas.
+    if (flushOk && (saveTimerRef.current || localStorage.getItem(DIRTY_KEY) === currentId)) {
+      flushOk = await flushCurrentCanvas()
+      if (pendingSwitchRef.current !== id) return
+    }
+
+    // Abort the switch if data couldn't be confirmed saved — never lose data for switching.
+    if (!flushOk) {
+      window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed — try again' } }))
+      return
+    }
+
+    if (currentId) leavingCanvas(currentId, true)
     populateSlot1FromCache(id)
     // Force a server refetch to pick up cross-device changes (staleTime: Infinity would skip it)
     queryClient.invalidateQueries({ queryKey: ['canvas', id], refetchType: 'none' })
@@ -611,8 +674,15 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     const ws = freshWorkspaces.find(w => w.id === id)
     if (!ws) return
     const currentId = useCloudSessionStore.getState().activeId
-    const flushOk = await flushCurrentCanvas()
-    if (currentId) leavingCanvas(currentId, flushOk)
+    let flushOk = await flushCurrentCanvas()
+    if (flushOk && currentId && (saveTimerRef.current || localStorage.getItem(DIRTY_KEY) === currentId)) {
+      flushOk = await flushCurrentCanvas()
+    }
+    if (!flushOk) {
+      window.dispatchEvent(new CustomEvent('drawtool:toast', { detail: { message: '⚠ Save failed — try again' } }))
+      return
+    }
+    if (currentId) leavingCanvas(currentId, true)
     setActiveWorkspace(ws.id, ws.name)
     if (ws.canvases.length > 0) {
       const target = initialCanvasId ? ws.canvases.find(c => c.id === initialCanvasId) : null
@@ -1016,23 +1086,49 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     if (!ws) return
 
     newRouteHandledRef.current = true
-    // Clear slot 1 before Canvas mounts so it doesn't briefly flash stale strokes.
-    saveStrokes([], CLOUD_SLOT, true)
-    setNewRoutePending(false)
 
     const candidates = ws.canvases.slice(0, canvasLimit)
-    // is_empty comes from the backend - reliable without loading canvas content.
     const blank = candidates.find(c => c.is_empty === 1)
+    const oldest = [...candidates].sort((a, b) => a.updated_at - b.updated_at)[0]
 
     setActiveWorkspace(ws.id, ws.name)
 
-    if (blank) {
-      setActiveCanvas(blank.id)
+    const commitNewRoute = () => {
+      // Safe to clear slot 1 now — dirty data has been rescued (or there was none).
+      saveStrokes([], CLOUD_SLOT, true)
+      setNewRoutePending(false)
+      if (blank) {
+        setActiveCanvas(blank.id)
+      } else {
+        if (oldest) setActiveCanvas(oldest.id)
+        setNewRouteAllOccupied(true)
+      }
+    }
+
+    // Before wiping slot 1, rescue any dirty data from the previous session.
+    // onBeforeUnload sends a keepalive PUT but deliberately never clears DIRTY_KEY
+    // (keepalive success isn't guaranteed). If DIRTY_KEY is still set, slot 1 still
+    // holds the previous canvas's strokes from that session — send them to the server
+    // now before clearing. Without this, switching to the /new canvas would make
+    // dirty recovery impossible: activeId changes, DIRTY_KEY never matches, data is lost.
+    const dirtyId = localStorage.getItem(DIRTY_KEY)
+    if (dirtyId) {
+      const strokes = loadStrokes(CLOUD_SLOT)
+      // Only rescue if there's actual content — never send [] to the server from here.
+      if (strokes.length > 0) {
+        const view = loadView(CLOUD_SLOT)
+        const images = collectImagesSync(strokes)
+        api.put<{ ok: true }>(`/canvases/${dirtyId}`, { strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) })
+          .then(() => localStorage.removeItem(DIRTY_KEY))
+          .catch(() => { /* leave DIRTY_KEY so next visit retries */ })
+          .finally(commitNewRoute)
+      } else {
+        // Slot 1 is already empty — nothing to rescue, just clear the stale dirty key.
+        localStorage.removeItem(DIRTY_KEY)
+        commitNewRoute()
+      }
     } else {
-      // All slots occupied: open least-recently-updated canvas and signal blur
-      const oldest = [...candidates].sort((a, b) => a.updated_at - b.updated_at)[0]
-      if (oldest) setActiveCanvas(oldest.id)
-      setNewRouteAllOccupied(true)
+      commitNewRoute()
     }
   }, [newRoute, workspacesQuery.data, planLoading])
 

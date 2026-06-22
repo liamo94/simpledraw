@@ -146,8 +146,6 @@ export type TextSelectionRefs = {
     cycleHits?: Stroke[];
     pendingBend?: { segmentIdx: number };
     subStrokeStartPoints?: { x: number; y: number }[][];
-    startLineWidth?: number;
-    startSubLineWidths?: number[];
     startLineRotation?: number;
   } | null>;
   hoverTextRef: MutableRefObject<Stroke | null>;
@@ -878,8 +876,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                     startScale: selectedTextRef.current.fontScale ?? 1,
                     bbox: bb,
                     subStrokeStartPoints: selectedTextRef.current.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
-                    startLineWidth: selectedTextRef.current.lineWidth,
-                    startSubLineWidths: selectedTextRef.current.subStrokes?.map(s => s.lineWidth),
                   };
                   (e.target as Element).setPointerCapture(e.pointerId);
                   return;
@@ -1400,18 +1396,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                     }
                   }
                 }
-                // Scale lineWidth proportionally using geometric mean of x/y scale factors
-                const lwScale = Math.sqrt(Math.abs(sx * sy));
-                if (drag.startLineWidth !== undefined) {
-                  stroke.lineWidth = Math.max(0.5, drag.startLineWidth * lwScale);
-                }
-                if (drag.startSubLineWidths && stroke.subStrokes) {
-                  stroke.subStrokes.forEach((sub, k) => {
-                    if (drag.startSubLineWidths![k] !== undefined) {
-                      sub.lineWidth = Math.max(0.5, drag.startSubLineWidths![k] * lwScale);
-                    }
-                  });
-                }
               }
             }
           } else {
@@ -1431,13 +1415,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               x: p0IsLeft ? newRight  : newLeft,
               y: p0IsTop  ? newBottom : newTop,
             };
-            // Scale shape lineWidth proportionally
-            if (drag.startLineWidth !== undefined && bb.w > 0 && bb.h > 0) {
-              const newW = newRight - newLeft;
-              const newH = newBottom - newTop;
-              const lwScale = Math.sqrt((newW / bb.w) * (newH / bb.h));
-              stroke.lineWidth = Math.max(0.5, drag.startLineWidth * lwScale);
-            }
           }
         }
 
@@ -2019,12 +1996,6 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               subFrom: drag.subStrokeStartPoints,
               subTo: drag.subStrokeStartPoints
                 ? stroke.subStrokes?.map(s => s.points.map(p => ({ ...p })))
-                : undefined,
-              fromLineWidth: drag.startLineWidth,
-              toLineWidth: drag.startLineWidth !== undefined ? stroke.lineWidth : undefined,
-              fromSubLineWidths: drag.startSubLineWidths,
-              toSubLineWidths: drag.startSubLineWidths
-                ? stroke.subStrokes?.map(s => s.lineWidth)
                 : undefined,
             });
             redoStackRef.current = [];

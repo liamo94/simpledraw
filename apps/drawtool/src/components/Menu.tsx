@@ -737,9 +737,9 @@ export default function Menu({
             className={`mt-2 p-4 rounded-xl border backdrop-blur-sm shadow-2xl w-[min(340px,calc(100vw-2rem))] overflow-y-auto overflow-x-hidden scroll-pb-6 ${hasTouch ? "max-h-[calc(100dvh-8rem)]" : "max-h-[calc(100vh-8rem)]"} ${isDark ? "border-white/15" : "border-black/15"}`}
             style={{ background: getPanelBackground(settings.theme, settings.customThemeBg) }}
           >
-            <a href="/" className={`${isPro ? "mb-1" : "mb-3"} text-center select-none block`} style={{ textDecoration: "none" }}>
+            <div className={`${isPro ? "mb-1" : "mb-3"} text-center select-none`}>
               <DrawzillaLogo fontSize={30} isDark={isDark} animate={logoAnimate} />
-            </a>
+            </div>
             {isPro && (
               <div className="text-center mb-3" style={{ marginTop: -4 }}>
                 <span className="unleashed-text" style={isDark ? undefined : {
@@ -780,7 +780,7 @@ export default function Menu({
               {[1, 2, 4, 6, 8, 10].map((n) => (
                 <button
                   key={n}
-                  onClick={() => updateSettings({ lineWidth: n })}
+                  onClick={() => { updateSettings({ lineWidth: n }); window.dispatchEvent(new CustomEvent("drawtool:set-line-width", { detail: n })); }}
                   aria-label={`Line thickness ${n}`}
                   aria-pressed={settings.lineWidth === n}
                   className="flex-1 flex items-center justify-center py-1 group"

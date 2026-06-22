@@ -93,7 +93,7 @@ export default function StashPanel({
   onDelete: (id: string) => void;
   onRename: (id: string, name: string) => void;
   onReorder: (fromId: string, toId: string) => void;
-  onImport: (items: StashItem[]) => void;
+  onImport: (items: StashItem[], mode: "replace" | "add") => void;
 }) {
   const [search, setSearch] = useState("");
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -101,6 +101,7 @@ export default function StashPanel({
   const [dragId, setDragId] = useState<string | null>(null);
   const [dragOverId, setDragOverId] = useState<string | null>(null);
   const [showHeaderMenu, setShowHeaderMenu] = useState(false);
+  const [pendingImport, setPendingImport] = useState<StashItem[] | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const importRef = useRef<HTMLInputElement>(null);
   const headerMenuRef = useRef<HTMLDivElement>(null);
@@ -157,7 +158,7 @@ export default function StashPanel({
       try {
         const parsed = JSON.parse(ev.target?.result as string);
         const imported: StashItem[] = Array.isArray(parsed) ? parsed : [];
-        if (imported.length) onImport(imported);
+        if (imported.length) setPendingImport(imported);
       } catch { /* ignore */ }
     };
     reader.readAsText(file);
@@ -414,6 +415,57 @@ export default function StashPanel({
       </div>
 
       <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImportFile} />
+
+      {/* Import mode dialog */}
+      {pendingImport && (
+        <div
+          className="absolute inset-0 z-20 flex items-center justify-center"
+          style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(2px)" }}
+        >
+          <div
+            className="rounded-2xl shadow-2xl p-5 flex flex-col gap-3 mx-4"
+            style={{
+              width: 240,
+              background: isDark ? "rgba(24,24,24,0.98)" : "rgba(255,255,255,0.98)",
+              border: `1px solid ${border}`,
+            }}
+          >
+            <p className="text-xs font-medium leading-snug" style={{ color: isDark ? "rgba(255,255,255,0.75)" : "rgba(0,0,0,0.65)" }}>
+              Import {pendingImport.length} item{pendingImport.length !== 1 ? "s" : ""}
+            </p>
+            <button
+              className="w-full rounded-xl py-2 text-xs font-medium text-white transition-opacity"
+              style={{ background: "#3b82f6" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.85"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onClick={() => { onImport(pendingImport, "add"); setPendingImport(null); }}
+            >
+              Add to existing stash
+            </button>
+            <button
+              className="w-full rounded-xl py-2 text-xs font-medium transition-opacity"
+              style={{
+                background: isDark ? "rgba(255,255,255,0.08)" : "rgba(0,0,0,0.06)",
+                color: isDark ? "rgba(255,255,255,0.7)" : "rgba(0,0,0,0.65)",
+              }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.7"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onClick={() => { onImport(pendingImport, "replace"); setPendingImport(null); }}
+            >
+              Replace stash
+            </button>
+            <button
+              className="w-full text-xs transition-opacity"
+              style={{ color: isDark ? "rgba(255,255,255,0.35)" : "rgba(0,0,0,0.35)" }}
+              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.opacity = "0.6"; }}
+              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.opacity = "1"; }}
+              onClick={() => setPendingImport(null)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

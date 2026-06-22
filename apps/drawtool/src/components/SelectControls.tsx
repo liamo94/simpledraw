@@ -97,6 +97,29 @@ export const COMMON_ACTIONS: Action[] = [
 
 export const DRAWING_ACTIONS: Action[] = [
   {
+    label: "Thicker",
+    group: "thickness",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+        <line x1="3" y1="10" x2="17" y2="10" strokeWidth="4" />
+        <line x1="10" y1="3" x2="10" y2="7" strokeWidth="1.75" />
+        <line x1="7" y1="5" x2="13" y2="5" strokeWidth="1.75" />
+      </svg>
+    ),
+    action: () => kd({ key: "}" }),
+  },
+  {
+    label: "Thinner",
+    group: "thickness",
+    icon: (
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round">
+        <line x1="3" y1="10" x2="17" y2="10" strokeWidth="1.75" />
+        <line x1="7" y1="5" x2="13" y2="5" strokeWidth="1.75" />
+      </svg>
+    ),
+    action: () => kd({ key: "{" }),
+  },
+  {
     label: "Flip horizontal",
     group: "transform",
     icon: (

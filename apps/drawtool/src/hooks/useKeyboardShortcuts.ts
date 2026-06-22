@@ -702,11 +702,38 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (e.key === "}" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent("drawtool:thickness", { detail: 1 }));
+        const selGroup = selectedGroupRef.current;
+        const selSingle = selectedTextRef.current;
+        if ((selGroup.length > 0 || selSingle) && !isWritingRef.current) {
+          const steps = [1, 2, 4, 6, 8, 10];
+          const curLw = selSingle ? selSingle.lineWidth : Math.min(...selGroup.map(s => s.lineWidth));
+          const idx = steps.indexOf(curLw);
+          const nextIdx = idx === -1 ? steps.findIndex(s => s > curLw) : Math.min(steps.length - 1, idx + 1);
+          if (nextIdx !== -1) {
+            const nextLw = steps[nextIdx];
+            if (nextLw > curLw) window.dispatchEvent(new CustomEvent("drawtool:set-line-width", { detail: nextLw }));
+          }
+        } else {
+          window.dispatchEvent(new CustomEvent("drawtool:thickness", { detail: 1 }));
+        }
       }
       if (e.key === "{" && !cmdKey(e) && !e.altKey) {
         e.preventDefault();
-        window.dispatchEvent(new CustomEvent("drawtool:thickness", { detail: -1 }));
+        const selGroup = selectedGroupRef.current;
+        const selSingle = selectedTextRef.current;
+        if ((selGroup.length > 0 || selSingle) && !isWritingRef.current) {
+          const steps = [1, 2, 4, 6, 8, 10];
+          const curLw = selSingle ? selSingle.lineWidth : Math.max(...selGroup.map(s => s.lineWidth));
+          const idx = steps.indexOf(curLw);
+          const lastBelow = steps.reduce((best, s, i) => s < curLw ? i : best, -1);
+          const nextIdx = idx === -1 ? lastBelow : Math.max(0, idx - 1);
+          if (nextIdx !== -1) {
+            const nextLw = steps[nextIdx];
+            if (nextLw < curLw) window.dispatchEvent(new CustomEvent("drawtool:set-line-width", { detail: nextLw }));
+          }
+        } else {
+          window.dispatchEvent(new CustomEvent("drawtool:thickness", { detail: -1 }));
+        }
       }
       if (e.key === "m" && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.shiftKey) {
         e.preventDefault();

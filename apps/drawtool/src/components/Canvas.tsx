@@ -128,7 +128,7 @@ function Canvas({
   const eraseTrailRef = useRef<{ x: number; y: number }[]>([]);
   const eraseMovingRef = useRef(false);
   const isDrawingRef = useRef(false);
-  const pendingSyncRef = useRef<{ slot: number; strokes: Stroke[] } | null>(null);
+  const pendingSyncRef = useRef<{ slot: number; strokes: Stroke[]; isSelfSave?: boolean } | null>(null);
   const activeModifierRef = useRef<
     "meta" | "shift" | "alt" | "line" | "shape" | "highlight" | "laser" | "spray" | null
   >(null);
@@ -246,8 +246,6 @@ function Canvas({
     pendingBend?: { segmentIdx: number };
     startRotation?: number;
     subStrokeStartPoints?: { x: number; y: number }[][];
-    startLineWidth?: number;
-    startSubLineWidths?: number[];
     startLineRotation?: number;
   } | null>(null);
   const boxSelectRef = useRef<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: import("../canvas/types").Stroke; prevGroup?: import("../canvas/types").Stroke[]; prevSingle?: import("../canvas/types").Stroke | null } | null>(null);
@@ -864,6 +862,7 @@ function Canvas({
       ctx.restore();
     };
 
+    if (!presentationModeRef.current) {
     // Draw hover first (underneath selected)
     if (hoverTextRef.current && hoverTextRef.current !== selectedTextRef.current) {
       drawOverlayStroke(hoverTextRef.current, false);
@@ -936,6 +935,7 @@ function Canvas({
       ctx.strokeStyle = "#4895ef"; ctx.stroke();
       ctx.restore();
     }
+    } // end !presentationModeRef.current selection guard
 
     // Draw picker hover highlight (amber outline over the stroke being hovered in the picker popover)
     if (pickerHoverRef.current && selectedGroupRef.current.length > 0) {
@@ -1153,20 +1153,64 @@ function Canvas({
     };
   }, []);
 
+  // Apply incoming server strokes. For self-saves (our own PUT returning), remap undo/redo
+  // stack entries to the new stroke objects so undo history is preserved. For foreign syncs
+  // (another device/tab changed strokes), clear undo/redo since history is incompatible.
+  const applySyncStrokes = (strokes: Stroke[], isSelfSave?: boolean) => {
+    const oldStrokes = strokesRef.current
+    // Self-save round-trip: if the server returned fewer strokes than we have in memory,
+    // our in-memory state is ahead of the server (user kept drawing after the debounce fired).
+    // Skip the overwrite — the next debounced save will send the full in-memory state.
+    if (isSelfSave && strokes.length < oldStrokes.length) return
+    strokesRef.current = strokes
+    strokesCacheRef.current = null
+    strokesBBoxRef.current = null
+    selectedTextRef.current = null
+    selectedGroupRef.current = []
+    if (isSelfSave && strokes.length === oldStrokes.length) {
+      // Build old→new mapping by index (order is stable across a self-save round-trip)
+      const oldToNew = new Map<Stroke, Stroke>()
+      for (let i = 0; i < oldStrokes.length; i++) oldToNew.set(oldStrokes[i], strokes[i])
+      const remapStroke = (s: Stroke): Stroke => oldToNew.get(s) ?? s
+      const remapAction = (action: UndoAction): UndoAction => {
+        if (action.type === "draw" || action.type === "move" || action.type === "resize" ||
+            action.type === "edit" || action.type === "font-change" || action.type === "size-change" ||
+            action.type === "bold-change" || action.type === "italic-change" ||
+            action.type === "align-change" || action.type === "color-change" ||
+            action.type === "line-width-change" ||
+            action.type === "reshape" || action.type === "rotate")
+          return { ...action, stroke: remapStroke(action.stroke) }
+        if (action.type === "erase" || action.type === "group-color-change" ||
+            action.type === "group-line-width-change" ||
+            action.type === "fill-style-change" || action.type === "fill-opacity-change" ||
+            action.type === "corners-change" || action.type === "group-move" ||
+            action.type === "group-transform" || action.type === "multi-draw" ||
+            action.type === "flip" || action.type === "lock")
+          return { ...action, strokes: action.strokes.map(remapStroke) }
+        if (action.type === "combine" || action.type === "uncombine")
+          return { ...action, combined: remapStroke(action.combined), originals: action.originals.map(remapStroke) }
+        if (action.type === "reorder")
+          return { ...action, before: action.before.map(remapStroke), after: action.after.map(remapStroke) }
+        return action
+      }
+      undoStackRef.current = undoStackRef.current.map(remapAction)
+      redoStackRef.current = redoStackRef.current.map(remapAction)
+    } else {
+      undoStackRef.current = []
+      redoStackRef.current = []
+    }
+  }
+
   // Live sync: replace strokes in-place without remounting (preserves viewport)
   useEffect(() => {
     const handler = (e: Event) => {
-      const { slot, strokes } = (e as CustomEvent<{ slot: number; strokes: Stroke[] }>).detail
+      const { slot, strokes, isSelfSave } = (e as CustomEvent<{ slot: number; strokes: Stroke[]; isSelfSave?: boolean }>).detail
       if (slot !== canvasIndex) return
       // Defer if a stroke is in progress - apply after pointer-up to avoid mid-stroke disruption
-      if (isDrawingRef.current) { pendingSyncRef.current = { slot, strokes }; return }
-      strokesRef.current = strokes
-      strokesCacheRef.current = null
-      strokesBBoxRef.current = null
-      selectedTextRef.current = null
-      selectedGroupRef.current = []
-      undoStackRef.current = []
-      redoStackRef.current = []
+      if (isDrawingRef.current || selectDragRef.current || groupDragRef.current) {
+        pendingSyncRef.current = { slot, strokes, isSelfSave }; return
+      }
+      applySyncStrokes(strokes, isSelfSave)
       const ids = strokes.filter(s => s.imageId).map(s => s.imageId!)
       if (ids.length > 0) {
         loadImages(ids).then(() => scheduleRedraw())
@@ -1358,7 +1402,7 @@ function Canvas({
       };
       const swapStrokes = (strokes: Stroke[]) => { for (const s of strokes) swapOne(s); };
       const swapAction = (a: UndoAction) => {
-        const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "size-change" || a.type === "reshape" ? [a.stroke] : a.type === "combine" || a.type === "uncombine" ? a.originals : [];
+        const list = a.type === "erase" || a.type === "group-move" || a.type === "multi-draw" ? a.strokes : a.type === "draw" || a.type === "move" || a.type === "resize" || a.type === "edit" || a.type === "font-change" || a.type === "size-change" || a.type === "reshape" || a.type === "line-width-change" ? [a.stroke] : a.type === "group-line-width-change" ? a.strokes : a.type === "combine" || a.type === "uncombine" ? a.originals : [];
         for (const s of list) swapOne(s);
         // Update stored from/to color values in color-related undo actions
         if (a.type === "color-change") {
@@ -1910,6 +1954,10 @@ function Canvas({
         action.stroke.color = action.from;
       } else if (action.type === "group-color-change") {
         action.strokes.forEach((s, i) => { s.color = action.from[i]; });
+      } else if (action.type === "line-width-change") {
+        action.stroke.lineWidth = action.from;
+      } else if (action.type === "group-line-width-change") {
+        action.strokes.forEach((s, i) => { s.lineWidth = action.from[i]; });
       } else if (action.type === "fill-style-change") {
         action.strokes.forEach((s, i) => { s.fill = action.from[i]; });
       } else if (action.type === "fill-opacity-change") {
@@ -2082,6 +2130,10 @@ function Canvas({
         action.stroke.color = action.to;
       } else if (action.type === "group-color-change") {
         action.strokes.forEach(s => { s.color = action.to; });
+      } else if (action.type === "line-width-change") {
+        action.stroke.lineWidth = action.to;
+      } else if (action.type === "group-line-width-change") {
+        action.strokes.forEach(s => { s.lineWidth = action.to; });
       } else if (action.type === "fill-style-change") {
         action.strokes.forEach(s => { s.fill = action.to; });
       } else if (action.type === "fill-opacity-change") {
@@ -2299,6 +2351,26 @@ function Canvas({
         scheduleRedraw();
       }
     };
+    const onSetLineWidth = (e: Event) => {
+      const lw = (e as CustomEvent).detail as number;
+      const group = selectedGroupRef.current;
+      const single = selectedTextRef.current;
+      if (group.length > 0) {
+        undoStackRef.current.push({ type: "group-line-width-change", strokes: group, from: group.map(s => s.lineWidth), to: lw });
+        redoStackRef.current = [];
+        group.forEach(s => { s.lineWidth = lw; });
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
+        persistStrokes();
+        scheduleRedraw();
+      } else if (single) {
+        undoStackRef.current.push({ type: "line-width-change", stroke: single, from: single.lineWidth, to: lw });
+        redoStackRef.current = [];
+        single.lineWidth = lw;
+        strokesCacheRef.current = null; strokesBBoxRef.current = null;
+        persistStrokes();
+        scheduleRedraw();
+      }
+    };
     const onGetView = (e: Event) => { (e as CustomEvent).detail.view = { ...viewRef.current } }
     const onGetSelectionBBox = (e: Event) => {
       const sel: Stroke[] = selectedGroupRef.current.length > 0
@@ -2457,6 +2529,7 @@ function Canvas({
     };
     window.addEventListener("drawtool:font-family", onFontFamily);
     window.addEventListener("drawtool:set-color", onSetColor);
+    window.addEventListener("drawtool:set-line-width", onSetLineWidth);
     window.addEventListener("drawtool:text-bold", onTextBold);
     window.addEventListener("drawtool:text-italic", onTextItalic);
     window.addEventListener("drawtool:text-align", onTextAlign);
@@ -2588,6 +2661,7 @@ function Canvas({
       window.removeEventListener("drawtool:export-selection-png", onExportSelectionPng);
       window.removeEventListener("drawtool:font-family", onFontFamily);
       window.removeEventListener("drawtool:set-color", onSetColor);
+      window.removeEventListener("drawtool:set-line-width", onSetLineWidth);
       window.removeEventListener("drawtool:text-bold", onTextBold);
       window.removeEventListener("drawtool:text-italic", onTextItalic);
       window.removeEventListener("drawtool:text-align", onTextAlign);
@@ -3267,16 +3341,21 @@ function Canvas({
         activeModifierRef.current = null;
         strokesCacheRef.current = null; strokesBBoxRef.current = null;
         persistStrokes();
-        // Apply any sync that was deferred to avoid disrupting the in-progress stroke
+        // Apply any sync that was deferred to avoid disrupting the in-progress stroke.
+        // Re-append the just-committed stroke if it survived the discard checks so a
+        // background server sync arriving mid-draw doesn't erase the new stroke.
         const deferred = pendingSyncRef.current;
         pendingSyncRef.current = null;
         if (deferred) {
-          strokesRef.current = deferred.strokes;
-          strokesCacheRef.current = null; strokesBBoxRef.current = null;
-          selectedTextRef.current = null;
-          selectedGroupRef.current = [];
-          undoStackRef.current = [];
-          redoStackRef.current = [];
+          const justCommitted =
+            _commitCandidate && strokesRef.current[strokesRef.current.length - 1] === _commitCandidate
+              ? _commitCandidate
+              : null;
+          const syncStrokes = justCommitted ? [...deferred.strokes, justCommitted] : deferred.strokes;
+          applySyncStrokes(syncStrokes, deferred.isSelfSave);
+          if (justCommitted && undoStackRef.current[undoStackRef.current.length - 1]?.type !== "draw") {
+            undoStackRef.current.push({ type: "draw", stroke: justCommitted });
+          }
         }
         if (_wasLaser) {
           setLasering(false);
@@ -3663,6 +3742,10 @@ function Canvas({
 
       if (modifier === "line") {
         if (!isDrawingRef.current || activeModifierRef.current !== "line") {
+          if (isDrawingRef.current && activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser") {
+            strokesRef.current.pop(); undoStackRef.current.pop();
+            if (sprayIntervalRef.current) { clearInterval(sprayIntervalRef.current); sprayIntervalRef.current = null; }
+          }
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "line";
@@ -3699,6 +3782,10 @@ function Canvas({
             return;
           }
           shapeJustCommittedRef.current = false;
+          if (isDrawingRef.current && activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser") {
+            strokesRef.current.pop(); undoStackRef.current.pop();
+            if (sprayIntervalRef.current) { clearInterval(sprayIntervalRef.current); sprayIntervalRef.current = null; }
+          }
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "shape";
@@ -3747,6 +3834,9 @@ function Canvas({
           }
         };
         if (!isDrawingRef.current || activeModifierRef.current !== "spray") {
+          if (isDrawingRef.current && activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser") {
+            strokesRef.current.pop(); undoStackRef.current.pop();
+          }
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "spray";
@@ -3785,6 +3875,12 @@ function Canvas({
           !isDrawingRef.current ||
           activeModifierRef.current !== "highlight"
         ) {
+          // Discard any partial stroke from a prior modifier (e.g. brief left-click draw start)
+          if (isDrawingRef.current && activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser") {
+            strokesRef.current.pop();
+            undoStackRef.current.pop();
+            if (sprayIntervalRef.current) { clearInterval(sprayIntervalRef.current); sprayIntervalRef.current = null; }
+          }
           notifyColorUsed(lineColor);
           isDrawingRef.current = true;
           activeModifierRef.current = "highlight";
@@ -3813,6 +3909,13 @@ function Canvas({
           return;
         }
         shapeJustCommittedRef.current = false;
+        // Discard any partial stroke from a prior modifier (e.g. highlight stroke abandoned
+        // when highlight key is released while left-click draw is still held)
+        if (isDrawingRef.current && activeModifierRef.current !== "alt" && activeModifierRef.current !== "laser") {
+          strokesRef.current.pop();
+          undoStackRef.current.pop();
+          if (sprayIntervalRef.current) { clearInterval(sprayIntervalRef.current); sprayIntervalRef.current = null; }
+        }
         const usePressure = pressureSensitivityRef.current;
         notifyColorUsed(lineColor);
         isDrawingRef.current = true;
@@ -4444,7 +4547,17 @@ function Canvas({
           }
           handlePointerMoveGuarded(e);
         }}
-        onPointerUp={handlePointerUpGuarded}
+        onPointerUp={(e) => {
+          handlePointerUpGuarded(e);
+          // Apply any sync deferred during a select/group drag (handlePointerUpGuarded returns
+          // early and never reaches onPointerUp, so pendingSyncRef would otherwise be stuck)
+          if (pendingSyncRef.current && !isDrawingRef.current) {
+            const deferred = pendingSyncRef.current;
+            pendingSyncRef.current = null;
+            applySyncStrokes(deferred.strokes, deferred.isSelfSave);
+            scheduleRedraw();
+          }
+        }}
         onPointerCancel={onPointerCancel}
         onPointerLeave={(e) => {
           if (lockedHoverRef.current !== null) {

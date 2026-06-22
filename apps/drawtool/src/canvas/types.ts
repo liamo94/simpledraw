@@ -45,6 +45,8 @@ export type UndoAction =
   | { type: "align-change"; stroke: Stroke; from: TextAlign; to: TextAlign; fromAnchor?: { x: number; y: number }; toAnchor?: { x: number; y: number } }
   | { type: "color-change"; stroke: Stroke; from: string; to: string }
   | { type: "group-color-change"; strokes: Stroke[]; from: string[]; to: string }
+  | { type: "line-width-change"; stroke: Stroke; from: number; to: number }
+  | { type: "group-line-width-change"; strokes: Stroke[]; from: number[]; to: number }
   | { type: "fill-style-change"; strokes: Stroke[]; from: (FillStyle | boolean | undefined)[]; to: FillStyle }
   | { type: "fill-opacity-change"; strokes: Stroke[]; from: (number | undefined)[]; to: number }
   | { type: "corners-change"; strokes: Stroke[]; from: (boolean | undefined)[]; to: boolean | undefined }
