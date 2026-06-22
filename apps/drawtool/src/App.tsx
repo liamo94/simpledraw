@@ -279,6 +279,16 @@ export default function App() {
     return () => window.removeEventListener("resize", onResize);
   }, []);
 
+  // Prevent browser pinch-to-zoom on non-canvas UI (e.g. menu icons).
+  // The canvas handles its own wheel events; this catches everything else.
+  useEffect(() => {
+    const onWheel = (e: WheelEvent) => {
+      if (e.ctrlKey) e.preventDefault();
+    };
+    window.addEventListener("wheel", onWheel, { passive: false });
+    return () => window.removeEventListener("wheel", onWheel);
+  }, []);
+
   const shapeLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const thicknessLongPressRef = useRef<ReturnType<typeof setTimeout> | null>(
     null,

@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { loadStrokes, loadView, saveStrokes, saveView, setSaveHook } from '../canvas/storage'
 import { getImageDataUrl, getImageDataUrlFromIdb, storeImage } from '../canvas/imageStore'
 import type { Stroke, Slide } from '../canvas/types'
+import { anyStrokeBBox } from '../canvas/geometry'
 import { generateCanvasThumbnail } from '../canvas/rendering'
 import { createApi, ApiError } from '../lib/api'
 import { useCloudSessionStore } from '../stores/cloudSessionStore'
@@ -16,9 +17,40 @@ const CLOUD_SLOT = 1
 // Survives page reloads so we can skip overwriting localStorage with stale server data.
 const DIRTY_KEY = 'drawtool-cloud-dirty'
 
-// If the server's saved view would put all strokes off-screen on this device (e.g. view was
-// saved on a desktop and is now loading on mobile), compute a centered fit view instead.
-// This runs before Canvas mounts so there's no visible snap.
+// If the saved view puts all strokes off-screen (e.g. view was panned away after drawing, or
+// saved on a different screen size), return a centered fit view instead. Runs before Canvas
+// mounts so there's no visible snap.
+function fitViewIfNeeded(
+  strokes: Stroke[],
+  view: { x: number; y: number; scale: number }
+): { x: number; y: number; scale: number } {
+  if (strokes.length === 0) return view
+  const W = window.innerWidth
+  const H = window.innerHeight
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity
+  for (const s of strokes) {
+    const bb = anyStrokeBBox(s)
+    if (bb.x < minX) minX = bb.x
+    if (bb.y < minY) minY = bb.y
+    if (bb.x + bb.w > maxX) maxX = bb.x + bb.w
+    if (bb.y + bb.h > maxY) maxY = bb.y + bb.h
+  }
+  if (!isFinite(minX)) return view
+  // If any part of the stroke bbox overlaps the viewport, the view is fine
+  const sl = minX * view.scale + view.x
+  const st = minY * view.scale + view.y
+  const sr = maxX * view.scale + view.x
+  const sb = maxY * view.scale + view.y
+  if (sr > 0 && sl < W && sb > 0 && st < H) return view
+  // All strokes off-screen — fit them to the viewport
+  const PAD = 60
+  const newScale = Math.min((W - PAD * 2) / Math.max(maxX - minX, 1), (H - PAD * 2) / Math.max(maxY - minY, 1), 2)
+  return {
+    x: W / 2 - ((minX + maxX) / 2) * newScale,
+    y: H / 2 - ((minY + maxY) / 2) * newScale,
+    scale: newScale,
+  }
+}
 
 export type CloudCanvasMeta = {
   id: string
@@ -405,7 +437,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
         // On page reload, uncachedSwitchRef is false and we preserve the local view.
         if (uncachedSwitchRef.current) {
           uncachedSwitchRef.current = false
-          saveView(data.view, CLOUD_SLOT)
+          saveView(fitViewIfNeeded(strokes, data.view), CLOUD_SLOT)
         }
         bumpLoadKey()
       } else {
@@ -635,7 +667,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     const strokes = (cached.data.savedDark ?? false) !== isDarkRef.current
       ? swapStrokeColors(cached.data.strokes)
       : cached.data.strokes
-    saveView(cached.data.view, CLOUD_SLOT)
+    saveView(fitViewIfNeeded(strokes, cached.data.view), CLOUD_SLOT)
     saveStrokes(strokes, CLOUD_SLOT, true)
   }
 
@@ -1133,10 +1165,13 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   }, [newRoute, workspacesQuery.data, planLoading])
 
   async function prefetchThumbnail(id: string): Promise<string | null> {
-    type CanvasResp = { data: { strokes: Stroke[]; savedDark?: boolean } }
+    type CanvasResp = { data: { strokes: Stroke[]; savedDark?: boolean; images?: Record<string, string> } }
     // Check RQ cache first - no network needed
     const cached = queryClient.getQueryData<CanvasResp>(['canvas', id])
     if (cached?.data?.strokes) {
+      if (cached.data.images) {
+        await Promise.allSettled(Object.entries(cached.data.images).map(([imgId, url]) => storeImage(imgId, url)))
+      }
       const strokes = (cached.data.savedDark ?? false) !== isDarkRef.current
         ? swapStrokeColors(cached.data.strokes)
         : cached.data.strokes
@@ -1148,6 +1183,9 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     // Not cached - fetch from API (one-time per canvas; localStorage prevents future fetches)
     try {
       const result = await api.get<CanvasResp>(`/canvases/${id}`)
+      if (result.data.images) {
+        await Promise.allSettled(Object.entries(result.data.images).map(([imgId, url]) => storeImage(imgId, url)))
+      }
       const savedDark = result.data.savedDark ?? false
       const strokes = savedDark !== isDarkRef.current
         ? swapStrokeColors(result.data.strokes ?? [])

@@ -742,10 +742,7 @@ export default function Menu({
             </div>
             {isPro && (
               <div className="text-center mb-3" style={{ marginTop: -4 }}>
-                <span className="unleashed-text" style={isDark ? undefined : {
-                  color: "#1e8a0e",
-                  textShadow: "0 -4px 8px rgba(255,200,50,0.7), 0 -10px 18px rgba(255,160,20,0.4), 0 -22px 30px rgba(220,120,0,0.18)",
-                }}>UNLEASHED</span>
+                <span className={`unleashed-text${isDark ? "" : " unleashed-text-light"}`} style={isDark ? undefined : { color: "#1e8a0e" }}>UNLEASHED</span>
               </div>
             )}
             <div className="flex items-center justify-between">

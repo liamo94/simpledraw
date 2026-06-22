@@ -870,11 +870,13 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           ? selectedGroupRef.current
           : selectedTextRef.current ? [selectedTextRef.current] : [];
         if (srcs.length > 0) {
-          const newStrokes: Stroke[] = srcs.map(src => ({
+          const offsetStroke = (src: Stroke): Stroke => ({
             ...src,
             points: src.points.map(p => ({ x: p.x + offset, y: p.y + offset })),
             widths: src.widths ? [...src.widths] : undefined,
-          }));
+            subStrokes: src.subStrokes ? (src.subStrokes as Stroke[]).map(offsetStroke) : undefined,
+          });
+          const newStrokes: Stroke[] = srcs.map(offsetStroke);
           strokesRef.current.push(...newStrokes);
           if (newStrokes.length === 1) {
             undoStackRef.current.push({ type: "draw", stroke: newStrokes[0] });

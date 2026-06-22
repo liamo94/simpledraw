@@ -1247,7 +1247,8 @@ export function renderStrokesToCtx(ctx: CanvasRenderingContext2D, strokes: Strok
 }
 
 export function generateCanvasThumbnail(strokes: Stroke[], isDark: boolean, w = 360, h = 234): string | null {
-  const drawable = strokes.filter(s => !s.imageId);
+  // Include image strokes only if the image is already in memory; others are always included.
+  const drawable = strokes.filter(s => !s.imageId || (!!getImageEl(s.imageId) && getImageEl(s.imageId)!.complete));
   if (drawable.length === 0) return null;
 
   let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
