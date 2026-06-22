@@ -1165,13 +1165,14 @@ function Canvas({
     strokesRef.current = strokes
     strokesCacheRef.current = null
     strokesBBoxRef.current = null
-    selectedTextRef.current = null
-    selectedGroupRef.current = []
     if (isSelfSave && strokes.length === oldStrokes.length) {
       // Build old→new mapping by index (order is stable across a self-save round-trip)
       const oldToNew = new Map<Stroke, Stroke>()
       for (let i = 0; i < oldStrokes.length; i++) oldToNew.set(oldStrokes[i], strokes[i])
       const remapStroke = (s: Stroke): Stroke => oldToNew.get(s) ?? s
+      // Remap selection to new objects rather than clearing it
+      if (selectedTextRef.current) selectedTextRef.current = remapStroke(selectedTextRef.current)
+      if (selectedGroupRef.current.length > 0) selectedGroupRef.current = selectedGroupRef.current.map(remapStroke)
       const remapAction = (action: UndoAction): UndoAction => {
         if (action.type === "draw" || action.type === "move" || action.type === "resize" ||
             action.type === "edit" || action.type === "font-change" || action.type === "size-change" ||
@@ -1196,6 +1197,8 @@ function Canvas({
       undoStackRef.current = undoStackRef.current.map(remapAction)
       redoStackRef.current = redoStackRef.current.map(remapAction)
     } else {
+      selectedTextRef.current = null
+      selectedGroupRef.current = []
       undoStackRef.current = []
       redoStackRef.current = []
     }
@@ -1209,6 +1212,13 @@ function Canvas({
       // Defer if a stroke is in progress - apply after pointer-up to avoid mid-stroke disruption
       if (isDrawingRef.current || selectDragRef.current || groupDragRef.current) {
         pendingSyncRef.current = { slot, strokes, isSelfSave }; return
+      }
+      // During text editing, replacing strokesRef would orphan the stroke being edited.
+      // Self-save round-trips can be dropped (the edit will trigger its own save).
+      // Cross-device syncs are deferred until editing ends.
+      if (isWritingRef.current) {
+        if (!isSelfSave) pendingSyncRef.current = { slot, strokes, isSelfSave };
+        return;
       }
       applySyncStrokes(strokes, isSelfSave)
       const ids = strokes.filter(s => s.imageId).map(s => s.imageId!)
@@ -1617,6 +1627,13 @@ function Canvas({
     laserTrailRef.current = [];
     pendingEraseRef.current.clear();
     strokesCacheRef.current = null; strokesBBoxRef.current = null;
+    selectedTextRef.current = null;
+    selectedGroupRef.current = [];
+    hoverTextRef.current = null;
+    selectDragRef.current = null;
+    groupDragRef.current = null;
+    boxSelectRef.current = null;
+    window.dispatchEvent(new CustomEvent("drawtool:stroke-picker-close"));
 
     // Load any images referenced by the new canvas's strokes
     const imageIds = strokesRef.current.filter((s) => s.imageId).map((s) => s.imageId!);
@@ -4201,6 +4218,13 @@ function Canvas({
     const onWriting = (ev: Event) => {
       if (!(ev as CustomEvent).detail) {
         ta.blur();
+        // Apply any cross-device sync that was deferred while text was being edited
+        const deferred = pendingSyncRef.current;
+        if (deferred) {
+          pendingSyncRef.current = null;
+          applySyncStrokes(deferred.strokes, deferred.isSelfSave);
+          scheduleRedraw();
+        }
         return;
       }
       writingStartTime = Date.now();
