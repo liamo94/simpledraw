@@ -107,6 +107,7 @@ export type KeyboardRefs = {
   startWritingRef: MutableRefObject<(pos: { x: number; y: number }) => void>;
   cursorRef: MutableRefObject<string>;
   lastCycleRef: MutableRefObject<{ selectedStroke: Stroke; hits: Stroke[] } | null>;
+  selectedLinePointRef: MutableRefObject<number | null>;
   textareaRef?: MutableRefObject<HTMLTextAreaElement | null>;
   presentationModeRef?: MutableRefObject<boolean>;
 };
@@ -148,7 +149,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
     spaceDownRef, isPanningRef, highlightKeyRef, laserKeyRef,
     shiftHeldRef, rightClickHeldRef, keyShapeRef, keyShapeDashedRef, shapeJustCommittedRef, fKeyHeldRef, shapeFillRef, fillOpacityRef,
     lastTextTapRef, finishWritingRef, startWritingRef, cursorRef,
-    sprayKeyRef, lastCycleRef, textareaRef, canvasLimitRef, presentationModeRef,
+    sprayKeyRef, lastCycleRef, selectedLinePointRef, textareaRef, canvasLimitRef, presentationModeRef,
   } = refs;
 
   const {
@@ -1097,6 +1098,24 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         window.dispatchEvent(new CustomEvent("drawtool:select-held", { detail: { on: false } }));
         return;
       }
+      if ((e.key === "Backspace" || e.key === "Delete") && selectedLinePointRef.current !== null && !isWritingRef.current) {
+        const stroke = selectedTextRef.current;
+        if (stroke && (stroke.shape === "arrow" || stroke.shape === "line") && stroke.points.length > 2) {
+          e.preventDefault();
+          const ci = selectedLinePointRef.current;
+          const from = stroke.points.map(p => ({ ...p }));
+          stroke.points.splice(ci, 1);
+          const to = stroke.points.map(p => ({ ...p }));
+          undoStackRef.current.push({ type: "reshape", stroke, from, to });
+          redoStackRef.current = [];
+          selectedLinePointRef.current = null;
+          strokesCacheRef.current = null;
+          persistStrokes();
+          scheduleRedraw();
+          return;
+        }
+        selectedLinePointRef.current = null;
+      }
       if ((e.key === "Backspace" || e.key === "Delete") && selectedGroupRef.current.length > 0 && !isWritingRef.current) {
         e.preventDefault();
         const toDelete = selectedGroupRef.current;
@@ -1124,6 +1143,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
         redoStackRef.current = [];
         selectedTextRef.current = null;
         selectDragRef.current = null;
+        selectedLinePointRef.current = null;
         strokesCacheRef.current = null;
         setZCursor(zKeyRef.current ? "default" : null);
         persistStrokes();

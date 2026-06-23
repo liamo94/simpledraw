@@ -235,6 +235,7 @@ function Canvas({
   const editingStrokeRef = useRef<Stroke | null>(null);
   const editingOldTextRef = useRef("");
   const lastTextTapRef = useRef<{ time: number; stroke: Stroke; count: number } | null>(null);
+  const selectedLinePointRef = useRef<number | null>(null);
   const selectDragRef = useRef<{
     mode: "move" | "corner" | "rotate";
     corner?: number;
@@ -715,10 +716,13 @@ function Canvas({
           }
           if (!noHandles) {
             const hr = 4.5 / scale;
-            for (const hp of handlePoints) {
+            const selPt = n > 2 ? selectedLinePointRef.current : null;
+            for (let i = 0; i < handlePoints.length; i++) {
+              const hp = handlePoints[i];
+              const isSel = selPt !== null && i === selPt;
               ctx.beginPath();
-              ctx.arc(hp.x, hp.y, hr, 0, Math.PI * 2);
-              ctx.fillStyle = "#ffffff"; ctx.fill();
+              ctx.arc(hp.x, hp.y, isSel ? hr * 1.7 : hr, 0, Math.PI * 2);
+              ctx.fillStyle = isSel ? "#4895ef" : "#ffffff"; ctx.fill();
               ctx.strokeStyle = "#4895ef"; ctx.stroke();
             }
           }
@@ -2745,6 +2749,11 @@ function Canvas({
         e.preventDefault();
         e.stopImmediatePropagation();
         finishWritingRef.current();
+      } else if (selectedLinePointRef.current !== null) {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        selectedLinePointRef.current = null;
+        scheduleRedraw();
       } else if (selectedTextRef.current || selectedGroupRef.current.length > 0 || boxSelectRef.current) {
         e.preventDefault();
         e.stopImmediatePropagation();
@@ -2816,7 +2825,7 @@ function Canvas({
       canvasRef, canvasIndexRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef, viewRef,
       isWritingRef, writingTextRef, caretPosRef, caretVisibleRef, selectionAnchorRef,
       textUndoRef, textRedoRef, editingStrokeRef, writingBoldRef, writingItalicRef, writingAlignRef,
-      zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef, lastCycleRef,
+      zKeyRef, selectedTextRef, hoverTextRef, selectDragRef, selectedGroupRef, groupDragRef, boxSelectRef, lastCycleRef, selectedLinePointRef,
       clipboardRef, cursorWorldRef, lastDPressRef, shapeFlashRef, activeShapeRef,
       textSizeRef, fontFamilyRef, lineColorRef, lineWidthRef,
       laserTrailRef, isDrawingRef, isZoomingRef, activeModifierRef,
@@ -4418,7 +4427,7 @@ function Canvas({
       caretPosRef, caretVisibleRef, caretTimerRef, selectionAnchorRef,
       textUndoRef, textRedoRef, editingStrokeRef, editingOldTextRef,
       isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
-      selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
+      selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef, selectedLinePointRef,
       zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
       finishWritingRef, startWritingRef, startEditingStrokeRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
     },

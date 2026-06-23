@@ -163,6 +163,7 @@ export type TextSelectionRefs = {
     startCenters?: { x: number; y: number }[];
   } | null>;
   boxSelectRef: MutableRefObject<{ start: { x: number; y: number }; end: { x: number; y: number }; containOnly?: boolean; clickHit?: Stroke; prevGroup?: Stroke[]; prevSingle?: Stroke | null } | null>;
+  selectedLinePointRef: MutableRefObject<number | null>;
   zKeyRef: MutableRefObject<boolean>;
   shiftHeldRef: MutableRefObject<boolean>;
   touchToolRef: MutableRefObject<TouchTool>;
@@ -200,7 +201,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
     caretPosRef, caretVisibleRef, caretTimerRef, selectionAnchorRef,
     textUndoRef, textRedoRef, editingStrokeRef, editingOldTextRef,
     isWritingRef, strokesRef, undoStackRef, redoStackRef, strokesCacheRef,
-    selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef,
+    selectedTextRef, selectedGroupRef, selectDragRef, hoverTextRef, groupDragRef, boxSelectRef, selectedLinePointRef,
     zKeyRef, shiftHeldRef, touchToolRef, lastTextTapRef, lineColorRef, textSizeRef, fontFamilyRef, viewRef,
     finishWritingRef, startWritingRef, startEditingStrokeRef, lastCycleRef, textSelectDragAnchorRef, textareaRef,
   } = refs;
@@ -853,6 +854,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
                       startScale: 1,
                       bbox: bb,
                     };
+                    selectedLinePointRef.current = ci;
                     (e.target as Element).setPointerCapture(e.pointerId);
                     return;
                   }
@@ -927,6 +929,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               pendingBend,
               subStrokeStartPoints: curStroke.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
             };
+            selectedLinePointRef.current = null;
             (e.target as Element).setPointerCapture(e.pointerId);
             return;
           }
@@ -1004,6 +1007,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
               bbox: anyStrokeBBox(newSel),
               subStrokeStartPoints: newSel.subStrokes?.map(s => s.points.map(p => ({ ...p }))),
             };
+            selectedLinePointRef.current = null;
             dispatchTextStyleSync(newSel.bold ?? false, newSel.italic ?? false, newSel.textAlign ?? "left");
             (e.target as Element).setPointerCapture(e.pointerId);
             scheduleRedraw();
@@ -1013,6 +1017,7 @@ export function useTextSelection(refs: TextSelectionRefs, callbacks: TextSelecti
           selectedTextRef.current = null;
           selectDragRef.current = null;
           selectedGroupRef.current = [];
+          selectedLinePointRef.current = null;
           lastCycleRef.current = null;
           if (zKeyRef.current || touchToolRef.current === "select") {
             boxSelectRef.current = { start: { ...wp }, end: { ...wp } };
