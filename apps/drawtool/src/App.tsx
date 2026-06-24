@@ -2412,7 +2412,7 @@ export default function App() {
           isDark={isDark}
         />
       )}
-      {CLOUD_ENABLED && !isPro && !planLoading && !presentationMode && (
+      {CLOUD_ENABLED && !isPro && !planLoading && !presentationMode && (!hasTouch || isTablet) && (
         <a
           href="https://unleash.drawzil.la"
           target="_blank"
