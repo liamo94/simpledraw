@@ -2364,6 +2364,16 @@ export default function App() {
               await cloudCanvas.switchWorkspace(ws.id);
             }
           }}
+          onAddCanvas={async (workspaceId) => {
+            const newCanvas = await cloudCanvas.createCanvas(undefined, workspaceId)
+            if (newCanvas) {
+              if (workspaceId !== cloudCanvas.workspace?.id) {
+                await cloudCanvas.switchWorkspace(workspaceId, newCanvas.id)
+              } else {
+                await cloudCanvas.switchCanvas(newCanvas.id)
+              }
+            }
+          }}
           onRenameCanvas={cloudCanvas.renameCanvas}
           onRenameWorkspace={cloudCanvas.renameWorkspace}
           onPinWorkspace={cloudCanvas.pinWorkspace}

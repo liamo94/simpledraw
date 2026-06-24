@@ -20,6 +20,7 @@ type Props = {
   onRenameWorkspace: (id: string, name: string) => Promise<boolean>
   onPinWorkspace: (id: string, pinned: boolean) => Promise<boolean>
   onFavouriteWorkspace: (id: string, fav: boolean) => Promise<boolean>
+  onAddCanvas: (workspaceId: string) => Promise<void>
   onRemoveCanvas: (id: string, isLast: boolean) => Promise<boolean>
   onDeleteWorkspace: (id: string) => Promise<boolean>
   onResetWorkspace: (id: string) => Promise<boolean>
@@ -51,6 +52,7 @@ export default function WorkspaceSwitcherModal({
   onRenameWorkspace,
   onPinWorkspace,
   onFavouriteWorkspace,
+  onAddCanvas,
   onRemoveCanvas,
   onDeleteWorkspace,
   onResetWorkspace,
@@ -671,6 +673,25 @@ export default function WorkspaceSwitcherModal({
                         </div>
                       )
                     })}
+                    {/* New canvas card */}
+                    {viewingWs.canvases.length < (isPro ? 9 : 3) && (
+                      <div
+                        onClick={() => { onClose(); onAddCanvas(viewingWs.id) }}
+                        className="relative group flex flex-col gap-2 cursor-pointer"
+                      >
+                        <div
+                          className={`relative rounded-xl overflow-hidden transition-all duration-150 border-dashed border-2 ${isDark ? 'border-white/10 group-hover:border-white/25' : 'border-black/8 group-hover:border-black/18'}`}
+                          style={{ paddingTop: '65%' }}
+                        >
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <Plus size={22} strokeWidth={1.5} className={`transition-colors ${isDark ? 'text-white/18 group-hover:text-white/40' : 'text-black/15 group-hover:text-black/35'}`} />
+                          </div>
+                        </div>
+                        <span className={`text-[13px] font-semibold px-0.5 block transition-colors ${isDark ? 'text-white/18 group-hover:text-white/40' : 'text-black/18 group-hover:text-black/35'}`}>
+                          New canvas
+                        </span>
+                      </div>
+                    )}
                   </div>
                   </div>
                 </div>
