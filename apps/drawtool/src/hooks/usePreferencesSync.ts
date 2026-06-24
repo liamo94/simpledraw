@@ -2,6 +2,7 @@ import { useEffect, useRef, useMemo } from 'react'
 import { useAuth, useUser } from '@clerk/clerk-react'
 import type { Settings } from './useSettings'
 import { createApi, ApiError } from '../lib/api'
+import { useTokenReady } from './useTokenReady'
 
 const DEBOUNCE_MS = 800
 const DEVICE_INIT_KEY = 'drawtool-settings-initialized'
@@ -40,6 +41,7 @@ export function usePreferencesSync(
   const { getToken } = useAuth()
 
   const api = useMemo(() => createApi(getToken), [getToken])
+  const tokenReady = useTokenReady()
 
   const readyRef = useRef(false)
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -55,9 +57,9 @@ export function usePreferencesSync(
     await api.put<void>('/preferences', buildPayload(s))
   }
 
-  // Fetch on sign-in. Re-runs if isSignedIn changes.
+  // Fetch on sign-in, but only once the Clerk token is available.
   useEffect(() => {
-    if (!isSignedIn) {
+    if (!isSignedIn || !tokenReady) {
       if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null }
       pendingRef.current = null
       readyRef.current = false
@@ -102,7 +104,7 @@ export function usePreferencesSync(
       .catch(() => {})
       .finally(() => { readyRef.current = true })
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn])
+  }, [isSignedIn, tokenReady])
 
   // Debounce PUT on settings change (after initial fetch)
   useEffect(() => {

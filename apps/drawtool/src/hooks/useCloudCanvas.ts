@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useAuth, useUser } from '@clerk/clerk-react'
+import { useTokenReady } from './useTokenReady'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { loadStrokes, loadView, saveStrokes, saveView, setSaveHook } from '../canvas/storage'
 import { getImageDataUrl, getImageDataUrlFromIdb, storeImage } from '../canvas/imageStore'
@@ -202,6 +203,14 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   // and App.tsx must not render Canvas - guarantees no canvas content leaks.
   const [newRoutePending, setNewRoutePending] = useState(newRoute)
 
+  // If drawtool-precloud-strokes-1 exists, we had a cloud session that may not have
+  // cleaned up slot 1 before the page navigated away (e.g. Clerk redirected on sign-out
+  // before the useEffect cleanup fired). Hold off Canvas rendering until isSignedIn
+  // resolves and we've either kept or cleared slot 1.
+  const [ready, setReady] = useState(() => localStorage.getItem('drawtool-precloud-strokes-1') === null)
+
+  const tokenReady = useTokenReady()
+
   async function getAndCacheToken(): Promise<string | null> {
     const token = await getToken()
     if (token) cachedTokenRef.current = token
@@ -256,7 +265,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   const workspacesQuery = useQuery({
     queryKey: ['workspaces'],
     queryFn: (): Promise<CloudWorkspace[]> => api.get('/workspaces'),
-    enabled: isSignedIn === true,
+    enabled: isSignedIn === true && tokenReady,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -341,7 +350,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       updated_at: number
       data: { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; images?: Record<string, string> }
     }>(`/canvases/${activeId}`),
-    enabled: !!activeId && isSignedIn === true,
+    enabled: !!activeId && isSignedIn === true && tokenReady,
     staleTime: Infinity,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -507,8 +516,12 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       localStorage.removeItem(DIRTY_KEY)
 
       resetSession()
+      setReady(true)
       return
     }
+
+    // isSignedIn === true: slot 1 is legitimately ours (cloud session active)
+    setReady(true)
 
     setSaveHook((canvasIndex, strokes) => {
       if (canvasIndex !== CLOUD_SLOT) return
@@ -1200,6 +1213,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   }
 
   return {
+    ready,
     workspace, allWorkspaces, activeId, activeCanvasMeta, activeCanvasIndex,
     workspacesLoaded: workspacesQuery.isSuccess,
     loading: canvasQuery.isFetching,

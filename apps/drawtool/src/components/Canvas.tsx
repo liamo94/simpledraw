@@ -198,6 +198,9 @@ function Canvas({
   const shiftHeldRef = useRef(false); // own shift tracking - e.shiftKey can get stuck on Mac
   const rightClickHeldRef = useRef(false);
   const shapeJustCommittedRef = useRef(false); // block phantom shapes from drift after pointer-up
+  const edgePanRafRef = useRef<number | null>(null);
+  const edgePanVelocityRef = useRef({ vx: 0, vy: 0 });
+  const edgePanDelayRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const clipboardRef = _moduleClipboardRef;
   const cursorWorldRef = useRef({ x: 0, y: 0 });
   const lastDPressRef = useRef(0);
@@ -2728,8 +2731,76 @@ function Canvas({
     }
     isDrawingRef.current = false;
     activeModifierRef.current = null;
+    edgePanVelocityRef.current = { vx: 0, vy: 0 };
+    if (edgePanDelayRef.current) { clearTimeout(edgePanDelayRef.current); edgePanDelayRef.current = null; }
     scheduleRedraw();
   }, [scheduleRedraw]);
+
+  // Edge-pan tick: runs each rAF frame while velocity is nonzero during a shape/line drag.
+  // Stored in a ref so the rAF loop always reads the latest closure state.
+  const edgePanTickRef = useRef<() => void>(() => {});
+  edgePanTickRef.current = () => {
+    const { vx, vy } = edgePanVelocityRef.current;
+    if ((vx === 0 && vy === 0) || !isDrawingRef.current) {
+      edgePanRafRef.current = null;
+      return;
+    }
+    const modifier = activeModifierRef.current;
+    if (modifier !== "shape" && modifier !== "line") {
+      edgePanRafRef.current = null;
+      return;
+    }
+    const view = viewRef.current;
+    view.x += vx;
+    view.y += vy;
+    const screen = lastCursorScreenRef.current;
+    if (screen) {
+      const newPoint = screenToWorld(screen.x, screen.y, view);
+      const current = strokesRef.current[strokesRef.current.length - 1];
+      if (current) {
+        if (modifier === "shape") {
+          if (current.shape === "arrow") {
+            current.points[current.points.length - 1] = newPoint;
+          } else {
+            current.points[1] = newPoint;
+          }
+        } else {
+          current.points[current.points.length - 1] = newPoint;
+        }
+      }
+    }
+    strokesBBoxRef.current = null; // invalidate stale bbox so off-screen check uses current stroke endpoints
+    window.dispatchEvent(new Event("drawtool:panned"));
+    scheduleRedraw();
+    edgePanRafRef.current = requestAnimationFrame(() => edgePanTickRef.current());
+  };
+
+  const triggerEdgePan = useCallback((screenX: number, screenY: number) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const rect = canvas.getBoundingClientRect();
+    const ZONE = 40;
+    const MAX_SPEED = 5;
+    const ease = (d: number) => (1 - d / ZONE);
+    let vx = 0, vy = 0;
+    if (screenX - rect.left < ZONE) vx = ease(screenX - rect.left) * MAX_SPEED;
+    else if (rect.right - screenX < ZONE) vx = -ease(rect.right - screenX) * MAX_SPEED;
+    if (screenY - rect.top < ZONE) vy = ease(screenY - rect.top) * MAX_SPEED;
+    else if (rect.bottom - screenY < ZONE) vy = -ease(rect.bottom - screenY) * MAX_SPEED;
+    edgePanVelocityRef.current = { vx, vy };
+    if (vx === 0 && vy === 0) {
+      if (edgePanDelayRef.current) { clearTimeout(edgePanDelayRef.current); edgePanDelayRef.current = null; }
+      return;
+    }
+    if (!edgePanRafRef.current && !edgePanDelayRef.current) {
+      edgePanDelayRef.current = setTimeout(() => {
+        edgePanDelayRef.current = null;
+        if (edgePanVelocityRef.current.vx !== 0 || edgePanVelocityRef.current.vy !== 0) {
+          edgePanRafRef.current = requestAnimationFrame(() => edgePanTickRef.current());
+        }
+      }, 300);
+    }
+  }, []);
 
   const shortcutsModalOpenRef = useRef(false);
   useEffect(() => {
@@ -3682,6 +3753,8 @@ function Canvas({
           }
           isDrawingRef.current = false;
           activeModifierRef.current = null;
+          edgePanVelocityRef.current = { vx: 0, vy: 0 };
+          if (edgePanDelayRef.current) { clearTimeout(edgePanDelayRef.current); edgePanDelayRef.current = null; }
           strokesCacheRef.current = null; strokesBBoxRef.current = null;
           persistStrokes();
           if (_commitCandidate && strokesRef.current[strokesRef.current.length - 1] === _commitCandidate) {
@@ -3796,6 +3869,7 @@ function Canvas({
           } else {
             current.points[1] = point;
           }
+          triggerEdgePan(e.clientX, e.clientY);
         }
         scheduleRedraw();
         return;
@@ -3842,6 +3916,7 @@ function Canvas({
           } else {
             current.points[1] = point;
           }
+          triggerEdgePan(e.clientX, e.clientY);
         }
         scheduleRedraw();
         return;
@@ -3995,6 +4070,7 @@ function Canvas({
       broadcastZoom,
       notifyColorUsed,
       cancelCurrentStroke,
+      triggerEdgePan,
       setLasering,
       setErasing,
     ],

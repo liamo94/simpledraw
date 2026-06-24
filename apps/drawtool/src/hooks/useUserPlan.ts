@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useAuth, useUser } from '@clerk/clerk-react'
 import { createApi } from '../lib/api'
+import { useTokenReady } from './useTokenReady'
 
 export type UserPlan = 'free' | 'pro'
 export type Subscription = { status: string; cancelAt: number | null }
@@ -24,6 +25,7 @@ export function useUserPlan() {
   const { getToken } = useAuth()
 
   const api = useMemo(() => createApi(getToken), [getToken])
+  const tokenReady = useTokenReady()
 
   const { data, isPending } = useQuery({
     queryKey: ['plan'],
@@ -34,7 +36,7 @@ export function useUserPlan() {
         subscription: subscription ?? null,
       }
     },
-    enabled: isSignedIn === true,
+    enabled: isSignedIn === true && tokenReady,
     staleTime: 5 * 60 * 1000,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,

@@ -2563,7 +2563,7 @@ export default function App() {
           e.target.value = "";
         }}
       />
-      {!cloudCanvas.newRoutePending && (
+      {cloudCanvas.ready && !cloudCanvas.newRoutePending && (
         <Canvas
           lineWidth={settings.lineWidth}
           lineColor={settings.lineColor}
