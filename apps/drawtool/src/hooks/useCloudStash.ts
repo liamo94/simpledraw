@@ -10,9 +10,10 @@ type Options = {
   isPro: boolean
   isSignedIn: boolean | undefined
   onCloudLoad: (items: StashItem[]) => void
+  onSyncError?: (message: string) => void
 }
 
-export function useCloudStash({ items, isPro, isSignedIn, onCloudLoad }: Options) {
+export function useCloudStash({ items, isPro, isSignedIn, onCloudLoad, onSyncError }: Options) {
   const { getToken } = useAuth()
   const cloudLoadedRef = useRef(false)
   const syncTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -43,11 +44,12 @@ export function useCloudStash({ items, isPro, isSignedIn, onCloudLoad }: Options
           saveStash(cloud)
         } else if (itemsRef.current.length > 0) {
           // Cloud is empty, local has data - upload local (e.g. just upgraded to Pro)
-          await fetch(`${API_URL}/stash`, {
+          const putRes = await fetch(`${API_URL}/stash`, {
             method: 'PUT',
             headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
             body: JSON.stringify(itemsRef.current),
           })
+          if (putRes.status === 413) onSyncError?.('Stash too large to sync — try removing stash items with images')
         }
       } catch {}
     })()
@@ -61,7 +63,7 @@ export function useCloudStash({ items, isPro, isSignedIn, onCloudLoad }: Options
       const token = await getToken()
       if (!token) return
       try {
-        await fetch(`${API_URL}/stash`, {
+        const res = await fetch(`${API_URL}/stash`, {
           method: 'PUT',
           headers: {
             Authorization: `Bearer ${token}`,
@@ -69,6 +71,7 @@ export function useCloudStash({ items, isPro, isSignedIn, onCloudLoad }: Options
           },
           body: JSON.stringify(items),
         })
+        if (res.status === 413) onSyncError?.('Stash too large to sync — try removing stash items with images')
       } catch {}
     }, 1500)
     return () => {

@@ -94,6 +94,7 @@ export type StashItem = {
   createdAt: number;
   strokes: Stroke[];
   savedDark?: boolean;
+  images?: Record<string, string>;
 };
 
 export type Slide = {

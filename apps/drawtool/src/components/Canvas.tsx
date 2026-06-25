@@ -6,7 +6,7 @@ import { drawWatermark } from "../canvas/watermark";
 import {
   isDarkTheme, getBackgroundColor, getGridColor,
   TEXT_SIZE_MAP, buildFont, fontLineHeight, dispatchTextStyleSync,
-  loadStrokes, saveStrokes, hasSaveHook, loadView, saveView,
+  loadStrokes, saveStrokes, hasSaveHook, loadView, saveView, loadStash,
   distToSegment, cmdKey, screenToWorld, smoothPoints,
   shapeToSegments,
   textBBox, anyStrokeBBox, visualStrokeBBox,
@@ -339,6 +339,8 @@ function Canvas({
       for (let i = 1; i <= 9; i++) {
         if (i !== canvasIndexRef.current) addIds(loadStrokes(i));
       }
+      // Stash items - their imageIds must not be GC'd
+      for (const item of loadStash()) addIds(item.strokes);
       gcImages(live);
     }, 5000);
   }, []);

@@ -567,18 +567,20 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
         saveTimerRef.current = null
       }
       // Always flush - covers pan-only sessions (no pending stroke save) and pending saves.
-      // Omit images: base64 payloads can exceed the browser's 64KB keepalive limit.
-      // DIRTY_KEY ensures the next load re-sends with full image data.
       const strokes = loadStrokes(CLOUD_SLOT)
       const view = loadView(CLOUD_SLOT)
       // Skip only if strokes are empty AND no user action caused it (no DIRTY_KEY).
       // If DIRTY_KEY is set, the user deliberately emptied the canvas and we must persist it.
       if (strokes.length === 0 && localStorage.getItem(DIRTY_KEY) !== id) return
+      // Include images from in-memory cache (same as sign-out path). If the payload
+      // exceeds the browser keepalive limit the request will be dropped, but DIRTY_KEY
+      // stays set so the next page load retries with full image data from IDB.
+      const images = collectImagesSync(strokes)
       fetch(`${API_URL}/canvases/${id}`, {
         method: 'PUT',
         keepalive: true,
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}) }),
+        body: JSON.stringify({ strokes, view, savedDark: isDarkRef.current, savedTheme: themeRef.current, ...(themeRef.current === 'custom' && customThemeBgRef.current ? { savedCustomThemeBg: customThemeBgRef.current } : {}), ...imagePayload(images) }),
       }).catch(() => {})
       // Don't clear DIRTY_KEY - keepalive success isn't guaranteed; the next page load
       // will use local state and re-send if needed, then clear it.

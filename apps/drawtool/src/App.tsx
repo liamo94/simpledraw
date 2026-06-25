@@ -27,6 +27,7 @@ import {
   CONFIRM_CLEAR_STROKE_THRESHOLD,
   getImageDataUrlFromIdb,
   storeImage,
+  compressForStash,
 } from "./canvas/canvasUtils";
 import { drawWatermark } from "./canvas/watermark";
 import { getPanelBackground, generateSlideThumbnail } from "./canvas/rendering";
@@ -837,9 +838,15 @@ export default function App() {
         if (!p) window.dispatchEvent(new Event("drawtool:close-menu"));
         return !p;
       });
-    const onSaveToStashResult = (e: Event) => {
+    const onSaveToStashResult = async (e: Event) => {
       const strokes = (e as CustomEvent<Stroke[]>).detail;
       if (!strokes.length) return;
+      const imageIds = [...new Set(strokes.flatMap(s => s.imageId ? [s.imageId] : []))];
+      const images: Record<string, string> = {};
+      await Promise.all(imageIds.map(async id => {
+        const url = await getImageDataUrlFromIdb(id);
+        if (url) images[id] = await compressForStash(url);
+      }));
       setStashItems((prev) => {
         const item: StashItem = {
           id: crypto.randomUUID(),
@@ -850,6 +857,7 @@ export default function App() {
             settingsRef.current.theme,
             settingsRef.current.customThemeBg,
           ),
+          ...(Object.keys(images).length > 0 ? { images } : {}),
         };
         const next = [item, ...prev];
         saveStash(next);
@@ -1450,7 +1458,15 @@ export default function App() {
     items: stashItems,
     isPro,
     isSignedIn,
-    onCloudLoad: setStashItems,
+    onCloudLoad: async (items) => {
+      await Promise.allSettled(
+        items.flatMap(item =>
+          Object.entries(item.images ?? {}).map(([id, url]) => storeImage(id, url))
+        )
+      );
+      setStashItems(items);
+    },
+    onSyncError: (message) => showToast({ type: 'text', message: `⚠ ${message}` }, 6000),
   });
 
   const isProRef = useRef(isPro);

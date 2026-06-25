@@ -32,6 +32,27 @@ export async function processImageFile(
   });
 }
 
+/** Re-encodes a data URL at a smaller size for embedding in stash items. */
+export async function compressForStash(dataUrl: string): Promise<string> {
+  const MAX = 800;
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      let w = img.naturalWidth, h = img.naturalHeight;
+      if (w > MAX || h > MAX) {
+        if (w >= h) { h = Math.round(h * MAX / w); w = MAX; }
+        else { w = Math.round(w * MAX / h); h = MAX; }
+      }
+      const cvs = document.createElement("canvas");
+      cvs.width = w; cvs.height = h;
+      cvs.getContext("2d")!.drawImage(img, 0, 0, w, h);
+      resolve(cvs.toDataURL("image/jpeg", 0.75));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
 interface ImageEntry {
   el: HTMLImageElement;
   dataUrl: string;
