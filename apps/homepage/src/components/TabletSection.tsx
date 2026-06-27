@@ -98,7 +98,7 @@ const FEATURES: Feature[] = [
 
 function FeatureCard({ feature }: { feature: Feature }) {
   return (
-    <div className={`flex gap-3 ${feature.align === 'right' ? 'flex-row-reverse text-right lg:flex-row lg:text-left' : ''}`}>
+    <div className="flex gap-3">
       <div
         className="shrink-0 w-9 h-9 rounded-xl flex items-center justify-center mt-0.5"
         style={{ background: 'rgba(59,130,246,0.1)', color: '#93c5fd' }}

@@ -155,11 +155,36 @@ export function USPSection({ number, flip = false, headline, body, videoLabel, v
       className="py-20 sm:py-28 px-6"
       style={{ background: 'linear-gradient(180deg, rgba(59,130,246,0.04) 0%, transparent 100%)' }}
     >
-      <div
-        ref={ref}
-        className="scroll-fade max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20 items-center"
-      >
-        {flip ? <>{textBlock}{videoBlock}</> : <>{videoBlock}{textBlock}</>}
+      <div ref={ref} className="scroll-fade max-w-6xl mx-auto">
+        {/* Mobile: number → headline → video → body */}
+        <div className="lg:hidden flex flex-col gap-5">
+          <div className="flex flex-col gap-3">
+            <div className="self-start flex items-baseline gap-3">
+              <span
+                className="font-bold"
+                style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '3.5rem', lineHeight: 1, background: 'linear-gradient(135deg, #3b82f6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+              >
+                {number}
+              </span>
+              {badge === 'Unleashed' && (
+                <span style={{ fontFamily: "'Bangers', cursive", fontSize: '2rem', letterSpacing: '0.1em', color: '#39ff14', lineHeight: 1 }}>
+                  UNLEASHED
+                </span>
+              )}
+            </div>
+            <h2 className="text-3xl sm:text-4xl font-bold leading-tight" style={{ letterSpacing: '-0.02em' }}>
+              {headline}
+            </h2>
+          </div>
+          {videoBlock}
+          <div className="text-base sm:text-lg leading-relaxed" style={{ color: 'rgba(255,255,255,0.65)' }}>
+            {body}
+          </div>
+        </div>
+        {/* Desktop: side by side with flip */}
+        <div className="hidden lg:grid grid-cols-2 gap-20 items-center">
+          {flip ? <>{textBlock}{videoBlock}</> : <>{videoBlock}{textBlock}</>}
+        </div>
       </div>
     </section>
   )
