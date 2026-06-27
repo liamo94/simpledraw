@@ -1124,6 +1124,10 @@ function renderOneStroke(ctx: CanvasRenderingContext2D, stroke: Stroke) {
       // rough.js uses ctx.save()/restore() per path but only sets lineDash when strokeLineDash
       // is provided (i.e. for dashed shapes). For solid shapes it inherits whatever lineDash is
       // currently on the canvas - so reset it here to prevent contamination from previous strokes.
+      // Also reset lineCap: rough.js does not set it, so it would otherwise inherit whatever the
+      // previous stroke or erase trail left on the context (often "round"), making dashes appear
+      // longer than they should.
+      ctx.lineCap = "butt";
       ctx.setLineDash([]);
       renderRoughShape(
         ctx,

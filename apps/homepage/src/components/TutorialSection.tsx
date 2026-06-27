@@ -24,6 +24,14 @@ export function TutorialSection() {
   return (
     <section className="py-20 sm:py-28 px-6">
       <div ref={ref} className="scroll-fade max-w-6xl mx-auto">
+        <div className="text-center mb-10">
+          <div className="inline-block font-bold mb-4" style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '2.5rem', lineHeight: 1, background: 'linear-gradient(135deg, #3b82f6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            drawzilla training
+          </div>
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold" style={{ letterSpacing: '-0.02em' }}>
+            Join the drawzilla academy
+          </h2>
+        </div>
         <div
           className="rounded-3xl p-10 sm:p-14 grid grid-cols-1 lg:grid-cols-2 gap-10 items-center"
           style={{

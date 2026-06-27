@@ -29,17 +29,19 @@ export default function App() {
         number="01"
         flip={false}
         headline="You're always in draw mode."
+        videoSrc="/draw-mode.mp4"
+        videoNatural
         videoLabel="VIDEO: hold E briefly to erase one stroke, release back to freehand, hold a shape key to draw a shape, release and immediately draw freehand again - fluid, never touching the toolbar"
         body={
           <>
             <p>
-              Most drawing apps put you in a <em style={{ color: 'rgba(255,255,255,0.45)', fontStyle: 'normal' }}>mode</em>. Click the eraser - you're erasing. Click the shape tool - you're drawing shapes. To get back to drawing, you click something else. Every tool change is an interruption.
+              drawzilla works differently to most canvas apps - your keyboard controls the canvas. Hold <kbd className="kbd">⌘</kbd> to draw, <kbd className="kbd">⌥</kbd> to erase, hold <kbd className="kbd">S</kbd> to draw a shape and <kbd className="kbd">Q</kbd> to access the laser pointer. Every action is accessible with a key and switching modes is as fast as your fingers can move.
             </p>
             <p className="mt-4">
-              drawzilla works differently. <strong style={{ color: '#fff' }}>Hold a key and drag - you're in that mode for as long as you hold it. Release and you're drawing again.</strong> Hold <kbd className="kbd">⌥</kbd> and drag to erase, release to draw. Hold <kbd className="kbd">S</kbd> and drag to draw a shape, release and keep going. Hold <kbd className="kbd">Q</kbd> for laser, <kbd className="kbd">W</kbd> for highlight - same idea everywhere.
+              <strong style={{ color: '#fff' }}>You never leave draw mode and you never interrupt your flow.</strong>
             </p>
-            <p className="mt-4">
-              You never leave draw mode. You just borrow other tools for a moment.
+            <p className="mt-4 text-sm" style={{ color: 'rgba(255,255,255,0.4)', fontStyle: 'italic' }}>
+              Press <kbd className="kbd">?</kbd> in drawzilla to see the full list of 90+ keyboard commands
             </p>
           </>
         }
@@ -49,17 +51,16 @@ export default function App() {
         number="02"
         flip={true}
         headline="Your drawing hand only draws."
+        videoSrc="/cmd-draw.mp4"
+        videoNatural
         videoLabel="VIDEO: Cmd+drag drawing - left hand holds Cmd, right hand does the stroke. Show clean starts and stops. Then contrast with click-to-draw showing pressure artefacts at stroke start."
         body={
           <>
             <p>
-              When you press down to start a stroke, that pressure shows up in it. The start gets heavier, the end gets lighter as you brace for the release. It's a fundamental problem with click-to-draw - your input hand is doing two jobs at once.
+              Click-to-draw is inherently flawed. Drawing with your trackpad or mouse alone will always look sloppy. But not with drawzilla. Hold <kbd className="kbd">⌘</kbd> to start the flow of ink and release when you're done - no press-to-start tension and no release-to-stop bracing.
             </p>
             <p className="mt-4">
-              <strong style={{ color: '#fff' }}>Hold <kbd className="kbd">⌘</kbd> and drag to draw.</strong> One hand holds the trigger. Your other hand does only one thing: the stroke itself. No press-to-start tension. No release-to-stop bracing. Just the motion.
-            </p>
-            <p className="mt-4">
-              It takes about a minute to get used to. Then you don't want to go back.
+              <strong style={{ color: '#fff' }}>Your annotation has never looked so smooth.</strong>
             </p>
           </>
         }
@@ -69,55 +70,37 @@ export default function App() {
 
       {/* Feature breakdown */}
 
-      <FeatureSection
+      <USPSection
+        number="03"
         flip={false}
-        badge="Freehand"
-        headline="Every stroke feels real"
+        headline="Every stroke feels real."
         videoLabel="VIDEO: slow careful strokes vs fast loose gestures - showing how line width responds to speed and pressure"
         videoSrc="/stroke.mp4"
         body={
           <>
-            <p>Powered by perfect-freehand, every stroke responds to how fast you draw and how hard you press. Thin and delicate when you're being precise. Bold and expressive when you move fast.</p>
-            <p className="mt-3">No lag. No smoothing that fights you. Just your hand on the canvas.</p>
-          </>
-        }
-      />
-
-      <Divider />
-
-      <FeatureSection
-        flip={true}
-        badge="Shortcuts"
-        headline="Speed comes standard"
-        videoLabel="VIDEO: rapid tool switching with keyboard - draw, erase, select, undo, colour change, zoom - hands never leave the canvas"
-        videoSrc="/speed.mp4"
-        body={
-          <>
-            <p>Beyond the hold-to-activate modes, everything else has a shortcut too. Grid, undo, canvas switching, theme cycling - all one key.</p>
-            <ul className="mt-4 space-y-2 text-sm" style={{ color: 'rgba(255,255,255,0.5)' }}>
-              <li><kbd className="kbd">S</kbd> + drag shape &nbsp;·&nbsp; <kbd className="kbd">R</kbd> rect &nbsp;·&nbsp; <kbd className="kbd">C</kbd> circle &nbsp;·&nbsp; <kbd className="kbd">A</kbd> arrow</li>
-              <li><kbd className="kbd">⌥</kbd> + drag erase &nbsp;·&nbsp; <kbd className="kbd">W</kbd>/<kbd className="kbd">H</kbd> highlight &nbsp;·&nbsp; <kbd className="kbd">Q</kbd>/<kbd className="kbd">L</kbd> laser &nbsp;·&nbsp; <kbd className="kbd">B</kbd> spray</li>
-              <li><kbd className="kbd">T</kbd> text &nbsp;·&nbsp; <kbd className="kbd">G</kbd> grid &nbsp;·&nbsp; <kbd className="kbd">DD</kbd> theme &nbsp;·&nbsp; <kbd className="kbd">U</kbd> undo</li>
-              <li><kbd className="kbd">V</kbd> select &nbsp;·&nbsp; <kbd className="kbd">]</kbd>/<kbd className="kbd">[</kbd> next/prev colour &nbsp;·&nbsp; <kbd className="kbd">1–3</kbd> canvas</li>
-            </ul>
-            <p className="mt-4 text-sm" style={{ color: 'rgba(255,255,255,0.4)' }}>
-              Press <kbd className="kbd">?</kbd> any time to open the full shortcuts reference.
+            <p>
+              Powered by perfect-freehand, every stroke responds to how fast you draw and how hard you press. Thin and delicate when you're being precise. Bold and expressive when you move fast.
+            </p>
+            <p className="mt-4">
+              <strong style={{ color: '#fff' }}>drawzilla puts your hand on the canvas, not just your mouse.</strong>
             </p>
           </>
         }
       />
 
+
       <Divider />
 
-      <FeatureSection
-        flip={false}
-        badge="Multiple canvases"
+      <USPSection
+        number="04"
+        flip={true}
         headline="Multiple canvases. Ideas in parallel."
-        videoLabel="VIDEO: pressing 1, 2, 3 keys to jump instantly between different canvases - each has a different idea, no loading, instant switch"
+        videoLabel="Multiple canvases. Ideas in parallel."
+        videoSrc="/canvases.mp4"
         body={
           <>
-            <p>Every canvas slot is its own infinite space. Keep your main diagram on canvas 1, rough sketches on 2, notes on 3 — and jump between them instantly with a single key.</p>
-            <p className="mt-3">No saving. No exporting. No losing your train of thought. The context switch costs you one keystroke. Or use them as slides — walk an audience through your thinking without leaving the canvas.</p>
+            <p>Every canvas is its own infinite space. Keep your main diagram on canvas 1, rough sketches on 2, notes on 3 — and jump between them instantly with a single key.</p>
+            <p className="mt-3">No saving. No exporting. No losing your train of thought. The context switch costs you one keystroke.</p>
             <p className="mt-3 text-sm flex items-center gap-1" style={{ color: 'rgba(255,255,255,0.4)' }}>
               Free: 3 canvas slots &nbsp;·&nbsp; <span style={{ fontFamily: "'Bangers', cursive", fontSize: '0.75rem', letterSpacing: '0.1em', color: '#39ff14' }}>UNLEASHED</span>: 9 canvas slots
             </p>
@@ -127,75 +110,50 @@ export default function App() {
 
       <Divider />
 
-      <FeatureSection
-        flip={true}
-        badge="Unleashed"
-        headline="Separate workspaces for separate projects."
-        videoLabel="VIDEO: switching between workspaces - client project, personal notes, teaching prep - each with its own set of canvases"
-        body={
-          <>
-            <p>Each workspace is its own set of canvases. Keep client work away from personal notes. Teaching prep separate from side projects. Switch between them without anything bleeding together.</p>
-            <p className="mt-3">Free accounts get one workspace. Unleashed gives you workspaces.</p>
-          </>
-        }
-      />
-
-      <Divider />
-
-      <FeatureSection
+      <USPSection
+        number="05"
         flip={false}
-        badge="Mouse buttons"
-        headline="Two hands. Two tools."
-        videoLabel="VIDEO: right-click erasing while drawing with left click - fluid back-and-forth with no tool switching at all"
-        videoSrc="/controls.mp4"
+        headline="Separate workspaces for separate projects."
+        videoLabel="Separate workspaces for separate projects"
+        videoImgSrc="/workspaces.png"
         body={
           <>
-            <p>Assign any tool to each mouse button. Left click draws, right click erases - or dashes, or lasers. No switching, no interruption.</p>
-            <p className="mt-3">Pick your combination once and forget the toolbar exists. It's the kind of thing that feels obvious the first time you try it.</p>
+            <p>With <span style={{ fontFamily: "'Bangers', cursive", fontSize: '1em', letterSpacing: '0.1em', color: '#39ff14' }}>UNLEASHED</span>, canvases can be sorted into separate workspaces. Keep client work away from personal notes. Teaching prep separate from side projects. Switch between them without anything bleeding together.</p>
           </>
         }
       />
 
+
       <Divider />
 
-      <SpotlightSection
-        badge="Stash"
-        headline="A library that lives on your canvas"
+      <USPSection
+        number="06"
+        flip={true}
+        headline="Stash your best stuff."
+        videoSrc="/stash.mp4"
+        videoNatural
         videoLabel="VIDEO: selecting strokes → saving to stash panel → panel showing thumbnails → dragging a stash item back onto the canvas on a different theme"
         body={
           <>
-            <p>Select any group of strokes and save them to the Stash. They become reusable pieces - icons, components, diagrams, whatever you keep reaching for.</p>
-            <p className="mt-3">Drag anything back onto the canvas at any time. It adapts to your current theme automatically. Named, searchable, and synced across devices on Pro.</p>
+            <p>Save reusable assets into your stash - icons, components, diagrams, or logos. Whatever you keep reaching for. Drag anything back onto the canvas at any time. It adapts to your current theme automatically.</p>
+            <p className="mt-3 font-bold" style={{ color: '#fff' }}>Named, searchable, and synced across devices.</p>
           </>
         }
       />
 
       <Divider />
 
-      <FeatureSection
-        flip={true}
-        badge="Customisation"
-        headline="Make it completely yours"
-        videoLabel="VIDEO: cycling through 8 themes, toggling dot/square/off grid, changing line colour and fill opacity, adjusting left/right click tool assignment"
-        body={
-          <>
-            <p>Eight themes. Dot or square grid. Unlimited colours. Line width, fill, dash patterns, and opacity per stroke - everything is adjustable.</p>
-            <p className="mt-3">Assign different tools to left and right mouse buttons so your favourite workflow is always one click away. Your canvas, your rules.</p>
-          </>
-        }
-      />
-
-      <Divider />
-
-      <FeatureSection
+      <USPSection
+        number="07"
         flip={false}
-        badge="Shapes"
-        headline="Multiple shapes, different styles and fills."
-        videoLabel="VIDEO: drawing circle → rectangle → star → cloud → arrow, filling a shape, adjusting opacity, switching to dashed outline"
+        headline="Share with one link."
+        videoSrc="/share.mp4"
+        videoNatural={true}
+        videoLabel="VIDEO: selecting a canvas, opening share modal, copying link, opening it in a new tab - viewer sees live canvas with no sign-in required"
         body={
           <>
-            <p>Ten shape types, all rendered with a deliberately hand-drawn aesthetic. No two circles look exactly alike - that's the point.</p>
-            <p className="mt-3">Fill, outline, opacity, dashes. Combine them freely. Shapes that feel like they belong on a whiteboard, not a vector editor.</p>
+            <p>Share your work instantly—no exports required. Anyone can use your link friction-free, with or without a Drawzilla account. Send a mockup to a client. Share a diagram with a teammate. Walk someone through your thinking without exporting anything.</p>
+            <p className="mt-3">Go further with <span style={{ fontFamily: "'Bangers', cursive", fontSize: '1em', letterSpacing: '0.1em', color: '#39ff14' }}>UNLEASHED</span> and generate live links that always show the latest. No need to resend an updated version again.</p>
           </>
         }
       />
@@ -207,37 +165,6 @@ export default function App() {
       <Divider />
 
       <UseCasesSection />
-
-      <Divider />
-
-      <FeatureSection
-        flip={false}
-        badge="Cloud"
-        headline="Your canvases, everywhere"
-        videoLabel="VIDEO: switching between workspace canvas slots, sync indicator appearing, then opening same canvas on a different device"
-        body={
-          <>
-            <p>Sign in once. All your canvases sync across every device. Start sketching on your phone on the commute, pick it up on your laptop when you get to your desk.</p>
-            <p className="mt-3">Your Stash syncs too. Everything is there when you need it, without thinking about it.</p>
-          </>
-        }
-      />
-
-      <Divider />
-
-      <FeatureSection
-        flip={true}
-        badge="Sharing"
-        headline="Share with one link"
-        videoLabel="VIDEO: selecting a canvas, opening share modal, copying link, opening it in a new tab - viewer sees live canvas with no sign-in required"
-        body={
-          <>
-            <p>Generate a live (<span style={{ fontFamily: "'Bangers', cursive", fontSize: '0.875rem', letterSpacing: '0.1em', color: '#39ff14' }}>UNLEASHED</span>) or static read-only link for any canvas or entire workspace. Anyone with the link sees your latest version - no account, no friction.</p>
-            <p className="mt-3">Send a mockup to a client. Share a diagram with a teammate. Walk someone through your thinking without exporting anything.</p>
-            <p className="mt-3">The link always shows the latest. There's no "resend the updated version".</p>
-          </>
-        }
-      />
 
       <Divider />
 

@@ -123,10 +123,7 @@ export function UseCasesSection() {
     <section className="py-20 sm:py-28 px-6">
       <div ref={ref} className="scroll-fade max-w-6xl mx-auto">
         <div className="text-center mb-14">
-          <div
-            className="inline-block text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full mb-6"
-            style={{ background: 'rgba(59,130,246,0.1)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}
-          >
+          <div className="inline-block mb-6 font-bold" style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '2.5rem', lineHeight: 1, background: 'linear-gradient(135deg, #3b82f6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
             Use cases
           </div>
           <h2

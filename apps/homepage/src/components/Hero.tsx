@@ -23,10 +23,7 @@ export function Hero() {
           }}
         />
 
-        <div
-          className="inline-block text-xs font-semibold tracking-widest uppercase mb-6 px-3 py-1 rounded-full"
-          style={{ background: 'rgba(59,130,246,0.12)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.25)' }}
-        >
+        <div className="inline-block mb-6" style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '1.15rem', color: 'rgba(255,255,255,0.45)' }}>
           Free to use · No account needed
         </div>
 
@@ -41,8 +38,8 @@ export function Hero() {
           canvas tool
         </h1>
 
-        <p className="text-lg sm:text-xl mb-10 max-w-xl mx-auto" style={{ color: 'rgba(255,255,255,0.6)' }}>
-          An infinite canvas where shortcuts do the heavy lifting, whether you're sketching ideas, annotating, or creating art.
+        <p className="text-lg sm:text-xl mb-10 max-w-2xl mx-auto" style={{ color: 'rgba(255,255,255,0.6)' }}>
+          An infinite canvas where shortcuts do the heavy lifting, making it easy to sketch ideas, annotate on the fly, or bring your art to life.
         </p>
 
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
@@ -51,7 +48,7 @@ export function Hero() {
             className="inline-flex items-center gap-2 text-base font-semibold px-8 py-4 rounded-full transition-all duration-200 hover:scale-105 hover:brightness-110 active:scale-95"
             style={{ background: 'linear-gradient(135deg, #3b82f6, #ec4899)', color: '#fff' }}
           >
-            Try it free →
+            Free to use →
           </a>
           <a
             href={`${DRAW_URL}/training`}
@@ -65,22 +62,16 @@ export function Hero() {
 
       <div className="relative mt-16 w-full max-w-5xl mx-auto">
         <img
-          src="/hero-jag.png"
-          alt=""
-          width={130}
-          height={130}
-          className="hidden lg:block absolute pointer-events-none"
-          style={{ left: '-160px', top: '50%', transform: 'translateY(-50%) rotate(-15deg)' }}
-        />
-        <img
           src="/hero-love-drawzilla.png"
           alt=""
           width={210}
           height={80}
           className="hidden lg:block absolute pointer-events-none"
-          style={{ left: '-218px', bottom: '-20px', transform: 'rotate(-6deg)' }}
+          style={{ left: '-218px', top: '50%', transform: 'translateY(-50%) rotate(-6deg)' }}
         />
-        <VideoPlaceholder label="VIDEO: general drawzilla demo - freehand drawing, shapes, theme switching, keyboard shortcuts, stash" tall src="/hero.mp4" />
+        <div className="rounded-2xl overflow-hidden">
+          <VideoPlaceholder label="VIDEO: general drawzilla demo - freehand drawing, shapes, theme switching, keyboard shortcuts, stash" natural src="/hero.mp4" />
+        </div>
       </div>
     </section>
   )

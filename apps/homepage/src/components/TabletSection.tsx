@@ -1,5 +1,4 @@
 import { useEffect, useRef, type ReactNode } from 'react'
-import { VideoPlaceholder } from './FeatureSection'
 
 interface Feature {
   icon: ReactNode
@@ -140,17 +139,14 @@ export function TabletSection() {
       <div ref={ref} className="scroll-fade max-w-6xl mx-auto">
 
         <div className="text-center max-w-2xl mx-auto mb-14">
-          <div
-            className="inline-block text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full mb-6"
-            style={{ background: 'rgba(59,130,246,0.1)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}
-          >
-            Phone & tablet
+          <div className="inline-block mb-6 font-bold" style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '2.5rem', lineHeight: 1, background: 'linear-gradient(135deg, #3b82f6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Phone and tablet
           </div>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-5" style={{ letterSpacing: '-0.02em' }}>
-            A canvas that feels made for touch
+            drawzilla on the go
           </h2>
           <p className="text-base sm:text-lg" style={{ color: 'rgba(255,255,255,0.6)' }}>
-            From Apple Pencil pressure to palm rejection to gesture shortcuts - drawzilla is as at home on an iPad as it is on a laptop.
+            Log-in and sync your work on laptop, phone, and tablets. Drawzilla is compatible cross-device to help with any use case, even on the go.
           </p>
         </div>
 
@@ -161,10 +157,10 @@ export function TabletSection() {
             {leftFeatures.map(f => <FeatureCard key={f.title} feature={f} />)}
           </div>
 
-          {/* Portrait video */}
+          {/* Portrait screenshot */}
           <div className="w-full">
             <div className="rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-              <VideoPlaceholder label="VIDEO: iPad / tablet footage - Apple Pencil drawing, palm rejection, pinch-zoom, mobile toolbar usage" portrait />
+              <img src="/tablet-screenshot.png" alt="drawzilla on iPad Pro" className="w-full block" />
             </div>
           </div>
 
@@ -177,7 +173,7 @@ export function TabletSection() {
         {/* Mobile layout */}
         <div className="lg:hidden flex flex-col items-center gap-10">
           <div className="w-full max-w-xs rounded-2xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
-            <VideoPlaceholder label="VIDEO: iPad / tablet footage" portrait />
+            <img src="/tablet-screenshot.png" alt="drawzilla on iPad Pro" className="w-full block" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 w-full">
             {FEATURES.map(f => <FeatureCard key={f.title} feature={f} />)}

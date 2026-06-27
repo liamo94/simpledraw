@@ -1,18 +1,30 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 
-export function VideoPlaceholder({ label, tall, portrait, src }: { label: string; tall?: boolean; portrait?: boolean; src?: string }) {
+export function VideoPlaceholder({ label, tall, portrait, src, imgSrc, natural, cropTop }: { label: string; tall?: boolean; portrait?: boolean; src?: string; imgSrc?: string; natural?: boolean; cropTop?: number }) {
   const aspectClass = portrait ? 'aspect-[3/4]' : tall ? 'aspect-[16/9]' : 'aspect-video'
+  if (imgSrc) {
+    return <img src={imgSrc} alt={label} className="w-full rounded-2xl" />
+  }
   if (src) {
-    return (
+    const video = (
       <video
         src={src}
-        className={`w-full rounded-2xl object-cover ${aspectClass}`}
+        className={natural ? 'w-full rounded-2xl' : `w-full rounded-2xl object-cover ${aspectClass}`}
+        style={cropTop ? { marginTop: -cropTop, display: 'block' } : undefined}
         autoPlay
         muted
         loop
         playsInline
       />
     )
+    if (cropTop) {
+      return (
+        <div className="w-full rounded-2xl overflow-hidden">
+          {video}
+        </div>
+      )
+    }
+    return video
   }
   return (
     <div
@@ -62,21 +74,11 @@ export function FeatureSection({ flip = false, videoLabel, videoSrc, badge, head
     <div className="flex flex-col justify-center gap-4">
       {badge && (
         <div className="self-start flex items-center gap-2">
-          <div
-            className="text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full"
-            style={badge === 'Unleashed'
-              ? { background: 'rgba(57,255,20,0.08)', color: 'rgba(255,255,255,0.7)', border: '1px solid rgba(57,255,20,0.2)' }
-              : { background: 'rgba(59,130,246,0.1)', color: '#93c5fd', border: '1px solid rgba(59,130,246,0.2)' }}
-          >
+          <span style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '1.15rem', color: 'rgba(255,255,255,0.45)' }}>
             {badge === 'Unleashed' ? 'Workspaces' : badge}
-          </div>
+          </span>
           {badge === 'Unleashed' && (
-            <span style={{
-              fontFamily: "'Bangers', cursive",
-              fontSize: '0.875rem',
-              letterSpacing: '0.1em',
-              color: '#39ff14',
-            }}>
+            <span style={{ fontFamily: "'Bangers', cursive", fontSize: '0.875rem', letterSpacing: '0.1em', color: '#39ff14' }}>
               UNLEASHED
             </span>
           )}
@@ -106,25 +108,37 @@ export function FeatureSection({ flip = false, videoLabel, videoSrc, badge, head
 }
 
 interface USPSectionProps {
-  number: '01' | '02'
+  number: '01' | '02' | '03' | '04' | '05' | '06' | '07'
   flip?: boolean
   headline: string
   body: ReactNode
   videoLabel: string
+  videoSrc?: string
+  videoImgSrc?: string
+  videoNatural?: boolean
+  videoCropTop?: number
+  badge?: string
 }
 
-export function USPSection({ number, flip = false, headline, body, videoLabel }: USPSectionProps) {
+export function USPSection({ number, flip = false, headline, body, videoLabel, videoSrc, videoImgSrc, videoNatural, videoCropTop, badge }: USPSectionProps) {
   const ref = useRef<HTMLDivElement>(null)
   useScrollFade(ref)
 
   const textBlock = (
     <div className="flex flex-col justify-center gap-5">
-      <span
-        className="self-start font-bold"
-        style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '3.5rem', lineHeight: 1, background: 'linear-gradient(135deg, #3b82f6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
-      >
-        {number}
-      </span>
+      <div className="self-start flex items-baseline gap-3">
+        <span
+          className="font-bold"
+          style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '3.5rem', lineHeight: 1, background: 'linear-gradient(135deg, #3b82f6, #ec4899)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}
+        >
+          {number}
+        </span>
+        {badge === 'Unleashed' && (
+          <span style={{ fontFamily: "'Bangers', cursive", fontSize: '2rem', letterSpacing: '0.1em', color: '#39ff14', lineHeight: 1 }}>
+            UNLEASHED
+          </span>
+        )}
+      </div>
       <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight" style={{ letterSpacing: '-0.02em' }}>
         {headline}
       </h2>
@@ -134,7 +148,7 @@ export function USPSection({ number, flip = false, headline, body, videoLabel }:
     </div>
   )
 
-  const videoBlock = <VideoPlaceholder label={videoLabel} />
+  const videoBlock = <VideoPlaceholder label={videoLabel} src={videoSrc} imgSrc={videoImgSrc} natural={videoNatural} cropTop={videoCropTop} />
 
   return (
     <section
@@ -156,9 +170,10 @@ interface SpotlightSectionProps {
   headline: string
   body: ReactNode
   videoLabel: string
+  videoSrc?: string
 }
 
-export function SpotlightSection({ badge, headline, body, videoLabel }: SpotlightSectionProps) {
+export function SpotlightSection({ badge, headline, body, videoLabel, videoSrc }: SpotlightSectionProps) {
   const ref = useRef<HTMLDivElement>(null)
   useScrollFade(ref)
 
@@ -167,12 +182,25 @@ export function SpotlightSection({ badge, headline, body, videoLabel }: Spotligh
       <div ref={ref} className="scroll-fade max-w-6xl mx-auto">
         <div className="text-center max-w-2xl mx-auto mb-12">
           {badge && (
-            <div
-              className="inline-block text-xs font-semibold tracking-widest uppercase px-3 py-1 rounded-full mb-6"
-              style={{ background: 'rgba(236,72,153,0.1)', color: '#f9a8d4', border: '1px solid rgba(236,72,153,0.2)' }}
-            >
-              {badge}
-            </div>
+            badge === 'Stash' ? (
+              <div className="inline-block mb-6" style={{ fontFamily: 'Bangers, cursive', fontSize: 22, letterSpacing: '0.05em' }}>
+                {[
+                  { letter: 's', rotate: -4 },
+                  { letter: 't', rotate: 3 },
+                  { letter: 'a', rotate: -3 },
+                  { letter: 's', rotate: 4 },
+                  { letter: 'h', rotate: -2 },
+                ].map((l, i) => (
+                  <span key={i} style={{ display: 'inline-block', marginLeft: i === 0 ? 0 : 1, transform: `rotate(${l.rotate}deg)`, color: '#3b82f6', textShadow: '0 0 8px #3b82f644' }}>
+                    {l.letter}
+                  </span>
+                ))}
+              </div>
+            ) : (
+              <span className="inline-block mb-6" style={{ fontFamily: 'Caveat Brush, cursive', fontSize: '1.15rem', color: 'rgba(255,255,255,0.45)' }}>
+                {badge}
+              </span>
+            )
           )}
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight mb-5" style={{ letterSpacing: '-0.02em' }}>
             {headline}
@@ -181,7 +209,7 @@ export function SpotlightSection({ badge, headline, body, videoLabel }: Spotligh
             {body}
           </div>
         </div>
-        <VideoPlaceholder label={videoLabel} />
+        <VideoPlaceholder label={videoLabel} src={videoSrc} natural={!!videoSrc} />
       </div>
     </section>
   )
