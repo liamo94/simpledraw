@@ -76,6 +76,7 @@ export default function App() {
         headline="Every stroke feels real."
         videoLabel="VIDEO: slow careful strokes vs fast loose gestures - showing how line width responds to speed and pressure"
         videoSrc="/stroke.mp4"
+        videoNatural
         body={
           <>
             <p>
@@ -97,6 +98,7 @@ export default function App() {
         headline="Multiple canvases. Ideas in parallel."
         videoLabel="Multiple canvases. Ideas in parallel."
         videoSrc="/canvases.mp4"
+        videoNatural
         body={
           <>
             <p>Every canvas is its own infinite space. Keep your main diagram on canvas 1, rough sketches on 2, notes on 3 — and jump between them instantly with a single key.</p>
