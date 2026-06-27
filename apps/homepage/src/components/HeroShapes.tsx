@@ -1,18 +1,6 @@
 // Decorative floating shapes around the hero - conveys "canvas app" immediately.
 // All drawn with inline SVG, no assets needed.
 
-const rc = 'round' as const
-
-// 5-pointed star polygon points, cx/cy = centre, r1 = outer, r2 = inner
-function starPoints(cx: number, cy: number, r1: number, r2: number): string {
-  const pts: string[] = []
-  for (let i = 0; i < 10; i++) {
-    const angle = (Math.PI / 5) * i - Math.PI / 2
-    const r = i % 2 === 0 ? r1 : r2
-    pts.push(`${cx + r * Math.cos(angle)},${cy + r * Math.sin(angle)}`)
-  }
-  return pts.join(' ')
-}
 
 export function HeroShapes() {
   return (

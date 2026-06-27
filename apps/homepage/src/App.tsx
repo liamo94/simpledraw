@@ -1,6 +1,6 @@
 import { Navbar } from './components/Navbar'
 import { Hero } from './components/Hero'
-import { FeatureSection, SpotlightSection, USPSection } from './components/FeatureSection'
+import { USPSection } from './components/FeatureSection'
 import { UseCasesSection } from './components/UseCasesSection'
 import { UnleashedBanner } from './components/UnleashedBanner'
 import { TutorialSection } from './components/TutorialSection'
