@@ -202,6 +202,11 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   // While pending, the canvas data effect must not write to slot 1 or bump loadKey,
   // and App.tsx must not render Canvas - guarantees no canvas content leaks.
   const [newRoutePending, setNewRoutePending] = useState(newRoute)
+  // Tracks which canvas ID is awaiting its first server load (slot 1 was cleared on
+  // switch). Overlay is only shown when this matches the currently active canvas —
+  // a stale ID from a prior switch can never accidentally block a different canvas.
+  const [pendingLoadForId, setPendingLoadForId] = useState<string | null>(null)
+  const pendingCloudLoad = !!activeId && pendingLoadForId === activeId
 
   // If drawtool-precloud-strokes-1 exists, we had a cloud session that may not have
   // cleaned up slot 1 before the page navigated away (e.g. Clerk redirected on sign-out
@@ -356,6 +361,22 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     refetchOnReconnect: false,
   })
 
+  // If the canvas fetch errors, unblock input so the user isn't stuck with a frozen canvas.
+  useEffect(() => {
+    if (canvasQuery.isError) setPendingLoadForId(null)
+  }, [canvasQuery.isError])
+
+  // Defensive: ensure the canvas query is actively fetching after each canvas switch.
+  // React Query with staleTime:Infinity may not trigger a background refetch when the
+  // observer mounts with manually-invalidated stale data in some timing scenarios.
+  // This effect fires after the render (observer is mounted) and forces a refetch if
+  // the query is idle — guaranteeing fresh server data always arrives on canvas switch.
+  useEffect(() => {
+    if (!activeId || !isSignedIn || !tokenReady) return
+    if (canvasQuery.fetchStatus === 'fetching') return
+    queryClient.invalidateQueries({ queryKey: ['canvas', activeId] })
+  }, [activeId, isSignedIn, tokenReady]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Apply canvas data to localStorage when query resolves, then remount Canvas via loadKey
   useEffect(() => {
     if (!canvasQuery.data || !activeId) return
@@ -363,8 +384,12 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     // One-time backup of slot 1 before cloud overwrites it
     if (!useCloudSessionStore.getState().slot1BackedUp) {
       setSlot1BackedUp(true)
-      localStorage.setItem('drawtool-precloud-strokes-1', localStorage.getItem('drawtool-strokes-1') ?? '')
-      localStorage.setItem('drawtool-precloud-view-1', localStorage.getItem('drawtool-view-1') ?? '')
+      try {
+        localStorage.setItem('drawtool-precloud-strokes-1', localStorage.getItem('drawtool-strokes-1') ?? '')
+        localStorage.setItem('drawtool-precloud-view-1', localStorage.getItem('drawtool-view-1') ?? '')
+      } catch {
+        // localStorage quota exceeded — backup skipped, cloud data will still load normally
+      }
     }
 
     const { name, updated_at } = canvasQuery.data
@@ -403,7 +428,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
           })
       })()
       setCachedCanvasName(name)
-      if (wasInitialLoad) bumpLoadKey()
+      if (wasInitialLoad) { setPendingLoadForId(null); bumpLoadKey() }
       return
     }
 
@@ -448,6 +473,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
           uncachedSwitchRef.current = false
           saveView(fitViewIfNeeded(strokes, data.view), CLOUD_SLOT)
         }
+        setPendingLoadForId(null)
         bumpLoadKey()
       } else {
         // Live sync: update strokes in-place so viewport is preserved.
@@ -516,6 +542,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       localStorage.removeItem(DIRTY_KEY)
 
       resetSession()
+      setPendingLoadForId(null)
       setReady(true)
       return
     }
@@ -672,9 +699,11 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       // effect to write the server's view before remounting so content isn't off-screen.
       uncachedSwitchRef.current = true
       saveStrokes([], CLOUD_SLOT, true)
+      setPendingLoadForId(id)
       return
     }
     uncachedSwitchRef.current = false
+    setPendingLoadForId(null)
     // Pre-load images into IDB so Canvas can draw them immediately on remount.
     if (cached.data.images) {
       Promise.allSettled(Object.entries(cached.data.images).map(([imgId, url]) => storeImage(imgId, url))).catch(() => {})
@@ -1136,20 +1165,45 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
 
     const candidates = ws.canvases.slice(0, canvasLimit)
     const blank = candidates.find(c => c.is_empty === 1)
-    const oldest = [...candidates].sort((a, b) => a.updated_at - b.updated_at)[0]
+    const leastStrokes = [...candidates].sort((a, b) => a.stroke_count - b.stroke_count)[0]
 
     setActiveWorkspace(ws.id, ws.name)
 
-    const commitNewRoute = () => {
+    const commitNewRoute = async () => {
       // Safe to clear slot 1 now — dirty data has been rescued (or there was none).
       saveStrokes([], CLOUD_SLOT, true)
-      setNewRoutePending(false)
-      if (blank) {
-        setActiveCanvas(blank.id)
-      } else {
-        if (oldest) setActiveCanvas(oldest.id)
-        setNewRouteAllOccupied(true)
+
+      let targetId: string | null = null
+      let needsProtection = false
+      let allOccupied = false
+
+      if (ws.canvases.length < canvasLimit) {
+        // Slots available — create a fresh canvas. Await before rendering so Canvas
+        // doesn't briefly flicker with the old active canvas while creation is in-flight.
+        const newCanvas = await createCanvas(undefined, ws.id)
+        targetId = newCanvas?.id ?? null
       }
+
+      if (!targetId) {
+        if (blank) {
+          // Existing unstarted canvas (is_empty=1) — no content to protect.
+          targetId = blank.id
+        } else if (leastStrokes) {
+          targetId = leastStrokes.id
+          if (leastStrokes.stroke_count > 0) {
+            // Has real content — warn the user and block drawing until server data loads.
+            needsProtection = true
+            allOccupied = true
+          }
+          // stroke_count === 0: effectively blank, open silently like the blank path.
+        }
+      }
+
+      // All state updates batch into one render so Canvas mounts with the correct key.
+      if (needsProtection && targetId) setPendingLoadForId(targetId)
+      if (allOccupied) setNewRouteAllOccupied(true)
+      setNewRoutePending(false)
+      if (targetId) setActiveCanvas(targetId)
     }
 
     // Before wiping slot 1, rescue any dirty data from the previous session.
@@ -1219,6 +1273,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     workspace, allWorkspaces, activeId, activeCanvasMeta, activeCanvasIndex,
     workspacesLoaded: workspacesQuery.isSuccess,
     loading: canvasQuery.isFetching,
+    pendingCloudLoad,
     cachedWorkspaceName, cachedCanvasName,
     newRouteAllOccupied, newRoutePending,
     switchCanvas, switchWorkspace, createCanvas, createWorkspace,

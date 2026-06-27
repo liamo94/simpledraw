@@ -130,24 +130,30 @@ export let _newRouteForCloud = window.location.pathname === "/new";
 
 if (window.location.pathname === "/new") {
   window.history.replaceState(null, "", "/");
-  const counts = Array.from({ length: CANVAS_LIMIT }, (_, i) => {
-    const raw = localStorage.getItem(strokesKey(i + 1));
-    if (!raw) return 0;
-    try {
-      return (JSON.parse(raw) as unknown[]).length;
-    } catch {
-      return 0;
+  // Cloud users (have a saved active canvas ID) are handled asynchronously by
+  // useCloudCanvas — skip the local-storage slot check entirely for them so the
+  // "all canvases in use" modal doesn't flash before cloud routing resolves.
+  const isCloudUser = !!localStorage.getItem("drawtool-cloud-active-canvas");
+  if (!isCloudUser) {
+    const counts = Array.from({ length: CANVAS_LIMIT }, (_, i) => {
+      const raw = localStorage.getItem(strokesKey(i + 1));
+      if (!raw) return 0;
+      try {
+        return (JSON.parse(raw) as unknown[]).length;
+      } catch {
+        return 0;
+      }
+    });
+    const empty = counts.findIndex((n) => n === 0);
+    if (empty !== -1) {
+      _newRouteCanvas = empty + 1;
+    } else {
+      const min = Math.min(...counts);
+      _newRouteCanvas = counts.findIndex((n) => n === min) + 1;
+      _newRouteAllOccupied = true;
     }
-  });
-  const empty = counts.findIndex((n) => n === 0);
-  if (empty !== -1) {
-    _newRouteCanvas = empty + 1;
-  } else {
-    const min = Math.min(...counts);
-    _newRouteCanvas = counts.findIndex((n) => n === min) + 1;
-    _newRouteAllOccupied = true;
+    localStorage.setItem("drawtool-active-canvas", String(_newRouteCanvas));
   }
-  localStorage.setItem("drawtool-active-canvas", String(_newRouteCanvas));
 }
 
 function buildExportFilename(name: string, index: number): string {
@@ -2589,6 +2595,9 @@ export default function App() {
           e.target.value = "";
         }}
       />
+      {cloudCanvas.pendingCloudLoad && (
+        <div className="fixed inset-0 z-[5]" style={{ pointerEvents: 'auto' }} />
+      )}
       {cloudCanvas.ready && !cloudCanvas.newRoutePending && (
         <Canvas
           lineWidth={settings.lineWidth}
@@ -4480,6 +4489,7 @@ export default function App() {
                       cloudCanvas.cachedCanvasName}
                   </span>
                 )}
+
               </>
             )}
           </button>
