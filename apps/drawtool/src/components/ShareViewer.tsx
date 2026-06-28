@@ -6,6 +6,22 @@ import type { Stroke, Slide } from '../canvas/types'
 import { isDarkTheme, getPanelBackground, getBackgroundColor, generateSlideThumbnail } from '../canvas/rendering'
 import type { Theme, GridType } from '../hooks/useSettings'
 
+// Mirror of App.tsx resolveSlideView — adjusts view for the viewer's actual screen size.
+// Slides store worldCenter + refSize so the same visual framing is reproduced regardless
+// of the device the slide was captured on.
+function resolveSlideView(slide: Slide): { x: number; y: number; scale: number } {
+  if (!slide.worldCenter) return slide.view
+  const scaleFactor = slide.refSize
+    ? Math.min(window.innerWidth / slide.refSize.width, window.innerHeight / slide.refSize.height)
+    : 1
+  const scale = slide.view.scale * scaleFactor
+  return {
+    x: window.innerWidth / 2 - slide.worldCenter.x * scale,
+    y: window.innerHeight / 2 - slide.worldCenter.y * scale,
+    scale,
+  }
+}
+
 function loadViewerSettings(): { theme: Theme; gridType: GridType; customThemeBg: string } {
   try {
     const raw = localStorage.getItem('drawtool-settings')
@@ -107,6 +123,9 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
   const viewerSettingsRef = useRef(viewerSettings)
   viewerSettingsRef.current = viewerSettings
   const lastDPressRef = useRef(0)
+  // Tracks the resolved view last written to slot 10 so the theme-change effect can
+  // re-apply the correct (screen-adjusted) view rather than the raw stored slide view.
+  const currentSlideViewRef = useRef<{ x: number; y: number; scale: number } | null>(null)
 
   function bumpControls() {
     setControlsVisible(true)
@@ -168,17 +187,23 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
       setShareData(data)
       const firstCanvas = data.type === 'canvas' ? data.data : data.canvases[0]?.data
       const effectiveSettings = deriveViewerTheme(firstCanvas, viewerSettings)
-      if (effectiveSettings !== viewerSettings) setViewerSettings(effectiveSettings)
       if (data.type === 'presentation' && data.slides.length > 0) {
         const firstSlide = data.slides[0]
         let canvasIdx = firstSlide.canvasId ? data.canvases.findIndex(c => c.id === firstSlide.canvasId) : -1
         if (canvasIdx === -1 && firstSlide.canvasIndex != null) canvasIdx = data.canvases.findIndex(c => c.position === firstSlide.canvasIndex)
-        const resolvedIdx = Math.max(0, canvasIdx)
-        await loadSlot(data, resolvedIdx, isDarkTheme(effectiveSettings.theme, effectiveSettings.customThemeBg), firstSlide.view)
-        setActiveIndex(resolvedIdx)
+        // Await the slot load before applying the theme change. If we call setViewerSettings
+        // first, the theme-change effect fires during the storeImage await gap (while
+        // presenting=false), races with this loadSlot, and overwrites slot 10 with the
+        // canvas's last-saved R2 view instead of the slide's view.
+        await loadSlot(data, canvasIdx, isDarkTheme(effectiveSettings.theme, effectiveSettings.customThemeBg), resolveSlideView(firstSlide))
+        // Now apply theme + presenting in one batch so the theme effect fires with presenting=true,
+        // and its viewOverride fallback (presentingRef) correctly picks up the current slide view.
+        if (effectiveSettings !== viewerSettings) setViewerSettings(effectiveSettings)
+        setActiveIndex(Math.max(0, canvasIdx))
         setPresenting(true)
         setPresentIndex(0)
       } else {
+        if (effectiveSettings !== viewerSettings) setViewerSettings(effectiveSettings)
         loadSlot(data, 0, isDarkTheme(effectiveSettings.theme, effectiveSettings.customThemeBg))
       }
     } catch {
@@ -223,10 +248,13 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
     }
   }
 
-  // Re-adapt stroke colours when the viewer theme changes
+  // Re-adapt stroke colours when the viewer theme changes.
+  // When presenting, re-apply the most recently resolved slide view (currentSlideViewRef)
+  // so colour adaptation doesn't jump back to the canvas's R2-stored view.
   useEffect(() => {
     if (!shareDataRef.current) return
-    loadSlot(shareDataRef.current, activeIndexRef.current, isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg))
+    const viewOverride = currentSlideViewRef.current ?? undefined
+    loadSlot(shareDataRef.current, activeIndexRef.current, isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg), viewOverride)
   }, [viewerSettings.theme])
 
   // Keyboard shortcuts: g = cycle grid, dd = cycle theme
@@ -283,6 +311,7 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
     const slide = allSlidesRef.current[idx]
     if (!slide) return
     setPresentIndex(idx)
+    const resolvedView = resolveSlideView(slide)
     const sd = shareDataRef.current
     if (sd?.type === 'workspace' || sd?.type === 'presentation') {
       // Resolve canvas index: prefer canvasId match, fall back to canvasIndex/position for local slides
@@ -291,7 +320,8 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
         canvasIdx = sd.canvases.findIndex(c => c.position === slide.canvasIndex)
       }
       if (canvasIdx === -1) {
-        window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: slide.view }))
+        currentSlideViewRef.current = resolvedView
+        window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: resolvedView }))
         return
       }
       const settings = viewerSettingsRef.current
@@ -299,15 +329,17 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
       if (canvasIdx !== activeIndexRef.current) {
         setIsLoadingCanvas(true)
         setActiveIndex(canvasIdx)
-        loadSlot(sd, canvasIdx, viewerIsDark, slide.view).then(() => {
+        loadSlot(sd, canvasIdx, viewerIsDark, resolvedView).then(() => {
           // Wait two rAF cycles so the browser paints the new canvas before the cover disappears
           requestAnimationFrame(() => requestAnimationFrame(() => setIsLoadingCanvas(false)))
         })
       } else {
-        window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: slide.view }))
+        currentSlideViewRef.current = resolvedView
+        window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: resolvedView }))
       }
     } else {
-      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: slide.view }))
+      currentSlideViewRef.current = resolvedView
+      window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: resolvedView }))
     }
   }
 
@@ -325,15 +357,28 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
 
   async function loadSlot(data: ShareData, idx: number, viewerIsDark: boolean, viewOverride?: { x: number; y: number; scale: number }) {
     const canvasData = data.type === 'canvas' ? data.data : data.canvases[idx]?.data
-    if (!canvasData) return
+    if (!canvasData) {
+      // Clear stale slot data so Canvas doesn't show content from a previous share visit
+      saveStrokes([], SHARE_SLOT)
+      saveView({ x: 0, y: 0, scale: 1 }, SHARE_SLOT)
+      setCanvasKey(k => k + 1)
+      return
+    }
+    // Write strokes and view synchronously BEFORE awaiting image storage.
+    // storeImage (IDB write + HTMLImageElement decode) is genuinely async and takes
+    // real time. If we write after the await, any component mount or effect that fires
+    // during the gap reads stale slot-10 data. Writing first guarantees slot 10 is
+    // correct before anything else can read it, regardless of async ordering.
+    const effectiveView = viewOverride ?? canvasData.view
+    if (viewOverride) currentSlideViewRef.current = viewOverride
+    saveStrokes(adaptStrokes(canvasData, viewerIsDark), SHARE_SLOT)
+    saveView(effectiveView, SHARE_SLOT)
+    setCanvasKey(k => k + 1)
     if (canvasData.images) {
       await Promise.all(
         Object.entries(canvasData.images).map(([id, url]) => storeImage(id, url))
       )
     }
-    saveStrokes(adaptStrokes(canvasData, viewerIsDark), SHARE_SLOT)
-    saveView(viewOverride ?? canvasData.view, SHARE_SLOT)
-    setCanvasKey(k => k + 1)
   }
 
   function switchCanvas(idx: number) {

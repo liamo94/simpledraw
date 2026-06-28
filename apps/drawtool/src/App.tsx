@@ -1771,21 +1771,27 @@ export default function App() {
 
   // Sync slides to backend for sharing (debounced, Pro cloud users only)
   const slidesSyncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const slidesRef = useRef(slides)
+  slidesRef.current = slides
+
+  async function flushSlidesSync(workspaceId: string) {
+    if (slidesSyncTimerRef.current) { clearTimeout(slidesSyncTimerRef.current); slidesSyncTimerRef.current = null }
+    const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
+    const token = await getToken()
+    if (!token) return
+    const slidesForCloud = slidesRef.current.length === 0 ? null : slidesRef.current.map(({ thumbnail: _t, ...s }) => s)
+    fetch(`${API_URL}/workspaces/${workspaceId}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ slides: slidesForCloud }),
+    }).catch(() => {})
+  }
+
   useEffect(() => {
     const workspaceId = cloudCanvas.workspace?.id
     if (!isSignedIn || !workspaceId || !isPro) return
     if (slidesSyncTimerRef.current) clearTimeout(slidesSyncTimerRef.current)
-    slidesSyncTimerRef.current = setTimeout(async () => {
-      const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:8787'
-      const token = await getToken()
-      if (!token) return
-      const slidesForCloud = slides.length === 0 ? null : slides.map(({ thumbnail: _t, ...s }) => s)
-      fetch(`${API_URL}/workspaces/${workspaceId}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ slides: slidesForCloud }),
-      }).catch(() => {})
-    }, 1500)
+    slidesSyncTimerRef.current = setTimeout(() => flushSlidesSync(workspaceId), 1500)
     return () => { if (slidesSyncTimerRef.current) clearTimeout(slidesSyncTimerRef.current) }
   }, [slides, isSignedIn, cloudCanvas.workspace?.id, isPro])
 
@@ -5376,10 +5382,13 @@ export default function App() {
           presentationShareEnabled={!!cloudCanvas.workspace?.presentation_share_enabled}
           presentationShareToken={cloudCanvas.workspace?.presentation_share_token ?? undefined}
           presentationShareHasPassword={!!cloudCanvas.workspace?.presentation_share_has_password}
-          onTogglePresentationShare={cloudCanvas.workspace ? () => {
+          onTogglePresentationShare={cloudCanvas.workspace ? async () => {
             if (cloudCanvas.workspace!.presentation_share_enabled) {
               cloudCanvas.unsharePresentation()
             } else {
+              // Flush any pending slides sync before enabling sharing so the backend
+              // always has the latest slides when the link is first opened.
+              if (cloudCanvas.workspace!.id) await flushSlidesSync(cloudCanvas.workspace!.id)
               cloudCanvas.sharePresentation()
             }
           } : undefined}

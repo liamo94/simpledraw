@@ -747,6 +747,62 @@ function ProfileSection({ startedAt }: { startedAt: number | null }) {
   );
 }
 
+// ─── Feature bento grid ───────────────────────────────────────────────────────
+
+function BentoMediaTile({
+  label,
+  imgSrc,
+  videoSrc,
+  stat,
+  className,
+  style,
+}: {
+  label: string;
+  imgSrc?: string;
+  videoSrc?: string;
+  stat?: string;
+  className?: string;
+  style?: React.CSSProperties;
+}) {
+  return (
+    <div
+      className={`relative rounded-2xl overflow-hidden ${className ?? ""}`}
+      style={{
+        background: "rgba(255,255,255,0.03)",
+        border: "1px solid rgba(255,255,255,0.08)",
+        ...style,
+      }}
+    >
+      {imgSrc && (
+        <img src={imgSrc} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      )}
+      {videoSrc && (
+        <video src={videoSrc} autoPlay loop muted playsInline className="absolute inset-0 w-full h-full object-cover" />
+      )}
+      {stat && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2">
+          <span style={{ fontFamily: "'Bangers', cursive", fontSize: "5.5rem", letterSpacing: "0.04em", color: "#39ff14", lineHeight: 1, textShadow: "0 0 40px rgba(57,255,20,0.6), 0 0 80px rgba(57,255,20,0.2)" }}>
+            {stat}
+          </span>
+          <span style={{ fontSize: "0.7rem", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.14em", color: "rgba(255,255,255,0.35)" }}>
+            canvas slots
+          </span>
+        </div>
+      )}
+      {!stat && (
+        <div
+          className="absolute bottom-0 left-0 right-0"
+          style={{ padding: "50px 18px 18px", background: "linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.6) 50%, transparent 100%)" }}
+        >
+          <span style={{ fontSize: "1.35rem", fontWeight: 800, color: "#fff", letterSpacing: "-0.02em", lineHeight: 1.1 }}>
+            {label}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Root ─────────────────────────────────────────────────────────────────────
 
 export default function App() {
@@ -756,27 +812,13 @@ export default function App() {
   const planKnown = isLoaded && !statusLoading;
   const heroLogoRef = useRef<HTMLDivElement>(null);
   const [scrolled, setScrolled] = useState(false);
-  const [evoPhase, setEvoPhase] = useState<
-    "normal" | "glow" | "flash" | "unleashed"
-  >("normal");
-
-  useEffect(() => {
-    const t1 = setTimeout(() => setEvoPhase("glow"), 1200);
-    const t2 = setTimeout(() => setEvoPhase("flash"), 2400);
-    const t3 = setTimeout(() => setEvoPhase("unleashed"), 2600);
-    return () => {
-      clearTimeout(t1);
-      clearTimeout(t2);
-      clearTimeout(t3);
-    };
-  }, []);
 
   useEffect(() => {
     const el = heroLogoRef.current;
     if (!el) return;
     const observer = new IntersectionObserver(
       ([entry]) => setScrolled(!entry.isIntersecting),
-      { threshold: 0 },
+      { threshold: 0.1 },
     );
     observer.observe(el);
     return () => observer.disconnect();
@@ -786,116 +828,97 @@ export default function App() {
     <div className="min-h-screen text-white" style={{ background: "#06060f" }}>
       <Nav scrolled={scrolled} />
 
-      {/* Hero */}
-      <section className="min-h-[92vh] flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-20 px-6 pt-24 pb-16 max-w-6xl mx-auto">
-        <div className="relative flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-lg">
-          <div ref={heroLogoRef} className="mb-6">
-            <DrawzillaLogo iconSize={64} fontSize="3.5rem" letterGap={2} />
-          </div>
+      {/* Hero — hybrid wall */}
+      <section ref={heroLogoRef} className="flex flex-col lg:h-screen pt-16 overflow-hidden">
 
-          <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-5 leading-[1.1]">
-            Your canvas,{" "}
-            <span
-              className="block"
-              style={{
-                fontFamily: "'Bangers', cursive",
-                letterSpacing: "0.08em",
-                color: "#39ff14",
-                textShadow:
-                  "0 1px 3px rgba(0,0,0,0.5), 0 -4px 8px rgba(57,255,20,0.35), 0 -10px 18px rgba(57,255,20,0.18), 0 -20px 28px rgba(30,160,0,0.08)",
-              }}
-            >
-              UNLEASHED.
-            </span>
-          </h1>
-
-          <p className="text-white/50 text-base max-w-sm mb-10 leading-relaxed">
-            9 canvases, workspaces, presentation mode, enhanced exports, custom
-            themes, shareable embeds, and more - synced across every device.
-          </p>
-
-          <CtaButton hideIfPro />
-          <p
-            className="mt-4 text-xs text-white/25"
-            style={{
-              visibility: planKnown && !isUnleashed ? "visible" : "hidden",
-            }}
-          >
-            Cancel anytime. No lock-in.
-          </p>
-        </div>
-
-        {/* Mascot */}
+        {/* Desktop wall */}
         <div
+          className="flex-1 hidden lg:grid"
           style={{
-            position: "relative",
-            width: "100%",
-            maxWidth: "360px",
-            height: "400px",
+            gap: "3px",
+            background: "#06060f", /* gap colour = page bg so brand cells vanish */
+            gridTemplateColumns: "0.8fr 1.7fr 1.1fr",
+            gridTemplateRows: "2fr 1.3fr 0.9fr",
           }}
         >
-          <svg
-            width="0"
-            height="0"
-            style={{ position: "absolute" }}
-            aria-hidden="true"
-          >
-            <defs>
-              <filter id="remove-white-bg" colorInterpolationFilters="sRGB">
-                <feColorMatrix
-                  type="matrix"
-                  values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 3 0"
-                />
-              </filter>
-            </defs>
-          </svg>
-
-          {evoPhase !== "unleashed" && (
-            <img
-              src="/mascot-normal.png"
-              alt=""
-              aria-hidden="true"
-              style={{
-                position: "absolute",
-                bottom: 0,
-                left: "calc(50% - 125px)",
-                width: "250px",
-                height: "280px",
-                objectFit: "contain",
-                opacity: evoPhase === "flash" ? 0 : 1,
-                transition:
-                  evoPhase === "flash"
-                    ? "opacity 0.1s ease, filter 0.1s ease"
-                    : "opacity 0.15s ease, filter 0.4s ease",
-                filter:
-                  evoPhase === "glow"
-                    ? "url(#remove-white-bg) drop-shadow(0 0 16px rgba(57,255,20,0.9)) brightness(1.2)"
-                    : evoPhase === "flash"
-                      ? "brightness(6) saturate(0)"
-                      : "url(#remove-white-bg)",
-                animation:
-                  evoPhase === "glow"
-                    ? "evolve-shake 0.2s ease-in-out infinite"
-                    : "float-calm 6s ease-in-out infinite",
-              }}
-            />
-          )}
-
-          {evoPhase === "unleashed" && (
+          {/* ── Col 1 row 1: Mascot — no box, floats on page bg ── */}
+          <div className="relative overflow-hidden" style={{ background: "#06060f", gridColumn: "1", gridRow: "1" }}>
+            <svg width="0" height="0" style={{ position: "absolute" }} aria-hidden="true">
+              <defs>
+                <filter id="remove-white-bg" colorInterpolationFilters="sRGB">
+                  <feColorMatrix type="matrix" values="1 0 0 0 0  0 1 0 0 0  0 0 1 0 0  -1 -1 -1 3 0" />
+                </filter>
+              </defs>
+            </svg>
+            <div style={{ position: "absolute", top: 20, left: 20, zIndex: 1 }}>
+              <DrawzillaLogo iconSize={30} fontSize="1.6rem" letterGap={1} />
+            </div>
             <img
               src="/mascot.png"
               alt="drawzilla mascot"
-              style={{
-                position: "absolute",
-                inset: 0,
-                width: "100%",
-                height: "100%",
-                objectFit: "contain",
-                animation:
-                  "evolve-burst 1.2s ease-out, float-energetic 3s ease-in-out 1.2s infinite, evolve-glow 1.5s ease-out forwards",
-              }}
+              style={{ position: "absolute", bottom: "-6%", left: "50%", transform: "translateX(-50%)", height: "82%", objectFit: "contain", filter: "url(#remove-white-bg)" }}
             />
-          )}
+          </div>
+
+          {/* ── Cols 2–3 row 1: Workspaces — wide media panel ── */}
+          <BentoMediaTile label="Workspaces" imgSrc="/workspaces.png"
+            style={{ gridColumn: "2 / 4", gridRow: "1", borderRadius: 0 }} />
+
+          {/* ── Col 1 row 2: UNLEASHED — no box, floats ── */}
+          <div
+            className="flex flex-col justify-center gap-3 p-6"
+            style={{ background: "#06060f", gridColumn: "1", gridRow: "2" }}
+          >
+            <p style={{ color: "rgba(255,255,255,0.3)", fontSize: "0.85rem", fontWeight: 500, letterSpacing: "0.01em" }}>Your canvas,</p>
+            <p style={{ fontFamily: "'Bangers', cursive", fontSize: "clamp(1.8rem, 3vw, 3rem)", letterSpacing: "0.06em", color: "#39ff14", lineHeight: 1, textShadow: "0 0 30px rgba(57,255,20,0.45)" }}>
+              UNLEASHED.
+            </p>
+            <div className="mt-1">
+              <CtaButton hideIfPro />
+              <p className="mt-2 text-xs" style={{ color: "rgba(255,255,255,0.18)", visibility: planKnown && !isUnleashed ? "visible" : "hidden" }}>
+                Cancel anytime.
+              </p>
+            </div>
+          </div>
+
+          {/* ── Col 2 row 2: Presentation ── */}
+          <BentoMediaTile label="Presentation mode" videoSrc="/presentation.mp4"
+            style={{ gridColumn: "2", gridRow: "2", borderRadius: 0 }} />
+
+          {/* ── Col 3 row 2: Share ── */}
+          <BentoMediaTile label="Share links" videoSrc="/share.mp4"
+            style={{ gridColumn: "3", gridRow: "2", borderRadius: 0 }} />
+
+          {/* ── Col 1 row 3: Themes ── */}
+          <BentoMediaTile label="Themes & colors" videoSrc="/theme-and-color.mp4"
+            style={{ gridColumn: "1", gridRow: "3", borderRadius: 0 }} />
+
+          {/* ── Col 2 row 3: Export ── */}
+          <BentoMediaTile label="Clean exports" videoSrc="/export.mp4"
+            style={{ gridColumn: "2", gridRow: "3", borderRadius: 0 }} />
+
+          {/* ── Col 3 row 3: 9 canvases ── */}
+          <BentoMediaTile label="Canvas slots" stat="9"
+            style={{ gridColumn: "3", gridRow: "3", borderRadius: 0 }} />
+        </div>
+
+        {/* Mobile: simple stack */}
+        <div className="lg:hidden flex flex-col gap-3 px-4 pb-10">
+          <div className="pt-4 flex flex-col gap-4">
+            <DrawzillaLogo iconSize={32} fontSize="1.75rem" letterGap={1} />
+            <h1 className="text-4xl font-bold tracking-tight leading-[1.1]">
+              Your canvas,{" "}
+              <span style={{ fontFamily: "'Bangers', cursive", letterSpacing: "0.08em", color: "#39ff14", display: "block", textShadow: "0 0 20px rgba(57,255,20,0.4)" }}>UNLEASHED.</span>
+            </h1>
+            <CtaButton hideIfPro />
+          </div>
+          <div className="grid grid-cols-2 gap-2 mt-4">
+            <BentoMediaTile label="Workspaces" imgSrc="/workspaces.png" className="col-span-2 aspect-video" />
+            <BentoMediaTile label="Presentation mode" videoSrc="/presentation.mp4" className="aspect-video" />
+            <BentoMediaTile label="Share links" videoSrc="/share.mp4" className="aspect-video" />
+            <BentoMediaTile label="Themes & colors" videoSrc="/theme-and-color.mp4" className="aspect-video" />
+            <BentoMediaTile label="Clean exports" videoSrc="/export.mp4" className="aspect-video" />
+          </div>
         </div>
       </section>
 
