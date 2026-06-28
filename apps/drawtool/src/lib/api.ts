@@ -9,6 +9,7 @@ export function createApi(getToken: () => Promise<string | null>) {
     const token = await getToken()
     const res = await fetch(`${API_URL}${path}`, {
       method,
+      cache: 'no-store',
       headers: {
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...(body !== undefined ? { 'Content-Type': 'application/json' } : {}),

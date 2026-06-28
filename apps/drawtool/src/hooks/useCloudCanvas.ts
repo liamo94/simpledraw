@@ -238,6 +238,10 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     bc.onmessage = (e: MessageEvent<{ canvasId: string }>) => {
       if (e.data.canvasId !== useCloudSessionStore.getState().activeId) return
       if (localStorage.getItem(DIRTY_KEY)) return
+      // A broadcast from another window means the refetch will be a foreign sync.
+      // Clear selfSavedRef so the effect doesn't treat it as our own save echoing back,
+      // which would incorrectly skip applying an erase from the other window.
+      selfSavedRef.current = false
       queryClient.invalidateQueries({ queryKey: ['canvas', e.data.canvasId] })
     }
     return () => { bc.close(); broadcastRef.current = null }
