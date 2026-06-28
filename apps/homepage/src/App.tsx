@@ -110,26 +110,11 @@ export default function App() {
         }
       />
 
+
       <Divider />
 
       <USPSection
         number="05"
-        flip={false}
-        headline="Separate workspaces for separate projects."
-        videoLabel="Separate workspaces for separate projects"
-        videoImgSrc="/workspaces.png"
-        body={
-          <>
-            <p>With <span style={{ fontFamily: "'Bangers', cursive", fontSize: '1em', letterSpacing: '0.1em', color: '#39ff14' }}>UNLEASHED</span>, canvases can be sorted into separate workspaces. Keep client work away from personal notes. Teaching prep separate from side projects. Switch between them without anything bleeding together.</p>
-          </>
-        }
-      />
-
-
-      <Divider />
-
-      <USPSection
-        number="06"
         flip={true}
         headline="Stash your best stuff."
         videoSrc="/stash.mp4"
@@ -146,7 +131,7 @@ export default function App() {
       <Divider />
 
       <USPSection
-        number="07"
+        number="06"
         flip={false}
         headline="Share with one link."
         videoSrc="/share.mp4"

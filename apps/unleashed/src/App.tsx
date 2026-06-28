@@ -19,7 +19,12 @@ type SharedCanvas = {
   workspace_id: string;
   workspace_name: string;
 };
-type SharedWorkspace = { id: string; name: string; token: string; view_count: number };
+type SharedWorkspace = {
+  id: string;
+  name: string;
+  token: string;
+  view_count: number;
+};
 type SharedItems = { workspaces: SharedWorkspace[]; canvases: SharedCanvas[] };
 
 // ─── Comparison data ──────────────────────────────────────────────────────────
@@ -40,49 +45,11 @@ type ComparisonSection = {
 
 const COMPARISON: ComparisonSection[] = [
   {
-    title: "Tools",
-    rows: [
-      { feature: "Infinite canvas", free: true, pro: true },
-      { feature: "Drawing tools", free: "11", pro: "11" },
-      { feature: "Shapes", free: "10", pro: "10" },
-      { feature: "Font families", free: "6", pro: "6" },
-      { feature: "All keyboard shortcuts", free: true, pro: true },
-      { feature: "Pressure sensitivity", free: true, pro: true },
-      { feature: "Insert images", free: true, pro: true },
-      { feature: "Stash", free: true, pro: true },
-      { feature: "Rebindable mouse buttons", free: true, pro: true },
-    ],
-  },
-  {
-    title: "Themes & colors",
-    rows: [
-      { feature: "Colors", free: "Palette", pro: "Palette + custom" },
-      { feature: "Themes", free: "8 included", pro: "8 + custom" },
-      { feature: "Custom canvas icon", free: false, pro: true },
-    ],
-  },
-  {
     title: "Canvases",
     rows: [
       { feature: "Canvas slots", free: "3", pro: "9" },
       { feature: "Cloud sync", free: true, pro: true },
       { feature: "Settings sync across devices", free: true, pro: true },
-    ],
-  },
-  {
-    title: "Export",
-    rows: [
-      { feature: "Export & import canvases", free: true, pro: true },
-      { feature: "PNG export", free: "Watermarked", pro: "Clean" },
-      { feature: "SVG export", free: false, pro: true },
-      { feature: "PDF export", free: false, pro: true },
-      { feature: "Export selection", free: false, pro: true },
-    ],
-  },
-  {
-    title: "Organization",
-    rows: [
-      { feature: "Workspaces", free: "1", pro: true },
     ],
   },
   {
@@ -98,9 +65,39 @@ const COMPARISON: ComparisonSection[] = [
     ],
   },
   {
-    title: "Coming soon",
+    title: "Export",
     rows: [
-      { feature: "Version history", free: false, pro: true, soon: true },
+      { feature: "Export & import canvases", free: true, pro: true },
+      { feature: "PNG export", free: "Marked", pro: "Clean" },
+      { feature: "SVG export", free: false, pro: true },
+      { feature: "PDF export", free: false, pro: true },
+      { feature: "Export selection", free: false, pro: true },
+    ],
+  },
+  {
+    title: "Organization",
+    rows: [{ feature: "Workspaces", free: "1", pro: true }],
+  },
+  {
+    title: "Themes & colors",
+    rows: [
+      { feature: "Colors", free: "Palette", pro: "Any color" },
+      { feature: "Themes", free: "8 built-in", pro: "Custom" },
+      { feature: "Custom menu icon", free: false, pro: true },
+    ],
+  },
+  {
+    title: "Tools",
+    rows: [
+      { feature: "Infinite canvas", free: true, pro: true },
+      { feature: "Drawing tools", free: "11", pro: "11" },
+      { feature: "Shapes", free: "10", pro: "10" },
+      { feature: "Font families", free: "6", pro: "6" },
+      { feature: "All keyboard shortcuts", free: true, pro: true },
+      { feature: "Pressure sensitivity", free: true, pro: true },
+      { feature: "Insert images", free: true, pro: true },
+      { feature: "Stash", free: true, pro: true },
+      { feature: "Rebindable mouse buttons", free: true, pro: true },
     ],
   },
 ];
@@ -159,7 +156,8 @@ function ComparisonTable() {
         Compare plans
       </p>
       <p className="text-center text-white/50 text-sm mb-8 leading-relaxed">
-        drawzilla is free forever. Unleashed is your upgrade when you're ready to take it to the next level.
+        drawzilla is free forever. Unleashed is your upgrade when you're ready
+        to take it to the next level.
       </p>
 
       <div
@@ -173,7 +171,7 @@ function ComparisonTable() {
         <div
           className="grid border-b"
           style={{
-            gridTemplateColumns: "1fr 100px 130px",
+            gridTemplateColumns: "minmax(0, 1fr) 72px 104px",
             borderColor: "rgba(255,255,255,0.07)",
           }}
         >
@@ -182,7 +180,9 @@ function ComparisonTable() {
             className="flex items-center justify-center px-2 py-4 border-l"
             style={{ borderColor: "rgba(255,255,255,0.07)" }}
           >
-            <span className="text-xs font-semibold text-white/30">drawzilla</span>
+            <span className="text-xs font-semibold text-white/30">
+              drawzilla
+            </span>
           </div>
           <div
             className="flex items-center justify-center px-2 py-4 border-l"
@@ -191,12 +191,14 @@ function ComparisonTable() {
               background: "rgba(57,255,20,0.05)",
             }}
           >
-            <span style={{
-              fontFamily: "'Bangers', cursive",
-              fontSize: "0.9rem",
-              letterSpacing: "0.1em",
-              color: "#39ff14",
-            }}>
+            <span
+              style={{
+                fontFamily: "'Bangers', cursive",
+                fontSize: "0.9rem",
+                letterSpacing: "0.1em",
+                color: "#39ff14",
+              }}
+            >
               UNLEASHED
             </span>
           </div>
@@ -208,7 +210,7 @@ function ComparisonTable() {
             <div
               className="grid border-b"
               style={{
-                gridTemplateColumns: "1fr 100px 130px",
+                gridTemplateColumns: "minmax(0, 1fr) 72px 104px",
                 borderColor: "rgba(255,255,255,0.05)",
               }}
             >
@@ -230,7 +232,7 @@ function ComparisonTable() {
                   key={row.feature}
                   className="grid"
                   style={{
-                    gridTemplateColumns: "1fr 100px 130px",
+                    gridTemplateColumns: "minmax(0, 1fr) 72px 104px",
                     borderBottom: isLast
                       ? "none"
                       : "1px solid rgba(255,255,255,0.04)",
@@ -334,6 +336,7 @@ function useSharedItems() {
 // ─── Shared UI components ─────────────────────────────────────────────────────
 
 import { DrawzillaLogo, LOGO_LETTERS, DRAW_URL } from "./Logo";
+import { FeatureSection } from "./components/FeatureShowcase";
 
 function Nav({ scrolled }: { scrolled: boolean }) {
   const { isSignedIn } = useUser();
@@ -539,8 +542,18 @@ function ViewCount({ count }: { count: number }) {
   if (count === 0) return null;
   return (
     <span className="shrink-0 flex items-center gap-1 text-[11px] text-white/25">
-      <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z"/><circle cx="10" cy="10" r="3"/>
+      <svg
+        width="11"
+        height="11"
+        viewBox="0 0 20 20"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.75"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M1 10s3.5-7 9-7 9 7 9 7-3.5 7-9 7-9-7-9-7z" />
+        <circle cx="10" cy="10" r="3" />
       </svg>
       {count}
     </span>
@@ -780,27 +793,25 @@ export default function App() {
             <DrawzillaLogo iconSize={64} fontSize="3.5rem" letterGap={2} />
           </div>
 
-          <div
-            className="inline-flex items-center gap-1.5 text-xs px-3 py-1 rounded-full mb-5 border"
-            style={{
-              borderColor: "rgba(57,255,20,0.3)",
-              color: "#a8ff87",
-              background: "rgba(57,255,20,0.08)",
-            }}
-          >
-            <span style={{ color: "#39ff14" }}>✦</span>
-            drawzilla Unleashed
-          </div>
-
           <h1 className="text-5xl sm:text-6xl font-bold tracking-tight mb-5 leading-[1.1]">
             Your canvas,{" "}
-            <span className="block" style={{ color: "#39ff14" }}>
-              unleashed.
+            <span
+              className="block"
+              style={{
+                fontFamily: "'Bangers', cursive",
+                letterSpacing: "0.08em",
+                color: "#39ff14",
+                textShadow:
+                  "0 1px 3px rgba(0,0,0,0.5), 0 -4px 8px rgba(57,255,20,0.35), 0 -10px 18px rgba(57,255,20,0.18), 0 -20px 28px rgba(30,160,0,0.08)",
+              }}
+            >
+              UNLEASHED.
             </span>
           </h1>
 
           <p className="text-white/50 text-base max-w-sm mb-10 leading-relaxed">
-            9 canvases, clean exports, custom themes, presentation mode, shareable embeds, and more — synced across every device.
+            9 canvases, workspaces, presentation mode, enhanced exports, custom
+            themes, shareable embeds, and more - synced across every device.
           </p>
 
           <CtaButton hideIfPro />
@@ -818,9 +829,9 @@ export default function App() {
         <div
           style={{
             position: "relative",
-            width: "360px",
+            width: "100%",
+            maxWidth: "360px",
             height: "400px",
-            flexShrink: 0,
           }}
         >
           <svg
@@ -887,6 +898,78 @@ export default function App() {
           )}
         </div>
       </section>
+
+      {/* Feature showcase */}
+      <FeatureSection
+        imgSrc="/workspaces.png"
+        videoLabel="Multiple workspaces open, switching between projects"
+        headline="One place for every project"
+        tag="Workspaces"
+        body={
+          <>
+            Create separate workspaces to keep client work, personal projects,
+            and ideas from bleeding into each other. Each workspace gets its own
+            canvases and share settings.
+          </>
+        }
+      />
+
+      <FeatureSection
+        flip
+        videoSrc="/presentation.mp4"
+        videoLabel="Video: entering presentation mode, stepping through a canvas"
+        headline="Present without leaving the canvas"
+        tag="Presentation mode"
+        body={
+          <>
+            Turn any canvas into a presentation. Walk your audience through your
+            ideas step by step. No extra tools, no exports, no switching apps.
+          </>
+        }
+      />
+
+      <FeatureSection
+        videoLabel="Video: picking a custom canvas color and switching between themes"
+        videoSrc="/theme-and-color.mp4"
+        headline="Make it yours"
+        tag="Themes & colors"
+        body={
+          <>
+            Pick from 8 built-in themes, or go fully custom: any color for your
+            background, any color for your strokes. Every canvas, exactly how
+            you like it.
+          </>
+        }
+      />
+
+      <FeatureSection
+        flip
+        videoSrc="/share.mp4"
+        videoLabel="Video: generating a share link, opening the live share viewer"
+        headline="Share your work, live"
+        tag="Share links"
+        body={
+          <>
+            Publish a canvas or an entire workspace as a live link, always
+            showing your latest changes. Track view counts, revoke links any
+            time, or password-protect them for private sharing.
+          </>
+        }
+      />
+
+      <FeatureSection
+        videoSrc="/export.mp4"
+        videoLabel="Video: exporting a canvas as SVG and clean PNG"
+        headline="Export without the watermark"
+        tag="Clean exports"
+        body={
+          <>
+            Download your work as a crisp, watermark-free PNG, a scalable SVG,
+            or a PDF ready to print or share. Export your full canvas or just a
+            selection.
+          </>
+        }
+      />
 
       {/* Profile section - pro users only */}
       {planKnown && isSignedIn && isUnleashed && (

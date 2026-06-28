@@ -257,7 +257,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     return () => clearInterval(interval)
   }, [isSignedIn, activeId, queryClient])
 
-  // Flush any deferred background sync when the tab becomes visible
+  // Flush any deferred background sync when the tab becomes visible or connection restores
   useEffect(() => {
     if (!isSignedIn || !activeId) return
     const onVisible = () => {
@@ -265,8 +265,16 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       if (localStorage.getItem(DIRTY_KEY)) return
       queryClient.invalidateQueries({ queryKey: ['canvas', activeId] })
     }
+    const onOnline = () => {
+      if (localStorage.getItem(DIRTY_KEY)) return
+      queryClient.invalidateQueries({ queryKey: ['canvas', activeId] })
+    }
     document.addEventListener('visibilitychange', onVisible)
-    return () => document.removeEventListener('visibilitychange', onVisible)
+    window.addEventListener('online', onOnline)
+    return () => {
+      document.removeEventListener('visibilitychange', onVisible)
+      window.removeEventListener('online', onOnline)
+    }
   }, [isSignedIn, activeId, queryClient])
 
   // ── Workspaces query ──────────────────────────────────────────────────────
