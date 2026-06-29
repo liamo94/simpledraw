@@ -924,6 +924,15 @@ export default function App() {
           <>
             Turn any canvas into a presentation. Walk your audience through your
             ideas step by step. No extra tools, no exports, no switching apps.
+            <a
+              href="https://drawzil.la/s/p/8523e8dd4c88f574"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="block mt-3 text-sm underline underline-offset-2"
+              style={{ color: "rgba(57,255,20,0.75)" }}
+            >
+              View the pewsentation →
+            </a>
           </>
         }
       />
