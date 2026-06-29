@@ -783,11 +783,176 @@ export default function App() {
   }, []);
 
   return (
-    <div className="min-h-screen text-white" style={{ background: "#06060f" }}>
+    <div
+      className="min-h-screen text-white"
+      style={{
+        background: "#06060f",
+        backgroundImage:
+          "radial-gradient(rgba(255,255,255,0.05) 1px, transparent 1px)",
+        backgroundSize: "28px 28px",
+      }}
+    >
+      {/* Fixed ambient background layer */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "fixed",
+          inset: 0,
+          zIndex: -1,
+          pointerEvents: "none",
+          overflow: "hidden",
+        }}
+      >
+        {/* Green glow — hero/top-right */}
+        <div
+          style={{
+            position: "absolute",
+            top: "-20vh",
+            right: "-10vw",
+            width: "70vw",
+            height: "65vh",
+            background:
+              "radial-gradient(ellipse at center, rgba(57,255,20,0.1) 0%, transparent 65%)",
+            filter: "blur(70px)",
+          }}
+        />
+        {/* Purple glow — mid-left */}
+        <div
+          style={{
+            position: "absolute",
+            top: "30%",
+            left: "-15vw",
+            width: "55vw",
+            height: "55vh",
+            background:
+              "radial-gradient(ellipse at center, rgba(100,80,255,0.08) 0%, transparent 65%)",
+            filter: "blur(80px)",
+          }}
+        />
+        {/* Green glow — bottom */}
+        <div
+          style={{
+            position: "absolute",
+            bottom: "0",
+            right: "10%",
+            width: "60vw",
+            height: "45vh",
+            background:
+              "radial-gradient(ellipse at center, rgba(57,255,20,0.07) 0%, transparent 65%)",
+            filter: "blur(70px)",
+          }}
+        />
+
+        {/* Decorative sketch elements */}
+        {/* Squiggle — top right */}
+        <svg
+          style={{ position: "absolute", top: "11%", right: "7%", opacity: 0.07 }}
+          width="150"
+          height="65"
+          viewBox="0 0 150 65"
+        >
+          <path
+            d="M5 32 Q22 5 40 32 Q57 59 75 32 Q93 5 110 32 Q128 59 145 32"
+            stroke="#39ff14"
+            strokeWidth="2.5"
+            fill="none"
+            strokeLinecap="round"
+          />
+        </svg>
+
+        {/* Dashed circle — left mid */}
+        <svg
+          style={{ position: "absolute", top: "36%", left: "4%", opacity: 0.05 }}
+          width="90"
+          height="90"
+          viewBox="0 0 90 90"
+        >
+          <ellipse
+            cx="45"
+            cy="45"
+            rx="38"
+            ry="35"
+            stroke="white"
+            strokeWidth="2"
+            fill="none"
+            strokeDasharray="5 8"
+            strokeLinecap="round"
+            transform="rotate(-12 45 45)"
+          />
+        </svg>
+
+        {/* Arrow — right center */}
+        <svg
+          style={{ position: "absolute", top: "53%", right: "4%", opacity: 0.07 }}
+          width="72"
+          height="42"
+          viewBox="0 0 72 42"
+        >
+          <path
+            d="M5 21 L57 21 M44 8 L58 21 L44 34"
+            stroke="#39ff14"
+            strokeWidth="2.5"
+            fill="none"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+
+        {/* Star — bottom left */}
+        <svg
+          style={{ position: "absolute", bottom: "24%", left: "5%", opacity: 0.05 }}
+          width="56"
+          height="56"
+          viewBox="0 0 56 56"
+        >
+          <path
+            d="M28 4 L34 21 H52 L38 31 L44 48 L28 38 L12 48 L18 31 L4 21 H22 Z"
+            stroke="white"
+            strokeWidth="1.75"
+            fill="none"
+            strokeLinejoin="round"
+          />
+        </svg>
+
+        {/* Dot cluster — top left */}
+        <svg
+          style={{ position: "absolute", top: "18%", left: "10%", opacity: 0.09 }}
+          width="64"
+          height="64"
+          viewBox="0 0 64 64"
+        >
+          <circle cx="10" cy="10" r="3" fill="#39ff14" />
+          <circle cx="32" cy="20" r="2" fill="white" opacity="0.5" />
+          <circle cx="54" cy="8" r="2.5" fill="#39ff14" opacity="0.7" />
+          <circle cx="20" cy="48" r="2" fill="white" opacity="0.4" />
+          <circle cx="48" cy="44" r="3" fill="#39ff14" opacity="0.6" />
+          <circle cx="6" cy="58" r="1.5" fill="white" opacity="0.3" />
+        </svg>
+
+        {/* Squiggle — bottom right area */}
+        <svg
+          style={{ position: "absolute", bottom: "32%", right: "8%", opacity: 0.05 }}
+          width="80"
+          height="50"
+          viewBox="0 0 80 50"
+        >
+          <path
+            d="M5 25 Q18 5 30 25 Q42 45 55 25 Q67 5 75 18"
+            stroke="white"
+            strokeWidth="2"
+            fill="none"
+            strokeLinecap="round"
+          />
+        </svg>
+      </div>
+
       <Nav scrolled={scrolled} />
 
       {/* Hero */}
-      <section className="min-h-[92vh] flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-20 px-6 pt-24 pb-16 max-w-6xl mx-auto">
+      <section
+        className="min-h-[92vh] flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-16 px-6 pt-24 pb-16"
+        style={{ maxWidth: "min(1360px, 94vw)", margin: "0 auto" }}
+      >
         <div className="relative flex-1 flex flex-col items-center lg:items-start text-center lg:text-left max-w-lg">
           <div ref={heroLogoRef} className="mb-6">
             <DrawzillaLogo iconSize={64} fontSize="3.5rem" letterGap={2} />
@@ -830,8 +995,9 @@ export default function App() {
           style={{
             position: "relative",
             width: "100%",
-            maxWidth: "360px",
-            height: "400px",
+            maxWidth: "420px",
+            height: "440px",
+            flexShrink: 0,
           }}
         >
           <svg
@@ -858,9 +1024,9 @@ export default function App() {
               style={{
                 position: "absolute",
                 bottom: 0,
-                left: "calc(50% - 125px)",
-                width: "250px",
-                height: "280px",
+                left: "calc(50% - 130px)",
+                width: "260px",
+                height: "295px",
                 objectFit: "contain",
                 opacity: evoPhase === "flash" ? 0 : 1,
                 transition:
@@ -905,6 +1071,7 @@ export default function App() {
         videoLabel="Multiple workspaces open, switching between projects"
         headline="One place for every project"
         tag="Workspaces"
+        pills={["9 canvas slots", "Multiple workspaces", "Separate share settings"]}
         body={
           <>
             Create separate workspaces to keep client work, personal projects,
@@ -920,6 +1087,7 @@ export default function App() {
         videoLabel="Video: entering presentation mode, stepping through a canvas"
         headline="Present without leaving the canvas"
         tag="Presentation mode"
+        pills={["Step-by-step slides", "No export needed", "Share live"]}
         body={
           <>
             Turn any canvas into a presentation. Walk your audience through your
@@ -942,6 +1110,7 @@ export default function App() {
         videoSrc="/theme-and-color.mp4"
         headline="Make it yours"
         tag="Themes & colors"
+        pills={["Any stroke color", "Quick switch recent colors", "Any background color"]}
         body={
           <>
             Pick from 8 built-in themes, or go fully custom: any color for your
@@ -957,6 +1126,7 @@ export default function App() {
         videoLabel="Video: generating a share link, opening the live share viewer"
         headline="Share your work, live"
         tag="Share links"
+        pills={["Live updates", "View counts", "Password protect"]}
         body={
           <>
             Publish a canvas or an entire workspace as a live link, always
@@ -971,6 +1141,7 @@ export default function App() {
         videoLabel="Video: exporting a canvas as SVG and clean PNG"
         headline="Export without the watermark"
         tag="Clean exports"
+        pills={["Watermark-free PNG", "SVG export", "PDF ready", "Export selection"]}
         body={
           <>
             Download your work as a crisp, watermark-free PNG, a scalable SVG,
