@@ -2974,17 +2974,20 @@ export default function Menu({
                     </ul>
                   </div>
 
-                  <div>
-                    <div
-                      className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
-                    >
-                      Support
-                    </div>
+                  <div className="flex justify-between">
                     <a
                       href="mailto:support@drawzil.la"
                       className={`transition-colors ${isDark ? "text-white/60 hover:text-white/90" : "text-black/60 hover:text-black/90"}`}
                     >
                       support@drawzil.la
+                    </a>
+                    <a
+                      href="https://use.drawzil.la"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className={`transition-colors ${isDark ? "text-white/60 hover:text-white/90" : "text-black/60 hover:text-black/90"}`}
+                    >
+                      use.drawzil.la
                     </a>
                   </div>
                 </div>

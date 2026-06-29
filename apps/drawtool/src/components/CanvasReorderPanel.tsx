@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { getPanelBackground } from "../canvas/canvasUtils";
 import type { Theme } from "../hooks/useSettings";
 
@@ -48,6 +48,50 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, custom
   const dragFrom = useRef<number | null>(null);
   const didDragRef = useRef(false);
 
+  const itemCount = isCloud ? cloudOrder.length : 9;
+  const initialFocus = isCloud
+    ? Math.max(0, cloudOrder.findIndex(c => c.id === activeCloudCanvasId))
+    : activeCanvas - 1;
+  const [focusedIndex, setFocusedIndex] = useState(initialFocus);
+  const rowRefs = useRef<(HTMLDivElement | null)[]>([]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        e.stopPropagation();
+        setFocusedIndex(prev => {
+          const next = Math.min(prev + 1, itemCount - 1);
+          rowRefs.current[next]?.scrollIntoView({ block: "nearest" });
+          return next;
+        });
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        e.stopPropagation();
+        setFocusedIndex(prev => {
+          const next = Math.max(prev - 1, 0);
+          rowRefs.current[next]?.scrollIntoView({ block: "nearest" });
+          return next;
+        });
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        e.stopPropagation();
+        if (isCloud) {
+          const canvas = cloudOrder[focusedIndex];
+          if (canvas && canvas.id !== activeCloudCanvasId) {
+            onSwitchCanvas(focusedIndex + 1);
+          }
+        } else {
+          const pos = focusedIndex + 1;
+          if (pos !== activeCanvas) onSwitchCanvas(pos);
+        }
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", onKey, { capture: true });
+    return () => window.removeEventListener("keydown", onKey, { capture: true });
+  }, [focusedIndex, itemCount, isCloud, cloudOrder, activeCloudCanvasId, activeCanvas, onSwitchCanvas, onClose]);
+
   const infos = localInfos;
   const refreshInfos = () => {
     setLocalInfos(Array.from({ length: 9 }, (_, i) => readCanvasInfo(i + 1)));
@@ -61,13 +105,15 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, custom
     </svg>
   );
 
-  const rowCls = (isActive: boolean, isOver: boolean) =>
+  const rowCls = (isActive: boolean, isOver: boolean, isFocused: boolean) =>
     `flex items-center gap-2.5 px-2 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none transition-colors ${
       isOver
         ? isDark ? "bg-white/12 ring-1 ring-white/20" : "bg-black/[0.08] ring-1 ring-black/15"
-        : isActive
-          ? isDark ? "bg-[#3b82f6]/15" : "bg-[#3b82f6]/[0.08]"
-          : isDark ? "hover:bg-white/[0.05]" : "hover:bg-black/[0.03]"
+        : isFocused
+          ? isDark ? "bg-white/[0.08] ring-1 ring-white/25" : "bg-black/[0.06] ring-1 ring-black/20"
+          : isActive
+            ? isDark ? "bg-[#3b82f6]/15" : "bg-[#3b82f6]/[0.08]"
+            : isDark ? "hover:bg-white/[0.05]" : "hover:bg-black/[0.03]"
     }`;
 
   return (
@@ -93,18 +139,20 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, custom
           </button>
         </div>
 
-        <div className="overflow-y-auto px-2 pb-2">
+        <div className="overflow-y-auto px-2 pt-1 pb-2">
           {isCloud ? (
             // ── Cloud mode ────────────────────────────────────────────────
             cloudOrder.map((canvas, i) => {
               const isActive = canvas.id === activeCloudCanvasId;
               const isOver = dragOver === i;
+              const isFocused = focusedIndex === i;
               const displayName = canvas.name || `Canvas ${i + 1}`;
               const isEmpty = canvas.is_empty === 1;
               const strokeCount = !isEmpty && (canvas.stroke_count ?? 0) > 0 ? (canvas.stroke_count ?? 0) : null;
               return (
                 <div
                   key={canvas.id}
+                  ref={el => { rowRefs.current[i] = el; }}
                   draggable
                   onDragStart={(e) => { dragFrom.current = i; didDragRef.current = false; e.dataTransfer.effectAllowed = "move"; }}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOver !== i) setDragOver(i); }}
@@ -121,8 +169,8 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, custom
                     onReorderCloud?.(next.map(c => c.id));
                   }}
                   onDragEnd={() => { dragFrom.current = null; setDragOver(null); didDragRef.current = true; setTimeout(() => { didDragRef.current = false; }, 200); }}
-                  onClick={() => { if (didDragRef.current) return; if (!isActive) { onSwitchCanvas(i + 1); onClose(); } }}
-                  className={rowCls(isActive, isOver)}
+                  onClick={() => { if (didDragRef.current) return; setFocusedIndex(i); if (!isActive) { onSwitchCanvas(i + 1); onClose(); } }}
+                  className={rowCls(isActive, isOver, isFocused)}
                 >
                   <DragHandle />
                   <span className={`w-[22px] h-[22px] flex items-center justify-center rounded text-[11px] font-semibold tabular-nums shrink-0 ${
@@ -148,11 +196,13 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, custom
               const isActive = pos === activeCanvas;
               const isEmpty = info.strokeCount === 0;
               const isOver = dragOver === i;
+              const isFocused = focusedIndex === i;
               return (
                 <div
                   key={i}
+                  ref={el => { rowRefs.current[i] = el; }}
                   draggable
-                  onClick={() => { if (didDragRef.current) return; if (!isActive) { onSwitchCanvas(pos); onClose(); } }}
+                  onClick={() => { if (didDragRef.current) return; setFocusedIndex(i); if (!isActive) { onSwitchCanvas(pos); onClose(); } }}
                   onDragStart={(e) => { dragFrom.current = i; didDragRef.current = false; e.dataTransfer.effectAllowed = "move"; }}
                   onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = "move"; if (dragOver !== i) setDragOver(i); }}
                   onDrop={(e) => {
@@ -168,7 +218,7 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, custom
                     refreshInfos();
                   }}
                   onDragEnd={() => { dragFrom.current = null; setDragOver(null); didDragRef.current = true; setTimeout(() => { didDragRef.current = false; }, 200); }}
-                  className={rowCls(isActive, isOver)}
+                  className={rowCls(isActive, isOver, isFocused)}
                 >
                   <DragHandle />
                   <span className={`w-[22px] h-[22px] flex items-center justify-center rounded text-[11px] font-semibold tabular-nums shrink-0 ${
