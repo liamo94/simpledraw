@@ -1739,7 +1739,10 @@ export default function App() {
   useEffect(() => {
     if (!showSlides) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') { e.stopPropagation(); setShowSlides(false) }
+      if (e.key !== 'Escape') return
+      const tag = (e.target as HTMLElement)?.tagName
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return
+      e.stopPropagation(); setShowSlides(false)
     }
     window.addEventListener('keydown', onKey, { capture: true })
     return () => window.removeEventListener('keydown', onKey, { capture: true })

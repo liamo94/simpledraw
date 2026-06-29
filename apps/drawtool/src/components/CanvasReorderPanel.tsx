@@ -121,6 +121,7 @@ export default function CanvasReorderPanel({ activeCanvas, isDark, theme, custom
                     onReorderCloud?.(next.map(c => c.id));
                   }}
                   onDragEnd={() => { dragFrom.current = null; setDragOver(null); didDragRef.current = true; setTimeout(() => { didDragRef.current = false; }, 200); }}
+                  onClick={() => { if (didDragRef.current) return; if (!isActive) { onSwitchCanvas(i + 1); onClose(); } }}
                   className={rowCls(isActive, isOver)}
                 >
                   <DragHandle />

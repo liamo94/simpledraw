@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Canvas from './Canvas'
 import { saveStrokes, saveView } from '../canvas/storage'
-import { storeImage } from '../canvas/imageStore'
+import { storeImage, getImageEl } from '../canvas/imageStore'
 import type { Stroke, Slide } from '../canvas/types'
 import { isDarkTheme, getPanelBackground, getBackgroundColor, generateSlideThumbnail } from '../canvas/rendering'
 import type { Theme, GridType } from '../hooks/useSettings'
@@ -154,6 +154,14 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
           : (slide.canvasId ? canvases.find(c => c.id === slide.canvasId) : null) ?? canvases.find(c => c.position === slide.canvasIndex)
         const canvasData = shareData!.type === 'canvas' ? shareData!.data : canvasEntry?.data
         if (!canvasData) continue
+        if (canvasData.images) {
+          await Promise.all(
+            Object.entries(canvasData.images).map(([id, url]) =>
+              getImageEl(id) ? Promise.resolve() : storeImage(id, url)
+            )
+          )
+        }
+        if (cancelled) break
         const strokes = adaptStrokes(canvasData, viewerIsDark)
         const thumb = generateSlideThumbnail(strokes as Stroke[], slide.view, viewerIsDark)
         if (thumb) setGeneratedThumbnails(prev => ({ ...prev, [slide.id]: thumb }))

@@ -378,7 +378,7 @@ export default function SlidesPanel({
                     )}
 
                     {/* Name */}
-                    <div className="flex-1 min-w-0">
+                    <div className="flex-1 min-w-0 h-[18px] flex items-center">
                       {editingId === slide.id ? (
                         <input
                           autoFocus
@@ -387,20 +387,19 @@ export default function SlidesPanel({
                           onBlur={() => commitRename(slide.id)}
                           onKeyDown={(e) => {
                             e.stopPropagation();
+                            e.nativeEvent.stopPropagation();
                             if (e.key === "Enter") {
                               e.preventDefault();
                               commitRename(slide.id);
                             }
                             if (e.key === "Escape") setEditingId(null);
                           }}
-                          className="w-full text-[12px] bg-transparent outline-none border-b"
+                          className="w-full text-[12px] bg-transparent outline-none py-0 leading-none"
                           style={{
                             color: isDark
                               ? "rgba(255,255,255,0.85)"
                               : "rgba(0,0,0,0.8)",
-                            borderColor: isDark
-                              ? "rgba(255,255,255,0.25)"
-                              : "rgba(0,0,0,0.2)",
+                            boxShadow: `0 1px 0 ${isDark ? "rgba(255,255,255,0.25)" : "rgba(0,0,0,0.2)"}`,
                           }}
                         />
                       ) : (
