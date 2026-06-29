@@ -17,6 +17,10 @@ const CLOUD_SLOT = 1
 // Tracks which canvas has local changes not yet confirmed by the server.
 // Survives page reloads so we can skip overwriting localStorage with stale server data.
 const DIRTY_KEY = 'drawtool-cloud-dirty'
+// Tracks which canvas ID currently owns slot 1's content in localStorage.
+// Slot 1 is shared across browser tabs, so a tab on canvas 5 must not send
+// slot 1 data to the server if slot 1 was last written by a tab on canvas 4.
+const SLOT1_OWNER_KEY = 'drawtool-cloud-slot1-owner'
 
 // If the saved view puts all strokes off-screen (e.g. view was panned away after drawing, or
 // saved on a different screen size), return a centered fit view instead. Runs before Canvas
@@ -476,6 +480,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       setCachedCanvasName(name)
       if (isInitialLoad) {
         // Initial load: write server strokes to slot 1 unconditionally.
+        localStorage.setItem(SLOT1_OWNER_KEY, capturedActiveId)
         saveStrokes(strokes, CLOUD_SLOT, true)
         storeThumbnail(capturedActiveId, strokes, isDarkRef.current)
         // On a canvas switch to an uncached canvas, slot 1 still holds the previous
@@ -497,7 +502,10 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
         // slot already has the correct or more recent data (user may have drawn more strokes
         // since the PUT was sent). Overwriting would cause flushCurrentCanvas to save stale
         // data if the user switches canvases before their next pointer-up.
-        if (!isSelfSave) saveStrokes(strokes, CLOUD_SLOT, true)
+        if (!isSelfSave) {
+          localStorage.setItem(SLOT1_OWNER_KEY, capturedActiveId)
+          saveStrokes(strokes, CLOUD_SLOT, true)
+        }
         window.dispatchEvent(new CustomEvent('drawtool:sync-strokes', { detail: { slot: CLOUD_SLOT, strokes, isSelfSave } }))
       }
     })()
@@ -514,6 +522,9 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       const token = cachedTokenRef.current
       const hasPending = !!saveTimerRef.current || !!localStorage.getItem(DIRTY_KEY)
       if (id && token && hasPending) {
+        // Multi-tab guard: if slot 1 is owned by a different canvas/tab, don't corrupt our canvas.
+        const slot1Owner = localStorage.getItem(SLOT1_OWNER_KEY)
+        const slot1IsOurs = slot1Owner === null || slot1Owner === id
         if (saveTimerRef.current) {
           clearTimeout(saveTimerRef.current)
           saveTimerRef.current = null
@@ -521,7 +532,8 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
         const strokes = loadStrokes(CLOUD_SLOT)
         const isDirty = localStorage.getItem(DIRTY_KEY) === id
         // Skip if empty with no DIRTY_KEY — slot was wiped internally, not by a user action.
-        if (strokes.length > 0 || isDirty) {
+        // Skip if slot 1 belongs to another canvas (multi-tab scenario).
+        if (slot1IsOurs && (strokes.length > 0 || isDirty)) {
           const view = loadView(CLOUD_SLOT)
           const images = collectImagesSync(strokes)
           fetch(`${API_URL}/canvases/${id}`, {
@@ -552,6 +564,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
         localStorage.removeItem('drawtool-precloud-view-1')
       }
       localStorage.removeItem(DIRTY_KEY)
+      localStorage.removeItem(SLOT1_OWNER_KEY)
 
       resetSession()
       setPendingLoadForId(null)
@@ -569,6 +582,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       // if the user switches before the timer fires, activeId will be canvas 2 - we
       // must not save canvas 1's strokes to canvas 2's blob.
       const forId = useCloudSessionStore.getState().activeId
+      if (forId) localStorage.setItem(SLOT1_OWNER_KEY, forId)
       localStorage.setItem(DIRTY_KEY, forId ?? '')
       saveTimerRef.current = setTimeout(async () => {
         saveTimerRef.current = null // timer has fired; clear stale ref so flushCurrentCanvas early-return is accurate
@@ -605,6 +619,11 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
         clearTimeout(saveTimerRef.current)
         saveTimerRef.current = null
       }
+      // Multi-tab guard: slot 1 is shared across browser tabs. If another tab has written
+      // its canvas data to slot 1, SLOT1_OWNER_KEY will point to that canvas, not ours.
+      // Sending those strokes to our canvas ID would corrupt it — bail out.
+      const slot1Owner = localStorage.getItem(SLOT1_OWNER_KEY)
+      if (slot1Owner !== null && slot1Owner !== id) return
       // Always flush - covers pan-only sessions (no pending stroke save) and pending saves.
       const strokes = loadStrokes(CLOUD_SLOT)
       const view = loadView(CLOUD_SLOT)
@@ -647,6 +666,11 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
   async function flushCurrentCanvas(): Promise<boolean> {
     const currentId = useCloudSessionStore.getState().activeId
     if (!currentId) return true
+    // Multi-tab guard: if slot 1 is owned by a different canvas (another tab drew there),
+    // don't send that data to currentId. Our in-memory Canvas state is correct; only the
+    // localStorage slot is contaminated. Treat as "nothing to flush" from slot 1.
+    const slot1Owner = localStorage.getItem(SLOT1_OWNER_KEY)
+    if (slot1Owner !== null && slot1Owner !== currentId) return true
     // If the short debounce already fired and DIRTY_KEY is clear, nothing to flush.
     if (!saveTimerRef.current && !localStorage.getItem(DIRTY_KEY)) return true
     if (saveTimerRef.current) {
@@ -704,6 +728,7 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
     // via setActiveCanvas directly (never via switchCanvas), so populateSlot1FromCache
     // is never called on page load — the page-reload dirty-recovery path is unaffected.
     localStorage.removeItem(DIRTY_KEY)
+    localStorage.setItem(SLOT1_OWNER_KEY, id)
     type CachedCanvas = { data: { strokes: Stroke[]; view: { x: number; y: number; scale: number }; savedDark?: boolean; images?: Record<string, string> } }
     const cached = queryClient.getQueryData<CachedCanvas>(['canvas', id])
     if (!cached) {
