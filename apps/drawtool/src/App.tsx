@@ -556,6 +556,7 @@ export default function App() {
   // Cover can drop on activeCanvas change instead of waiting for loadKey.
   const presentationCloudCacheHit = useRef(false);
   const presentationHideTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const presentationSwipeTouchStartXRef = useRef<number | null>(null);
   const pendingNavViewRef = useRef<{ x: number; y: number; scale: number } | null>(null);
   const dropZoneCounterRef = useRef(0);
 
@@ -5831,6 +5832,15 @@ export default function App() {
               setPresentationControlsVisible(true)
               if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
               presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+            }}
+            onTouchStart={e => { presentationSwipeTouchStartXRef.current = e.touches[0].clientX }}
+            onTouchEnd={e => {
+              if (presentationSwipeTouchStartXRef.current === null) return
+              const dx = e.changedTouches[0].clientX - presentationSwipeTouchStartXRef.current
+              presentationSwipeTouchStartXRef.current = null
+              if (Math.abs(dx) < 40) return
+              if (dx < 0 && presentationIndex < slides.length - 1) navigateToSlide(presentationIndex + 1)
+              else if (dx > 0 && presentationIndex > 0) navigateToSlide(presentationIndex - 1)
             }}
           >
             {/* Canvas-switch cover — pointer-events-none so controls above it stay accessible */}

@@ -152,6 +152,7 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
   // Tracks the resolved view last written to slot 10 so the theme-change effect can
   // re-apply the correct (screen-adjusted) view rather than the raw stored slide view.
   const currentSlideViewRef = useRef<{ x: number; y: number; scale: number } | null>(null)
+  const swipeTouchStartXRef = useRef<number | null>(null)
 
   function bumpControls() {
     setControlsVisible(true)
@@ -775,6 +776,16 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
               className="fixed inset-0 z-[200] pointer-events-auto touch-none"
               onPointerDown={e => { e.stopPropagation(); bumpControls() }}
               onPointerMove={bumpControls}
+              onTouchStart={e => { swipeTouchStartXRef.current = e.touches[0].clientX }}
+              onTouchEnd={e => {
+                if (swipeTouchStartXRef.current === null) return
+                const dx = e.changedTouches[0].clientX - swipeTouchStartXRef.current
+                swipeTouchStartXRef.current = null
+                if (Math.abs(dx) < 40) return
+                bumpControls()
+                if (dx < 0 && presentIndexRef.current < allSlidesRef.current.length - 1) navigateSlide(presentIndexRef.current + 1)
+                else if (dx > 0 && presentIndexRef.current > 0) navigateSlide(presentIndexRef.current - 1)
+              }}
             >
               {/* Canvas-switch cover — shows theme background while new canvas loads (z:1 so controls stay above it) */}
               {isLoadingCanvas && <div className="absolute inset-0 pointer-events-none" style={{ background: getBackgroundColor(viewerSettings.theme, viewerSettings.customThemeBg), zIndex: 1 }} />}
