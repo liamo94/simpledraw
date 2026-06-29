@@ -28,6 +28,7 @@ import {
   getImageDataUrlFromIdb,
   storeImage,
   compressForStash,
+  collectImageIds,
 } from "./canvas/canvasUtils";
 import { drawWatermark } from "./canvas/watermark";
 import { getPanelBackground, generateSlideThumbnail } from "./canvas/rendering";
@@ -563,9 +564,7 @@ export default function App() {
     const name = canvasNameRef.current || undefined;
     let images: Record<string, string> | undefined;
     if (exportIncludeImagesRef.current) {
-      const ids = [
-        ...new Set(strokes.map((s) => s.imageId).filter(Boolean) as string[]),
-      ];
+      const ids = collectImageIds(strokes);
       if (ids.length > 0) {
         images = {};
         for (const id of ids) {
@@ -665,11 +664,7 @@ export default function App() {
           : (localStorage.getItem(`drawtool-canvas-name-${index}`) || undefined);
         let images: Record<string, string> | undefined;
         if (exportIncludeImagesRef.current) {
-          const ids = [
-            ...new Set(
-              strokes.map((s) => s.imageId).filter(Boolean) as string[],
-            ),
-          ];
+          const ids = collectImageIds(strokes);
           if (ids.length > 0) {
             images = {};
             for (const id of ids) {
@@ -850,7 +845,7 @@ export default function App() {
     const onSaveToStashResult = async (e: Event) => {
       const strokes = (e as CustomEvent<Stroke[]>).detail;
       if (!strokes.length) return;
-      const imageIds = [...new Set(strokes.flatMap(s => s.imageId ? [s.imageId] : []))];
+      const imageIds = collectImageIds(strokes);
       const images: Record<string, string> = {};
       await Promise.all(imageIds.map(async id => {
         const url = await getImageDataUrlFromIdb(id);

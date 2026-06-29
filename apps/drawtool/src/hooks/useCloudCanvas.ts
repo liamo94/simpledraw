@@ -3,7 +3,7 @@ import { useAuth, useUser } from '@clerk/clerk-react'
 import { useTokenReady } from './useTokenReady'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { loadStrokes, loadView, saveStrokes, saveView, setSaveHook } from '../canvas/storage'
-import { getImageDataUrl, getImageDataUrlFromIdb, storeImage } from '../canvas/imageStore'
+import { getImageDataUrl, getImageDataUrlFromIdb, storeImage, collectImageIds } from '../canvas/imageStore'
 import type { Stroke, Slide } from '../canvas/types'
 import { anyStrokeBBox } from '../canvas/geometry'
 import { generateCanvasThumbnail } from '../canvas/rendering'
@@ -118,12 +118,8 @@ function storeThumbnail(id: string, strokes: Stroke[], isDark: boolean) {
   }
 }
 
-function imageIds(strokes: Stroke[]): string[] {
-  return [...new Set(strokes.flatMap(s => s.imageId ? [s.imageId] : []))]
-}
-
 async function collectImages(strokes: Stroke[]): Promise<Record<string, string>> {
-  const ids = imageIds(strokes)
+  const ids = collectImageIds(strokes)
   if (ids.length === 0) return {}
   const images: Record<string, string> = {}
   await Promise.all(ids.map(async id => {
@@ -135,7 +131,7 @@ async function collectImages(strokes: Stroke[]): Promise<Record<string, string>>
 
 function collectImagesSync(strokes: Stroke[]): Record<string, string> {
   const images: Record<string, string> = {}
-  for (const id of imageIds(strokes)) {
+  for (const id of collectImageIds(strokes)) {
     const url = getImageDataUrl(id)
     if (url) images[id] = url
   }

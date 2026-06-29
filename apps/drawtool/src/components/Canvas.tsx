@@ -11,7 +11,7 @@ import {
   shapeToSegments,
   textBBox, anyStrokeBBox, visualStrokeBBox,
   renderStrokesToCtx, snapshotCache, smoothArrowPath,
-  loadImages, storeImage, processImageFile, gcImages,
+  loadImages, storeImage, processImageFile, gcImages, collectImageIds,
 } from "../canvas/canvasUtils";
 import type { Stroke, UndoAction, BBox, TouchTool } from "../canvas/canvasUtils";
 export type { TouchTool } from "../canvas/canvasUtils";
@@ -326,7 +326,7 @@ function Canvas({
     gcDebounceRef.current = setTimeout(() => {
       gcDebounceRef.current = null;
       const live = new Set<string>();
-      const addIds = (strokes: Stroke[]) => strokes.forEach((s) => s.imageId && live.add(s.imageId));
+      const addIds = (strokes: Stroke[]) => collectImageIds(strokes).forEach(id => live.add(id));
       // Current canvas in-memory state (includes undo/redo stacks)
       addIds(strokesRef.current);
       for (const action of [...undoStackRef.current, ...redoStackRef.current]) {
@@ -981,7 +981,7 @@ function Canvas({
     };
     const drawLockIcon = (stroke: Stroke, alpha: number) => {
       const isHovered = lockedHoverRef.current === stroke;
-      const bb = anyStrokeBBox(stroke);
+      const bb = visualStrokeBBox(stroke);
       const sz = (isHovered ? 21 : 17) / scale;
       const margin = 3 / scale;
       const { ax, ay } = getLockAnchor(stroke, bb);
@@ -1032,7 +1032,7 @@ function Canvas({
         drawLockIcon(stroke, 0.9);
       } else {
         // Still track position for hover detection even when not drawn
-        const bb = anyStrokeBBox(stroke);
+        const bb = visualStrokeBBox(stroke);
         const sz = 17 / scale;
         const margin = 3 / scale;
         const { ax, ay } = getLockAnchor(stroke, bb);
@@ -1090,7 +1090,7 @@ function Canvas({
     if (!strokesBBoxRef.current) {
       let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
       for (const stroke of strokes) {
-        const bb = anyStrokeBBox(stroke);
+        const bb = visualStrokeBBox(stroke);
         if (bb.x < minX) minX = bb.x;
         if (bb.y < minY) minY = bb.y;
         if (bb.x + bb.w > maxX) maxX = bb.x + bb.w;
@@ -1144,7 +1144,7 @@ function Canvas({
 
   // Load images from IndexedDB on mount, then re-render once they're ready
   useEffect(() => {
-    const ids = strokesRef.current.filter((s) => s.imageId).map((s) => s.imageId!);
+    const ids = collectImageIds(strokesRef.current);
     if (ids.length === 0) return;
     loadImages(ids).then(() => {
       strokesCacheRef.current = null; strokesBBoxRef.current = null;
@@ -1644,8 +1644,8 @@ function Canvas({
     boxSelectRef.current = null;
     window.dispatchEvent(new CustomEvent("drawtool:stroke-picker-close"));
 
-    // Load any images referenced by the new canvas's strokes
-    const imageIds = strokesRef.current.filter((s) => s.imageId).map((s) => s.imageId!);
+    // Load any images referenced by the new canvas's strokes (including inside combined groups)
+    const imageIds = collectImageIds(strokesRef.current);
     if (imageIds.length > 0) {
       loadImages(imageIds).then(() => {
         strokesCacheRef.current = null; strokesBBoxRef.current = null;

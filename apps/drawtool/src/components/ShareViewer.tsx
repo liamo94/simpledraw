@@ -167,6 +167,13 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
     const viewerIsDark = isDarkTheme(viewerSettings.theme, viewerSettings.customThemeBg)
     let cancelled = false
     async function gen() {
+      await Promise.all([
+        document.fonts.load("400 32px Caveat"),
+        document.fonts.load("700 32px Caveat"),
+        document.fonts.load("400 32px Bangers"),
+        document.fonts.load("400 32px Boogaloo"),
+      ]).catch(() => {})
+      if (cancelled) return
       const slides = shareData!.type === 'canvas'
         ? (shareData!.data.slides ?? [])
         : shareData!.type === 'presentation' || shareData!.type === 'workspace'

@@ -1,9 +1,19 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url>
-    <loc>https://drawzil.la/</loc>
-    <lastmod>2026-05-19</lastmod>
-    <changefreq>monthly</changefreq>
-    <priority>1.0</priority>
-  </url>
-</urlset>
+<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <sitemap>
+    <loc>https://drawzil.la/sitemap-app.xml</loc>
+    <lastmod>2026-06-29</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://use.drawzil.la/sitemap.xml</loc>
+    <lastmod>2026-06-29</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://writing.drawzil.la/sitemap.xml</loc>
+    <lastmod>2026-06-29</lastmod>
+  </sitemap>
+  <sitemap>
+    <loc>https://unleash.drawzil.la/sitemap.xml</loc>
+    <lastmod>2026-06-29</lastmod>
+  </sitemap>
+</sitemapindex>

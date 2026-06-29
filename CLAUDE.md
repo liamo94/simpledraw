@@ -1,8 +1,9 @@
 # drawtool monorepo — CLAUDE.md
 
-Three apps deployed on Cloudflare Pages + one Cloudflare Worker backend:
+Four apps deployed on Cloudflare Pages + one Cloudflare Worker backend:
 - **drawzil.la** — infinite-canvas drawing tool (`apps/drawtool/`)
-- **writing.drawtool.io** — freehand handwriting practice game (`apps/writing/`)
+- **writing.drawzil.la** — freehand handwriting practice game (`apps/writing/`)
+- **use.drawzil.la** — marketing homepage (`apps/homepage/`)
 - **unleash.drawzil.la** — Unleashed subscription landing page (`apps/unleashed/`)
 - **API** — Cloudflare Worker backend (`/Users/liam/Documents/dev/drawzilla-backend/`)
 
@@ -17,7 +18,8 @@ Built with React 19 + TypeScript + Vite + Tailwind v4.
   .npmrc                        # prefer-offline=true
   apps/
     drawtool/                   # drawzil.la
-    writing/                    # writing.drawtool.io
+    writing/                    # writing.drawzil.la
+    homepage/                   # use.drawzil.la (marketing homepage)
     unleashed/                  # unleash.drawzil.la (Stripe subscription page)
 ```
 

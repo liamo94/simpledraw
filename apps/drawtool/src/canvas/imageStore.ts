@@ -1,4 +1,5 @@
 import { get, set, keys, del } from "idb-keyval";
+import type { Stroke } from "./types";
 
 export async function processImageFile(
   file: File | Blob,
@@ -106,6 +107,19 @@ export async function loadImages(ids: string[]): Promise<void> {
       });
     }),
   );
+}
+
+/** Recursively collect all imageIds from strokes, including inside subStrokes. */
+export function collectImageIds(strokes: Stroke[]): string[] {
+  const ids = new Set<string>();
+  const walk = (ss: Stroke[]) => {
+    for (const s of ss) {
+      if (s.imageId) ids.add(s.imageId);
+      if (s.subStrokes) walk(s.subStrokes as Stroke[]);
+    }
+  };
+  walk(strokes);
+  return [...ids];
 }
 
 const PREFIX = "drawtool-img-";
