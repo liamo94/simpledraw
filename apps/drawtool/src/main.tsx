@@ -51,7 +51,7 @@ Sentry.init({
   enabled: !!import.meta.env.VITE_SENTRY_DSN && import.meta.env.PROD,
 })
 
-if (import.meta.env.VITE_POSTHOG_KEY) {
+if (import.meta.env.VITE_POSTHOG_KEY && import.meta.env.PROD) {
   posthog.init(import.meta.env.VITE_POSTHOG_KEY, {
     api_host: `${import.meta.env.VITE_API_URL ?? 'http://localhost:8787'}/ph`,
     ui_host: 'https://eu.posthog.com',

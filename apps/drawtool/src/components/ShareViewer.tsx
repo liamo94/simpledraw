@@ -6,20 +6,46 @@ import type { Stroke, Slide } from '../canvas/types'
 import { isDarkTheme, getPanelBackground, getBackgroundColor, generateSlideThumbnail } from '../canvas/rendering'
 import type { Theme, GridType } from '../hooks/useSettings'
 
+// Compute the letterboxed/pillarboxed display rect for a slide's aspect ratio
+// within the current screen. On a narrow mobile screen this prevents showing
+// unintended canvas content outside the intended slide area.
+function computeDisplayRect(refSize?: { width: number; height: number }): { x: number; y: number; width: number; height: number } {
+  const sw = window.innerWidth
+  const sh = window.innerHeight
+  // Default to 16:9 when refSize is missing (older slides)
+  const ref = refSize ?? { width: 16, height: 9 }
+  const screenAspect = sw / sh
+  const contentAspect = ref.width / ref.height
+  // Skip boxing if aspects are close enough (within 5%) — no meaningful bars to add
+  if (Math.abs(screenAspect - contentAspect) / contentAspect < 0.05) {
+    return { x: 0, y: 0, width: sw, height: sh }
+  }
+  if (screenAspect < contentAspect) {
+    // Screen narrower than content (e.g. mobile portrait with 16:9 slide): letterbox top/bottom
+    const dh = sw / contentAspect
+    return { x: 0, y: (sh - dh) / 2, width: sw, height: dh }
+  } else {
+    // Screen wider or equal: pillarbox left/right
+    const dw = sh * contentAspect
+    return { x: (sw - dw) / 2, y: 0, width: dw, height: sh }
+  }
+}
+
 // Mirror of App.tsx resolveSlideView — adjusts view for the viewer's actual screen size.
 // Slides store worldCenter + refSize so the same visual framing is reproduced regardless
 // of the device the slide was captured on.
 function resolveSlideView(slide: Slide): { x: number; y: number; scale: number } {
   if (!slide.worldCenter) return slide.view
-  const scaleFactor = slide.refSize
-    ? Math.min(window.innerWidth / slide.refSize.width, window.innerHeight / slide.refSize.height)
-    : 1
-  const scale = slide.view.scale * scaleFactor
-  return {
-    x: window.innerWidth / 2 - slide.worldCenter.x * scale,
-    y: window.innerHeight / 2 - slide.worldCenter.y * scale,
-    scale,
-  }
+  const rect = computeDisplayRect(slide.refSize)
+  // With refSize: scale to fill the display rect proportionally.
+  // Without refSize: keep original zoom, just center worldCenter in the display rect.
+  const scale = slide.refSize
+    ? slide.view.scale * Math.min(rect.width / slide.refSize.width, rect.height / slide.refSize.height)
+    : slide.view.scale
+  const x = rect.x + rect.width / 2 - slide.worldCenter.x * scale
+  const y = rect.y + rect.height / 2 - slide.worldCenter.y * scale
+  if (!isFinite(x) || !isFinite(y) || !isFinite(scale) || scale <= 0) return slide.view
+  return { x, y, scale }
 }
 
 function loadViewerSettings(): { theme: Theme; gridType: GridType; customThemeBg: string } {
@@ -163,7 +189,7 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
         }
         if (cancelled) break
         const strokes = adaptStrokes(canvasData, viewerIsDark)
-        const thumb = generateSlideThumbnail(strokes as Stroke[], slide.view, viewerIsDark)
+        const thumb = generateSlideThumbnail(strokes as Stroke[], slide.view, viewerIsDark, 480, 270, undefined, slide.refSize?.width)
         if (thumb) setGeneratedThumbnails(prev => ({ ...prev, [slide.id]: thumb }))
         await new Promise<void>(r => setTimeout(r, 30))
       }
@@ -350,6 +376,14 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
       window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: resolvedView }))
     }
   }
+
+  // Re-navigate on resize/orientation-change so the letterbox view stays correct
+  useEffect(() => {
+    if (!presenting) return
+    const onResize = () => navigateSlide(presentIndexRef.current)
+    window.addEventListener('resize', onResize)
+    return () => window.removeEventListener('resize', onResize)
+  }, [presenting])
 
   // Keyboard nav in presentation mode
   useEffect(() => {
@@ -732,19 +766,36 @@ export default function ShareViewer({ token, isWorkspace, isPresentation, embedd
           return (
             <div
               className="fixed inset-0 z-[200] pointer-events-auto touch-none"
-              onPointerDown={e => e.stopPropagation()}
-              onMouseMove={bumpControls}
+              onPointerDown={e => { e.stopPropagation(); bumpControls() }}
+              onPointerMove={bumpControls}
             >
-              {/* Canvas-switch cover — shows theme background while new canvas loads */}
-              {isLoadingCanvas && <div className="absolute inset-0" style={{ background: getBackgroundColor(viewerSettings.theme, viewerSettings.customThemeBg), zIndex: 1 }} />}
+              {/* Canvas-switch cover — shows theme background while new canvas loads (z:1 so controls stay above it) */}
+              {isLoadingCanvas && <div className="absolute inset-0 pointer-events-none" style={{ background: getBackgroundColor(viewerSettings.theme, viewerSettings.customThemeBg), zIndex: 1 }} />}
+              {/* Letterbox / pillarbox bars — hide canvas content outside the slide's aspect ratio */}
+              {(() => {
+                const rect = computeDisplayRect(slide?.refSize)
+                if (rect.x === 0 && rect.y === 0) return null
+                const barBg = getBackgroundColor(viewerSettings.theme, viewerSettings.customThemeBg)
+                return rect.y > 0 ? (
+                  <>
+                    <div className="absolute left-0 right-0 top-0 pointer-events-none" style={{ height: rect.y, background: barBg, zIndex: 1 }} />
+                    <div className="absolute left-0 right-0 bottom-0 pointer-events-none" style={{ height: rect.y, background: barBg, zIndex: 1 }} />
+                  </>
+                ) : (
+                  <>
+                    <div className="absolute top-0 bottom-0 left-0 pointer-events-none" style={{ width: rect.x, background: barBg, zIndex: 1 }} />
+                    <div className="absolute top-0 bottom-0 right-0 pointer-events-none" style={{ width: rect.x, background: barBg, zIndex: 1 }} />
+                  </>
+                )
+              })()}
               {/* Slides sidebar — inside overlay so it sits above click zones */}
-              {showSidebar && slidesSidebar({ position: 'absolute', zIndex: 2 })}
+              {showSidebar && slidesSidebar({ position: 'absolute', zIndex: 3 })}
               {/* Left click zone */}
-              {hasPrev && <div className="absolute left-0 top-0 bottom-0 w-1/2" style={{ cursor: 'w-resize' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateSlide(presentIndexRef.current - 1)} />}
+              {hasPrev && <div className="absolute left-0 top-0 bottom-0 w-1/2" style={{ cursor: 'w-resize', zIndex: 2 }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => { bumpControls(); navigateSlide(presentIndexRef.current - 1) }} />}
               {/* Right click zone */}
-              {hasNext && <div className="absolute right-0 top-0 bottom-0 w-1/2" style={{ cursor: 'e-resize' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateSlide(presentIndexRef.current + 1)} />}
+              {hasNext && <div className="absolute right-0 top-0 bottom-0 w-1/2" style={{ cursor: 'e-resize', zIndex: 2 }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => { bumpControls(); navigateSlide(presentIndexRef.current + 1) }} />}
               {/* Bottom control bar */}
-              <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-5 pointer-events-none transition-opacity duration-300" style={{ opacity: controlsVisible ? 1 : 0 }}>
+              <div className="absolute bottom-0 left-0 right-0 flex justify-center pb-5 pointer-events-none transition-opacity duration-300" style={{ opacity: controlsVisible ? 1 : 0, zIndex: 2 }}>
                 <div className="pointer-events-auto flex items-center gap-2 px-3 py-2.5 rounded-2xl select-none"
                   style={{ background: panelBg, backdropFilter: 'blur(20px)', WebkitBackdropFilter: 'blur(20px)', border: `1px solid ${borderCol}`, boxShadow: dark ? '0 8px 32px rgba(0,0,0,0.5)' : '0 8px 32px rgba(0,0,0,0.15)' }}>
                   {/* Logo */}

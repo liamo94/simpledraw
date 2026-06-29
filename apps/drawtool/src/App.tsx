@@ -533,6 +533,8 @@ export default function App() {
   const [dropZoneActive, setDropZoneActive] = useState(false);
   const [slides, setSlides] = useState<Slide[]>([]);
   const [showSlides, setShowSlides] = useState(false);
+  const showSlidesRef = useRef(false);
+  showSlidesRef.current = showSlides;
   const [presentationMode, setPresentationMode] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [presentationIndex, setPresentationIndex] = useState(0);
@@ -544,6 +546,7 @@ export default function App() {
   // True when the current presentation cover is waiting for a cloud canvas load (loadKey bump).
   // False when waiting for a local canvas switch (activeCanvas change).
   const presentationWaitingForCloudLoad = useRef(false);
+  const presentationCoverTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // Index of slide whose thumbnail should be refreshed once the canvas settles.
   const pendingThumbnailSlideRef = useRef<number | null>(null);
   // Stable function ref — always captures current slides/isDark/activeCanvas without stale closure.
@@ -1441,6 +1444,7 @@ export default function App() {
     const thumb = generateSlideThumbnail(
       loadStrokes(slotN), slide.view, isDark, 480, 270,
       getBackgroundColor(settings.theme, settings.customThemeBg),
+      slide.refSize?.width,
     )
     if (thumb) setSlides(prev => prev.map((s, i) => i === idx ? { ...s, thumbnail: thumb } : s))
   }
@@ -1694,6 +1698,7 @@ export default function App() {
     // Only handle cache-miss path here; cache hits are handled by the activeCanvas effect.
     if (presentationCloudCacheHit.current) return
     presentationWaitingForCloudLoad.current = false
+    if (presentationCoverTimeoutRef.current) { clearTimeout(presentationCoverTimeoutRef.current); presentationCoverTimeoutRef.current = null }
     requestAnimationFrame(() => requestAnimationFrame(() => {
       setPresentationCanvasLoading(false)
       const thumbIdx = pendingThumbnailSlideRef.current
@@ -1717,6 +1722,7 @@ export default function App() {
     // Capture before RAFs so loadKey effect doesn't also consume it (for cache-hit first visit).
     const pendingView = pendingNavViewRef.current
     if (pendingView) pendingNavViewRef.current = null
+    if (shouldDropCover && presentationCoverTimeoutRef.current) { clearTimeout(presentationCoverTimeoutRef.current); presentationCoverTimeoutRef.current = null }
     requestAnimationFrame(() => requestAnimationFrame(() => {
       if (shouldDropCover) setPresentationCanvasLoading(false)
       if (pendingView) window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: pendingView }))
@@ -1727,10 +1733,12 @@ export default function App() {
 
   // Toggle slides panel via event bus
   useEffect(() => {
-    const handler = () => setShowSlides(v => {
-      if (!v) window.dispatchEvent(new CustomEvent('drawtool:close-menu'));
-      return !v;
-    })
+    const handler = () => {
+      // Dispatch close-menu outside the state updater — calling setState on Menu
+      // inside an App updater fires React's "update X while rendering Y" warning.
+      if (!showSlidesRef.current) window.dispatchEvent(new CustomEvent('drawtool:close-menu'));
+      setShowSlides(v => !v);
+    }
     window.addEventListener('drawtool:toggle-slides', handler)
     return () => window.removeEventListener('drawtool:toggle-slides', handler)
   }, [])
@@ -1837,15 +1845,19 @@ export default function App() {
       if (e.key === 'ArrowRight' || e.key === 'ArrowDown' || e.key === ' ') {
         e.preventDefault(); e.stopPropagation()
         setPresentationControlsVisible(true)
-        if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
-        presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+        if (!hasTouch) {
+          if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+          presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+        }
         const next = Math.min(slides.length - 1, presentationIndex + 1)
         if (next !== presentationIndex) navigateToSlide(next)
       } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
         e.preventDefault(); e.stopPropagation()
         setPresentationControlsVisible(true)
-        if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
-        presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+        if (!hasTouch) {
+          if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+          presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+        }
         const prev = Math.max(0, presentationIndex - 1)
         if (prev !== presentationIndex) navigateToSlide(prev)
       } else if (e.key === 'f') {
@@ -1918,6 +1930,15 @@ export default function App() {
     const resolvedView = resolveSlideView(slide)
     if (needsSwitch) {
       setPresentationCanvasLoading(true)
+      if (presentationCoverTimeoutRef.current) clearTimeout(presentationCoverTimeoutRef.current)
+      presentationCoverTimeoutRef.current = setTimeout(() => {
+        presentationCoverTimeoutRef.current = null
+        setPresentationCanvasLoading(false)
+        if (pendingNavViewRef.current) {
+          const v = pendingNavViewRef.current; pendingNavViewRef.current = null
+          window.dispatchEvent(new CustomEvent('drawtool:navigate-slide', { detail: v }))
+        }
+      }, 300)
       if (currentCloudId && slide.canvasId) {
         // If target canvas is already cached, slot 1 will be pre-populated synchronously.
         // Cover can drop on activeCanvas change. If not cached, wait for loadKey bump.
@@ -1926,7 +1947,7 @@ export default function App() {
         presentationWaitingForCloudLoad.current = true
         presentationCloudCacheHit.current = cloudCanvas.hasCanvasData(slide.canvasId)
         pendingNavViewRef.current = resolvedView
-        cloudSwitchRef.current?.(slide.canvasIndex)
+        cloudCanvas.switchCanvas(slide.canvasId)
       } else {
         // Local: cover waits for activeCanvas state change (Canvas remounts with pre-saved data)
         presentationWaitingForCloudLoad.current = false
@@ -2009,8 +2030,10 @@ export default function App() {
     }
     setPresentationMode(true)
     setPresentationControlsVisible(true)
-    if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
-    presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+    if (!hasTouch) {
+      if (presentationHideTimerRef.current) clearTimeout(presentationHideTimerRef.current)
+      presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
+    }
     navigateToSlide(startIndex)
   }
 
@@ -5815,22 +5838,44 @@ export default function App() {
               presentationHideTimerRef.current = setTimeout(() => setPresentationControlsVisible(false), 2500)
             }}
           >
-            {/* Canvas-switch cover — hides blank canvas during cross-canvas navigation */}
+            {/* Canvas-switch cover — pointer-events-none so controls above it stay accessible */}
             {presentationCanvasLoading && (
-              <div className="absolute inset-0" style={{ background: getBackgroundColor(settings.theme, settings.customThemeBg), zIndex: 1 }} />
+              <div className="absolute inset-0 pointer-events-none" style={{ background: getBackgroundColor(settings.theme, settings.customThemeBg), zIndex: 1 }} />
             )}
+            {/* Letterbox / pillarbox bars — hide canvas content outside the slide's aspect ratio */}
+            {(() => {
+              const sw = window.innerWidth, sh = window.innerHeight
+              const ref = slide?.refSize ?? { width: 16, height: 9 }
+              const screenAspect = sw / sh
+              const contentAspect = ref.width / ref.height
+              if (Math.abs(screenAspect - contentAspect) / contentAspect < 0.05) return null
+              const barBg = getBackgroundColor(settings.theme, settings.customThemeBg)
+              if (screenAspect < contentAspect) {
+                const barH = (sh - sw / contentAspect) / 2
+                return <>
+                  <div className="absolute left-0 right-0 top-0 pointer-events-none" style={{ height: barH, background: barBg, zIndex: 1 }} />
+                  <div className="absolute left-0 right-0 bottom-0 pointer-events-none" style={{ height: barH, background: barBg, zIndex: 1 }} />
+                </>
+              } else {
+                const barW = (sw - sh * contentAspect) / 2
+                return <>
+                  <div className="absolute top-0 bottom-0 left-0 pointer-events-none" style={{ width: barW, background: barBg, zIndex: 1 }} />
+                  <div className="absolute top-0 bottom-0 right-0 pointer-events-none" style={{ width: barW, background: barBg, zIndex: 1 }} />
+                </>
+              }
+            })()}
             {/* Left click zone — prev */}
             {hasPrev && (
-              <div className="absolute left-0 top-0 bottom-0 w-1/2" style={{ cursor: 'w-resize' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateToSlide(presentationIndex - 1)} />
+              <div className="absolute left-0 top-0 bottom-0 w-1/2" style={{ cursor: 'w-resize', zIndex: 2 }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateToSlide(presentationIndex - 1)} />
             )}
             {/* Right click zone — next */}
             {hasNext && (
-              <div className="absolute right-0 top-0 bottom-0 w-1/2" style={{ cursor: 'e-resize' }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateToSlide(presentationIndex + 1)} />
+              <div className="absolute right-0 top-0 bottom-0 w-1/2" style={{ cursor: 'e-resize', zIndex: 2 }} onPointerDown={e => { e.stopPropagation(); e.preventDefault() }} onClick={() => navigateToSlide(presentationIndex + 1)} />
             )}
             {/* Bottom control bar — pointer-events-none on wrapper so click zones work through it */}
             <div
               className="absolute bottom-0 left-0 right-0 flex justify-center pb-5 pointer-events-none transition-opacity duration-300"
-              style={{ opacity: presentationControlsVisible ? 1 : 0 }}
+              style={{ opacity: (hasTouch || presentationControlsVisible) ? 1 : 0, zIndex: 2 }}
             >
               <div
                 className="pointer-events-auto flex items-center gap-2 px-3 py-2.5 rounded-2xl select-none"

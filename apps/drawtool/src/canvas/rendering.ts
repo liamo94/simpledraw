@@ -1297,6 +1297,7 @@ export function generateSlideThumbnail(
   w = 480,
   h = 270,
   bgColor?: string,
+  refWidth?: number,
 ): string | null {
   const canvas = document.createElement('canvas');
   canvas.width = w;
@@ -1308,7 +1309,7 @@ export function generateSlideThumbnail(
   ctx.fillRect(0, 0, w, h);
 
   if (strokes.length > 0) {
-    const ratio = w / window.innerWidth;
+    const ratio = w / (refWidth ?? window.innerWidth);
     ctx.save();
     ctx.translate(view.x * ratio, view.y * ratio);
     ctx.scale(view.scale * ratio, view.scale * ratio);

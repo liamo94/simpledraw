@@ -750,6 +750,9 @@ export function useCloudCanvas(isDark: boolean, theme: Theme, customThemeBg: str
       : cached.data.strokes
     saveView(fitViewIfNeeded(strokes, cached.data.view), CLOUD_SLOT)
     saveStrokes(strokes, CLOUD_SLOT, true)
+    // Remount Canvas with the cached content. The canvas data effect will early-return
+    // when the query resolves (getUpdatedAt >= updated_at), so this is the only remount.
+    bumpLoadKey()
   }
 
   async function switchCanvas(id: string): Promise<void> {
