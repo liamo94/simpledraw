@@ -126,8 +126,12 @@ if (window.location.pathname === "/training") {
 // Compute /new routing before first render
 let _newRouteCanvas: number | null = null;
 let _newRouteAllOccupied = false;
-// Cloud users need async handling - flag persists until useCloudCanvas picks it up
-export let _newRouteForCloud = window.location.pathname === "/new";
+// Cloud users need async handling - flag persists until useCloudCanvas picks it up.
+// Only set for cloud users (those with a saved cloud canvas ID); local users are handled
+// synchronously above and must not block Canvas rendering via newRoutePending.
+export let _newRouteForCloud =
+  window.location.pathname === "/new" &&
+  !!localStorage.getItem("drawtool-cloud-active-canvas");
 
 if (window.location.pathname === "/new") {
   window.history.replaceState(null, "", "/");
@@ -1516,6 +1520,13 @@ export default function App() {
   findBlankCanvasRef.current = () => {
     if (isSignedIn && cloudCanvas.workspace) {
       const candidates = cloudCanvas.workspace.canvases.slice(0, canvasLimit);
+      // Free slot exists (canvas hasn't been created yet) — create and switch to it.
+      if (candidates.length < canvasLimit) {
+        cloudCanvas.createCanvas("").then((newCanvas) => {
+          if (newCanvas) cloudCanvas.switchCanvas(newCanvas.id);
+        });
+        return;
+      }
       const blank = candidates.find((c) => c.stroke_count === 0);
       const target =
         blank ?? [...candidates].sort((a, b) => a.updated_at - b.updated_at)[0];
