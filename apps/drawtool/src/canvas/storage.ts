@@ -111,7 +111,7 @@ function validateStrokesArray(strokes: unknown[], prefix: string): Stroke[] {
 }
 
 /** Validate a parsed JSON value as a drawtool canvas file. Throws on failure. */
-export function validateStrokesFile(data: unknown): { strokes: Stroke[]; name?: string; images?: Record<string, string> } {
+export function validateStrokesFile(data: unknown): { strokes: Stroke[]; name?: string; images?: Record<string, string>; savedDark?: boolean } {
   if (typeof data !== "object" || data === null)
     throw new Error("Not a valid drawtool file");
   const obj = data as Record<string, unknown>;
@@ -124,7 +124,8 @@ export function validateStrokesFile(data: unknown): { strokes: Stroke[]; name?: 
   const images = obj.images && typeof obj.images === "object" && !Array.isArray(obj.images)
     ? obj.images as Record<string, string>
     : undefined;
-  return { strokes, name, images };
+  const savedDark = typeof obj.savedDark === "boolean" ? obj.savedDark : undefined;
+  return { strokes, name, images, savedDark };
 }
 
 /** Validate a parsed JSON value as a drawtool workspace file. Throws on failure. */

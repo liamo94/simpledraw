@@ -576,6 +576,7 @@ export default function App() {
     }
     const file = {
       version: 1,
+      savedDark: isDarkTheme(settingsRef.current.theme, settingsRef.current.customThemeBg),
       strokes,
       ...(name ? { name } : {}),
       ...(images ? { images } : {}),
@@ -599,9 +600,20 @@ export default function App() {
     (file: File) => {
       file.text().then((text) => {
         try {
-          const { strokes, name, images } = validateStrokesFile(
+          const { strokes: rawStrokes, name, images, savedDark } = validateStrokesFile(
             JSON.parse(text),
           );
+          const currentIsDark = isDarkTheme(settingsRef.current.theme, settingsRef.current.customThemeBg);
+          const savedIsDark = savedDark !== false; // undefined treated as dark (historical default, matches ShareViewer)
+          const needsSwap = savedIsDark !== currentIsDark;
+          const swapColor = (c: string) => c === "#000000" ? "#ffffff" : c === "#ffffff" ? "#000000" : c;
+          const strokes = needsSwap
+            ? rawStrokes.map((s) => ({
+                ...s,
+                color: swapColor(s.color),
+                subStrokes: s.subStrokes?.map((ss) => ({ ...ss, color: swapColor(ss.color) })),
+              }))
+            : rawStrokes;
           const targetSlot = cloudActiveIdRef.current ? 1 : activeCanvas;
           saveStrokes(strokes, targetSlot);
           // Mark dirty so flushCurrentCanvas saves these strokes on canvas switch.
