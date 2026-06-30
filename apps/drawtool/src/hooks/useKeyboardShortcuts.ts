@@ -953,7 +953,7 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       if ((e.key === "f" || e.key === "ƒ") && e.altKey && !e.metaKey) {
         // Alt+F: cycle fill style
         window.dispatchEvent(new Event("drawtool:cycle-fill"));
-      } else if ((e.key === "f" || e.key === "F") && !e.metaKey && !e.altKey) {
+      } else if ((e.key === "f" || e.key === "F" || e.key === "i" || e.key === "I") && !e.metaKey && !e.altKey) {
         // F (with or without shift): apply fill while held
         fKeyHeldRef.current = true;
         if (isDrawingRef.current && activeModifierRef.current === "shape") {
@@ -999,10 +999,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
       }
       if (e.key === "Shift") shiftHeldRef.current = true;
       if (e.key === "Alt" && !e.shiftKey) setErasing(true);
-      if ((e.key === "s" || e.key === "S") && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.repeat) {
+      if ((e.key === "s" || e.key === "S" || e.key === "o" || e.key === "O") && !cmdKey(e) && !e.altKey && !e.ctrlKey && !e.repeat) {
         if (shapeFlashRef.current) { clearTimeout(shapeFlashRef.current); shapeFlashRef.current = null; }
         if (sHintTimerRef.current) { clearTimeout(sHintTimerRef.current); sHintTimerRef.current = null; }
-        sKeyBackwardRef.current = e.key === "S";
+        sKeyBackwardRef.current = e.key === "S" || e.key === "O";
         shapeJustCommittedRef.current = false;
         keyShapeRef.current = activeShapeRef.current;
         keyShapeDashedRef.current = shiftHeldRef.current || rightClickHeldRef.current;
@@ -1400,10 +1400,10 @@ export function useKeyboardShortcuts(refs: KeyboardRefs, callbacks: KeyboardCall
           scheduleRedraw();
         }
       }
-      if (e.key === "f" || e.key === "F") {
+      if (e.key === "f" || e.key === "F" || e.key === "i" || e.key === "I") {
         fKeyHeldRef.current = false;
       }
-      if ((e.key === "s" || e.key === "S") && !cmdKey(e)) {
+      if ((e.key === "s" || e.key === "S" || e.key === "o" || e.key === "O") && !cmdKey(e)) {
         if (shapeFlashRef.current) { clearTimeout(shapeFlashRef.current); shapeFlashRef.current = null; }
         const wasTap = sHintTimerRef.current !== null;
         if (sHintTimerRef.current) { clearTimeout(sHintTimerRef.current); sHintTimerRef.current = null; }
