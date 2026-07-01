@@ -2949,6 +2949,32 @@ export default function Menu({
                     </ul>
                   </div>
 
+                  {!hasTouch && (
+                    <div>
+                      <div
+                        className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
+                      >
+                        Left-hand friendly
+                      </div>
+                      <ul className="space-y-1.5 list-none">
+                        <li>
+                          Key tools have right-side shortcuts:{" "}
+                          <kbd className={isDark ? "text-white/35" : "text-black/35"}>L</kbd> laser,{" "}
+                          <kbd className={isDark ? "text-white/35" : "text-black/35"}>H</kbd> highlight,{" "}
+                          <kbd className={isDark ? "text-white/35" : "text-black/35"}>O</kbd> shape,{" "}
+                          <kbd className={isDark ? "text-white/35" : "text-black/35"}>I</kbd> fill.
+                        </li>
+                        <li>
+                          On Apple keyboards,{" "}
+                          <kbd className={isDark ? "text-white/35" : "text-black/35"}>⌘</kbd>{" "}
+                          <kbd className={isDark ? "text-white/35" : "text-black/35"}>{alt}</kbd>{" "}
+                          <kbd className={isDark ? "text-white/35" : "text-black/35"}>⇧</kbd>{" "}
+                          are also on the right side of the spacebar.
+                        </li>
+                      </ul>
+                    </div>
+                  )}
+
                   <div>
                     <div
                       className={`text-[10px] uppercase tracking-wider font-semibold mb-1.5 ${isDark ? "text-white/30" : "text-black/30"}`}
